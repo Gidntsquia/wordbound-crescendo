@@ -2252,3 +2252,71 @@ problem) — reconciling by resetting to the actually-pushed `origin/main`
 and re-diffing what's genuinely still missing, rather than force-pushing a
 stale local commit, is the correct response and cost this run roughly one
 extra investigation pass, not a redo of anyone's real work.
+
+## 2026-08-21T20:42Z — STRUCTURAL 18/N: desktop mouse-drag rack reordering ported (orchestrator)
+
+**Sync note first:** this run started from a stale local `origin/main` ref
+(the container's git had never fetched, so `git log origin/main` was
+reading a cached ref still pointing at the seed commit `f98ff83`). Caught
+it before doing any real damage -- a `git reset --hard origin/main` against
+that stale ref briefly moved local `main` back to the seed commit, but
+nothing was lost: the 36 real commits were still reachable (git printed
+their hashes and a "create a branch to keep them" hint). Ran `git fetch
+origin main` for real, confirmed `origin/main` was actually at `308391f`
+(STRUCTURAL 17/N's commit) all along, and fast-forwarded local `main` to
+match. Flagging this because it's a sharp edge worth a future run knowing
+about: always `git fetch origin main` explicitly before trusting a local
+`origin/main` ref in this container, rather than assuming it's current.
+
+**What I did:** picked up GOALS.md's STRUCTURAL 17/N "Next" note's first
+piece -- desktop MOUSE drag reordering of rack tiles (game.js's
+`startTileDrag`/`reorderRackOnDrop`/`endTileDrag`), deliberately scoped
+narrower than "drag reordering" as a whole. Touch reordering of the rack
+and pointer/touch drag reordering of already-staged tiles (the ghost/gap
+system) are both real, separate remaining pieces -- see GOALS.md's update-10
+note for the full reasoning, including why `state.dragOverIndex` was
+deliberately NOT mirrored into React (confirmed by grep it drives zero
+visible feedback in either tree, vanilla included) and the wrong assumption
+about `reorderRackOnDrop`'s insertion semantics I caught and fixed while
+writing the first new test (a tile dropped "onto" the last slot lands
+second-to-last, not appended after it -- the function's own `insertIndex`
+comment explains why).
+
+**Verified:**
+- `npx vitest run` (full suite, 51 tests incl. 2 new drag-reorder tests):
+  3 consecutive clean runs, zero flakes -- the STRUCTURAL-14/15/16/N
+  full-suite flake stays genuinely fixed.
+- `npm run test:react-build` (real browser, built output): ALL CHECKS
+  PASSED, run 2x clean, including a new check using Playwright's real
+  `locator.dragTo()` (genuine native Chromium drag-and-drop, not a
+  synthetic event) -- the first real-browser proof of this mechanism,
+  since jsdom has no native `DragEvent` constructor at all (confirmed
+  directly) and the Vitest tests rely on RTL's generic-Event fallback.
+- `npm run test:react-qa`: ALL CHECKS PASSED, unaffected.
+- `npm test` (jsdom dom-check, wordbound.html) + `npm run test:mobile` +
+  `npm run test:qa` + `npm run test:itch-build`: ALL CHECKS PASSED --
+  confirms the three new `Game.*` wrappers are true no-ops for
+  wordbound.html's own already-working drag path.
+- `npm run build`: clean, same pre-existing single-large-chunk notice.
+
+**Not done / explicitly deferred:** touch drag reordering within the rack,
+and pointer/touch drag reordering of already-staged tiles (the ghost/gap
+system that live-mutates DOM styles between renders by design -- the
+biggest remaining piece, and the reason a from-scratch React-native
+pointer-capture approach may beat wrapping the existing vanilla state
+machine, per GOALS.md's update-10 note). STRUCTURAL stays unchecked.
+
+**Current state:** desktop players can now reorder their rack by dragging
+tiles with the mouse, verified against the real engine in both jsdom and a
+real browser. Touch-mode word entry (stage/unstage/blank-picker) from prior
+runs is unaffected and still fully functional. `wordbound.html` remains
+fully intact and unchanged.
+
+**Next:** touch rack-reorder (smaller of the two remaining pieces --
+`Game.*` wrappers around `startTouchReorder`/`updateTouchReorder`/
+`endTouchReorder` mirroring this run's mouse-drag pattern, plus
+`onTouchStart`/`onTouchMove`/`onTouchEnd`/`onTouchCancel` handlers, then
+real Playwright touch-drag verification using the same synthetic-Touch
+technique `test/verify-mobile-layout.js` already uses). The staged-tile
+ghost/gap drag system is the last and biggest piece after that, likely its
+own multi-run push.

@@ -640,6 +640,86 @@ Rules for the routine:
       Playwright touch-drag verification. This is the last piece before
       STRUCTURAL's acceptance bar is met, pending a final vanilla-DOM-
       rendering audit.
+      ORCHESTRATOR NOTE 2026-08-21 (update 10): picked up this ticket's own
+      "Next" note's first piece -- desktop MOUSE drag reordering within the
+      rack, deliberately scoped narrower than "drag reordering" as a whole
+      (touch reordering and the staged-tile ghost/drag system are both
+      genuinely separate sub-features, noted below). `js/wordbound/game.js`
+      gained three small public wrappers -- `Game.startTileDrag(tileId)`/
+      `endTileDrag()`/`reorderRackOnDrop(dropIndex)` -- calling the
+      pre-existing private functions wordbound.html's own dragstart/drop/
+      dragend listeners already call directly; zero behavior change there
+      (confirmed by the full `npm test` + `test:mobile` + `test:qa` +
+      `test:itch-build` gates, all still green). Deliberately did NOT expose
+      or mirror `state.dragOverIndex`: grepped `css/wordbound.css` and
+      `wordbound.html` and confirmed it has no CSS rule or DOM read anywhere
+      in either tree -- vanilla's own dragover handler sets it directly on
+      `state` without ever calling `render()`, so it has never driven any
+      visible feedback even in wordbound.html. Replicating genuinely-dead
+      state into React would just be cargo-culting it into a second place;
+      `CombatScreen.jsx`'s `onDragOver` only calls `preventDefault()`, which
+      is all a browser needs to accept the drop.
+      `src/components/CombatScreen.jsx`: rack `letter-tile` buttons (not the
+      empty-slot placeholders a staged tile leaves behind -- matches
+      vanilla's own scope exactly, which only attaches drag listeners to the
+      same branch) are now `draggable`, wired to
+      `onDragStart`/`onDragOver`/`onDrop`/`onDragEnd` calling the three new
+      wrappers, using the tile's live rack `index` from the `.map()` closure
+      as the drop target -- same semantics as wordbound.html's own handlers.
+      **Verified:** `npx vitest run` (full 7-file suite, 51 tests incl. 2 new
+      drag-reorder tests in `CombatScreen.test.jsx` that fire the real
+      `dragStart`/`dragOver`/`drop`/`dragEnd` DOM event sequence via RTL's
+      `fireEvent` -- jsdom has no native `DragEvent` constructor, confirmed
+      directly, but `fireEvent`'s generic-Event fallback still lets a fake
+      `dataTransfer` attach, which is all the handlers read): **3 consecutive
+      clean runs, zero flakes** -- the STRUCTURAL-14/15/16/N flake stays
+      genuinely fixed, not just quiet. First test asserts the real
+      `state.player.rack` order changes correctly (caught and fixed my own
+      wrong assumption here: a naive "dragged tile ends up appended at the
+      very end" expectation failed once against the real engine -- rereading
+      `reorderRackOnDrop`'s own `insertIndex` comment showed it actually
+      lands the dragged tile BEFORE whatever tile originally sat at the drop
+      index, i.e. second-to-last when dropped "onto" the last slot, not
+      appended after it; fixed the test to compute that for real rather than
+      loosening the assertion). Second test confirms a self-drop (drop back
+      onto the same tile) is a genuine no-op. `npm run test:react-build`
+      (real browser, built output): ALL CHECKS PASSED, run 2x clean,
+      including a NEW real-browser check using Playwright's `locator.dragTo()`
+      -- genuine native Chromium mouse-down/move/up drag-and-drop, not a
+      synthetic event, the first real-browser proof this mechanism works
+      outside jsdom's fallback -- confirms the exact same reorder semantics
+      and that `state.draggedTileId` clears afterward. `npm run
+      test:react-qa`: ALL CHECKS PASSED, unaffected. `npm test` (jsdom
+      dom-check, wordbound.html): ALL CHECKS PASSED. `npm run test:mobile` +
+      `npm run test:qa` + `npm run test:itch-build`: ALL CHECKS PASSED --
+      confirms the three new `game.js` wrappers are true no-ops for
+      wordbound.html's own drag path. `npm run build`: clean, same
+      pre-existing single-large-chunk notice.
+      **Not done:** TOUCH drag reordering within the rack
+      (`startTouchReorder`/`ownTouch`/`updateTouchReorder`/
+      `endTouchReorder`, wired only via `touchstart`/`touchmove`/`touchend`/
+      `touchcancel` listeners in the legacy `Game.init()` path) and
+      pointer/touch drag reordering of already-STAGED tiles (the
+      `startStagingDrag`/`updateStagingDrag`/`endStagingDrag` ghost/gap
+      system, which live-mutates DOM styles between renders by design --
+      genuinely the most involved piece; its own header comment in
+      `js/wordbound/game.js` documents the render-destroys-the-dragged-
+      element hazard it exists to avoid) remain completely unbuilt in React.
+      Ticket stays unchecked. **Next:** touch rack-reorder is the smaller of
+      the two remaining pieces -- needs `Game.*` wrappers around
+      `startTouchReorder`/`updateTouchReorder`/`endTouchReorder` (mirroring
+      this run's mouse-drag wrapper pattern) plus `onTouchStart`/
+      `onTouchMove`/`onTouchEnd`/`onTouchCancel` handlers on the same rack
+      buttons, then real Playwright touch-drag verification (Playwright
+      supports synthetic touch events via manually dispatched
+      `Touch`/`TouchEvent`s, same technique `test/verify-mobile-layout.js`
+      already uses for wordbound.html's own touch-mode checks). The
+      staged-tile ghost/gap drag system is the last and biggest remaining
+      piece of remaining scope (c) after that -- likely still its own
+      multi-run push, and probably worth weighing a from-scratch React-native
+      pointer-capture implementation against wrapping the existing vanilla
+      state machine, since the latter's direct DOM-transform approach fights
+      React's render model by design (per the hazard comment above).
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,
