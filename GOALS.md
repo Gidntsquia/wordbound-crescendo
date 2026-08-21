@@ -171,6 +171,13 @@ Rules for the routine:
          re-verify with the Playwright touch checks.
       This is a multi-run ticket. Acceptance: full feature parity with the pruned
       v0.1 game, all migrated gates green, no vanilla-DOM rendering left.
+      ORCHESTRATOR NOTE 2026-08-21: sub-step 3 (Vitest/RTL migration) is NOW
+      OVERDUE — the last two runs both flagged that ported screens are verified
+      only by throwaway Playwright scripts. Do sub-step 3 as the NEXT chunk of
+      this ticket, before porting any more screens (EVENT/SHREDDER wait): stand
+      up Vitest + RTL, commit repeatable tests covering the already-ported
+      screens (menu, character select, node map, combat, reward/shop panels),
+      then resume the ports with tests landing alongside each one.
       VERIFY: migrated `npm test` (Vitest/RTL) clean, Playwright QA + mobile
       ports clean, real-browser boot + full fight on the built output (not just
       dev server). Minor bump.
