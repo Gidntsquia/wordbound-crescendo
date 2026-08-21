@@ -68,6 +68,20 @@ errors), use a real headless browser (Playwright is already a devDependency) for
 timing-sensitive checks with a mocked/virtual clock where possible, and say plainly in
 PROGRESS.md what's confirmed vs. what still needs real ears/hands. Never claim
 confidence you don't have.
+ADDED 2026-08-21 (STRUCTURAL sub-step 3, Vitest/RTL stood up): `npm run test:react`
+(Vitest + React Testing Library, `src/components/__tests__/*`) is now ALSO mandatory
+before checking off any task touching a `src/components/*.jsx` file — it drives the
+real engine modules (`window.Wordbound.*`, same import order as `src/main.jsx`)
+through the actual React components, not a mock. This does NOT replace `npm test`:
+`npm test` (dom-check) still covers `wordbound.html`, which remains the complete,
+unmodified reference implementation until the React port reaches full parity — at
+that point a future run should retire dom-check and update this header for real, per
+the STRUCTURAL ticket's original instruction. Until then both suites are mandatory,
+each for the tree it actually covers. When adding a new ported screen, add its
+Vitest/RTL test in the same commit rather than letting it lag (see gameHelpers.js's
+`freshRun`/`findNodeIdByType`/`defeatCurrentMonster` for the established pattern of
+driving real game state instead of hardcoding node ids, which the seed's `floor.js`
+node-id counter makes unsafe across tests).
 
 Rules for the routine:
 - Work top to bottom. Blocked → note why in PROGRESS.md, move to the next item.
@@ -171,13 +185,26 @@ Rules for the routine:
          re-verify with the Playwright touch checks.
       This is a multi-run ticket. Acceptance: full feature parity with the pruned
       v0.1 game, all migrated gates green, no vanilla-DOM rendering left.
-      ORCHESTRATOR NOTE 2026-08-21: sub-step 3 (Vitest/RTL migration) is NOW
-      OVERDUE — the last two runs both flagged that ported screens are verified
-      only by throwaway Playwright scripts. Do sub-step 3 as the NEXT chunk of
-      this ticket, before porting any more screens (EVENT/SHREDDER wait): stand
-      up Vitest + RTL, commit repeatable tests covering the already-ported
-      screens (menu, character select, node map, combat, reward/shop panels),
-      then resume the ports with tests landing alongside each one.
+      ORCHESTRATOR NOTE 2026-08-21 (update): sub-step 3 is DONE for every screen
+      ported so far — Vitest + React Testing Library is stood up
+      (`vite.config.mjs`'s `test` block, `src/test/setup.js`,
+      `src/test/gameHelpers.js`, run via `npm run test:react`) with real,
+      repeatable tests (not throwaway scripts) covering MainMenu,
+      HowToPlayOverlay, CharacterSelect, RunScreen's node map + screen routing,
+      CombatScreen (rack clicks, live damage preview, real word submission,
+      overcharge/rewrite), and all four reward/shop panels (Treasure, Shop
+      incl. affordability gating, TileReward, BossReward) — 30 tests, all
+      driving the REAL engine modules end-to-end (no mocks), see
+      `src/components/__tests__/*.test.jsx`. GOALS.md's MANDATORY VERIFICATION
+      header now requires `npm run test:react` alongside `npm test` (dom-check
+      still covers wordbound.html, unretired until full parity per that
+      header's own note). NOT yet ADDED this run: Playwright's `test:mobile`/
+      `test:qa`/`test:itch-build` scripts still only target wordbound.html,
+      not the Vite/React app — porting THOSE (or adding React-app equivalents)
+      is real remaining sub-step-3 scope, not done yet. Resume the actual
+      screen ports (EVENT/SHREDDER next, then GAME_OVER/VICTORY) with a
+      Vitest/RTL test landing alongside each one, per this sub-step's original
+      instruction.
       VERIFY: migrated `npm test` (Vitest/RTL) clean, Playwright QA + mobile
       ports clean, real-browser boot + full fight on the built output (not just
       dev server). Minor bump.
