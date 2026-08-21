@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wordbound</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%93%96</text></svg>">
+<link rel="stylesheet" href="css/wordbound.css">
+</head>
+<body>
+<div id="wb-ambient-bg" aria-hidden="true">
+  <div class="wb-ambient-shelves"></div>
+  <div class="wb-ambient-motes">
+    <span class="mote"></span>
+    <span class="mote"></span>
+    <span class="mote mote-letter">Q</span>
+    <span class="mote"></span>
+    <span class="mote mote-letter">A</span>
+    <span class="mote"></span>
+    <span class="mote mote-letter">Z</span>
+    <span class="mote"></span>
+  </div>
+  <div class="wb-floor-tint"></div>
+</div>
+<div id="wb-root">
+
+  <div id="screen-main-menu" class="screen">
+    <div class="panel main-menu-panel">
+      <h1 class="game-title">WORDBOUND</h1>
+      <p class="version-info">v0.42</p>
+      <div id="dictionary-loading-indicator" class="dictionary-loading-indicator">
+        <div class="loading-spinner"></div>
+        <p>Loading dictionary...</p>
+      </div>
+      <p class="tagline">Spell your way through the Stacks. Every Loose Word has a weakness — find the word that hits it.</p>
+      <p class="menu-goal">Fight through 3 floors. Defeat each floor's boss to descend. Beat the floor 3 boss to win the run.</p>
+      <button id="btn-new-run" class="btn btn-primary">New Run</button>
+      <button id="btn-how-to-play" class="btn btn-secondary" style="margin-top: 10px;">How to Play</button>
+      <div id="achievements-display" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #b8ac8a; text-align: center; color: #b8ac8a; font-size: 0.9rem;"></div>
+    </div>
+  </div>
+
+  <div id="screen-character-select" class="screen hidden">
+    <div class="panel character-select-panel">
+      <h1 class="game-title">Choose Your Path</h1>
+      <p style="text-align: center; color: #b8ac8a; margin-bottom: 20px;">Each character plays differently. Pick one and face the Archive.</p>
+      <div class="seed-input-row">
+        <label for="run-seed-input">Seed (optional)</label>
+        <input id="run-seed-input" type="text" placeholder="random" maxlength="40" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="character-choices" class="character-choices"></div>
+      <button id="btn-back-to-menu" class="btn btn-secondary" style="width: 100%; margin-top: 20px;">Back to Menu</button>
+    </div>
+  </div>
+
+  <div id="screen-run" class="screen hidden">
+    <div class="run-header">
+      <div id="player-ink-display" class="ink-display"></div>
+      <div id="gold-display" class="gold-display"></div>
+      <div id="floor-label" class="floor-label"></div>
+      <div class="run-header-actions" style="display: flex; gap: 8px; align-items: center;">
+        <button id="btn-view-deck" class="btn btn-secondary run-header-btn">Deck</button>
+        <button id="btn-view-consumables" class="btn btn-secondary run-header-btn" title="View consumable items">Consumables</button>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button id="btn-toggle-music" class="btn btn-secondary music-toggle-btn">🔊</button>
+          <input id="music-volume" type="range" min="0" max="100" value="10" style="width: 80px; cursor: pointer;">
+        </div>
+      </div>
+    </div>
+    <div id="items-owned" class="items-owned"></div>
+    <div id="run-seed-display" class="run-seed-display"></div>
+    <div id="message-log" class="message-log"></div>
+
+    <div id="node-map" class="node-map"></div>
+
+    <div id="combat-panel" class="combat-panel hidden">
+      <div id="monster-info" class="monster-info"></div>
+      <div id="rack-display" class="rack-display"></div>
+      <div id="staging-area" class="staging-area"></div>
+      <div id="damage-preview" class="damage-preview preview-empty" aria-live="polite">--</div>
+      <div class="word-input-row">
+        <input id="word-input" type="text" maxlength="15" autocomplete="off" spellcheck="false" placeholder="Type or click letters..." />
+        <button id="btn-submit-word" class="btn btn-primary">Play Word</button>
+        <button id="btn-clear-word" class="btn btn-secondary">Clear</button>
+      </div>
+      <div class="ink-spend-row">
+        <button id="btn-overcharge" class="btn btn-secondary btn-overcharge" title="Spend ink to amplify your next word's damage">⚡ Overcharge</button>
+        <button id="btn-rewrite-rack" class="btn btn-secondary" title="Spend ink to discard your rack and draw a fresh one">🔄 Rewrite</button>
+      </div>
+    </div>
+
+    <div id="treasure-panel" class="treasure-panel hidden">
+      <h2 id="treasure-panel-heading">Choose an item</h2>
+      <div id="treasure-choices" class="treasure-choices"></div>
+    </div>
+
+    <div id="tile-reward-panel" class="treasure-panel hidden">
+      <h2>Add a tile to your deck?</h2>
+      <div id="tile-reward-choices" class="treasure-choices treasure-choices-tiles"></div>
+      <button id="btn-skip-tile-reward" class="btn btn-secondary tile-reward-skip">Skip</button>
+    </div>
+
+    <div id="boss-reward-panel" class="treasure-panel hidden">
+      <h2>The boss's hoard yields a powerful find</h2>
+      <div id="boss-reward-choices" class="treasure-choices"></div>
+      <button id="btn-skip-boss-reward" class="btn btn-secondary tile-reward-skip">Skip</button>
+    </div>
+
+    <div id="deck-viewer-panel" class="treasure-panel hidden">
+      <h2>Your Deck</h2>
+      <div id="deck-tiles-list" class="treasure-choices"></div>
+      <button id="btn-close-deck-viewer" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
+    </div>
+
+    <div id="item-inspector-panel" class="treasure-panel hidden">
+      <h2 id="inspector-item-name"></h2>
+      <p id="inspector-item-hint" style="text-align: left; color: #b8ac8a;"></p>
+      <button id="btn-close-item-inspector" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
+    </div>
+
+    <div id="consumables-panel" class="treasure-panel hidden">
+      <h2>Consumables</h2>
+      <div id="consumables-list" class="treasure-choices"></div>
+      <button id="btn-close-consumables" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
+    </div>
+
+    <div id="event-panel" class="treasure-panel hidden">
+      <h2 id="event-panel-heading"></h2>
+      <p id="event-panel-text" style="text-align: center; color: #b8ac8a; margin-bottom: 20px; font-style: italic;"></p>
+      <div id="event-choices" class="treasure-choices"></div>
+    </div>
+
+    <div id="shredder-panel" class="treasure-panel hidden">
+      <h2>Feed the Shredder</h2>
+      <p id="shredder-status" style="text-align: center; color: #b8ac8a; margin-bottom: 20px; font-style: italic;"></p>
+      <div id="shredder-tiles-list" class="treasure-choices"></div>
+      <button id="btn-confirm-shredder" class="btn btn-primary" style="margin-top: 10px;">Confirm</button>
+    </div>
+  </div>
+
+  <div id="screen-game-over" class="screen hidden">
+    <div class="panel">
+      <h1>The Well Ran Dry</h1>
+      <p id="game-over-stats"></p>
+      <div id="game-over-run-stats" class="run-stats-summary"></div>
+      <p id="game-over-seed" class="run-seed-display"></p>
+      <button id="btn-gameover-continue" class="btn btn-primary">Main Menu</button>
+    </div>
+  </div>
+
+  <div id="screen-victory" class="screen hidden">
+    <div class="panel">
+      <h1>Victory!</h1>
+      <p id="victory-stats"></p>
+      <div id="victory-run-stats" class="run-stats-summary"></div>
+      <p id="victory-seed" class="run-seed-display"></p>
+      <button id="btn-victory-continue" class="btn btn-primary">Main Menu</button>
+    </div>
+  </div>
+
+  <div id="blank-picker-overlay" class="blank-picker-overlay hidden">
+    <div class="blank-picker-panel panel">
+      <h2>Choose a letter</h2>
+      <p class="blank-picker-hint">This ★ blank becomes the letter you pick.</p>
+      <div id="blank-picker-grid" class="blank-picker-grid"></div>
+      <button id="btn-cancel-blank-picker" class="btn btn-secondary" style="margin-top: 14px;">Cancel</button>
+    </div>
+  </div>
+
+  <div id="howto-overlay" class="howto-overlay hidden">
+    <div class="howto-panel panel">
+      <h2>How to Play</h2>
+      <ul class="howto-list">
+        <li>Spell real words from your Rack, then hit <strong>Play Word</strong>.</li>
+        <li>Longer words and rarer letters (like Q, X, Z) hit harder — go big when you can.</li>
+        <li>Every Loose Word shows a <strong>Weakness</strong> — match it for bonus damage.</li>
+        <li>Your whole Rack refreshes after every word, played tiles and leftovers alike. Spend freely.</li>
+        <li>Tile rewards and items pile up as you descend — a stacked Rack is the whole point by floor 3.</li>
+        <li><strong>Overcharge</strong> spends ink for a bigger hit on your next word; <strong>Rewrite</strong> spends ink to trade in your whole Rack for a fresh one. Both show their cost before you commit — plain word play is always free.</li>
+        <li id="howto-blank-tip">★ blanks: just type any word — they fill in automatically.</li>
+        <li id="howto-audio-tip" class="hidden">🔊 Hear nothing? On iPhone/iPad, the physical ringer (silent) switch mutes game sound — flip it to ring mode.</li>
+      </ul>
+      <button id="btn-close-howto" class="btn btn-primary">Got it</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/core/namespace.js"></script>
+<script src="js/core/rng.js"></script>
+<script src="js/wordbound/wordlist.js"></script>
+<script src="js/wordbound/lexicon.js"></script>
+<script src="js/wordbound/tiles.js"></script>
+<script src="js/wordbound/traits.js"></script>
+<script src="js/wordbound/monsters.js"></script>
+<script src="js/wordbound/intents.js"></script>
+<script src="js/wordbound/combat.js"></script>
+<script src="js/wordbound/items.js"></script>
+<script src="js/wordbound/achievements.js"></script>
+<script src="js/wordbound/consumables.js"></script>
+<script src="js/wordbound/events.js"></script>
+<script src="js/wordbound/characters.js"></script>
+<script src="js/wordbound/floor.js"></script>
+<script src="js/wordbound/game.js"></script>
+<script>window.Wordbound.Game.init();</script>
+</body>
+</html>

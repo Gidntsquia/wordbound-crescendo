@@ -1,0 +1,1409 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  background: linear-gradient(135deg, #1a1610 0%, #2a2018 50%, #1a1610 100%);
+  background-attachment: fixed;
+  color: #e8dfc8;
+  min-height: 100vh;
+}
+
+#wb-root {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+}
+
+.hidden { display: none !important; }
+
+/* VISUAL (Jaxon request, 2026-08-21): ambient Boundless-Archive backdrop --
+   bookshelf-silhouette bands (a repeating-linear-gradient "spine" pattern,
+   masked to fade out near the center where panels sit), drifting dust
+   motes/loose letters, and a per-floor color tint. All CSS-only (gradients
+   + one inline SVG data-URI noise texture below, no external assets, per
+   house convention). Fixed + z-index:0 so it always sits behind #wb-root
+   (z-index:1 above) regardless of scroll. pointer-events:none + aria-hidden
+   so it never intercepts input or gets announced to screen readers -- purely
+   decorative. Kept deliberately low-opacity/low-contrast so it never
+   competes with foreground text or tile legibility. */
+#wb-ambient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wb-ambient-shelves {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image:
+    repeating-linear-gradient(90deg,
+      rgba(138, 106, 58, 0.9) 0px, rgba(138, 106, 58, 0.9) 22px,
+      rgba(90, 68, 38, 0.9) 22px, rgba(90, 68, 38, 0.9) 30px,
+      rgba(120, 92, 50, 0.9) 30px, rgba(120, 92, 50, 0.9) 46px,
+      rgba(70, 52, 30, 0.9) 46px, rgba(70, 52, 30, 0.9) 58px,
+      rgba(110, 84, 46, 0.9) 58px, rgba(110, 84, 46, 0.9) 80px,
+      rgba(60, 44, 26, 0.9) 80px, rgba(60, 44, 26, 0.9) 96px),
+    repeating-linear-gradient(0deg,
+      transparent 0px, transparent 210px,
+      rgba(15, 12, 8, 0.6) 210px, rgba(15, 12, 8, 0.6) 216px);
+  -webkit-mask-image: radial-gradient(ellipse 70% 62% at 50% 42%, transparent 40%, black 88%);
+  mask-image: radial-gradient(ellipse 70% 62% at 50% 42%, transparent 40%, black 88%);
+}
+
+.wb-ambient-motes { position: absolute; inset: 0; }
+.wb-ambient-motes .mote {
+  position: absolute;
+  bottom: -5%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(232, 223, 200, 0.5);
+  opacity: 0;
+}
+.wb-ambient-motes .mote-letter {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-weight: bold;
+  color: rgba(232, 223, 200, 0.22);
+}
+.wb-ambient-motes .mote:nth-child(1) { left: 6%; }
+.wb-ambient-motes .mote:nth-child(2) { left: 18%; width: 2px; height: 2px; }
+.wb-ambient-motes .mote:nth-child(3) { left: 30%; font-size: 18px; }
+.wb-ambient-motes .mote:nth-child(4) { left: 46%; width: 2px; height: 2px; }
+.wb-ambient-motes .mote:nth-child(5) { left: 58%; font-size: 24px; }
+.wb-ambient-motes .mote:nth-child(6) { left: 72%; width: 3px; height: 3px; }
+.wb-ambient-motes .mote:nth-child(7) { left: 84%; font-size: 19px; }
+.wb-ambient-motes .mote:nth-child(8) { left: 94%; width: 2px; height: 2px; }
+
+@keyframes wbMoteDrift {
+  0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.35; }
+  92% { opacity: 0.18; }
+  100% { transform: translateY(-115vh) translateX(24px) rotate(8deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .wb-ambient-motes .mote { animation: wbMoteDrift linear infinite; }
+  .wb-ambient-motes .mote:nth-child(1) { animation-duration: 34s; animation-delay: 0s; }
+  .wb-ambient-motes .mote:nth-child(2) { animation-duration: 41s; animation-delay: 5s; }
+  .wb-ambient-motes .mote:nth-child(3) { animation-duration: 52s; animation-delay: 2s; }
+  .wb-ambient-motes .mote:nth-child(4) { animation-duration: 37s; animation-delay: 9s; }
+  .wb-ambient-motes .mote:nth-child(5) { animation-duration: 48s; animation-delay: 14s; }
+  .wb-ambient-motes .mote:nth-child(6) { animation-duration: 44s; animation-delay: 3s; }
+  .wb-ambient-motes .mote:nth-child(7) { animation-duration: 55s; animation-delay: 18s; }
+  .wb-ambient-motes .mote:nth-child(8) { animation-duration: 39s; animation-delay: 11s; }
+}
+/* Reduced motion: skip the drift, keep faint static specks instead of
+   nothing -- the ambient identity survives, just without the motion. */
+@media (prefers-reduced-motion: reduce) {
+  .wb-ambient-motes .mote { opacity: 0.12; bottom: 40%; }
+  .wb-ambient-motes .mote-letter { opacity: 0.10; }
+}
+
+/* Per-floor tint (FLOORS in THEME.md: 1 Overdue Aisles/warm parchment,
+   2 Reference Wing/cooler denser stacks, 3 The Binding/deep vault red) so
+   descending reads as moving somewhere, not just a number changing. Class
+   toggled on <body> by Game.render()/renderRun() (js/wordbound/game.js). */
+.wb-floor-tint {
+  position: absolute;
+  inset: 0;
+  transition: background 1.2s ease;
+  background: transparent;
+}
+body.floor-1 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(154, 122, 58, 0.12), transparent 65%); }
+body.floor-2 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(90, 110, 130, 0.11), transparent 65%); }
+body.floor-3 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(140, 60, 50, 0.13), transparent 65%); }
+
+/* Screen/panel transitions (GOALS.md FEEL review F3): map -> combat ->
+   reward -> map was a hard cut everywhere. These fire once, exactly when an
+   element's `hidden` class is removed (display:none -> its normal display),
+   because the animation only (re)starts when the element begins matching
+   `:not(.hidden)` -- a re-render that leaves `hidden` unchanged doesn't
+   retrigger it. Purely visual (opacity/transform only); nothing here delays
+   input, so elements are clickable the instant they appear. */
+@keyframes screenFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .screen:not(.hidden),
+  .node-map:not(.hidden),
+  .combat-panel:not(.hidden),
+  .treasure-panel:not(.hidden) {
+    animation: screenFadeIn 200ms ease-out;
+  }
+}
+
+/* VISUAL: subtle vellum/parchment grain on panels (an inline SVG
+   feTurbulence noise texture, ~0.05 alpha baked into the SVG itself so it
+   reads as texture, not visible speckle) layered under the existing panel
+   gradient via background-blend-mode. Static (no animation cost) and low
+   enough contrast it doesn't touch text/tile legibility. */
+.panel {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.55  0 0 0 0 0.48  0 0 0 0 0.32  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(to bottom, #2a2418 0%, #241f17 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 140px 140px, auto;
+  background-blend-mode: soft-light, normal;
+  border: 2px solid #4a4130;
+  border-radius: 8px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.game-title {
+  font-size: 2.6rem;
+  letter-spacing: 0.12em;
+  margin: 0 0 8px;
+  color: #f0d789;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.version-info {
+  font-size: 0.85rem;
+  color: #9a8b6f;
+  margin: 0 0 16px;
+  letter-spacing: 0.05em;
+}
+
+.tagline {
+  color: #b8ac8a;
+  font-style: italic;
+  margin: 0 0 16px;
+}
+
+.seed-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.seed-input-row label {
+  color: #b8ac8a;
+  font-size: 0.9rem;
+}
+
+#run-seed-input {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #4a4130;
+  background: #14110b;
+  color: #e8dfc8;
+  width: 160px;
+}
+
+.run-seed-display {
+  text-align: center;
+  color: #6f6552;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  margin: 4px 0 0;
+}
+
+/* End-of-run stats block (review N6, game-over/victory screens) */
+.run-stats-summary {
+  max-width: 320px;
+  margin: 16px auto;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid #4a4130;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.run-stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(240, 215, 137, 0.08);
+}
+
+.run-stat-row:last-child {
+  border-bottom: none;
+}
+
+.run-stat-label {
+  color: #b8ac8a;
+}
+
+.run-stat-value {
+  color: #f0d789;
+  font-weight: bold;
+  text-align: right;
+}
+
+h2 {
+  margin: 0 0 18px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(240, 215, 137, 0.2);
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+}
+
+.menu-goal {
+  color: #cdbf9a;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.btn {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 10px 22px;
+  border-radius: 6px;
+  border: 1px solid #4a4130;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+.btn:active { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3); }
+
+.btn-primary {
+  background: linear-gradient(to bottom, #8a6a3a 0%, #7a5a2a 100%);
+  color: #fff4d6;
+}
+.btn-primary:hover { background: linear-gradient(to bottom, #9a7a4a 0%, #8f6a32 100%); }
+
+.btn-secondary {
+  background: linear-gradient(to bottom, #43392a 0%, #33291a 100%);
+  color: #cdbf9a;
+}
+.btn-secondary:hover { background: linear-gradient(to bottom, #53492a 0%, #423522 100%); }
+
+.run-header-btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.music-toggle-btn {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  width: 32px;
+}
+
+#music-volume {
+  accent-color: #f0d789;
+}
+
+.run-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  row-gap: 8px;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+.run-header > .ink-display,
+.run-header > .gold-display,
+.run-header > .floor-label {
+  flex-shrink: 0;
+}
+
+@keyframes playerDamageFlash {
+  0% { color: #ff6060; }
+  100% { color: #e08a8a; }
+}
+.ink-display { color: #e08a8a; font-weight: bold; white-space: nowrap; }
+.ink-display.take-damage {
+  animation: playerDamageFlash 0.4s ease-out;
+}
+.gold-display { color: #f0d789; font-weight: bold; white-space: nowrap; }
+.floor-label { color: #b8ac8a; white-space: nowrap; }
+
+.items-owned {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+  margin-bottom: 10px;
+}
+
+.item-chip {
+  background: #33291a;
+  border: 1px solid #4a4130;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  color: #f0d789;
+}
+
+.message-log {
+  background: #14110b;
+  border: 1px solid #332b1c;
+  border-radius: 6px;
+  padding: 8px 12px;
+  height: 90px;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  color: #b8ac8a;
+  margin-bottom: 16px;
+}
+.message-log div { margin-bottom: 3px; }
+.message-log-placeholder {
+  color: #6b6247;
+  font-style: italic;
+}
+
+.node-map {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* BRANCHING MAP (GOALS.md, run 2/N): a small DAG on a CSS grid (rows =
+   encounter depth, columns = lane) with an SVG ink-line layer underneath.
+   Node centers are (lane+0.5)/lanes, (row+0.5)/rows fractions -- the same
+   math the grid's equal 1fr tracks land on -- so the lines meet the pills
+   at any viewport width without any JS measurement. Parchment/ink palette
+   reuses the existing node-* border colors below rather than introducing a
+   second one. */
+.branch-map {
+  position: relative;
+  padding: 4px 2px;
+}
+
+.branch-map-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.branch-edge {
+  stroke: #4a4130;
+  stroke-width: 0.6;
+  opacity: 0.55;
+}
+
+.branch-edge-walked {
+  stroke: #f0d789;
+  stroke-width: 1;
+  opacity: 0.9;
+}
+
+.branch-map-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px 8px;
+  align-items: center;
+  justify-items: center;
+}
+
+/* "You are here": the last node cleared, distinct from the (possibly
+   several) node-current pills the player can walk to next. */
+.node-position {
+  position: relative;
+}
+.node-position::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f0d789;
+  box-shadow: 0 0 4px rgba(240, 215, 137, 0.7);
+}
+
+.node-pill {
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 2px solid #4a4130;
+  background: linear-gradient(to bottom, #2a2418 0%, #241f17 100%);
+  color: #6b6248;
+  font-size: 0.85rem;
+  text-align: center;
+  min-width: 64px;
+  /* Branching map ticket (GOALS.md, run 2/N): 44px+ tap targets at 375px,
+     see test/verify-mobile-layout.js's dedicated node-map check. */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.node-weak { border-color: #8a8a6a; }
+.node-normal { border-color: #6a6a4a; }
+.node-elite { border-color: #c08a6a; }
+.node-boss { border-color: #d64545; }
+.node-shop { border-color: #8a9aba; }
+.node-treasure { border-color: #b8a56a; }
+.node-rest { border-color: #6aaa8a; }
+.node-event { border-color: #b8a5d8; }
+
+.node-cleared { color: #6b8a5a; border-color: #3a4a30; }
+.node-locked { opacity: 0.4; }
+.node-current {
+  cursor: pointer;
+  color: #fff4d6;
+  border-color: #f0d789;
+  background: #3a2f1a;
+  box-shadow: 0 0 8px rgba(240, 215, 137, 0.3);
+}
+.node-current:hover { background: #4a3d22; }
+
+.node-elite.node-current { border-color: #e08a8a; box-shadow: 0 0 8px rgba(224, 138, 138, 0.4); }
+.node-boss.node-current { border-color: #d64545; box-shadow: 0 0 10px rgba(214, 69, 69, 0.5); }
+.node-event.node-current { border-color: #b8a5d8; box-shadow: 0 0 8px rgba(184, 165, 216, 0.4); }
+
+.combat-panel { margin-top: 12px; }
+.boss-combat {
+  border: 2px solid #e08a8a;
+  border-radius: 4px;
+  box-shadow: 0 0 16px rgba(224, 138, 138, 0.3), inset 0 0 16px rgba(224, 138, 138, 0.1);
+  padding: 8px;
+}
+.boss-combat #monster-info {
+  animation: bossEntrance 0.5s ease-out;
+}
+
+@keyframes floatDamage {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-60px);
+    opacity: 0;
+  }
+}
+.damage-number {
+  position: absolute;
+  font-weight: bold;
+  font-size: 1.5rem;
+  pointer-events: none;
+  animation: floatDamage 1s ease-out forwards;
+}
+.damage-number.critical { color: #e08a8a; }
+.damage-number.normal { color: #f0d789; }
+.damage-number.weak { color: #9ab88a; }
+
+.monster-info {
+  background: #241f17;
+  border: 1px solid #4a4130;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: visible;
+}
+
+.monster-name { font-size: 1.3rem; color: #f0d789; margin-bottom: 8px; }
+
+/* Tier-based styling */
+.tier-weak { color: #a89a7a; }
+.tier-normal { color: #f0d789; }
+.tier-strong { color: #fce5b2; text-shadow: 0 0 8px rgba(252, 229, 178, 0.3); }
+.boss-tier { color: #e08a8a; text-shadow: 0 0 8px rgba(224, 138, 138, 0.3); }
+
+.monster-hp-bar {
+  background: #14110b;
+  border-radius: 4px;
+  height: 10px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+@keyframes hpFlash {
+  0% { background: #e08a8a; }
+  50% { background: #a03c3c; }
+  100% { background: #a03c3c; }
+}
+@keyframes hpShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(2px); }
+  75% { transform: translateX(-2px); }
+}
+@keyframes bossHpFlash {
+  0% { background: #ff6b6b; box-shadow: 0 0 8px #ff6b6b; }
+  50% { background: #8a1f1f; box-shadow: 0 0 12px #ff6b6b; }
+  100% { background: #8a1f1f; box-shadow: 0 0 8px #ff6b6b; }
+}
+@keyframes bossHpShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(4px); }
+  75% { transform: translateX(-4px); }
+}
+@keyframes bossEntrance {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.monster-hp-fill { background: #a03c3c; height: 100%; transition: width 0.2s; }
+.monster-hp-fill.flash-damage {
+  animation: hpFlash 0.3s ease-out, hpShake 0.15s ease-out;
+}
+.boss-combat .monster-hp-fill.flash-damage {
+  animation: bossHpFlash 0.4s ease-out, bossHpShake 0.2s ease-out;
+}
+.monster-hp-text { font-size: 0.85rem; color: #b8ac8a; margin-bottom: 8px; }
+.monster-weakness { font-size: 0.9rem; color: #9ab88a; font-style: italic; }
+
+/* Monster intent: telegraphed next action (GOALS.md "FUN OVERHAUL 2/8").
+   Plain Attack/Heavy Blow reads as a routine threat; a signature move
+   (Hex/Devour/Mend/Enrage) is called out in the same red family as the HP
+   flash so a "special" incoming registers at a glance. */
+.monster-intent { font-size: 0.85rem; color: #d8b088; font-weight: bold; margin-top: 6px; }
+.monster-intent.intent-signature { color: #e08a8a; }
+
+/* Hexed tile: locked for the player's current turn (Hex monster intent).
+   Same greyscale-lock language a disabled control uses elsewhere. */
+.letter-tile.tile-hexed {
+  opacity: 0.35;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  box-shadow: 0 0 0 2px #6a5a8a;
+}
+.letter-tile.tile-hexed:hover { background: #e8dfc8; }
+
+/* Combo chip: word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8").
+   Appears once the player has strung together 1+ distinct words this fight,
+   disappears the instant a repeated word resets the combo -- that pop-in/
+   pop-out is the "combo reset is visually obvious" requirement. */
+@keyframes comboPop {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.combo-chip {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(240, 215, 137, 0.15);
+  border: 1px solid #f0d789;
+  color: #f0d789;
+  font-size: 0.85rem;
+  font-weight: bold;
+  animation: comboPop 0.25s ease-out;
+}
+
+/* Celebration juice (GOALS.md "FUN OVERHAUL 8/8"): reactions to the systems
+   built in 1/8-7/8. All of it is gated on prefers-reduced-motion, matching the
+   damage-floater / screen-transition convention -- under reduced motion the
+   banners/floaters still appear (they carry information: bonus gold, a big
+   hit) but hold static instead of animating, and the screen shake is dropped
+   entirely (pure motion, no information). */
+
+/* Combo chip "pop" on each new stack. renderCombat rebuilds the chip element
+   every render, so the base .combo-chip comboPop already plays once per word;
+   this dedicated, punchier bump (a bigger overshoot) overrides it specifically
+   on the render where the streak ADVANCED, so growing the combo feels distinct
+   from it merely persisting. Applied for one render, then cleared. */
+@keyframes comboBump {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .combo-chip.combo-chip-bump {
+    animation: comboBump 0.15s ease-out;
+  }
+}
+
+/* "CRUSHING!" floater on a big single-word hit (>= 25 damage). Rides above the
+   monster panel like the damage number, in the critical-hit red. */
+@keyframes crushingRise {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  25% { transform: translate(-50%, -60%) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -120%) scale(1); opacity: 0; }
+}
+.crushing-floater {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  font-weight: bold;
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  color: #e08a8a;
+  text-shadow: 0 0 10px rgba(224, 138, 138, 0.6);
+  pointer-events: none;
+  z-index: 40;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .crushing-floater { animation: crushingRise 0.9s ease-out forwards; }
+}
+/* Reduced motion: no rise, just a brief hold then removal (JS removes it). */
+@media (prefers-reduced-motion: reduce) {
+  .crushing-floater { opacity: 1; }
+}
+
+/* "MAGNIFICENT!" banner on a 7+ letter word. A wider, centered call-out over
+   the combat panel, gold rather than red -- reward, not violence. */
+@keyframes magnificentBanner {
+  0% { transform: translateX(-50%) scale(0.85); opacity: 0; }
+  15% { transform: translateX(-50%) scale(1.05); opacity: 1; }
+  80% { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); opacity: 0; }
+}
+.magnificent-banner {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  transform: translateX(-50%);
+  padding: 6px 18px;
+  border-radius: 14px;
+  background: rgba(240, 215, 137, 0.16);
+  border: 1px solid #f0d789;
+  color: #fce5b2;
+  font-weight: bold;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 8px rgba(252, 229, 178, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 40;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .magnificent-banner { animation: magnificentBanner 1.6s ease-out forwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .magnificent-banner { opacity: 1; }
+}
+
+/* Screen shake on a big hit (>= 25 damage). Pure motion, no information, so
+   it's dropped entirely under reduced motion (no static fallback). Applied to
+   the combat panel for one animation cycle, then cleared. */
+@keyframes combatShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, -2px); }
+  80% { transform: translate(2px, 2px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .combat-panel.combat-shake { animation: combatShake 0.3s ease-in-out; }
+}
+
+/* Item-proc chip flash: a rule-changer item whose hook fired this word gets a
+   brief highlight in the items strip so its contribution is legible. Pure
+   emphasis, gated on reduced motion. */
+@keyframes itemChipFlash {
+  0% { background: rgba(240, 215, 137, 0.6); box-shadow: 0 0 10px rgba(240, 215, 137, 0.7); }
+  100% { background: inherit; box-shadow: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .item-chip.item-chip-proc { animation: itemChipFlash 0.6s ease-out; }
+}
+
+/* Killing-blow death beat: a short, visible pause on the kill before the
+   screen cuts to the tile reward -- see MONSTER_DEATH_BEAT_MS in game.js. */
+@keyframes monsterDefeatFade {
+  0% { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+.monster-info.monster-defeated {
+  animation: monsterDefeatFade 0.5s ease-out forwards;
+}
+
+.rack-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+@keyframes slideInTile {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.letter-tile {
+  font-family: inherit;
+  width: 46px;
+  height: 46px;
+  font-size: 1.3rem;
+  font-weight: bold;
+  background: #e8dfc8;
+  color: #241f17;
+  border: 1px solid #4a4130;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease-in-out;
+}
+.letter-tile:hover { background: #fff4d6; }
+.letter-tile.new-tile {
+  animation: slideInTile 0.3s ease-out;
+}
+@keyframes tilePlayed {
+  0% { transform: scale(1) translateY(0); opacity: 1; filter: brightness(1); }
+  40% { transform: scale(1.18) translateY(-4px); opacity: 1; filter: brightness(1.35); }
+  100% { transform: scale(0.85) translateY(-22px); opacity: 0; filter: brightness(1.1); }
+}
+.letter-tile.tile-played {
+  animation: tilePlayed 0.22s ease-in forwards;
+  pointer-events: none;
+}
+.letter-tile sub {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 0.6rem;
+  font-weight: normal;
+}
+.letter-tile.has-bonus {
+  box-shadow: 0 0 0 2px #f0d789, 0 0 6px rgba(240, 215, 137, 0.6);
+}
+.letter-tile.bonus-flat {
+  box-shadow: 0 0 0 2px #f0d789, 0 0 8px rgba(240, 215, 137, 0.8);
+}
+.letter-tile.bonus-mult-play {
+  box-shadow: 0 0 0 2px #fff4d6, 0 0 10px rgba(255, 244, 214, 1);
+}
+.letter-tile.bonus-mult-hold {
+  box-shadow: 0 0 0 2px #b8a5d8, 0 0 8px rgba(184, 165, 216, 0.8);
+}
+
+/* Special tile variants (GOALS.md "FUN OVERHAUL 5/8"): each gets its own
+   ring color AND a corner glyph, so they're distinguishable without relying
+   on color alone (the four rings sit close together in hue, and the badges
+   need to read on a 375px screen). The glyph is a ::after pseudo-element so
+   it doesn't disturb the letter/value layout inside the tile. */
+.letter-tile.variant-gilded { box-shadow: 0 0 0 2px #e0b544, 0 0 8px rgba(224, 181, 68, 0.85); }
+.letter-tile.variant-charged { box-shadow: 0 0 0 2px #7fc4e8, 0 0 8px rgba(127, 196, 232, 0.85); }
+.letter-tile.variant-vampiric { box-shadow: 0 0 0 2px #d06a7a, 0 0 8px rgba(208, 106, 122, 0.85); }
+.letter-tile.variant-volatile { box-shadow: 0 0 0 2px #e08a4a, 0 0 8px rgba(224, 138, 74, 0.85); }
+.letter-tile[class*="variant-"]::after {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 0.55rem;
+  line-height: 1;
+  pointer-events: none;
+}
+.letter-tile.variant-gilded::after { content: '🪙'; }
+.letter-tile.variant-charged::after { content: '⚡'; }
+.letter-tile.variant-vampiric::after { content: '🩸'; }
+.letter-tile.variant-volatile::after { content: '💥'; }
+.letter-tile[draggable="true"] {
+  cursor: grab;
+}
+.letter-tile[draggable="true"]:active {
+  cursor: grabbing;
+  opacity: 0.7;
+}
+
+/* MOBILE INPUT 2/3: a staged tile leaves an empty outlined slot in its rack
+   position so the rack keeps its shape (no reflow) while the tile visually
+   "lives" in the play area below. Same 46x46 footprint as .letter-tile.
+   Tapping the slot unstages the tile back into it. */
+.rack-slot-empty {
+  font-family: inherit;
+  width: 46px;
+  height: 46px;
+  background: transparent;
+  border: 2px dashed #6a5f45;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+.rack-slot-empty:hover {
+  border-color: #f0d789;
+  opacity: 1;
+}
+
+.staging-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  margin: 8px 0;
+  min-height: 40px;
+  border: 2px dashed #b8ac8a;
+  border-radius: 6px;
+  background: rgba(184, 172, 138, 0.1);
+  justify-content: center;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #b8ac8a;
+}
+
+.staging-area:empty::before {
+  content: 'Click tiles to build word...';
+  opacity: 0.6;
+}
+
+/* GOALS.md FEATURE (staged-word damage preview): a fixed-height readout above
+   the Play Word button so the number appears/updates WITHOUT reflowing the
+   layout (the space is always reserved, even when it reads "--"). */
+.damage-preview {
+  min-height: 1.4em;
+  margin: 2px 0 4px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: bold;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: #e8dfc8;
+  transition: color 0.15s ease;
+}
+.damage-preview.preview-empty { color: #b8ac8a; opacity: 0.55; font-weight: normal; }
+.damage-preview.preview-weak { color: #ffd257; text-shadow: 0 0 6px rgba(255, 210, 87, 0.4); }
+.damage-preview.preview-repeat { color: #c99a6a; }
+.damage-preview.preview-noeffect { color: #9a8f74; }
+.damage-preview.preview-overcharged { color: #ffd257; text-shadow: 0 0 8px rgba(255, 210, 87, 0.55); }
+
+/* INK SPEND (GOALS.md INK ticket, run 2/2-4): Overcharge/Rewrite sit below
+   the word-input row, same wrap behavior at mobile widths. */
+.ink-spend-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.btn-overcharge.armed {
+  background: linear-gradient(to bottom, #b8923a 0%, #8f6a1a 100%);
+  color: #fff4d6;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 10px rgba(255, 210, 87, 0.55);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+
+.staged-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #e8dfc8;
+  color: #14110b;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  /* MOBILE INPUT 3/3: a slightly stronger lift than a flat chip, so the play
+     area reads as tiles "picked up" out of the rack. Static (not animated),
+     independent of reduced-motion. */
+  box-shadow: 0 3px 7px rgba(0,0,0,0.42);
+  /* MOBILE INPUT 2/3: staged tiles are tappable to unstage (slide home). */
+  cursor: pointer;
+  border: none;
+  position: relative;
+  /* MOBILE INPUT 2/3 Phase 2: claim the pointer so a touch drag reorders/removes
+     the tile instead of scrolling the page. */
+  touch-action: none;
+}
+.staged-tile:hover { background: #fff4d6; }
+
+/* MOBILE INPUT 2/3 Phase 2: the tile being dragged follows the pointer (its
+   transform is set inline by JS); lift it above its neighbors and off its
+   origin, which naturally leaves a visible gap where it was. */
+.staged-tile.staging-drag-ghost {
+  z-index: 30;
+  opacity: 0.92;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  cursor: grabbing;
+  transition: none;
+}
+/* Dragged past the play-area bounds (>30px): dim + a warning ring so the player
+   feels "release here to remove". */
+.staged-tile.staging-drag-ghost.staging-drag-out {
+  opacity: 0.4;
+  box-shadow: 0 0 0 2px #d06a7a, 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+.staging-area.staging-dragging { cursor: grabbing; }
+
+/* Jaxon real-device playtest: while a staged tile is dragged over the rack,
+   highlight the rack as the "release here to send it back" drop zone. Pairs
+   with the ghost's staging-drag-out dim so the intent reads at a glance. */
+.rack-display.rack-drop-target {
+  outline: 2px dashed #6ac0a0;
+  outline-offset: 4px;
+  border-radius: 8px;
+  background: rgba(106, 192, 160, 0.08);
+}
+
+/* MOBILE INPUT 3/3: input-feel juice. Restrained -- tactile, not carnival.
+   All of it is gated on prefers-reduced-motion (haptics too, in JS). The
+   animated reorder gap open/close asked for by this ticket already ships in
+   Phase 2 (applyStagingGap/clearStagingGap, a 0.12s transform tween); this
+   block adds the point-of-contact cues: a pressed dip and a land-settle. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Pressed state: every tappable tile dips slightly under the finger/cursor.
+     The staged tile being dragged sets an inline transform (translate) that
+     wins over this stylesheet rule, so an active drag is unaffected. */
+  .letter-tile:active,
+  .rack-slot-empty:active,
+  .staged-tile:active {
+    transform: scale(0.93);
+  }
+  /* A tile landing in the rack or the play area gets a short (<=120ms) settle.
+     Deliberately transform-free (brightness + shadow only): the Phase 1 FLIP
+     owns `transform` on the same element to slide the tile into place, and a
+     transform-based keyframe would override that inline transform and break
+     the slide. This is a one-shot -- the code that stages/unstages adds
+     `.tile-settle` for exactly one render, then clears it. */
+  @keyframes tileSettle {
+    0% { filter: brightness(1.6); box-shadow: 0 0 8px rgba(240, 215, 137, 0.9); }
+    100% { filter: brightness(1); }
+  }
+  .letter-tile.tile-settle,
+  .staged-tile.tile-settle {
+    animation: tileSettle 0.12s ease-out;
+  }
+}
+
+.staged-tile sub {
+  font-size: 0.6rem;
+  margin-left: 2px;
+}
+
+.staged-tile.has-bonus {
+  box-shadow: 0 0 8px #f0d789, 0 2px 4px rgba(0,0,0,0.3);
+  background: #fff4d6;
+}
+.staged-tile.bonus-flat {
+  box-shadow: 0 0 8px #f0d789, 0 2px 4px rgba(0,0,0,0.3);
+  background: #fff4d6;
+}
+.staged-tile.bonus-mult-play {
+  box-shadow: 0 0 10px rgba(255, 244, 214, 1), 0 2px 4px rgba(0,0,0,0.3);
+  background: #fff4d6;
+}
+.staged-tile.bonus-mult-hold {
+  box-shadow: 0 0 8px rgba(184, 165, 216, 0.8), 0 2px 4px rgba(0,0,0,0.3);
+  background: #fff4d6;
+}
+
+/* Variant badges in the staging area: same ring + glyph language as the
+   rack, so a staged tile stays recognizable as the one just clicked.
+   position:relative is required here (unlike .letter-tile, which already
+   has it) or the absolutely-positioned glyph would escape the tile. */
+.staged-tile[class*="variant-"] { position: relative; background: #fff4d6; }
+.staged-tile.variant-gilded { box-shadow: 0 0 8px rgba(224, 181, 68, 0.9), 0 2px 4px rgba(0,0,0,0.3); }
+.staged-tile.variant-charged { box-shadow: 0 0 8px rgba(127, 196, 232, 0.9), 0 2px 4px rgba(0,0,0,0.3); }
+.staged-tile.variant-vampiric { box-shadow: 0 0 8px rgba(208, 106, 122, 0.9), 0 2px 4px rgba(0,0,0,0.3); }
+.staged-tile.variant-volatile { box-shadow: 0 0 8px rgba(224, 138, 74, 0.9), 0 2px 4px rgba(0,0,0,0.3); }
+.staged-tile[class*="variant-"]::after {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  font-size: 0.5rem;
+  line-height: 1;
+  pointer-events: none;
+}
+.staged-tile.variant-gilded::after { content: '🪙'; }
+.staged-tile.variant-charged::after { content: '⚡'; }
+.staged-tile.variant-vampiric::after { content: '🩸'; }
+.staged-tile.variant-volatile::after { content: '💥'; }
+
+.word-input-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+#word-input {
+  font-family: inherit;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #4a4130;
+  background: #14110b;
+  color: #e8dfc8;
+  flex: 1;
+  min-width: 0;
+  max-width: 260px;
+}
+
+.treasure-panel { margin-top: 16px; text-align: center; }
+
+.treasure-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.treasure-choice {
+  font-family: inherit;
+  text-align: left;
+  background: linear-gradient(to bottom, #2a2418 0%, #241f17 100%);
+  border: 1px solid #4a4130;
+  border-radius: 6px;
+  padding: 12px 16px;
+  color: #e8dfc8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.treasure-choice:hover {
+  background: linear-gradient(to bottom, #3a3428 0%, #33291a 100%);
+  border-color: #f0d789;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.treasure-choice strong { color: #f0d789; }
+
+.tile-reward-skip { margin-top: 10px; }
+
+/* Tile-reward choices (GOALS.md POLISH review F4.5): the shared
+   .treasure-choice is a full-width text bar, right for items/consumables;
+   tile rewards get a modifier so each choice reads as a letter tile
+   (like the rack above it) instead of a bar with one small letter in it. */
+.treasure-choices-tiles {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.treasure-choice-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 0 1 108px;
+  min-width: 90px;
+  max-width: 130px;
+  padding: 10px 8px;
+  gap: 6px;
+}
+
+.tile-reward-letter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  font-size: 1.3rem;
+  font-weight: bold;
+  background: #e8dfc8;
+  color: #241f17;
+  border: 1px solid #4a4130;
+  border-radius: 6px;
+}
+
+.tile-reward-letter sub {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 0.6rem;
+  font-weight: normal;
+}
+
+.tile-reward-bonus {
+  font-size: 0.75rem;
+  color: #b8ac8a;
+  line-height: 1.25;
+}
+
+.treasure-choice-tile.has-bonus .tile-reward-letter {
+  box-shadow: 0 0 0 2px #f0d789, 0 0 6px rgba(240, 215, 137, 0.6);
+}
+.treasure-choice-tile.bonus-flat .tile-reward-letter {
+  box-shadow: 0 0 0 2px #f0d789, 0 0 8px rgba(240, 215, 137, 0.8);
+}
+.treasure-choice-tile.bonus-mult-play .tile-reward-letter {
+  box-shadow: 0 0 0 2px #fff4d6, 0 0 10px rgba(255, 244, 214, 1);
+}
+.treasure-choice-tile.bonus-mult-hold .tile-reward-letter {
+  box-shadow: 0 0 0 2px #b8a5d8, 0 0 8px rgba(184, 165, 216, 0.8);
+}
+
+/* Variant badges on a tile-reward choice: the ring goes on the letter
+   square (matching the bonus classes above), the glyph rides its corner --
+   .tile-reward-letter is already position:relative for its <sub>. */
+.treasure-choice-tile.variant-gilded .tile-reward-letter { box-shadow: 0 0 0 2px #e0b544, 0 0 8px rgba(224, 181, 68, 0.85); }
+.treasure-choice-tile.variant-charged .tile-reward-letter { box-shadow: 0 0 0 2px #7fc4e8, 0 0 8px rgba(127, 196, 232, 0.85); }
+.treasure-choice-tile.variant-vampiric .tile-reward-letter { box-shadow: 0 0 0 2px #d06a7a, 0 0 8px rgba(208, 106, 122, 0.85); }
+.treasure-choice-tile.variant-volatile .tile-reward-letter { box-shadow: 0 0 0 2px #e08a4a, 0 0 8px rgba(224, 138, 74, 0.85); }
+.treasure-choice-tile[class*="variant-"] .tile-reward-letter::after {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 0.55rem;
+  line-height: 1;
+  pointer-events: none;
+}
+.treasure-choice-tile.variant-gilded .tile-reward-letter::after { content: '🪙'; }
+.treasure-choice-tile.variant-charged .tile-reward-letter::after { content: '⚡'; }
+.treasure-choice-tile.variant-vampiric .tile-reward-letter::after { content: '🩸'; }
+.treasure-choice-tile.variant-volatile .tile-reward-letter::after { content: '💥'; }
+
+/* Deck viewer + shop rows are plain .treasure-choice bars (no letter
+   square), so a variant there gets a left accent stripe instead of a ring. */
+.treasure-choice.variant-gilded { border-left: 3px solid #e0b544; }
+.treasure-choice.variant-charged { border-left: 3px solid #7fc4e8; }
+.treasure-choice.variant-vampiric { border-left: 3px solid #d06a7a; }
+.treasure-choice.variant-volatile { border-left: 3px solid #e08a4a; }
+
+/* The Shredder (GOALS.md "FUN OVERHAUL 7/8"): a picked tile reads as doomed
+   -- red edge + faint tint so the selection is obvious in the deck list. */
+.treasure-choice.shredder-picked {
+  border-color: #c0433a;
+  box-shadow: inset 0 0 0 1px #c0433a, 0 0 8px rgba(192, 67, 58, 0.4);
+  background: linear-gradient(to bottom, #3a2018 0%, #331a15 100%);
+}
+.treasure-choice.shredder-picked strong { color: #e88b82; }
+
+.character-select-panel { max-width: 500px; }
+
+.character-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.character-option {
+  background: #241f17;
+  border: 2px solid #4a4130;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.character-option:hover {
+  border-color: #f0d789;
+  background: #33291a;
+  box-shadow: 0 0 8px rgba(240, 215, 137, 0.2);
+}
+
+.character-name {
+  font-size: 1.2rem;
+  color: #f0d789;
+  margin: 0 0 4px;
+  font-weight: bold;
+}
+
+.character-description {
+  color: #b8ac8a;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Loading indicator for dictionary load */
+.dictionary-loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  padding: 16px;
+  background: rgba(184, 172, 138, 0.1);
+  border: 1px solid #4a4130;
+  border-radius: 6px;
+  color: #b8ac8a;
+}
+
+.dictionary-loading-indicator p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #4a4130;
+  border-top-color: #f0d789;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* How to Play overlay -- a full-viewport modal, independent of the screen
+   toggle system so it can show over the main menu OR mid-combat (first-run
+   auto-show). */
+.howto-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 5, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.howto-panel {
+  max-width: 420px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.howto-list {
+  text-align: left;
+  color: #e8dfc8;
+  margin: 16px 0;
+  padding-left: 20px;
+  line-height: 1.5;
+}
+
+.howto-list li {
+  margin-bottom: 10px;
+}
+
+/* MOBILE INPUT 1/3: on coarse-pointer (touch) devices, hide the typing box
+   entirely -- tapping tiles is the only input, so the soft keyboard never
+   pops. Desktop (no .touch-mode on <body>) keeps the input exactly as-is.
+   The Play Word / Clear buttons stay visible in both modes. */
+.touch-mode #word-input {
+  display: none;
+}
+
+/* MOBILE INPUT 1/3: touch-mode blank-letter picker (A-Z grid). Same overlay
+   pattern/z-index as the how-to-play overlay. */
+.blank-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 5, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 110;
+}
+
+.blank-picker-panel {
+  max-width: 360px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.blank-picker-hint {
+  color: #b8ac8a;
+  font-size: 0.9rem;
+  margin: 8px 0 14px;
+}
+
+.blank-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.blank-picker-letter {
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: bold;
+  padding: 12px 0;
+  min-height: 44px;
+  border-radius: 6px;
+  border: 1px solid #4a4130;
+  background: #14110b;
+  color: #e8dfc8;
+  cursor: pointer;
+}
+
+.blank-picker-letter:active {
+  transform: scale(0.94);
+}
+
+/* Narrow-viewport (phone) layout fixes -- keep desktop widths untouched. */
+@media (max-width: 480px) {
+  #wb-root {
+    padding: 16px 10px 60px;
+  }
+
+  .game-title {
+    font-size: 1.7rem;
+    letter-spacing: 0.06em;
+  }
+
+  .run-header {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    column-gap: 10px;
+  }
+
+  .run-header-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  #music-volume {
+    width: 60px;
+  }
+
+  .word-input-row {
+    flex-wrap: wrap;
+  }
+
+  #word-input {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  /* Grow tap targets vertically (not horizontally -- the run-header row is
+     width-tight, see the overflow fix above) to clear the ~36px comfortable
+     touch-target floor. */
+  .run-header-btn {
+    padding: 10px 12px;
+  }
+
+  .music-toggle-btn {
+    width: 40px;
+    padding: 10px 8px;
+  }
+
+  /* Letter point-value badges were below the 12px legibility floor; the
+     46x46px tile has room to spare, so grow just the badge, not the tile. */
+  .letter-tile sub,
+  .staged-tile sub,
+  .tile-reward-letter sub {
+    font-size: 0.8rem;
+  }
+}
