@@ -52,7 +52,7 @@ Rules for the routine:
 
 ## Queue
 
-- [ ] SCAFFOLD/PRUNE: this repo was seeded as a full copy of the sibling repo's
+- [x] SCAFFOLD/PRUNE: this repo was seeded as a full copy of the sibling repo's
       working tree. Make it Crescendo's own:
       1. Remove the Descent of Essence game entirely: index.html and every js/css/test
          file that belongs to it (grep before deleting — some js/ modules and tests are

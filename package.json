@@ -1,7 +1,7 @@
 {
-  "name": "wordbound",
+  "name": "wordbound-crescendo",
   "private": true,
-  "description": "Dev-only tooling for the Wordbound/Descent of Essence static game. The game itself has no build step -- just open index.html or wordbound.html.",
+  "description": "Dev-only tooling for Wordbound: Crescendo, a words-vs-music browser game engine-forked from Wordbound. The game itself has no build step -- just open wordbound.html.",
   "scripts": {
     "pretest": "node tools/ensure-deps.js jsdom",
     "test": "node test/dom-check.js",
