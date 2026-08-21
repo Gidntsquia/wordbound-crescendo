@@ -157,3 +157,80 @@ sessions. Read the ticket's 5 sub-steps in GOALS.md closely before starting,
 especially the requirement to update GOALS.md's MANDATORY VERIFICATION header in
 the same commit that changes what `npm test` means (Vitest/RTL replacing the
 jsdom dom-check harness) — future runs depend on that header staying accurate.
+
+## 2026-08-21T09:49Z — STRUCTURAL 1/5: Vite + React scaffold (orchestrator)
+
+**What was done:** started the multi-run STRUCTURAL ticket (React + Vite migration,
+GOALS.md header FRAMEWORK decision). This run is scoped to sub-step 1 only
+("scaffold Vite + React in this repo") — no screen porting yet, box stays
+unchecked.
+
+- Housekeeping first: local `main` was 3 commits behind `origin/main` (session
+  started with HEAD detached at the stale tip). Fast-forwarded to origin/main
+  before doing anything — no data was lost, just a stale local ref.
+- Added `vite`, `@vitejs/plugin-react` (devDependencies) and `react`, `react-dom`
+  (real dependencies, since they ship in the built bundle).
+- `vite.config.mjs` (`.mjs` extension, not `.js`, so Vite's native ESM config
+  loader is happy without setting `"type": "module"` in package.json — that
+  would have broken every existing CommonJS `require()`-based test/tool script,
+  so deliberately avoided). `base: './'` for portable static hosting (itch zip
+  or a GitHub Pages subpath, deploy itself still deferred per the ticket).
+  `build.outDir: 'dist/app'` — NOT bare `dist/`, because `tools/build-itch.js`
+  already writes `dist/wordbound-itch.zip` and Vite's default `emptyOutDir`
+  would silently wipe it on the next `vite build`. Verified both builds now
+  coexist in `dist/` without collision.
+- Root `index.html` (Vite's entry-point convention) + `src/main.jsx` +
+  `src/App.jsx`. `App.jsx` is an explicit, honestly-labeled placeholder (not a
+  fake screen) stating the React port is in progress and that `wordbound.html`
+  is still the playable game meanwhile — screens get ported in one at a time
+  in follow-up runs per the ticket's own "port screen by screen, keep commits
+  working" instruction.
+- `npm run dev` / `build` / `preview` scripts added. `wordbound.html`, `css/`,
+  `js/wordbound/*`, `js/core/*`, and `test/*` are completely untouched this run.
+
+**Verified:**
+- `npm run build`: clean, no warnings, `dist/app/index.html` + hashed JS bundle
+  produced.
+- Real-browser check (Playwright, chromium via `/opt/pw-browsers/chromium`):
+  served the built output with `npm run preview`, loaded it in a real page,
+  confirmed the React root actually rendered ("Wordbound: Crescendo" text
+  present) with ZERO console/page errors. Deleted the throwaway script after.
+- `npm test` (jsdom dom-check, 100+ assertions): ALL CHECKS PASSED, unaffected
+  by the scaffold — expected, since no game file changed.
+- `npm run test:qa` (Playwright, boss-reward flow + 375px viewport): ALL CHECKS
+  PASSED, zero console/page errors.
+- `npm run test:mobile` (Playwright, 375/414px + touch-mode input): all layouts
+  OK, touch-mode OK.
+- `npm run build:itch` + `npm run test:itch-build`: itch zip still builds
+  (1.44 MB), still passes the full 16/16 dom-check suite unzipped + loads with
+  zero 404s in a real browser — confirmed this AFTER adding the outDir fix, so
+  the collision I found never actually shipped.
+
+**Not verified / not applicable:** no React component has real game behavior
+yet, so there's nothing gameplay-shaped to Playwright-test on the React side
+beyond "did it render and stay error-free," which is what was checked. GOALS.md's
+MANDATORY VERIFICATION header is intentionally NOT updated yet — the ticket says
+to update it "in the same commit that changes what `npm test` means," and
+`npm test` still means the same jsdom dom-check it always has; that header edit
+lands with the Vitest/RTL migration (ticket sub-step 3), not this one.
+
+**Current state:** repo now has two coexisting toolchains: the untouched
+vanilla `wordbound.html` (still the actual playable game, still what `npm test`
+covers) and a fresh Vite+React scaffold (`index.html` at root, `src/`) that
+boots but has no real screens yet. `dist/` stays gitignored as before. All
+pre-existing gates green.
+
+**Next:** continue the STRUCTURAL ticket's sub-step 1/2 — port the first real
+screen (main menu is the simplest: static content, one seeded-run and one
+how-to-play button, no combat state) into a React component that reads from
+`window.Wordbound` data modules, proving the "game logic stays framework-
+agnostic plain JS, import it from React" pattern before tackling anything
+stateful like the combat screen. That'll likely require converting at least
+the specific modules the main menu touches (achievements display, character
+data if the button leads there) toward an ES-module-friendly shape without
+breaking the global-namespace pattern `wordbound.html`'s script tags still
+depend on — worth thinking through carefully rather than rushing, since a
+half-converted module could break the still-live vanilla game. After the
+main-menu proof of concept, continue screen by screen per the ticket order;
+Vitest/RTL test migration (sub-step 3) can start once there's real component
+behavior worth testing.
