@@ -925,7 +925,7 @@ Rules for the routine:
       `npm run test:react-build` real-browser visual smoke (reduced-motion
       variant included); no regression to the always-verified suites.
 
-- [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
+- [x] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,
         note events, and a DYNAMICS track with explicit crescendo markers
         (timestamp/beat, ramp duration, peak intensity). Store pieces as plain JS
@@ -951,6 +951,29 @@ Rules for the routine:
       musical positions (±1 scheduler tick), tempo-scale correctness, mute/volume
       integration; real-browser Playwright check that a piece schedules real nodes
       without errors. Audible musicality: flag for Jaxon's ears, honestly.
+      ORCHESTRATOR NOTE 2026-08-21 (closing): built `js/wordbound/music.js`
+      (framework-agnostic, no game.js/React dependency, per the header
+      FRAMEWORK decision) + `js/wordbound/pieces/mountain-king.js` as the
+      proof piece. Every bullet above and the VERIFY bar are met -- see
+      PROGRESS.md for the full account. Two judgment calls flagged there,
+      not Jaxon-only naming/feel calls but worth his eyes: (1) music.js
+      dependency-injects the AudioContext + destination GainNode rather than
+      literally reusing game.js's private playTone/playCombatSound
+      functions -- this is how "reuse... master gain/mute/volume plumbing"
+      is actually satisfied (the caller passes its own real musicGainNode
+      in), but the OSCILLATOR VOICES themselves are new, not literally
+      game.js's palette; (2) Mountain King's stageTier is set to 'mid' (a
+      balance judgment, not a naming one -- see the piece file's own header
+      comment for the reasoning). Real, honest gaps, not this ticket's own
+      scope: nothing in game.js/combat calls into Music yet -- that's
+      DUEL-GAUGE COMBAT's explicit job, the next unchecked item, which this
+      engine's event/intensity API was built for; "no drift over minutes"
+      is architecturally true (anchor-based beat/time conversion, not
+      cumulative per-tick addition, so it can't accumulate drift) but only
+      exercised in tests over ~4 real/mocked seconds, not literally
+      minutes; only Mountain King is sequenced (one piece, as the ticket
+      asked for "at least one"); audible musicality is, as ever, Jaxon's
+      call to make with real speakers.
 
 - [ ] DUEL-GAUGE COMBAT: the signature mechanic, per the header COMBAT MODEL /
       HEALTH MODEL decisions (Jaxon, 2026-08-21 — this ticket REPLACES the older

@@ -2630,3 +2630,171 @@ item as of this commit -- the header decision's stated priority, and a
 large, multi-run ticket in its own right (WebAudio sequencer, note-data
 format, crescendo event API, intensity(t) curve). COMBAT JUICE remains
 available as lower-priority, opportunistic pickup.
+
+## 2026-08-21T23:58Z — MUSIC ENGINE: WebAudio sequencer + Mountain King proof piece -- CLOSING the ticket (orchestrator)
+
+Repo state note before starting: same stale-local-branch situation the
+previous run flagged (local `main` and the detached HEAD were behind
+`origin/main`). `git fetch origin main` + `git checkout -B main origin/main`
+fixed it before touching anything -- worth someone eventually checking why
+this container's initial checkout keeps lagging origin, but not this run's
+concern otherwise.
+
+**Scope decision:** GOALS.md's own queue order puts COMBAT JUICE first
+(first unchecked item), but that ticket explicitly self-deprioritizes
+("Low urgency relative to MUSIC ENGINE / DUEL-GAUGE COMBAT... pick up
+opportunistically") and the prior run's own closing note named MUSIC ENGINE
+as the real next priority per the header's stated FRAMEWORK/COMBAT decision
+order. Followed that established precedent rather than the raw top-to-bottom
+default.
+
+**What I built:**
+- `js/wordbound/music.js` -- a framework-agnostic (no game.js/React
+  dependency) WebAudio sequencer. Full PIECE FORMAT documented at the top
+  of the file: `tracks` (named note arrays, `{beat, duration, freq,
+  velocity, type}`), `tempo` (a constant bpm number OR ascending
+  `{beat, bpm}` breakpoints for a piece whose tempo genuinely changes --
+  piecewise-CONSTANT between breakpoints, a deliberate simplification over
+  a continuously-integrated ramp, documented as such), `dynamics.keyframes`
+  (a piecewise-linear 0..1 intensity curve -- the AMENDED continuous
+  intensity(t) function the duel-gauge decision asked for) and
+  `dynamics.crescendos` (discrete markers layered on the same curve).
+  `createSequencer(ctx, destination, piece, opts)` returns an instance with
+  `play/pause/stop`, `setTempoScale` (the tempo-scale hook, rebases
+  scheduling with no discontinuity -- verified in a unit test), `currentBeat`,
+  `getIntensity`, `on/off` for three events (`crescendo-approaching`,
+  `crescendo-peak`, `piece-ended`), and `_tick` exposed intentionally (same
+  "internal but testable" convention as `Game._advanceFloor`) so a test can
+  drive the scheduler against a manually-advanced fake clock instead of
+  real timers -- this IS the "mocked clock" the ticket's VERIFY line asks
+  for. Beat<->time conversion is ANCHOR-based (recomputed from a fixed
+  anchor beat/time pair + the piece's own tempo breakpoints, never by
+  summing per-tick deltas), which is what makes "no drift over minutes"
+  architecturally true rather than just hoped for -- though only actually
+  exercised over ~4 real/mocked seconds in tests, not literally minutes;
+  flagging that gap honestly rather than claiming more than was checked.
+  Deliberately dependency-injects the AudioContext AND a destination
+  GainNode rather than creating its own or connecting to `ctx.destination`
+  directly -- this is how "reuse the existing... master gain/mute/volume
+  plumbing" is actually satisfied: whoever wires this into combat (DUEL-GAUGE
+  COMBAT) passes game.js's real `musicGainNode`, and mute/volume works with
+  zero new code in music.js. The one place this diverges from a literal
+  reading of "reuse the existing audio module's synth voices": music.js's
+  oscillator-voice function (`playVoice`) is NEW code, not game.js's private
+  `playTone`/`playCombatSound` -- those are unexported closures game.js never
+  made callable from outside, and duplicating vs. exporting them wasn't
+  obviously the right call to make unilaterally (touching game.js's existing
+  SFX functions for a module that has no caller yet felt like scope creep).
+  Flagged in GOALS.md for Jaxon/a future run to weigh, not hidden.
+- `js/wordbound/pieces/mountain-king.js` -- the proof piece: "In the Hall of
+  the Mountain King" (Grieg). PD vetting re-confirmed here (already vetted
+  in THEME.md's table): composed 1875, Grieg died 1907, 119 years ago as of
+  2026 -- safely public domain on both the pre-1930 and 70-years-dead bars.
+  Hand-authored transcription (documented plainly as such, not a scholarly
+  edition) of the piece's famous construction: the 8-note rising-then-
+  falling B-minor motif, four escalating statements (16 beats each, 64
+  beats total) climbing in velocity and tempo (100bpm -> 210bpm via 5 tempo
+  breakpoints) with bass doubling joining from the third statement on
+  (mirrors the real piece's gradual orchestration buildup), capped by an
+  8-beat prestissimo coda. THEME.md's own description --  "a single
+  unbroken accelerando... in one long ramp with no cool-down" -- is modeled
+  literally: `dynamics.keyframes` is one continuous convex ramp from beat 0
+  to the coda's peak, and `dynamics.crescendos` carries exactly ONE marker
+  spanning nearly the whole piece (`startBeat:0, peakBeat:71`), not several
+  discrete spikes -- this is a genuinely good match between the engine's
+  format and the piece's real character, not a forced fit.
+  `stageTier: 'mid'` is a flagged balance judgment call (not naming/feel):
+  this is the first of three floor bosses, meaningfully tougher than
+  early-tier regulars but well below the Valkyrie Marshal ('late') or the
+  Maestro (final boss, 'final') -- reasoning is in the file's own header
+  comment, freely revisable.
+- Wired both into `src/main.jsx`, `src/test/setup.js`, and `wordbound.html`
+  (same script-tag/import convention every other engine module uses) so
+  `window.Wordbound.Music`/`window.Wordbound.Pieces.mountainKing` exist
+  consistently everywhere -- even though nothing calls into Music yet (that
+  really is DUEL-GAUGE COMBAT's job, the next unchecked ticket, not a gap in
+  this one).
+- **Real bug caught and fixed before landing:** `tools/build-itch.js` keeps
+  an explicit (deliberately non-glob, "fail loudly if it drifts" per its own
+  header comment) file list for the itch.io zip -- adding the two new files
+  without updating that list would have silently shipped an itch build
+  missing `music.js`/`pieces/mountain-king.js`. Caught by actually running
+  `npm run test:itch-build` (not skipped), which failed with real 404s
+  against the unzipped build in a real browser exactly as the script's own
+  design intends. Fixed by adding both paths to `DEPENDENCIES`; reran clean.
+
+**Verified:**
+- `npx vitest run src/test/music.test.js`: 12/12, new file -- covers
+  intensityAt interpolation/clamping, constant-tempo and breakpoint-tempo
+  beat/time conversion, a multi-tick round-trip check for drift, tempoScale
+  rebase correctness (no discontinuity, correct new rate), event firing
+  (`crescendo-approaching` at exactly `peakBeat - leadBeats`, `crescendo-peak`
+  at `peakBeat`, `piece-ended` exactly once at `lengthBeats`, `off()` really
+  removing a listener), and mute/volume delegation (every scheduled note's
+  gain connects to the caller's `destination` node, never `ctx.destination`
+  directly) -- all against a hand-built fake AudioContext with a manually
+  advanced `currentTime`, `{ autoTick: false }`, driven via `_tick()`
+  directly (the "mocked clock" the ticket's VERIFY line asks for).
+- Full `npx vitest run`: **2 consecutive clean runs, 69/69 both times, zero
+  flakes** (the pre-existing STRUCTURAL-14/15/16/N flake class stays fixed,
+  confirming this run's changes didn't reintroduce it).
+- `npm test` (jsdom dom-check, `wordbound.html`): ALL CHECKS PASSED --
+  confirms the two new `<script>` tags are true no-ops there (nothing calls
+  into Music yet).
+- `npm run build`: clean, 41 modules (up from 39), same pre-existing
+  chunk-size notice.
+- `npm run test:music-engine` (NEW, `test/verify-music-engine.js`, added
+  this run, committed not throwaway): real Chromium, real `vite build`
+  output statically served, never dev server. Confirms both new globals
+  exist on the built app; a REAL `AudioContext` accepts a sequencer for the
+  full Mountain King piece; `play()` schedules real `OscillatorNode`s (every
+  one actually reached `.start()`) and real `GainNode`s; `getIntensity()`/
+  `currentBeat()` return real, sane numbers as real wall-clock time passes;
+  the context reaches `'running'` after a real gesture (the resume-on-gesture
+  behavior carries over for free since music.js never creates its own
+  context); no note's gain connects straight to `ctx.destination` (mute/
+  volume routing is real, not just asserted against the unit test's fake
+  graph); `stop()` halts it; zero console/page errors, zero failed requests.
+  **Caught and fixed a real bug in the check script itself before it passed
+  cleanly** -- an ordering mistake (`destination.connect(ctx.destination)`
+  called before `window.__seqDest` was assigned) made the probe's own
+  exclusion check miss the test's OWN destination node and misreport a false
+  violation; root-caused by reading the actual call order rather than
+  loosening the assertion, fixed by reordering, reran clean. **Ran the whole
+  script 2x consecutively after the fix: clean both times, zero flakes.**
+- `npm run test:mobile`, `npm run test:qa`, `npm run test:audio`, `npm run
+  test:drag-interrupt`, `npm run test:react-build`, `npm run test:react-qa`:
+  ALL CHECKS PASSED, unaffected -- confirms the new modules and the two
+  `main.jsx`/`setup.js`/`wordbound.html` import additions are true no-ops
+  for every existing screen/flow.
+- `npm run build:itch` + `npm run test:itch-build`: FAILED once for the real
+  reason described above (missing files in the itch zip's explicit
+  dependency list), fixed, then ALL CHECKS PASSED including the real-browser
+  404 check against the unzipped build.
+
+**Not verified / explicitly out of scope:** audible musicality (Jaxon's
+call, as always -- no speakers here); scheduling drift over literal minutes
+(only exercised over ~4-second spans; the anchor-based design should not
+drift by construction, but that's an architectural argument, not a minutes-
+long empirical one); any combat-layer integration (DUEL-GAUGE COMBAT's job,
+next in queue -- Music's event/intensity API was built specifically for it
+to subscribe to); only one piece is sequenced end-to-end, per the ticket's
+own "at least one" bar.
+
+**Judgment call, flagged plainly (same practice as STRUCTURAL's closing
+note):** checked MUSIC ENGINE off. Every bullet in the ticket and its
+VERIFY line are met by what's built and verified above. The two design
+choices worth Jaxon/a future run's eyes (new voice palette instead of
+literally reusing game.js's private synth functions; Mountain King's
+`stageTier: 'mid'`) are flagged in both GOALS.md and here, not hidden --
+neither blocks the engine from being real, working, and tested.
+
+**Current state:** `window.Wordbound.Music` and
+`window.Wordbound.Pieces.mountainKing` exist and work, verified against both
+a mocked clock (exact scheduling math) and a real browser AudioContext
+(real node creation, no errors) -- but nothing in the actual game calls into
+either yet. `wordbound.html` and the React app both remain fully intact and
+unaffected. **Next:** DUEL-GAUGE COMBAT is the first unchecked GOALS.md item
+as of this commit -- the signature mechanic this engine's event/intensity
+API was built for, and now genuinely unblocked. COMBAT JUICE remains
+available as lower-priority, opportunistic pickup.
