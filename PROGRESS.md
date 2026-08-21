@@ -337,3 +337,93 @@ starts, worth thinking through up front rather than mid-port. Vitest/RTL
 test migration (sub-step 3) can reasonably start once there's real
 stateful behavior worth testing — the character-select run-start flow is
 probably the first candidate.
+
+## 2026-08-21T11:47Z — STRUCTURAL 3/5: character select ported to React (orchestrator)
+
+**Housekeeping first:** session started with local `main` detached (HEAD
+matched the tip of the previous run's push, but the local `main` ref was 7
+commits behind `origin/main`). Same benign pattern as the last two runs —
+purely a local artifact of how the environment container was recreated, no
+data at risk. `git checkout main && git merge --ff-only` fast-forwarded the
+ref to match; nothing was rewritten or lost.
+
+**What was done:** continued the STRUCTURAL ticket (React + Vite migration)
+per the previous run's "Next" note — ported the real character-select
+screen:
+- `src/components/CharacterSelect.jsx`: React port of
+  `#screen-character-select` (title, seed input, character cards, Back to
+  Menu). Character roster comes from the EXISTING `js/wordbound/characters.js`
+  — a self-contained IIFE with zero engine dependencies, imported once in
+  `src/main.jsx` as a side effect (same pattern as `achievements.js` last
+  run) and read directly via `window.Wordbound.Characters`. Cards are real
+  buttons (`role="button"`, `tabIndex`, Enter/Space handling) instead of the
+  vanilla version's plain click-only `<div>`, since React gave a natural
+  chance to make them keyboard-accessible for free — the only behavior not
+  a strict 1:1 port, and a strict improvement.
+- `src/components/RunPlaceholder.jsx` (replaces
+  `CharacterSelectPlaceholder.jsx`, deleted): picking a character can't
+  start a real run yet — `Game.startRun` in `js/wordbound/game.js` drives
+  the run/combat/map screen, which is `game.js`'s ~3400-line state machine
+  and is NOT ported (that's the next, much bigger STRUCTURAL sub-step, not
+  this one). Rather than a dead click or a faked run, `App.jsx` now routes
+  to an honestly-labeled placeholder that echoes back the picked character's
+  name and the trimmed seed, proving the selection was actually read, and
+  points at `wordbound.html` for an actual playable run — same "keep every
+  commit working, don't jump ahead" approach as the main-menu run's
+  character-select placeholder.
+- `src/App.jsx`: added `pendingRun` state (`{ characterName, seed }`) and a
+  `run-placeholder` screen, wired `CharacterSelect`'s `onSelect` to resolve
+  the character name via `Characters.getCharacter` before handing off.
+- `src/main.jsx`: added the `characters.js` side-effect import alongside
+  the existing `achievements.js` one.
+- Reused existing CSS classes (`.character-select-panel`,
+  `.seed-input-row`, `.character-choices`, `.character-option`,
+  `.character-name`, `.character-description`) — no new styling needed, same
+  visual-parity approach as the main-menu port.
+
+**Verified:**
+- `npm run build`: clean (22 modules, no warnings). Had to `npm install`
+  first — the session's `node_modules` wasn't present at start (fresh
+  container), installed clean with 0 vulnerabilities.
+- Real-browser check (Playwright, `/opt/pw-browsers/chromium`, served build
+  via `npm run preview`): New Run → character-select renders exactly 3 cards
+  with the correct names (Archivist, Scribe, Keeper); typed a seed, clicked
+  the Scribe card → landed on the run placeholder with "The Scribe" as the
+  heading and the typed seed echoed in the body text; Back to Menu from both
+  the placeholder and character-select itself correctly returns to the main
+  menu; ZERO console/page errors across the whole click-through. Throwaway
+  script deleted after.
+- `npm test` (jsdom dom-check, 100+ assertions): ALL CHECKS PASSED —
+  unaffected, `wordbound.html`/`js/wordbound/*` weren't touched (only a new
+  side-effect import of an already-untouched module).
+- `npm run test:mobile`: all layouts OK (375/414px), touch-mode input OK.
+- `npm run test:qa`: ALL CHECKS PASSED, zero console/page errors.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+  (16/16 dom-check against the unzipped build, zero 404s, `window.Wordbound.
+  Game` present in a real browser).
+
+**Not verified / not applicable:** no Vitest/RTL migration yet (ticket
+sub-step 3, still correctly deferred — GOALS.md's MANDATORY VERIFICATION
+header stays untouched until that lands); no component-level unit tests for
+`CharacterSelect`/`RunPlaceholder` since that harness doesn't exist yet —
+full real-browser click-through covers them for now, same as the previous
+two screens.
+
+**Current state:** three real screens now port complete (main menu,
+how-to-play, character select) plus an honest run-screen placeholder that
+carries the player's actual pick through; `wordbound.html` remains untouched
+and is still the actual playable game; `npm test` and friends all green.
+
+**Next:** the run screen (combat/map/panels) is the ticket's big remaining
+piece — `game.js`'s ~3400 lines of intertwined state (RNG, floor generation,
+combat resolution, item hooks, achievements tracking, DOM rendering all
+interleaved) backing `#screen-run`. Per the previous run's note, this
+deserves a state-shape design pass BEFORE porting starts: what becomes React
+`useState`/`useReducer` state vs. what stays a plain-JS module function
+Game.* calls into. Given the size, it's worth landing incrementally — e.g.
+first get `Game.startRun` wired to real state without any UI (prove the
+plain-JS/React boundary holds for the stateful case), then the map, then
+combat panel, then the reward panels — rather than one giant run. Vitest/RTL
+test migration (sub-step 3) is overdue to start alongside this, since the
+run screen is exactly the kind of stateful behavior worth real component
+tests rather than only Playwright click-throughs.
