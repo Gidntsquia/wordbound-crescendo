@@ -199,13 +199,37 @@ Rules for the routine:
       modules end-to-end (no mocks), see `src/components/__tests__/*.test.jsx`.
       GOALS.md's MANDATORY VERIFICATION header now requires `npm run test:react`
       alongside `npm test` (dom-check still covers wordbound.html, unretired
-      until full parity per that header's own note). NOT yet ADDED this run:
-      Playwright's `test:mobile`/`test:qa`/`test:itch-build` scripts still only
-      target wordbound.html, not the Vite/React app — porting THOSE (or adding
-      React-app equivalents) is real remaining sub-step-3 scope, not done yet.
-      Resume the actual screen ports (GAME_OVER/VICTORY are the only two
-      `renderRun()`-family screens left unported) with a Vitest/RTL test
-      landing alongside each one, per this sub-step's original instruction.
+      until full parity per that header's own note).
+      ORCHESTRATOR NOTE 2026-08-21 (update 2): GAME_OVER and VICTORY are now
+      ported too (`RunScreen.jsx`'s `GameOverScreen`/`VictoryScreen` +
+      shared `RunStatsSummary`, direct ports of game.js's renderGameOver()/
+      renderVictory()/renderRunStats()) — every `renderRun()`-family screen
+      now has a real React port. Unlike the reward/shop/event family (which
+      are sub-panels WITHIN #screen-run and keep the run header/message-log
+      visible), GAME_OVER/VICTORY are genuinely separate top-level screens in
+      vanilla (render()'s early-return dispatch swaps #screen-run out
+      entirely) — RunScreen.jsx now returns them BEFORE the run-header
+      wrapper to match, confirmed by a real-browser check that the ink/gold/
+      floor header and message log are gone on GAME_OVER. Sub-step 1 (screen
+      porting) is DONE. Still open, real remaining STRUCTURAL scope: (a)
+      Playwright's `test:mobile`/`test:qa`/`test:itch-build` scripts still
+      only target wordbound.html, not the Vite/React app — porting THOSE (or
+      adding React-app equivalents) is sub-step 3's last piece; (b)
+      real-browser verification on the BUILT output (not just dev server);
+      (c) tile-staging/drag system + per-hit animations (noted open by
+      earlier runs, untouched since). NOTE for whichever run tackles (a)/(b):
+      Game.* test hooks (e.g. `Game._advanceFloor`) called via
+      `page.evaluate` OUTSIDE the UI's real click handlers skip React's
+      re-render entirely (RunScreen.jsx's own `act`/`bump` header comment
+      explains why — `bump` is the only thing that triggers a re-render, and
+      it only runs from a real UI action) — a real Playwright screen-content
+      check needs a real UI-driven path to the target state (e.g. an actual
+      boss kill on floor 3 for VICTORY), not a direct engine-hook shortcut,
+      or it'll assert against a stale DOM. This run hit exactly that gap
+      trying to smoke-check VICTORY's live re-render (see PROGRESS.md) — the
+      Vitest/RTL test for it sidesteps the gap by mutating state BEFORE the
+      component's first render, which is valid in a fresh test render but
+      doesn't generalize to an already-mounted page.
       VERIFY: migrated `npm test` (Vitest/RTL) clean, Playwright QA + mobile
       ports clean, real-browser boot + full fight on the built output (not just
       dev server). Minor bump.

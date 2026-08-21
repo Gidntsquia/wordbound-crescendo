@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import RunScreen from '../RunScreen.jsx';
-import { freshRun, findNodeIdByType, findAvailableCombatNodeId } from '../../test/gameHelpers.js';
+import { freshRun, findNodeIdByType, findAvailableCombatNodeId, pickPlayableWord } from '../../test/gameHelpers.js';
 
 // A fixed seed makes the floor's LAYOUT (node types, lanes, edges) fully
 // deterministic, but NOT the literal node ids -- floor.js's node id counter
@@ -84,9 +84,13 @@ describe('RunScreen -- screen routing', () => {
     expect(screen.getByRole('button', { name: 'Leave Shop' })).toBeInTheDocument();
   });
 
-  it('falls back to the honest "not ported yet" placeholder for an unported screen', () => {
+  it('falls back to the honest "not ported yet" placeholder for an unrecognized screen', () => {
     const state = freshRun(SEED);
-    state.screen = 'GAME_OVER'; // GAME_OVER/VICTORY are the remaining unported screens
+    // Every real renderRun()-family screen is ported as of this run (GAME_OVER
+    // and VICTORY included -- see the dedicated tests below), so there's no
+    // genuine unported screen left to set here. This synthetic value only
+    // exercises the defensive fallback branch itself.
+    state.screen = 'NOT_A_REAL_SCREEN';
     render(<RunScreen onBackToMenu={() => {}} />);
     expect(screen.getByText(/isn't ported to React yet/)).toBeInTheDocument();
   });
@@ -140,5 +144,71 @@ describe('RunScreen -- screen routing', () => {
     // and the node resolved back to RUN via finishEvent().
     expect(state.deck.length).toBe(startingDeckSize - 1);
     expect(state.screen).toBe('RUN');
+  });
+});
+
+describe('RunScreen -- GAME_OVER / VICTORY', () => {
+  it('running out of ink resolves to a real GAME_OVER screen (no run header), and Main Menu returns to the menu', async () => {
+    const state = freshRun(SEED);
+    const user = userEvent.setup();
+    window.Wordbound.Game.enterCurrentNode(findAvailableCombatNodeId(state));
+    expect(state.combatActive).toBe(true);
+    let backToMenuCalled = false;
+    render(<RunScreen onBackToMenu={() => { backToMenuCalled = true; }} />);
+
+    // game.js's own player-death check (`state.player.ink <= 0`) fires
+    // synchronously right after a word is scored -- BEFORE the monster's
+    // counterattack even rolls (see the "Cursed Quill" comment above that
+    // check in game.js) -- so zeroing ink first makes death deterministic
+    // regardless of which word or monster intent RNG lands, and needs no
+    // fake timers: submitWord -> endRun(false) all resolve inline.
+    state.player.ink = 0;
+    const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
+    await user.type(screen.getByPlaceholderText('Type or click letters...'), word);
+    await user.click(screen.getByRole('button', { name: 'Play Word' }));
+
+    expect(state.screen).toBe('GAME_OVER');
+    expect(state.combatActive).toBe(false);
+    expect(screen.getByText('The Well Ran Dry')).toBeInTheDocument();
+    expect(screen.getByText(`You reached floor ${state.floorNumber}.`)).toBeInTheDocument();
+    expect(screen.getByText(`Seed: ${SEED}`)).toBeInTheDocument();
+    // A real run-stats row from RunStatsSummary (ported from renderRunStats).
+    expect(screen.getByText('Words Spelled')).toBeInTheDocument();
+    // GAME_OVER is a genuinely separate top-level screen in vanilla, not a
+    // sub-panel of #screen-run -- the run header/message-log must be gone,
+    // matching render()'s early-return dispatch in game.js.
+    expect(screen.queryByText(/^Ink \d+ \/ \d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText('The Stacks are quiet.')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Main Menu' }));
+    // Same escape hatch backToMenu() gives the "abandon run" button: a real
+    // Game.returnToMainMenu() call plus the onBackToMenu callback so App's
+    // own screen state moves off "run" too.
+    expect(state.screen).toBe('MAIN_MENU');
+    expect(backToMenuCalled).toBe(true);
+  });
+
+  it('clearing every floor resolves to a real VICTORY screen with the run stats', async () => {
+    const state = freshRun(SEED);
+    const user = userEvent.setup();
+    // Floor.TOTAL_FLOORS is 3; Game._advanceFloor() is exposed specifically
+    // so tests can drive floor transitions without a full floor clear (see
+    // game.js's own comment on the hook) -- the 4th advance takes
+    // floorNumber past TOTAL_FLOORS, which is exactly endRun(true)'s real
+    // victory condition.
+    window.Wordbound.Game._advanceFloor();
+    window.Wordbound.Game._advanceFloor();
+    window.Wordbound.Game._advanceFloor();
+    expect(state.screen).toBe('VICTORY');
+
+    render(<RunScreen onBackToMenu={() => {}} />);
+    expect(screen.getByText('Victory!')).toBeInTheDocument();
+    expect(screen.getByText('You cleared all 3 floors. Wordbound complete.')).toBeInTheDocument();
+    expect(screen.getByText(`Seed: ${SEED}`)).toBeInTheDocument();
+    expect(screen.getByText('Floors Cleared')).toBeInTheDocument();
+    expect(screen.queryByText(/^Ink \d+ \/ \d+$/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Main Menu' }));
+    expect(state.screen).toBe('MAIN_MENU');
   });
 });

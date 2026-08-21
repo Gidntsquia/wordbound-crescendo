@@ -16,9 +16,13 @@ import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen, EventScreen, 
 // BOSS_ITEM_REWARD, EVENT (choices carry a live `disabledReason(state)`
 // check), and SHREDDER (multi-select-then-confirm, held by an EVENT choice's
 // `{ hold: 'SHREDDER' }` effect -- see RewardScreens.jsx's ShredderScreen).
-// GAME_OVER and VICTORY are NOT ported yet -- both still fall through to the
-// generic "not ported yet" placeholder below, reflecting the real resulting
-// Game._state (screen name) with a way back to the menu.
+// GAME_OVER and VICTORY (below, GameOverScreen/VictoryScreen) are direct
+// ports of game.js's renderGameOver()/renderVictory() + shared
+// renderRunStats() -- every `renderRun()`-family screen is now ported, so
+// the generic "not ported yet" placeholder is purely a defensive fallback
+// for an unrecognized state.screen value at this point (STRUCTURAL ticket's
+// sub-step 1, screen porting, is done; sub-steps 3-5 -- Playwright ports,
+// built-output verification, drag/animation follow-ups -- remain open).
 //
 // Game._state is a single mutable object the vanilla engine mutates in place
 // (not React state) -- see js/wordbound/game.js. `bump` is a force-update
@@ -44,6 +48,20 @@ export default function RunScreen({ onBackToMenu }) {
     // has no way to leave a fight without finishing it).
     act(Game.returnToMainMenu);
     onBackToMenu();
+  }
+
+  // GAME_OVER/VICTORY are genuinely separate top-level screens in vanilla
+  // (#screen-game-over/#screen-victory, swapped in for #screen-run wholesale
+  // by render()'s early-return dispatch -- see game.js) -- unlike the
+  // reward/shop/event family below, which are sub-panels WITHIN #screen-run
+  // and so keep the run header/message-log visible around them. Ending a run
+  // hides all of that, matching vanilla, so these get their own return
+  // before the run-header wrapper rather than a branch inside it.
+  if (state.screen === 'GAME_OVER') {
+    return <GameOverScreen state={state} Floor={Floor} onBackToMenu={backToMenu} />;
+  }
+  if (state.screen === 'VICTORY') {
+    return <VictoryScreen state={state} Floor={Floor} onBackToMenu={backToMenu} />;
   }
 
   const rewardOrShopScreen = state.screen === 'TREASURE' || state.screen === 'SHOP'
@@ -104,6 +122,73 @@ function MessageLog({ messages }) {
       {messages.length
         ? messages.map((m, i) => <div key={i}>{m}</div>)
         : <div className="message-log-placeholder">The Stacks are quiet.</div>}
+    </div>
+  );
+}
+
+// Same fallback game.js's renderRunStats() uses when a run somehow ends
+// with no runStats object yet (shouldn't happen post-startRun, but the
+// vanilla function guards it, so this does too).
+const DEFAULT_RUN_STATS = {
+  wordsPlayed: 0, bestWord: null, bestWordDamage: 0, totalDamage: 0,
+  monstersDefeated: 0, floorsCleared: 0, goldEarned: 0,
+};
+
+// Direct port of renderRunStats(): the same end-of-run stat rows, shared by
+// GameOverScreen and VictoryScreen below exactly as game.js's single
+// function serves both #game-over-run-stats and #victory-run-stats.
+function RunStatsSummary({ state, Floor }) {
+  const stats = state.runStats || DEFAULT_RUN_STATS;
+  const rows = [
+    ['Words Spelled', String(stats.wordsPlayed)],
+    ['Best Word', stats.bestWord ? `${stats.bestWord} (${stats.bestWordDamage} dmg)` : '—'],
+    ['Damage Dealt', String(stats.totalDamage)],
+    ['Loose Words Defeated', String(stats.monstersDefeated)],
+    ['Floors Cleared', `${stats.floorsCleared} / ${Floor.TOTAL_FLOORS}`],
+    ['Gold Earned', `${stats.goldEarned} 🪙`],
+  ];
+  return (
+    <div className="run-stats-summary">
+      {rows.map(([label, value]) => (
+        <div className="run-stat-row" key={label}>
+          <span className="run-stat-label">{label}</span>
+          <span className="run-stat-value">{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Direct port of renderGameOver(): same heading/copy/seed as
+// #screen-game-over, same "Main Menu" continue button (game.js wires
+// #btn-gameover-continue straight to Game.returnToMainMenu; here that's
+// `onBackToMenu`, RunScreen's own backToMenu, which also flips App's local
+// screen state since GAME_OVER is reached mid-run, still under RunScreen).
+function GameOverScreen({ state, Floor, onBackToMenu }) {
+  return (
+    <div className="screen">
+      <div className="panel">
+        <h1>The Well Ran Dry</h1>
+        <p>You reached floor {state.floorNumber}.</p>
+        <RunStatsSummary state={state} Floor={Floor} />
+        <p className="run-seed-display">Seed: {state.runSeed}</p>
+        <button className="btn btn-primary" onClick={onBackToMenu}>Main Menu</button>
+      </div>
+    </div>
+  );
+}
+
+// Direct port of renderVictory(): same heading/copy/seed as #screen-victory.
+function VictoryScreen({ state, Floor, onBackToMenu }) {
+  return (
+    <div className="screen">
+      <div className="panel">
+        <h1>Victory!</h1>
+        <p>You cleared all {Floor.TOTAL_FLOORS} floors. Wordbound complete.</p>
+        <RunStatsSummary state={state} Floor={Floor} />
+        <p className="run-seed-display">Seed: {state.runSeed}</p>
+        <button className="btn btn-primary" onClick={onBackToMenu}>Main Menu</button>
+      </div>
     </div>
   );
 }
