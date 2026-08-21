@@ -133,6 +133,18 @@ Rules for the routine:
       blocks; NOT default hearts unless nothing better fits — candidates in the
       bible's voice, e.g. verses, stanzas, quills, seals; pick one, flag for
       Jaxon) and the duel gauge itself.
+      AMENDED 2026-08-21 (Jaxon, guide + shopkeepers): the bible also casts the
+      words side's friendly faces. WILLIAM SHAKESPEARE is the player's initial
+      GUIDE — he sets the player on the quest. Write his voice (grandiose,
+      wordplay-drunk, quotable) and draft the quest-setting beats the intro
+      sequence will use. And design a SHOPKEEPER ROSTER of 4-6 FAMOUS AUTHORS
+      (long-dead public-domain personas only — historical figures, never modern
+      estates; candidates: Austen, Poe, Dickinson, Cervantes, Dickens, Wilde,
+      Homer — pick for variety of voice), each with: a distinct personality +
+      a few shop lines in their voice, ONE mechanical SHOP QUIRK concept, and
+      1-2 EXCLUSIVE-ITEM concepts flavored to them. The implementation ticket
+      below (SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS) builds all of this — the
+      bible is its source of truth.
       VERIFY: n/a (design doc) — but keep it consistent with what the engine can do.
 
 - [ ] STRUCTURAL: migrate to React + Vite (Jaxon's instruction — see header
@@ -267,6 +279,32 @@ Rules for the routine:
         winnable pre-recovery.
       VERIFY: `npm test` (stolen letters absent from draws, recovery persists
       across a simulated reload, display correct), sim sanity, `npm run test:qa`.
+
+- [ ] SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS (Jaxon, 2026-08-21): the friendly
+      faces of the words side are famous dead authors, per the bible's roster.
+      1. GUIDE INTRO: William Shakespeare delivers the quest-setting intro on a
+         new game / first run (who stole the letters, what the player must do),
+         fully in-character per the bible. Keep it SHORT and skippable (same
+         skip bar as boss cutscenes) and reuse the cutscene presentation layer
+         where it fits. If tutorial hint moments exist, he fronts those too.
+      2. SHOPKEEPERS: each shop visit is run by ONE author picked at random from
+         the bible's 4-6 roster (seeded off the run seed — same seed, same
+         keepers, so sims/tests stay reproducible; document whether the pick is
+         per-shop or per-run and why). Standard shop stock logic stays
+         underneath; each author LAYERS ON: their shop lines/personality, their
+         mechanical QUIRK (e.g. category discount, extra stock of a type,
+         cheaper rerolls — implement whatever the bible specced), and their
+         1-2 EXCLUSIVE ITEMS that appear only in their shop. COORDINATE with
+         the ITEMS ticket below: exclusives are either drawn from its pool or
+         added on top, but always with that ticket's same verification bar
+         (hook-level tests + sim sanity).
+      3. Woodcut portraits for Shakespeare and every roster author, shared
+         style, visible in the intro / shop UI respectively.
+      VERIFY: `npm test` (guide sequence renders + skips cleanly, seeded keeper
+      pick deterministic, each quirk asserts at hook level, exclusives appear
+      only in their author's shop), `npm run test:mobile` (shop layout with
+      portrait + dialogue), Playwright smoke: intro click-through + one shop
+      visit per author.
 
 - [ ] ITEMS, Jaxon's four + batch: implement Jaxon's four exactly, then round out
       to 8-12 with music-space designs. His four (names are placeholders, use the
