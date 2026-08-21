@@ -738,3 +738,93 @@ migration (sub-step 3) keeps getting more overdue as more real interactive
 behavior (submitWord's async resolution timing, in particular) accumulates
 that's currently only checked by ad-hoc Playwright throwaway scripts
 instead of a committed, repeatable test.
+
+## 2026-08-21T14:55Z — STRUCTURAL (6/N): treasure/shop/tile-reward/boss-reward panels ported to React (orchestrator)
+
+**Repo-health fix before any feature work:** found this session's `HEAD` in a
+detached state, ten commits ahead of local **and** remote `main`
+(`f98ff83`..`f6b6136`, the entire STRUCTURAL 1-5 React-port sequence from
+prior runs). Those commits existed only on the detached HEAD — not reachable
+from any branch — meaning they were never actually pushed and were one
+container reclaim away from being lost, despite PROGRESS.md and the git log
+both looking complete. Confirmed it was a clean fast-forward
+(`git merge-base --is-ancestor f98ff83 f6b6136` → yes), reset local `main` to
+that commit (`git checkout -B main f6b6136`), and pushed — `origin/main` now
+correctly carries all prior work. Root cause not investigated (likely a prior
+run/container checked out a bare commit instead of `main`); flagging so a
+future run watches for this — **check `git branch`/`git status` for a
+detached HEAD before starting work**, not just `git log`.
+
+**What was done:** ported the four "pick from a list" screens from
+`game.js`'s `renderTreasure()`/`renderShop()`/`renderTileReward()`/
+`renderBossReward()` to React, per the previous run's own "Next" note
+(TILE_REWARD flagged as highest-value: reachable after literally every
+fight, not just bosses').
+- `src/components/RewardScreens.jsx` (new): `TreasureOrShopScreen` (handles
+  both `TREASURE` and `SHOP` — same underlying panel in the vanilla markup,
+  differing only in heading/options/a trailing "Leave Shop" button and the
+  optional premium-tile offer row), `TileRewardScreen`, `BossRewardScreen`.
+  All four call the real, synchronous `Game.*` action functions
+  (`pickTreasureItem`, `buyItem`, `buyShopTile`, `leaveShop`,
+  `pickTileReward`, `skipTileReward`, `pickBossItemReward`,
+  `skipBossItemReward`) — confirmed by reading `game.js` that none of these
+  resolve inside a `setTimeout` (unlike `submitWord`), so no async-bridging
+  was needed, unlike `CombatScreen`'s counterattack handling.
+- `src/components/RunScreen.jsx`: routes `state.screen === 'TREASURE' |
+  'SHOP' | 'TILE_REWARD' | 'BOSS_ITEM_REWARD'` to the new components ahead
+  of the generic `NodePlaceholder`, and updated its own header comment.
+  `EVENT` (choices carry a live `disabledReason(state)` check — a different
+  shape than a static def-id list) and `SHREDDER` (multi-select-then-confirm)
+  are explicitly NOT ported this run — both still fall through to the
+  placeholder.
+
+**Verified:**
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED — unaffected,
+  since this run only touched React components, no `game.js`/`wordbound.html`
+  changes.
+- `npm run build`: clean, 38 modules.
+- Real-browser Playwright (`vite preview` against the built app, throwaway
+  script deleted after): scripted a real player through `New Run` → combat
+  (forced the monster to 1 HP before each fight to guarantee a fast,
+  reliable kill — combat's own damage math/win-loss paths were already
+  verified by the previous run's smoke test, so this run only needed a
+  dependable way to *reach* the reward screens) → clicking real node-map
+  pills and real buttons throughout. Across a few runs against random
+  (unseeded) floors: confirmed **TILE_REWARD** (3 tile choices rendered,
+  picking one correctly resolves back to the map, `combatActive` false),
+  **TREASURE** (3 item choices, picking one advances the map), and in one
+  run that happened to route through both, **SHOP** (4 item/consumable
+  choices + "Leave Shop" button, correctly re-enabled/disabled by
+  affordability) and **BOSS_ITEM_REWARD** (3 item choices + a working
+  "Skip" button) — all reached via real node-map clicks, all resolved
+  correctly, zero console/page errors in every run.
+- Not itself modified, so not re-run: `test:mobile`/`test:qa`/`test:itch-
+  build` (these target `wordbound.html`, which this run didn't touch).
+
+**Not verified:** the shop's premium variant-tile offer row (`shopTileOffer`
+— rolls at a fixed 40% chance, didn't come up in the runs that reached SHOP);
+EVENT/SHREDDER remain unported, not attempted.
+
+**Current state:** a full run's core loop — fight, get a tile reward,
+find treasure, shop, beat a boss for an item reward — is now playable
+start-to-finish through the Vite/React app for every path that doesn't
+cross an EVENT or SHREDDER node. `wordbound.html` remains fully intact and
+unchanged as the complete reference implementation.
+
+**Next:** EVENT and SHREDDER are the last two `renderRun()` sub-panels
+standing between "most of a run is playable" and "all of it is" — EVENT
+needs per-choice `disabledReason(state)` evaluation (a small but genuinely
+different pattern from the other four), SHREDDER needs multi-select-then-
+confirm state (a local "picked tile ids" set, mirrored against
+`state.shredderSelection`/`Game.toggleShredderTile`/a confirm action). After
+those: GAME_OVER/VICTORY screens (`renderGameOver()`/`renderVictory()`,
+currently unreached in React since `render()`'s early-return means React
+never even calls them — worth confirming what currently happens when a
+React-driven run's player dies or wins the last floor, since neither screen
+has a React component or route yet), the tile-staging/drag system, and the
+per-hit animations remain the same real, scoped follow-ups noted by the
+last two runs. Vitest/RTL migration (STRUCTURAL sub-step 3) is now
+significantly overdue — every run since scaffold has added more real
+interactive behavior verified only by throwaway Playwright scripts instead
+of a committed, repeatable test; strongly consider making it the very next
+pick over further screen ports.
