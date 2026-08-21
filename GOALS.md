@@ -382,6 +382,91 @@ Rules for the routine:
       unchecked -- (c) is the only piece left before the ticket's stated
       acceptance bar ("full feature parity... no vanilla-DOM rendering
       left") is met.
+      ORCHESTRATOR NOTE 2026-08-21 (update 7): picked up remaining scope
+      (c)'s step 1 exactly as scoped by update-6's PROGRESS.md "Next" note --
+      "wire touch-mode detection into the React app... currently entirely
+      missing, and nothing touch-specific can be meaningfully tested without
+      it." `src/main.jsx` now calls `Game.applyTouchModeFromMedia()` once at
+      module load and registers the live `matchMedia('(pointer: coarse)')`
+      change listener, exactly mirroring the two calls `wordbound.html`'s
+      full `Game.init()` makes (still not called by React, for the reason
+      already documented) -- confirmed both calls are safe as-is with no
+      `game.js` change needed: `applyTouchModeFromMedia`'s only DOM touches
+      (`$('howto-blank-tip')`, `document.body`) are already null-guarded or
+      universally present, and grepped `css/wordbound.css` to confirm the
+      one CSS rule keyed off `.touch-mode` (`#word-input` hidden) targets an
+      id that doesn't exist in the React tree, so toggling the class is a
+      currently-invisible no-op there, not a behavior change -- safe to land
+      ahead of the tile-staging rebuild it's a prerequisite for.
+      `src/test/setup.js` mirrors the same call (confirmed a guaranteed
+      no-op in jsdom, which has no `window.matchMedia` --
+      `test/dom-check.js`'s own existing comment already established this,
+      re-confirmed directly this run: `typeof new JSDOM(...).window.matchMedia
+      === 'undefined'`). State.touchMode was always `false` in the React app
+      before this, regardless of device -- the one real behavior change is
+      `CombatScreen.jsx`'s pre-existing `if (!state.touchMode)
+      inputRef.current?.focus()` guards (in `submit`/`clearWord`) becoming
+      reachable for real: a touch device no longer gets its word input
+      silently re-focused (and its soft keyboard silently popped) after every
+      play. New Vitest/RTL test (`CombatScreen.test.jsx`) sets
+      `state.touchMode = true` directly (jsdom can't drive the matchMedia
+      detection itself) and confirms a real word play doesn't return focus to
+      the input. New real-browser checks in `test/verify-react-build.js`
+      (built-output only, per this ticket's established bar): default/fine-
+      pointer Chromium confirms `state.touchMode` stays `false` and
+      `<body>` gets no `.touch-mode` class (the desktop path, unaffected);
+      the same in-page `matchMedia` mock `test/verify-mobile-layout.js`
+      already uses for `wordbound.html`'s own touch-mode check (via
+      `page.addInitScript` + a page reload, since detection only runs once
+      at module load) confirms the coarse-pointer path flips both; then a
+      real UI-driven fight + word play confirms the input genuinely isn't
+      re-focused. Ran `npm run test:react-build` clean twice in a row (no
+      flakes). `npm run test:react-qa` and `npm run build` also clean.
+      Touch-mode detection was the correct, narrowly-scoped piece to land on
+      its own: it's a real, testable behavior change (not dead code, unlike
+      the blank-picker update-6 correctly identified) and it's the literal
+      prerequisite update-6's own "Next" note named for step 2 (rebuilding
+      `CombatScreen.jsx`'s word-entry model around `state.selectedTileIds`).
+      **Separately found while running the full suite repeatedly to confirm
+      no regression, NOT caused by this run's changes (isolated by `git
+      stash`-ing this run's diff and reproducing on the unmodified base
+      commit `9ac7911`, 3 runs, ~2/3 failure rate there too):** `npx vitest
+      run`'s `CombatScreen.test.jsx` "the combo chip gets combo-chip-bump..."
+      test is genuinely flaky when the FULL 7-file suite runs together (not
+      in isolation -- 10/10 clean every time run alone), roughly 1 run in 3.
+      Debugged one step further than the STRUCTURAL-14/N audio flake note
+      did: added temporary logging and caught it failing 3 times -- every
+      failure showed the SAME signature (word "RADIO", monster "Quoth" at
+      unchanged HP 52, `comboState.usedWords` still empty), meaning
+      `Game.submitWord` was never actually invoked for that play -- the
+      simulated type+click sequence itself didn't register, not a game-logic
+      or seeded-RNG determinism issue. Points at a `userEvent`/RTL timing
+      interaction between test files in the same suite (e.g. a stale real
+      `setTimeout` or async cleanup racing a later file's render) rather than
+      anything in the engine. Not investigated further -- root-causing a
+      cross-file Vitest timing race is a genuinely separate, potentially
+      sizable ticket of its own, well outside this run's bounded touch-mode
+      scope, and every other test (44 total now) is unaffected and consistent.
+      Flagging concretely for whoever picks it up: reproduce with `for i in
+      1 2 3 4 5; do npx vitest run; done` (full suite, not just the one
+      file) and expect roughly 1-2 failures; the fix is almost certainly in
+      test isolation/cleanup (a real `setTimeout` from a prior test's
+      `CombatScreen` `pendingResolveRef` outliving RTL's automatic unmount,
+      or a `userEvent` internal timer), not in `combat.js`'s combo logic,
+      which this run confirmed behaves correctly every time the test's own
+      preconditions actually hold. `npm run test:react`'s mandatory-gate
+      status is NOT reliable as a single run today because of this -- a
+      future run should either fix it or, at minimum, note the retry
+      convention it needs until it's fixed.
+      Remaining scope (c), narrowed further: step 1 (this run) is done. Step
+      2 (rebuild `CombatScreen.jsx`'s word-entry model around
+      `state.selectedTileIds`, exposing small `Game.*` wrappers around
+      `selectTileForWord`/`unstageTile`/`openBlankPicker`/
+      `closeBlankPicker`/`assignBlankLetter`/`startTouchReorder`/
+      `reorderRackOnDrop`, same pattern as update-4's audio wrappers) is the
+      next piece and is still substantial -- treat as its own run. Once
+      staging exists, the blank-picker overlay and pointer/touch drag
+      reordering both become portable on top of it, per update-6's note.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

@@ -31,6 +31,28 @@ import App from './App.jsx';
 // on Game._initDependencies (js/wordbound/game.js) for why the split exists.
 window.Wordbound.Game._initDependencies();
 
+// MOBILE INPUT 1/3, STRUCTURAL remaining-scope (c) step 1 (GOALS.md): detect
+// coarse-pointer (touch) devices and keep state.touchMode live, mirroring
+// the same two calls wordbound.html's full Game.init() makes (that function
+// itself is NOT called here -- see the comment above -- so this was the one
+// piece of it React genuinely needed re-wired). applyTouchModeFromMedia is
+// already null-guarded against every legacy element id it touches
+// (#howto-blank-tip, #howto-audio-tip) and toggling document.body's class is
+// harmless with no #word-input in this tree, so this is safe to call as-is;
+// no game.js change needed. Without this, state.touchMode was always false
+// in the React app regardless of device, which CombatScreen.jsx's own
+// `if (!state.touchMode) inputRef.current?.focus()` calls silently depended
+// on being wrong (always desktop-focusing, even on a touch device where
+// stealing focus pops the soft keyboard unwantedly). Feature-checked so
+// environments without matchMedia (jsdom) stay a no-op, same as vanilla.
+window.Wordbound.Game.applyTouchModeFromMedia();
+if (window.matchMedia) {
+  const coarseMql = window.matchMedia('(pointer: coarse)');
+  const onPointerChange = () => window.Wordbound.Game.applyTouchModeFromMedia();
+  if (coarseMql.addEventListener) coarseMql.addEventListener('change', onPointerChange);
+  else if (coarseMql.addListener) coarseMql.addListener(onPointerChange); // older Safari
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />

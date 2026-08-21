@@ -187,6 +187,72 @@ async function main() {
 
     check('zero console/page errors across the whole playthrough', consoleErrors.length === 0);
     consoleErrors.forEach((e) => console.log('  CONSOLE ERROR:', e));
+
+    // MOBILE INPUT 1/3, STRUCTURAL remaining-scope (c) step 1 (GOALS.md):
+    // main.jsx now calls Game.applyTouchModeFromMedia() + registers the live
+    // matchMedia('(pointer: coarse)') listener at module load, mirroring
+    // wordbound.html's own Game.init() wiring -- previously nothing called
+    // it in the React app, so state.touchMode was always false regardless of
+    // device. Real Chromium reports a fine pointer by default (no mock
+    // needed) to prove the *default* (desktop) path first, then the same
+    // in-page matchMedia mock test:mobile's own touch-mode check uses
+    // (test/verify-mobile-layout.js) proves the coarse-pointer path -- a
+    // fresh page load is required since the detection call only runs once,
+    // at module load.
+    check('desktop (fine pointer): state.touchMode is false, no <body>.touch-mode class', await page.evaluate(() =>
+      window.Wordbound.Game._state.touchMode === false && !document.body.classList.contains('touch-mode'),
+    ));
+
+    await page.addInitScript(() => {
+      window.matchMedia = (q) => ({
+        matches: /coarse/.test(q), media: q,
+        addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+      });
+    });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.Wordbound?.Game, { timeout: 15000 });
+    check('coarse pointer (mocked matchMedia): state.touchMode is true, <body> gets .touch-mode', await page.evaluate(() =>
+      window.Wordbound.Game._state.touchMode === true && document.body.classList.contains('touch-mode'),
+    ));
+
+    // Real functional consequence of touch-mode now being wired: CombatScreen
+    // skips re-focusing the word input after a play (stealing focus would pop
+    // the soft keyboard). Reach a fresh fight through real UI clicks again
+    // (state was reset by the reload above) and confirm the input is NOT the
+    // active element right after a real word submit.
+    await page.click('button:has-text("New Run")');
+    await page.waitForSelector('#screen-character-select');
+    await page.fill('#run-seed-input', SEED);
+    await page.click(`.character-option:has-text("${CHARACTER_NAME}")`);
+    await page.waitForSelector('.node-map');
+    await page.evaluate(() => {
+      const pill = Array.from(document.querySelectorAll('.node-pill.node-combat.node-current'))[0];
+      if (pill) pill.click();
+    });
+    await page.waitForSelector('.word-input-row', { timeout: 5000 });
+    const touchWord = await page.evaluate((candidates) => {
+      const { Combat } = window.Wordbound;
+      const state = window.Wordbound.Game._state;
+      for (const w of candidates) {
+        const preview = Combat.previewWord(state.player, state.monster, w, state.comboState, {
+          previousWord: state.previousWordThisFight,
+          wordsPlayedThisFight: state.wordsPlayedThisFightCount,
+          hexedTileId: state.hexedTileId,
+          overcharge: state.overchargeArmed,
+        });
+        if (preview && preview.valid) return w;
+      }
+      return null;
+    }, WORD_CANDIDATES);
+    check('a playable word was found for the touch-mode focus check', !!touchWord);
+    if (touchWord) {
+      await page.fill('input[placeholder="Type or click letters..."]', touchWord);
+      await page.click('button:has-text("Play Word")');
+      await page.waitForTimeout(150);
+      check('touch-mode: word input is not re-focused after a play (no soft-keyboard steal)', await page.evaluate(() =>
+        document.activeElement !== document.querySelector('input[placeholder="Type or click letters..."]'),
+      ));
+    }
   } finally {
     if (browser) await browser.close();
     server.close();

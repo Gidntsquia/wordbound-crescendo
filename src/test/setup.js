@@ -31,3 +31,12 @@ import '../../js/wordbound/game.js';
 // the rest of Game.init(), which binds listeners to legacy wordbound.html
 // element ids that don't exist in a React (or test) tree.
 window.Wordbound.Game._initDependencies();
+
+// Mirrors main.jsx's touch-mode wiring (STRUCTURAL remaining-scope (c) step
+// 1). jsdom has no window.matchMedia (confirmed by test/dom-check.js's own
+// comment on the same gap), so this is a guaranteed no-op here and
+// state.touchMode stays false for every component test, same as before --
+// included for parity with main.jsx's actual startup sequence, and so a
+// future test that mocks window.matchMedia before importing a component
+// gets the real wiring instead of silently doing nothing.
+window.Wordbound.Game.applyTouchModeFromMedia();

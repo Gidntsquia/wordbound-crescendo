@@ -170,4 +170,26 @@ describe('CombatScreen', () => {
     expect(chipAfter.className).not.toContain('combo-chip-bump');
     expect(state.comboState.combo).toBeGreaterThan(0);
   });
+
+  // STRUCTURAL remaining-scope (c) step 1 (GOALS.md): now that
+  // main.jsx/src/test/setup.js actually call Game.applyTouchModeFromMedia()
+  // (previously nothing did, so state.touchMode was always false in the
+  // React app regardless of device), CombatScreen's pre-existing
+  // `if (!state.touchMode) inputRef.current?.focus()` guards are reachable
+  // for real. jsdom has no window.matchMedia (dom-check.js's own comment on
+  // the same gap), so the detection call itself can't run here -- this
+  // drives the state.touchMode branch directly, the same way a real coarse-
+  // pointer device would leave it after setup.js's call actually fired.
+  it('does not steal focus back to the word input after a play or clear in touch mode', async () => {
+    const state = startFight();
+    state.touchMode = true;
+    const user = userEvent.setup();
+    render(<Harness />);
+    const input = screen.getByPlaceholderText('Type or click letters...');
+    const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
+    await user.type(input, word);
+    input.blur();
+    await user.click(screen.getByRole('button', { name: 'Play Word' }));
+    expect(document.activeElement).not.toBe(input);
+  });
 });
