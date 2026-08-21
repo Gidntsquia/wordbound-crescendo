@@ -6,11 +6,8 @@
 // "game logic stays framework-agnostic plain JS" pattern as MainMenu's
 // achievements read.
 //
-// Picking a character doesn't start a real run yet: Game.startRun (js/wordbound/
-// game.js) drives the run/combat screen, which isn't ported to React yet (that's
-// the next, much bigger STRUCTURAL sub-step). So onSelect just hands the chosen
-// character id + trimmed seed up to App, which routes to an honest placeholder
-// naming the pick rather than silently doing nothing or faking a run.
+// onSelect hands the chosen character id + raw seed up to App, which calls
+// the real Game.startRun (js/wordbound/game.js) and switches to RunScreen.
 import { useState } from 'react';
 
 export default function CharacterSelect({ onSelect, onBack }) {

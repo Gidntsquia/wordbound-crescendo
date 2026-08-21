@@ -143,6 +143,7 @@
   Game._celebrateHit = function (damage, magnificent) { return celebrateHit(damage, magnificent); }; // FUN OVERHAUL 8/8: exposed so tests can assert the CRUSHING/MAGNIFICENT DOM appends (jsdom can't verify the animation timing)
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
+  Game._availableNodeIds = function () { return availableNodeIds(); }; // STRUCTURAL ticket (GOALS.md, React port): exposed so the React map view can compute which node pills are clickable using the exact same logic renderNodeMap() uses, instead of duplicating the traversal in JSX
   Game._sfxCallLog = function () { return sfxCallLog.slice(); }; // AUDIO ticket (GOALS.md, 2026-08-21): exposed so tests can assert which SFX fired, whether mute suppressed them, and whether the tile-tap debounce ate a burst -- jsdom has no real Web Audio to listen to, this is the substitute
   Game._clearSfxCallLog = function () { sfxCallLog.length = 0; lastSfxAt = {}; }; // AUDIO ticket: reset between test cases so each assertion starts from a clean log/debounce state
 
@@ -219,6 +220,15 @@
     state.pathNodeIds = [];
     state.messages = [];
     state.screen = 'RUN';
+    // Defensive reset (STRUCTURAL ticket, React port): vanilla wordbound.html
+    // only ever reaches startRun via the main menu, where a prior run's fight
+    // can never have been left mid-combat -- so combatActive/monster were
+    // never stale here before. React's run screen adds a "Back to Menu" that
+    // CAN abandon a run mid-fight (no such escape exists in the vanilla UI),
+    // which would otherwise leave combatActive stuck true and make the next
+    // run's very first render think a fight is already in progress.
+    state.combatActive = false;
+    state.monster = null;
     state.activeWager = null;
     state.repeatedWordThisFight = false;
     state.shredderSelection = [];
@@ -2382,6 +2392,15 @@
   }
 
   function render() {
+    // STRUCTURAL ticket (GOALS.md, React port): every Game.* action function
+    // ends by calling this. When one is called from the React app there is
+    // no legacy #screen-* DOM tree to render into at all (React owns its own
+    // tree under #root) -- bail out before the first $(id) lookup instead of
+    // throwing. React reads Game._state directly after calling an action and
+    // re-renders itself; this function's entire job (imperative DOM writes)
+    // is simply moot when that tree doesn't exist. wordbound.html always has
+    // #screen-main-menu, so this is a no-op there.
+    if (!document.getElementById('screen-main-menu')) return;
     // VISUAL (per-floor ambient tint, GOALS.md): cleared here and re-added
     // by renderRun() below -- only the run screen ever wants a floor class,
     // so every other screen (menu/character-select/game-over/victory) just
@@ -3214,7 +3233,17 @@
 
   // ---- boot ---------------------------------------------------------
 
-  Game.init = function () {
+  // STRUCTURAL ticket (GOALS.md, React port): split out from Game.init so the
+  // React app can wire up the module-dependency references (Lexicon, Floor,
+  // RNG, etc. -- everything the business-logic functions below need) WITHOUT
+  // the rest of Game.init, which unconditionally does `$('btn-new-run')
+  // .addEventListener(...)` and 20+ other legacy-DOM lookups that throw the
+  // moment any of those ids don't exist. React's tree never has them (it
+  // renders its own `#root`, not wordbound.html's `#screen-*` markup), so
+  // calling the full Game.init() from React would crash on the first line.
+  // wordbound.html's own boot (`Game.init()` below) still runs both halves,
+  // unchanged.
+  Game._initDependencies = function () {
     Lexicon = window.Wordbound.Lexicon;
     Traits = window.Wordbound.Traits;
     Monsters = window.Wordbound.Monsters;
@@ -3226,6 +3255,10 @@
     RNG = window.Game.RNG;
     Characters = window.Wordbound.Characters;
     Achievements = window.Wordbound.Achievements;
+  };
+
+  Game.init = function () {
+    Game._initDependencies();
 
     $('btn-new-run').addEventListener('click', Game.showCharacterSelect);
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);
