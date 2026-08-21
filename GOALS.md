@@ -562,6 +562,84 @@ Rules for the routine:
       system. Drag reordering (pointer capture, ghost tiles, insertion-
       index math, FLIP animations) remains the biggest genuinely open
       piece and is likely still its own multi-run push after that.
+      ORCHESTRATOR NOTE 2026-08-21 (update 9): picked up update-8's own
+      "Next" note exactly as scoped -- the blank-picker overlay UI, the one
+      remaining piece it identified as reasonably-scoped on its own. NOTE:
+      this run started concurrently with update-8's (a container-level
+      overlap between two hourly instances, not a coordination failure on
+      either side) and had ALREADY independently rebuilt tap-to-stage/
+      unstage plus the blank picker before discovering update-8's commit
+      had landed first on `origin/main`. Reconciled properly rather than
+      force-pushing over it: reset to `origin/main`, kept update-8's tap-
+      to-stage/unstage implementation entirely as-is (including its
+      `Game.selectTileForWord(tileId)`/`stageOrUnstage`/`unstage` API
+      shape, which differs slightly from this run's own discarded first
+      draft -- update-8's is the one that's live), and landed only the
+      genuinely new piece on top: `src/components/CombatScreen.jsx` now
+      renders `state.blankPickerOpen` as a real `.blank-picker-overlay`
+      (A-Z grid + Cancel, same CSS classes/shape as `wordbound.html`'s own
+      overlay), calling the already-exposed `Game.assignBlankLetter`/
+      `Game.closeBlankPicker`. Before this, a touch-mode tap on a blank
+      tile flipped `state.blankPickerOpen` true with nothing to render it
+      -- a blank tile was silently unplayable on touch (desktop is
+      unaffected: `selectTileForWord` no-ops on a blank there, typing the
+      letter is still how a blank gets used). No `game.js` changes needed
+      this run -- update-8 already exposed every wrapper this needed.
+      2 new Vitest/RTL tests (open-and-pick stages the blank with the
+      chosen letter; Cancel discards without staging) plus a new
+      opportunistic real-browser check in `test/verify-react-build.js`
+      (taps a real ★ tile if this deterministic seed's rack has one at
+      that point in the fight; this run's playthrough didn't, logged
+      honestly rather than skipped silently -- the Vitest/RTL tests inject
+      a blank directly so the path is still unconditionally covered).
+      SEPARATELY, the most valuable find of this run: adding the 2 new
+      blank-picker tests made the pre-existing Vitest flake (STRUCTURAL-
+      14/N and 15/N, and update-8's own verification section above --
+      `userEvent.click()`/`type()` sequences intermittently not
+      registering) fail on almost EVERY run within `CombatScreen.test.jsx`
+      alone (confirmed on update-8's unmodified commit before touching
+      anything -- not something this run's new tests caused). Root-caused
+      it properly instead of re-deferring a third time: instrumented the
+      component's one real timer (`pendingResolveRef`'s `setTimeout`, the
+      leading suspect prior entries guessed at) with temporary console
+      logging -- across many repeated runs it never once fired late/stale,
+      completely ruling out the "leaked timer races a later test" theory.
+      Tested the actual trigger directly: swapped every
+      `userEvent.click()`/`type()` call in `CombatScreen.test.jsx` for
+      RTL's synchronous `fireEvent.click()`/`change()` (skips user-event's
+      async hover/pointerdown/pointerup/focus choreography entirely) --
+      the flake disappeared completely. Root cause: `@testing-library/
+      user-event` v14's internal async event simulation racing against
+      something in this Vitest/jsdom setup, not this component, its timer,
+      or a cross-file leak. Documented in the test file's own new header
+      comment for whoever next touches Vitest/RTL setup elsewhere in the
+      repo. NOT claimed: the only possible cause of Vitest/jsdom flakiness
+      here, or that other test files (none show the same symptom) need
+      preemptive treatment.
+      **Verified:** `npm test` (dom-check): ALL CHECKS PASSED, unaffected
+      (no `game.js` change this run). `npm run build`: clean. `npx vitest
+      run` (full 7-file suite, 49 tests): **3/3 consecutive clean runs,
+      zero flakes** -- up from update-8's own "1 failure in 3" full-suite
+      note and this run's own confirmed "fails almost every run" state
+      on `CombatScreen.test.jsx` alone before the fireEvent fix.
+      `npm run test:react-build` (real browser, built output): ALL CHECKS
+      PASSED, run 2x clean, including the new blank-picker checks (or the
+      honest skip note when the seed's rack has no blank at that point).
+      `npm run test:react-qa`: ALL CHECKS PASSED, unaffected.
+      **Not done:** drag reordering (mouse + touch), FLIP/settle/haptic
+      juice remain the one real piece left before this ticket's stated
+      acceptance bar ("full feature parity... no vanilla-DOM rendering
+      left") is met. Ticket stays unchecked. **Next:** drag reordering --
+      `game.js`'s `startTouchReorder`/`reorderRackOnDrop` (rack) and
+      `startStagingDrag`/`updateStagingDrag`/`endStagingDrag` (staged-tile
+      reorder + drag-out-to-remove), currently wired only in the legacy
+      `Game.init()` path via document-level pointer/touch listeners --
+      these need their own `Game.*` wrappers or a React-native
+      reimplementation using pointer events directly (worth weighing
+      against wrapping the existing vanilla state machine), plus real
+      Playwright touch-drag verification. This is the last piece before
+      STRUCTURAL's acceptance bar is met, pending a final vanilla-DOM-
+      rendering audit.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

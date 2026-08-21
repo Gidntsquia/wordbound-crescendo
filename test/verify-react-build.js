@@ -283,6 +283,45 @@ async function main() {
         document.activeElement !== document.querySelector('input[placeholder="Type or click letters..."]'),
       ));
     }
+
+    // STRUCTURAL ticket, remaining-scope (c) step 2 follow-up: the touch-mode
+    // blank-letter picker overlay. Tapping a blank tile calls the real
+    // Game.selectTileForWord (game.js), which opens state.blankPickerOpen --
+    // CombatScreen now renders that as a real .blank-picker-overlay. Exercised
+    // opportunistically against whatever this deterministic seed's CURRENT
+    // rack happens to hold at this point in the fight, via real taps on the
+    // real rendered ★ tile (no state.* hook shortcut). The Vitest/RTL suite
+    // (CombatScreen.test.jsx) covers this path unconditionally by injecting a
+    // blank tile directly, so this real-browser check isn't the only coverage
+    // if this seed has none right now.
+    const blankTileId = await page.evaluate(() => {
+      const tile = window.Wordbound.Game._state.player.rack.find((t) => t.letter === '?');
+      return tile ? tile.id : null;
+    });
+    if (blankTileId) {
+      const blankClicked = await page.evaluate(() => {
+        const btn = Array.from(document.querySelectorAll('.rack-display .letter-tile')).find((b) => b.textContent.startsWith('★'));
+        if (!btn) return false;
+        btn.click();
+        return true;
+      });
+      check('touch mode: a real ★ blank tile was found and tapped', blankClicked);
+      if (blankClicked) {
+        await page.waitForSelector('.blank-picker-overlay', { timeout: 2000 });
+        check('touch mode: tapping a blank tile opens the real blank-picker overlay', true);
+        await page.click('.blank-picker-letter:has-text("E")');
+        check('touch mode: picking a letter stages the blank with that letter',
+          await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.length === 1
+            && Object.values(window.Wordbound.Game._state.blankAssignments)[0] === 'E'));
+        check('touch mode: the blank-picker overlay closes after picking a letter',
+          (await page.locator('.blank-picker-overlay').count()) === 0);
+        await page.click('.staging-area .staged-tile');
+        check('touch mode: tapping the staged blank unstages it back to the rack',
+          await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.length === 0));
+      }
+    } else {
+      console.log('  (no blank tile in this seed\'s rack at this point -- blank-picker tap check skipped; Vitest/RTL covers it unconditionally)');
+    }
   } finally {
     if (browser) await browser.close();
     server.close();

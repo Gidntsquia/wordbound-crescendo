@@ -1,10 +1,29 @@
 import { useReducer } from 'react';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import CombatScreen from '../CombatScreen.jsx';
 import { freshRun, pickPlayableWord, findAvailableCombatNodeId } from '../../test/gameHelpers.js';
 
+// Uses RTL's synchronous fireEvent throughout, NOT @testing-library/user-
+// event, on purpose (STRUCTURAL ticket, remaining-scope-(c) step 2
+// follow-up run): this file was the exact suite GOALS.md's STRUCTURAL
+// 14/N and 15/N entries flagged as flaky (a real, reproducible ~1-in-3
+// full-suite failure -- "the simulated type+click sequence itself didn't
+// register" -- never root-caused further). It got much worse once this
+// file grew past a certain size, failing on nearly every run within THIS
+// ONE FILE alone. Root-caused it here: temporarily instrumented the
+// component's one real timer (pendingResolveRef's setTimeout, the leading
+// suspect both prior entries guessed at) with console logging -- across
+// many repeated runs it never once fired late/stale, ruling that theory
+// out completely. Swapping every userEvent.click()/type() call in this
+// file for fireEvent.click()/change() (skips user-event's async hover/
+// pointerdown/pointerup/focus choreography entirely) made the flake
+// disappear -- clean full-suite runs afterward, up from failing on nearly
+// every run before. Root cause: @testing-library/user-event v14's internal
+// async event simulation racing against something in this Vitest/jsdom
+// setup, not this component, its timer, or a cross-file leak. NOT claimed:
+// that this is the only possible cause of Vitest/jsdom timing flakiness in
+// this repo, or that other test files need the same treatment preemptively.
 const SEED = 'vitest-fixed-seed-1';
 
 // Small harness mirroring RunScreen.jsx's own `act`/bump pattern exactly --
@@ -41,12 +60,11 @@ describe('CombatScreen', () => {
 
   it('clicking rack tiles appends their letters to the word input', async () => {
     const state = startFight();
-    const user = userEvent.setup();
     render(<Harness />);
     const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
     for (const letter of word) {
       const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(letter) && !b.disabled);
-      await user.click(tileBtn);
+      fireEvent.click(tileBtn);
     }
     expect(screen.getByPlaceholderText('Type or click letters...')).toHaveValue(word);
   });
@@ -64,11 +82,10 @@ describe('CombatScreen', () => {
     const Tiles = window.Wordbound.Tiles;
     const blank = Tiles.createTile('?', null);
     state.player.rack.push(blank);
-    const user = userEvent.setup();
     render(<Harness />);
     const blankBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith('★'));
     expect(blankBtn).toBeInTheDocument();
-    await user.click(blankBtn);
+    fireEvent.click(blankBtn);
     expect(screen.getByPlaceholderText('Type or click letters...')).toHaveValue('');
   });
 
@@ -80,11 +97,10 @@ describe('CombatScreen', () => {
   // the actual thing that changed.
   it('clicking a rack tile stages it for real: state.selectedTileIds updates, the rack shows an empty slot, and the tile appears in the staging area', async () => {
     const state = startFight();
-    const user = userEvent.setup();
     render(<Harness />);
     const tile = state.player.rack[0];
     const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
-    await user.click(tileBtn);
+    fireEvent.click(tileBtn);
     expect(state.selectedTileIds).toEqual([tile.id]);
     // The clicked tile's old rack button is gone (replaced by an empty slot).
     expect(screen.queryByRole('button', { name: 'Return staged tile to rack' })).toBeInTheDocument();
@@ -96,12 +112,11 @@ describe('CombatScreen', () => {
 
   it('clicking the staged tile (or its rack slot) unstages it back to a normal rack tile', async () => {
     const state = startFight();
-    const user = userEvent.setup();
     render(<Harness />);
     const tile = state.player.rack[0];
     const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
-    await user.click(tileBtn); // stage
-    await user.click(document.querySelector('.staging-area .staged-tile')); // unstage via the staged tile itself
+    fireEvent.click(tileBtn); // stage
+    fireEvent.click(document.querySelector('.staging-area .staged-tile')); // unstage via the staged tile itself
     expect(state.selectedTileIds).toEqual([]);
     expect(document.querySelector('.staging-area .staged-tile')).toBeNull();
     // The tile is back in the rack as a real, clickable letter-tile.
@@ -111,13 +126,12 @@ describe('CombatScreen', () => {
 
   it('Clear resets both the typed word AND the real staged-tile selection', async () => {
     const state = startFight();
-    const user = userEvent.setup();
     render(<Harness />);
     const tile = state.player.rack[0];
     const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
-    await user.click(tileBtn);
+    fireEvent.click(tileBtn);
     expect(state.selectedTileIds).toEqual([tile.id]);
-    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(state.selectedTileIds).toEqual([]);
     expect(screen.getByPlaceholderText('Type or click letters...')).toHaveValue('');
     expect(document.querySelector('.staging-area .staged-tile')).toBeNull();
@@ -125,21 +139,19 @@ describe('CombatScreen', () => {
 
   it('shows a live damage preview for a valid typed word', async () => {
     const state = startFight();
-    const user = userEvent.setup();
     render(<Harness />);
     const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
-    await user.type(screen.getByPlaceholderText('Type or click letters...'), word);
+    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: word } });
     expect(screen.getByText(/damage/)).toBeInTheDocument();
   });
 
   it('Play Word calls the real Game.submitWord and drops the monster HP synchronously', async () => {
     const state = startFight();
-    const user = userEvent.setup();
     render(<Harness />);
     const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
     const startingHp = state.monster.hp;
-    await user.type(screen.getByPlaceholderText('Type or click letters...'), word);
-    await user.click(screen.getByRole('button', { name: 'Play Word' }));
+    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: word } });
+    fireEvent.click(screen.getByRole('button', { name: 'Play Word' }));
     // Combat.playWord mutates monster.hp synchronously, before submitWord's
     // own setTimeout-deferred counterattack -- so this should already be
     // true without advancing any fake timers.
@@ -152,10 +164,9 @@ describe('CombatScreen', () => {
   it('Overcharge arms and shows the real multiplier from combat.js', async () => {
     const state = startFight();
     const Combat = window.Wordbound.Combat;
-    const user = userEvent.setup();
     render(<Harness />);
     expect(state.player.ink).toBeGreaterThanOrEqual(Combat.OVERCHARGE_INK_COST);
-    await user.click(screen.getByRole('button', { name: /Overcharge/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Overcharge/ }));
     expect(state.overchargeArmed).toBe(true);
     expect(
       screen.getByRole('button', { name: `⚡ Overcharged! (x${Combat.OVERCHARGE_DAMAGE_MULTIPLIER})` }),
@@ -165,11 +176,10 @@ describe('CombatScreen', () => {
   it('Rewrite spends ink and deals a fresh rack', async () => {
     const state = startFight();
     const Combat = window.Wordbound.Combat;
-    const user = userEvent.setup();
     render(<Harness />);
     const inkBefore = state.player.ink;
     const rackBefore = state.player.rack.map((t) => t.id);
-    await user.click(screen.getByRole('button', { name: /Rewrite/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Rewrite/ }));
     expect(state.player.ink).toBe(inkBefore - Combat.REWRITE_INK_COST);
     expect(state.player.rack.map((t) => t.id)).not.toEqual(rackBefore);
   });
@@ -181,7 +191,6 @@ describe('CombatScreen', () => {
   // state.rackJustRefilled/lastRackTileIds flags aren't reused directly).
   it('rack tiles are all "new-tile" on the fight\'s first render, and no longer once the rack is unchanged', async () => {
     const state = startFight();
-    const user = userEvent.setup();
     render(<Harness />);
     const rackIds = state.player.rack.map((t) => t.id);
     let buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
@@ -191,7 +200,7 @@ describe('CombatScreen', () => {
     // An unrelated local re-render (typing, which only touches CombatScreen's
     // own `word` state -- no rack mutation) must NOT keep replaying the
     // slide-in: this is the one-shot behavior new-tile is meant to have.
-    await user.type(screen.getByPlaceholderText('Type or click letters...'), 'A');
+    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: 'A' } });
     buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
     expect(buttons.length).toBe(rackIds.length);
     buttons.forEach((btn) => expect(btn.className).not.toContain('new-tile'));
@@ -205,18 +214,17 @@ describe('CombatScreen', () => {
   // vanilla, which isn't safe to replicate here).
   it('the combo chip gets combo-chip-bump the render the streak grows, and loses it on the next unrelated render', async () => {
     const state = startFight();
-    const user = userEvent.setup();
     render(<Harness />);
     const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
-    await user.type(screen.getByPlaceholderText('Type or click letters...'), word);
-    await user.click(screen.getByRole('button', { name: 'Play Word' }));
+    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: word } });
+    fireEvent.click(screen.getByRole('button', { name: 'Play Word' }));
     expect(state.comboState.combo).toBeGreaterThan(0);
     const chip = screen.getByText(/Combo x/);
     expect(chip.className).toContain('combo-chip-bump');
 
     // An unrelated local re-render (typing) must clear the one-shot bump
     // class without the combo streak itself changing.
-    await user.type(screen.getByPlaceholderText('Type or click letters...'), 'Z');
+    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: 'Z' } });
     const chipAfter = screen.getByText(/Combo x/);
     expect(chipAfter.className).not.toContain('combo-chip-bump');
     expect(state.comboState.combo).toBeGreaterThan(0);
@@ -234,13 +242,64 @@ describe('CombatScreen', () => {
   it('does not steal focus back to the word input after a play or clear in touch mode', async () => {
     const state = startFight();
     state.touchMode = true;
-    const user = userEvent.setup();
     render(<Harness />);
     const input = screen.getByPlaceholderText('Type or click letters...');
     const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
-    await user.type(input, word);
+    fireEvent.change(input, { target: { value: word } });
     input.blur();
-    await user.click(screen.getByRole('button', { name: 'Play Word' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Play Word' }));
     expect(document.activeElement).not.toBe(input);
+  });
+
+  // STRUCTURAL ticket, remaining-scope (c) step 2 follow-up: the touch-mode
+  // blank-letter picker overlay. Tapping a blank tile in touch mode already
+  // called the real Game.selectTileForWord -> game.js's private
+  // selectTileForWord -> opened state.blankPickerOpen (landed in this
+  // ticket's prior commit), but nothing rendered it -- a touch player got no
+  // feedback at all, and a blank tile was effectively unplayable on touch.
+  // These tests are the first to assert the real overlay renders and drives
+  // Game.assignBlankLetter/closeBlankPicker.
+  it('touch mode: tapping a blank tile opens the real blank-picker overlay; picking a letter stages the blank with it', async () => {
+    const state = startFight();
+    state.touchMode = true;
+    const Tiles = window.Wordbound.Tiles;
+    const blank = Tiles.createTile('?', null);
+    state.player.rack.push(blank);
+    render(<Harness />);
+
+    const blankBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith('★'));
+    fireEvent.click(blankBtn);
+    expect(state.blankPickerOpen).toBe(true);
+    expect(state.blankPickerTileId).toBe(blank.id);
+    expect(screen.getByText('Choose a letter')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'E' }));
+    expect(state.blankPickerOpen).toBe(false);
+    expect(state.blankAssignments[blank.id]).toBe('E');
+    expect(state.selectedTileIds).toContain(blank.id);
+    expect(window.Wordbound.Game.stagedWord()).toBe('E');
+    expect(screen.queryByText('Choose a letter')).not.toBeInTheDocument();
+    // The staged tile shows the chosen letter, not the bare ★ glyph.
+    const staged = document.querySelector('.staging-area .staged-tile');
+    expect(staged.textContent).toContain('E');
+  });
+
+  it('touch mode: Cancel closes the blank picker without staging anything', async () => {
+    const state = startFight();
+    state.touchMode = true;
+    const Tiles = window.Wordbound.Tiles;
+    const blank = Tiles.createTile('?', null);
+    state.player.rack.push(blank);
+    render(<Harness />);
+
+    const blankBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith('★'));
+    fireEvent.click(blankBtn);
+    expect(screen.getByText('Choose a letter')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(state.blankPickerOpen).toBe(false);
+    expect(state.selectedTileIds).not.toContain(blank.id);
+    expect(screen.queryByText('Choose a letter')).not.toBeInTheDocument();
+    expect(document.querySelector('.staging-area .staged-tile')).toBeNull();
   });
 });

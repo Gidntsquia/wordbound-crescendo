@@ -27,15 +27,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 // port shortcut) but it's now kept in sync with the engine's own
 // Game.stagedWord() after every stage/unstage/clear, exactly like
 // game.js's syncWordInput() keeps its #word-input mirrored.
-// Two pieces of the vanilla staging system remain genuinely NOT ported,
-// same "real, scoped follow-up" status the ticket has flagged since
-// STRUCTURAL 5/N: the touch-mode blank-letter picker overlay (clicking a
-// blank tile in touch mode now calls the real Game.openBlankPicker, which
-// sets state.blankPickerOpen -- but nothing renders that overlay yet, so
-// it's an inert flag, not a crash, not a regression from the old
-// always-no-op blank click) and pointer/touch DRAG reordering within the
-// staging row or rack (game.js's startStagingDrag/startTouchReorder/
-// reorderRackOnDrop -- tap-to-stage/unstage works fully, drag does not).
+// The touch-mode blank-letter picker overlay (STRUCTURAL ticket, remaining-
+// scope (c) step 2, this run): tapping a blank tile in touch mode calls the
+// real Game.selectTileForWord -> game.js's private selectTileForWord ->
+// opens the A-Z picker (state.blankPickerOpen/blankPickerTileId), which now
+// renders below as a real .blank-picker-overlay (same CSS classes/shape
+// wordbound.html's own overlay uses) -- picking a letter calls
+// Game.assignBlankLetter, Cancel calls Game.closeBlankPicker. Before this,
+// state.blankPickerOpen flipped true with nothing to render it, so a touch
+// player tapping a blank saw no feedback at all; a blank was effectively
+// unplayable on touch (desktop is unaffected -- selectTileForWord no-ops on
+// a blank there, typing the letter is still how a blank gets used).
+// Pointer/touch DRAG reordering within the staging row or rack (game.js's
+// startStagingDrag/startTouchReorder/reorderRackOnDrop) remains genuinely
+// NOT ported -- tap-to-stage/unstage/pick-a-blank-letter is fully
+// functional without it, but reordering an already-staged word means
+// unstaging and re-tapping in the new order.
 // game.js itself needed two small additive null-guards to make this safe:
 // syncWordInput()'s and selectTileForWord()'s `$('word-input')` DOM access
 // now checks the element exists first (same "no #word-input in the React
@@ -51,6 +58,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 // and message log both update for real (state.monster.hp is mutated
 // synchronously by Combat.playWord before submitWord's setTimeout even
 // fires), so the fight is fully legible without the juice -- just quieter.
+const BLANK_PICKER_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
 export default function CombatScreen({ state, Game, act }) {
   const Combat = window.Wordbound.Combat;
   const Intents = window.Wordbound.Intents;
@@ -113,6 +122,15 @@ export default function CombatScreen({ state, Game, act }) {
   function unstage(tileId) {
     act(() => Game.unstageTile(tileId));
     setWord(Game.stagedWord());
+  }
+
+  function pickBlankLetter(letter) {
+    act(() => Game.assignBlankLetter(letter));
+    setWord(Game.stagedWord());
+  }
+
+  function cancelBlankPicker() {
+    act(() => Game.closeBlankPicker());
   }
 
   const preview = useMemo(() => {
@@ -286,6 +304,25 @@ export default function CombatScreen({ state, Game, act }) {
           );
         })}
       </div>
+
+      {state.blankPickerOpen && (
+        <div className="blank-picker-overlay">
+          <div className="blank-picker-panel panel">
+            <h2>Choose a letter</h2>
+            <p className="blank-picker-hint">This ★ blank becomes the letter you pick.</p>
+            <div className="blank-picker-grid">
+              {BLANK_PICKER_LETTERS.map((letter) => (
+                <button key={letter} type="button" className="blank-picker-letter" onClick={() => pickBlankLetter(letter)}>
+                  {letter}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="btn btn-secondary" style={{ marginTop: 14 }} onClick={cancelBlankPicker}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className={previewClass} aria-live="polite">{previewLabel}</div>
 
