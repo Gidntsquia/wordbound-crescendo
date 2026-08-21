@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react';
 import CombatScreen from './CombatScreen.jsx';
-import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen } from './RewardScreens.jsx';
+import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen, EventScreen, ShredderScreen } from './RewardScreens.jsx';
 
 // Real port of #screen-run's node map (STRUCTURAL ticket, next sub-step after
 // character select). What's genuinely ported this run: Game.startRun is
@@ -13,11 +13,12 @@ import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen } from './Rewa
 // comment for what that does and doesn't cover. And so is the "choose from
 // a list" reward/shop family (RewardScreens.jsx): TREASURE, SHOP,
 // TILE_REWARD (reachable after literally every fight, not just bosses'),
-// and BOSS_ITEM_REWARD. EVENT (choices carry a live `disabledReason(state)`
-// check) and SHREDDER (multi-select-then-confirm) are NOT ported yet --
-// both still fall through to the generic "not ported yet" placeholder below,
-// reflecting the real resulting Game._state (screen name) with a way back
-// to the menu.
+// BOSS_ITEM_REWARD, EVENT (choices carry a live `disabledReason(state)`
+// check), and SHREDDER (multi-select-then-confirm, held by an EVENT choice's
+// `{ hold: 'SHREDDER' }` effect -- see RewardScreens.jsx's ShredderScreen).
+// GAME_OVER and VICTORY are NOT ported yet -- both still fall through to the
+// generic "not ported yet" placeholder below, reflecting the real resulting
+// Game._state (screen name) with a way back to the menu.
 //
 // Game._state is a single mutable object the vanilla engine mutates in place
 // (not React state) -- see js/wordbound/game.js. `bump` is a force-update
@@ -46,7 +47,8 @@ export default function RunScreen({ onBackToMenu }) {
   }
 
   const rewardOrShopScreen = state.screen === 'TREASURE' || state.screen === 'SHOP'
-    || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD';
+    || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD'
+    || state.screen === 'EVENT' || state.screen === 'SHREDDER';
   const otherUnportedNode = !state.combatActive && !rewardOrShopScreen
     && state.screen !== 'RUN' && state.screen !== 'MAIN_MENU';
 
@@ -73,6 +75,10 @@ export default function RunScreen({ onBackToMenu }) {
         <TileRewardScreen state={state} Game={Game} act={act} />
       ) : state.screen === 'BOSS_ITEM_REWARD' ? (
         <BossRewardScreen state={state} Game={Game} act={act} />
+      ) : state.screen === 'EVENT' ? (
+        <EventScreen state={state} Game={Game} act={act} />
+      ) : state.screen === 'SHREDDER' ? (
+        <ShredderScreen state={state} Game={Game} act={act} />
       ) : otherUnportedNode ? (
         <NodePlaceholder state={state} onBack={backToMenu} />
       ) : (

@@ -86,8 +86,59 @@ describe('RunScreen -- screen routing', () => {
 
   it('falls back to the honest "not ported yet" placeholder for an unported screen', () => {
     const state = freshRun(SEED);
-    state.screen = 'EVENT'; // EVENT is explicitly not ported yet (RewardScreens.jsx header)
+    state.screen = 'GAME_OVER'; // GAME_OVER/VICTORY are the remaining unported screens
     render(<RunScreen onBackToMenu={() => {}} />);
     expect(screen.getByText(/isn't ported to React yet/)).toBeInTheDocument();
+  });
+
+  it('routes state.screen === EVENT to the event panel, greys out an unaffordable choice, and applies a real effect', async () => {
+    const state = freshRun(SEED);
+    const user = userEvent.setup();
+    // SEED's floor-1 event node deterministically resolves to 'forbidden_tome'
+    // (events.js), whose first choice carries a real disabledReason(state).
+    window.Wordbound.Game.enterCurrentNode(findNodeIdByType(state, 'event'));
+    expect(state.screen).toBe('EVENT');
+    expect(state.currentEvent.id).toBe('forbidden_tome');
+    render(<RunScreen onBackToMenu={() => {}} />);
+
+    expect(screen.getByText('The Forbidden Tome')).toBeInTheDocument();
+    const readButton = screen.getByRole('button', { name: /Read it anyway/ });
+    expect(readButton).toBeEnabled(); // fresh run owns none of the rule-changers yet
+
+    const startingInk = state.player.ink;
+    await user.click(readButton);
+    // A real effect ran: an item was granted and ink was spent, then the
+    // event resolved and the node cleared -- same finishEvent() path a
+    // choice with no `hold` always takes.
+    expect(state.player.items.length).toBeGreaterThan(0);
+    expect(state.player.ink).toBeLessThan(startingInk);
+    expect(state.screen).toBe('RUN');
+  });
+
+  it('a SHREDDER-holding event choice routes to the Shredder sub-screen, and picking + confirming destroys real deck tiles', async () => {
+    // A seed whose floor-1 FIRST event node resolves to 'the_shredder'
+    // specifically (events.js) -- SEED above lands on 'forbidden_tome'
+    // instead, and floors can carry more than one event node.
+    const state = freshRun('vitest-shredder-seed-5');
+    const user = userEvent.setup();
+    window.Wordbound.Game.enterCurrentNode(findNodeIdByType(state, 'event'));
+    expect(state.currentEvent.id).toBe('the_shredder');
+    render(<RunScreen onBackToMenu={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: /Feed it/ }));
+    expect(state.screen).toBe('SHREDDER');
+    expect(screen.getByText(/Pick up to 2 tiles to destroy/)).toBeInTheDocument();
+
+    const startingDeckSize = state.deck.length;
+    const firstTileButton = document.querySelector('.treasure-choices .treasure-choice');
+    await user.click(firstTileButton);
+    expect(state.shredderSelection.length).toBe(1);
+    expect(screen.getByText(/Feeding 1 tile to the Shredder/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    // Real Game.confirmShredder ran: the deck actually lost the picked tile,
+    // and the node resolved back to RUN via finishEvent().
+    expect(state.deck.length).toBe(startingDeckSize - 1);
+    expect(state.screen).toBe('RUN');
   });
 });

@@ -192,19 +192,20 @@ Rules for the routine:
       repeatable tests (not throwaway scripts) covering MainMenu,
       HowToPlayOverlay, CharacterSelect, RunScreen's node map + screen routing,
       CombatScreen (rack clicks, live damage preview, real word submission,
-      overcharge/rewrite), and all four reward/shop panels (Treasure, Shop
-      incl. affordability gating, TileReward, BossReward) — 30 tests, all
-      driving the REAL engine modules end-to-end (no mocks), see
-      `src/components/__tests__/*.test.jsx`. GOALS.md's MANDATORY VERIFICATION
-      header now requires `npm run test:react` alongside `npm test` (dom-check
-      still covers wordbound.html, unretired until full parity per that
-      header's own note). NOT yet ADDED this run: Playwright's `test:mobile`/
-      `test:qa`/`test:itch-build` scripts still only target wordbound.html,
-      not the Vite/React app — porting THOSE (or adding React-app equivalents)
-      is real remaining sub-step-3 scope, not done yet. Resume the actual
-      screen ports (EVENT/SHREDDER next, then GAME_OVER/VICTORY) with a
-      Vitest/RTL test landing alongside each one, per this sub-step's original
-      instruction.
+      overcharge/rewrite), and all six reward/shop/event panels (Treasure, Shop
+      incl. affordability gating, TileReward, BossReward, Event incl. a real
+      `disabledReason` grey-out, Shredder incl. real deck destruction via its
+      `{hold: 'SHREDDER'}` sub-screen) — 32 tests, all driving the REAL engine
+      modules end-to-end (no mocks), see `src/components/__tests__/*.test.jsx`.
+      GOALS.md's MANDATORY VERIFICATION header now requires `npm run test:react`
+      alongside `npm test` (dom-check still covers wordbound.html, unretired
+      until full parity per that header's own note). NOT yet ADDED this run:
+      Playwright's `test:mobile`/`test:qa`/`test:itch-build` scripts still only
+      target wordbound.html, not the Vite/React app — porting THOSE (or adding
+      React-app equivalents) is real remaining sub-step-3 scope, not done yet.
+      Resume the actual screen ports (GAME_OVER/VICTORY are the only two
+      `renderRun()`-family screens left unported) with a Vitest/RTL test
+      landing alongside each one, per this sub-step's original instruction.
       VERIFY: migrated `npm test` (Vitest/RTL) clean, Playwright QA + mobile
       ports clean, real-browser boot + full fight on the built output (not just
       dev server). Minor bump.

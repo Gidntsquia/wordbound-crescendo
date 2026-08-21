@@ -9,11 +9,9 @@
 // same shape as toggleOvercharge/rewriteRack in CombatScreen.jsx, so no
 // setTimeout-bridging is needed here.
 //
-// NOT ported this run: EVENT (choices carry a `disabledReason(state)`
-// function, not a static def-id lookup) and SHREDDER (multi-select-then-
-// confirm, a different interaction shape entirely) -- both still fall
-// through to RunScreen's generic NodePlaceholder. Flagged as a known gap in
-// PROGRESS.md, not silently dropped.
+// EventScreen and ShredderScreen (below) are the same family too -- ported
+// in the STRUCTURAL ticket's EVENT/SHREDDER sub-step, direct ports of
+// game.js's renderEvent()/renderShredder().
 export function TreasureOrShopScreen({ state, Game, act }) {
   const Items = window.Wordbound.Items;
   const Tiles = window.Wordbound.Tiles;
@@ -151,6 +149,82 @@ export function BossRewardScreen({ state, Game, act }) {
       </div>
       <button className="btn btn-secondary tile-reward-skip" onClick={() => act(Game.skipBossItemReward)}>
         Skip
+      </button>
+    </div>
+  );
+}
+
+// Direct port of renderEvent(): a heading + italic flavor text + a column of
+// choice buttons, where each choice's `disabledReason(state)` (events.js) is
+// re-evaluated on every render -- same live re-check game.js's own
+// chooseEventOption does before applying a choice's effect, so a disabled
+// choice can never be clicked through even via a stale render.
+export function EventScreen({ state, Game, act }) {
+  const event = state.currentEvent;
+  if (!event) return null;
+  return (
+    <div className="treasure-panel">
+      <h2>{event.name}</h2>
+      <p style={{ textAlign: 'center', color: '#b8ac8a', marginBottom: 20, fontStyle: 'italic' }}>{event.text}</p>
+      <div className="treasure-choices">
+        {event.choices.map((choice, index) => {
+          const reason = choice.disabledReason ? choice.disabledReason(state) : null;
+          return (
+            <button key={index} className="treasure-choice" disabled={!!reason}
+              style={reason ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              onClick={reason ? undefined : () => act(() => Game.chooseEventOption(index))}>
+              {reason ? (<>{choice.text}<br /><em style={{ color: '#b8ac8a' }}>({reason})</em></>) : choice.text}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Direct port of renderShredder(): the deck-viewer list made pickable, same
+// remaining-picks math as game.js's shredderRemainingPicks() (not reused
+// directly -- that function is internal to game.js and only exposes a
+// test-only inspection hook, `Game._shredderRemainingPicks`, per its own
+// comment -- so the cap/floor math is mirrored here instead of imported).
+export function ShredderScreen({ state, Game, act }) {
+  const Events = window.Wordbound.Events;
+  const Tiles = window.Wordbound.Tiles;
+  const picked = state.shredderSelection.length;
+  const byCap = Events.SHREDDER_MAX_TILES - picked;
+  const byDeckFloor = state.deck.length - Events.SHREDDER_MIN_DECK_SIZE - picked;
+  const remaining = Math.max(0, Math.min(byCap, byDeckFloor));
+  const status = picked > 0
+    ? `Feeding ${picked} tile${picked > 1 ? 's' : ''} to the Shredder. `
+      + (remaining > 0 ? `You may pick ${remaining} more, or confirm.` : 'Confirm to destroy them.')
+    : `Pick up to ${Events.SHREDDER_MAX_TILES} tiles to destroy (or confirm to feed it nothing).`;
+  const sorted = state.deck.slice().sort((a, b) => a.letter.localeCompare(b.letter));
+
+  return (
+    <div className="treasure-panel">
+      <h2>Feed the Shredder</h2>
+      <p style={{ textAlign: 'center', color: '#b8ac8a', marginBottom: 20, fontStyle: 'italic' }}>{status}</p>
+      <div className="treasure-choices">
+        {sorted.map((tile) => {
+          const isPicked = state.shredderSelection.indexOf(tile.id) !== -1;
+          const variantClass = tile.variant ? ' variant-' + tile.variant : '';
+          const bonusDesc = Tiles.describeVariant(tile.variant) || Tiles.describeBonus(tile.bonus);
+          // Same reversibility rule as game.js: an already-picked tile stays
+          // clickable (to un-pick it) even once the pick budget is spent.
+          const disabled = !isPicked && remaining <= 0;
+          return (
+            <button key={tile.id} className={'treasure-choice' + variantClass + (isPicked ? ' shredder-picked' : '')}
+              disabled={disabled} style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+              onClick={disabled ? undefined : () => act(() => Game.toggleShredderTile(tile.id))}>
+              <strong>{tile.letter === '?' ? '★' : tile.letter}</strong>
+              {bonusDesc && <><br />{bonusDesc}</>}
+              {isPicked && <><br /><em>— for the teeth</em></>}
+            </button>
+          );
+        })}
+      </div>
+      <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={() => act(Game.confirmShredder)}>
+        Confirm
       </button>
     </div>
   );

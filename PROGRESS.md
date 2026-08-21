@@ -977,3 +977,107 @@ still open for a future run: port Playwright's `test:mobile`/`test:qa`/
 app rather than only `wordbound.html` — real sub-step-3 scope this run
 did not attempt. The tile-staging/drag system and the per-hit animations
 remain the same real, scoped follow-ups noted by earlier runs.
+
+---
+
+## 2026-08-21T15:38Z — STRUCTURAL 8/N: EVENT + SHREDDER screens ported to React
+
+Continuing the STRUCTURAL ticket (React/Vite migration). Picked up exactly
+where the last run's PROGRESS note left off: EVENT and SHREDDER were the
+last two `renderRun()` sub-panels without a React port (RunScreen.jsx had
+been routing both to the generic "not ported yet" placeholder).
+
+**What changed:**
+- `src/components/RewardScreens.jsx`: added `EventScreen` and
+  `ShredderScreen`, direct ports of `game.js`'s `renderEvent()`/
+  `renderShredder()` (same `treasure-panel`/`treasure-choices` CSS classes
+  the already-ported Treasure/Shop/TileReward/BossReward panels use — no new
+  CSS needed).
+  - `EventScreen`: renders `state.currentEvent`'s name/text and one button
+    per choice, live-evaluating each choice's optional `disabledReason(state)`
+    (events.js) on every render — a disabled choice greys out and shows its
+    reason instead of being clickable, same live re-check `game.js`'s own
+    `chooseEventOption` does server-side before applying an effect.
+  - `ShredderScreen`: the deck-viewer made pickable, with the exact same
+    remaining-picks cap math as `game.js`'s internal `shredderRemainingPicks()`
+    (mirrored inline rather than imported — that function only exposes a
+    test-only inspection hook, `Game._shredderRemainingPicks`, per its own
+    comment, so production UI code shouldn't depend on it). An already-picked
+    tile stays clickable (to un-pick) even once the pick budget is spent,
+    matching the vanilla behavior.
+- `src/components/RunScreen.jsx`: routes `state.screen === 'EVENT'`/
+  `'SHREDDER'` to the two new components; updated the header comment (GAME_OVER
+  and VICTORY are now the only two remaining unported `renderRun()` screens).
+- `src/components/__tests__/RunScreen.test.jsx`: two new tests driving the
+  REAL engine (no mocks):
+  - EVENT: seed `vitest-fixed-seed-1`'s floor-1 event node deterministically
+    resolves to `forbidden_tome` (verified by generating that floor headlessly
+    before writing the test, since `events.js`'s event pick is itself
+    seed-derived RNG). Asserts the enabled "Read it anyway" choice is
+    clickable (fresh run owns none of the rule-changer items yet, so its
+    `disabledReason` is null), that clicking it runs the real effect (an item
+    granted, ink actually spent), and that the node resolves back to `RUN`.
+  - SHREDDER: had to find a DIFFERENT seed (`vitest-shredder-seed-5`) whose
+    floor-1 FIRST event node resolves to `the_shredder` specifically (a floor
+    can carry more than one event node, and `findNodeIdByType` returns the
+    first match) — found by generating floors headlessly for candidate seeds
+    until one matched, same "seed hunting" the existing SEED constant already
+    represents. Clicks "Feed it" (routes to SHREDDER via the real
+    `{hold: 'SHREDDER'}` effect), picks one real deck tile, confirms, and
+    asserts the deck actually shrank by exactly one and the node resolved
+    back to `RUN`.
+  - Also fixed the pre-existing "falls back to the honest not-ported-yet
+    placeholder" test, which had hardcoded `state.screen = 'EVENT'` as its
+    example of an unported screen — now uses `GAME_OVER` (a real screen name
+    from `game.js`, confirmed by grep), since EVENT is ported as of this run.
+- `GOALS.md`: updated the STRUCTURAL ticket's orchestrator note (32 tests now,
+  not 30; GAME_OVER/VICTORY are the only remaining unported `renderRun()`
+  screens) and `RewardScreens.jsx`'s header comment.
+
+**Verified:**
+- `npx vitest run`: 32/32 passing, run 3 times in a row with no flakes.
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED — this run
+  touched no `game.js`/`wordbound.html`/CSS, so unaffected as expected.
+- `npm run build`: clean, 38 modules, no new build warnings beyond the
+  pre-existing single-chunk-size notice (unrelated to this change).
+- Real-browser Playwright check (throwaway script, not committed — same
+  "verify what you can, use a real browser for what jsdom can't" approach
+  earlier runs used): booted the actual Vite dev server, clicked through
+  New Run → character select in a real Chromium tab (confirming the new
+  `EventScreen`/`ShredderScreen` imports don't break module resolution or
+  the production bundle), then drove `Game.enterCurrentNode`/
+  `chooseEventOption`/`toggleShredderTile`/`confirmShredder` directly via
+  `page.evaluate` on both seeds above and confirmed: zero console/page
+  errors, the EVENT choice's real effect landed (item granted) and the node
+  resolved to `RUN`, and the SHREDDER flow's real deck mutation landed
+  (`deck.length` dropped by exactly 1) and also resolved to `RUN`.
+- NOT verified in the real browser: the actual EVENT/SHREDDER *rendered DOM*
+  (headings, choice buttons, disabled/greyed styling) — the Playwright pass
+  above only confirmed the underlying engine calls resolve correctly with no
+  errors, not the on-screen React render, because reaching those non-start
+  map nodes through genuine UI clicks (as opposed to direct engine calls)
+  would require walking the full node path through intervening
+  combat/treasure/shop nodes first, which was out of scope for a smoke check.
+  The actual rendered DOM (real CSS classes, `getByRole`/`getByText` queries
+  against the true JSX output) IS covered, repeatably, by the Vitest/RTL
+  tests above — this is the same bar the Treasure/Shop/TileReward/BossReward
+  panels were verified to in the prior run, which also relied on Vitest/RTL
+  alone for DOM correctness (no dedicated Playwright script), since none of
+  these panels involve timing, drag-and-drop, or audio — the things jsdom
+  genuinely can't verify.
+- NOT re-run (this run touched no CSS, no `game.js`, no `wordbound.html`):
+  `test:mobile`, `test:qa`, `test:itch-build`, `test:branching-map`,
+  `test:audio`.
+
+**Current state:** every `renderRun()` sub-panel except GAME_OVER and
+VICTORY now has a real React port with a committed Vitest/RTL test driving
+the real engine. `wordbound.html` remains the complete, unmodified reference
+implementation.
+
+**Next:** GAME_OVER and VICTORY are the last two screens for STRUCTURAL
+sub-step 1 (screen porting). Once those land, the remaining STRUCTURAL scope
+is: porting Playwright's `test:mobile`/`test:qa`/`test:itch-build` (or
+React-app equivalents) to actually exercise the Vite/React app rather than
+only `wordbound.html`, verifying the built (not just dev-server) output in a
+real browser end-to-end, and the tile-staging/drag system + per-hit
+animations noted as open by earlier runs.
