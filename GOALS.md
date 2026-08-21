@@ -233,6 +233,46 @@ Rules for the routine:
       VERIFY: migrated `npm test` (Vitest/RTL) clean, Playwright QA + mobile
       ports clean, real-browser boot + full fight on the built output (not just
       dev server). Minor bump.
+      ORCHESTRATOR NOTE 2026-08-21 (update 6): picked up remaining scope (c)'s
+      recommended starting point (last run's note: "start by porting the
+      blank-picker overlay and combo-bump class first"). On investigation the
+      blank-picker turned out NOT to decouple cleanly the way that note
+      assumed -- correcting that here so a future run doesn't rediscover it.
+      Vanilla only shows the blank-picker overlay in TOUCH mode
+      (`state.touchMode`, gated by `if (!state.touchMode) return;` in
+      `selectTileForWord`); React's `_initDependencies()` init path (used
+      instead of the legacy `Game.init()` to avoid binding 20+ listeners to
+      elements that don't exist in this tree) never calls
+      `Game.applyTouchModeFromMedia()`, so `state.touchMode` is always false
+      in the React app today -- a real touch device still gets the
+      typed/clicked-letters path, which works (CombatScreen's blank-tile
+      click is unconditionally a no-op, but typing the desired letter still
+      resolves through `Lexicon.canFormFromRack`). Porting the picker in
+      isolation would be dead code with nothing to open it; it's entangled
+      with wiring touch-mode detection AND the tile-staging system
+      (`selectTileForWord`/`state.selectedTileIds`), none of which exist in
+      CombatScreen.jsx's current type-or-click-to-append model -- genuinely
+      part of remaining scope (c)'s "whole feature in its own right," not a
+      separable small win. Landed the two pieces of (c) that WERE genuinely
+      self-contained instead: the combo chip's one-shot `combo-chip-bump`
+      class and the rack's `new-tile` slide-in class, both ported natively
+      in `CombatScreen.jsx` (refs tracking the previous committed render's
+      combo value / rack tile ids, compared during render) rather than by
+      reusing the shared `state.comboBumped`/`state.rackJustRefilled` flags
+      game.js's own renderCombat() consumes as a render side effect --
+      unsafe to replicate as-is since `main.jsx` wraps the app in
+      `<StrictMode>`, which can invoke a function component's body more than
+      once per commit; a one-shot flag consumed inside that body could be
+      eaten by a throwaway invocation. Full reasoning + the known minor
+      cosmetic divergence (a mid-fight side-panel open/close remounts
+      CombatScreen, so the untouched rack briefly re-plays its slide-in) is
+      in the component's own header comment. Two new Vitest/RTL tests in
+      `CombatScreen.test.jsx` drive both through a real word play and assert
+      the class is present the render it should be and gone the next.
+      Touch-mode detection + the full tile-staging/drag/blank-picker system
+      remain completely unbuilt -- still the real remaining scope, now
+      scoped more precisely for whoever picks it up next (see PROGRESS.md's
+      "Next" note for the concrete first step). Ticket stays unchecked.
       ORCHESTRATOR NOTE 2026-08-21 (update 3): added `npm run test:react-build`
       (`test/verify-react-build.js`), a NEW committed Playwright script (not a
       throwaway) that builds the real Vite/React app (`vite build`), serves

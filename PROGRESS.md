@@ -1702,3 +1702,162 @@ multi-run push rather than trying to land it in one hour, and should
 probably start by porting the blank-picker overlay and combo-bump class
 first (small, self-contained, already fully read and understood by this
 run's audit) before tackling full pointer-based drag reordering.
+
+---
+
+## 2026-08-21T18:51Z — STRUCTURAL 14/N: combo-bump + new-tile rack animations ported to CombatScreen; blank-picker correctly re-scoped (not the small win last run assumed)
+
+**Repo-health note:** started on a detached HEAD at `origin/main`'s exact
+commit, same pattern every recent run has flagged. `git checkout main &&
+git pull` fast-forwarded cleanly, no local drift lost. `npm install` needed
+a real run this time (`npx vitest run` failed with unresolved `vite`/
+`@vitejs/plugin-react` imports until `npm install` populated
+`node_modules` — container didn't have a prior cache this time); after
+that everything else behaved normally.
+
+**What I did:** picked up remaining scope (c) — the last open piece of
+STRUCTURAL — starting from update-5's suggestion to port the blank-letter
+picker overlay and the combo-bump class first, as the two smallest
+self-contained wins before the full drag system. Read `renderBlankPicker`/
+`selectTileForWord`/`openBlankPicker`/`assignBlankLetter` in `game.js`
+closely before touching anything, and that recommendation turned out to be
+half right, half a real dead end worth correcting for whoever's next:
+
+- **combo-bump class: genuinely self-contained, ported.** `state.comboBumped`
+  is set once per word play and consumed (read + cleared) as a side effect
+  of vanilla's own `renderCombat()`. That pattern isn't safe to copy
+  directly into a React function component: `main.jsx` renders the app
+  inside `<StrictMode>`, which in dev deliberately double-invokes a
+  function component's body per commit to surface impure renders — a
+  one-shot flag consumed (read-then-cleared) inside that body could get
+  eaten by the throwaway first invocation, silently dropping the bump.
+  Ported natively instead: a `useRef` holds the combo value as of the last
+  *committed* render, updated in a `useEffect` keyed on `combo` (effects
+  aren't subject to the same throwaway-invocation risk); comparing the
+  current combo against that ref during render tells us if this is the
+  render where the streak grew. No shared engine state touched at all.
+- **new-tile rack slide-in: also genuinely self-contained, ported the same
+  way.** Vanilla diffs the rack against `state.lastRackTileIds`
+  (module-private, not exposed on `Game.*`) plus a `rackJustRefilled` flag
+  for "just entered this fight." Ported with a `useRef` holding the
+  previous committed render's rack tile ids, diffed against the current
+  rack during render, updated in an untargeted `useEffect` (runs after
+  every commit — deliberately no dependency array, since "was this tile in
+  the LAST render" needs checking every render, not just when some specific
+  value changes). Turns out `rackJustRefilled` isn't actually needed: the
+  ref starts empty on mount, so every tile in a fresh fight's starting rack
+  reads as new for free, and `cycleRackAfterWord`'s normal (non-Page-Turn)
+  path always fully replaces the rack with fresh ids anyway, so the same
+  diff-against-empty-then-diff-against-previous logic covers both cases
+  vanilla needs a dedicated flag for.
+- **blank-picker overlay: NOT actually a small separable win — this run's
+  real finding.** Vanilla only opens it in touch mode
+  (`if (!state.touchMode) return;` inside `selectTileForWord`). Confirmed
+  by reading `Game.applyTouchModeFromMedia()`'s call site: it's invoked
+  from the full legacy `Game.init()`, which React's `main.jsx`
+  deliberately does NOT call (calls `Game._initDependencies()` instead,
+  specifically to avoid binding ~20 listeners to legacy element ids that
+  don't exist in this tree — confirmed by reading that split's own header
+  comment). So `state.touchMode` is always `false` in the React app today,
+  on any device. Porting the picker component now would be dead code with
+  no path to ever open it. And even wiring touch-mode detection in on its
+  own wouldn't be enough — `selectTileForWord`'s blank-tap branch (and
+  every other touch/staging behavior) is built entirely around
+  `state.selectedTileIds`, which `CombatScreen.jsx`'s current model doesn't
+  use at all (it builds `word` as a plain string via typing/click-append,
+  per the component's own header comment on that deliberate design choice).
+  The picker is load-bearing scaffolding for the tile-staging system, not a
+  feature you can bolt on ahead of it. Corrected in GOALS.md's STRUCTURAL
+  note so the next run doesn't re-read the same code and reach the same
+  wrong conclusion.
+
+**What changed:**
+- `src/components/CombatScreen.jsx`: added the two ref+effect hooks
+  (placed before the component's existing `if (!monster) return null;`
+  early return, since Rules of Hooks requires every hook to run
+  unconditionally — both are declared alongside the pre-existing
+  `useState`/`useRef`/`useMemo` calls at the top). Wired `combo-chip-bump`
+  onto the existing combo-chip div and `new-tile` onto each rack
+  `letter-tile` button. Full reasoning (including the one real known minor
+  divergence: opening/closing a mid-fight side panel remounts
+  `CombatScreen`, so an untouched rack briefly re-plays its slide-in next
+  time combat shows again — cosmetic only) is in the component's own
+  header comment, not just here.
+- `src/components/__tests__/CombatScreen.test.jsx`: two new tests. One
+  confirms every rack tile carries `new-tile` on the fight's first render
+  and none do after an unrelated local re-render (typing, which only
+  touches `CombatScreen`'s own `word` state, no rack mutation). One plays a
+  real word through the real UI, confirms the combo chip appears with
+  `combo-chip-bump`, then confirms an unrelated re-render clears the class
+  while the combo streak itself (`state.comboState.combo`) stays intact —
+  distinguishing "the bump class is one-shot" from "the chip disappeared,"
+  which would be a different (wrong) bug.
+- `GOALS.md`: STRUCTURAL ticket update-6 note (the corrected blank-picker
+  scoping above, verbatim reasoning, so the "start here" pointer for the
+  next run doesn't send it down the same dead end).
+
+**Verified:**
+- `npx vitest run src/components/__tests__/CombatScreen.test.jsx`: 9/9
+  passing (7 pre-existing + 2 new).
+- `npx vitest run` (full suite): 43/43 passing (was 41/41 before this run).
+- `npm test` (jsdom dom-check): ran 3 times total. First run (before this
+  session's `npm install`, no `node_modules` cache in this container) isn't
+  comparable. Second run (after install, WITH this run's changes applied):
+  1 failure — "audio: dying to a counterattack logs a played defeat call."
+  Stashed this run's changes and re-ran on the exact prior commit: ALL
+  CHECKS PASSED. Un-stashed (changes restored) and ran twice more: ALL
+  CHECKS PASSED both times. This isolates the failure as a pre-existing
+  flake unrelated to this run's changes (none of this run's files —
+  `src/components/CombatScreen.jsx` and its test — are anywhere near
+  `wordbound.html`'s dom-check suite or the audio system it was testing),
+  not a regression introduced here. Flagging the flake itself for a future
+  run to look at if it recurs, since three-clean-runs-in-a-row doesn't
+  prove it can't happen, just that it isn't this change.
+- `npm run build`: clean, same pre-existing single-large-chunk notice every
+  prior run has seen.
+- `npm run test:react-build` (real-browser, built `dist/app/` output,
+  never dev server): ALL CHECKS PASSED — full seeded playthrough (main
+  menu -> character select -> map -> real word played, monster HP drops
+  52->44) with zero console/page errors, zero failed requests, mobile
+  overflow checks clean at 375/414px. This is the check that would have
+  caught a hooks-ordering violation or a runtime error from the new refs/
+  effects, since it drives real rack renders (new-tile fires on every
+  render) and a real word play (combo-bump fires).
+- `npm run test:react-qa` (real-browser, built output, boss-reward flow):
+  ALL CHECKS PASSED — two full boss kills (one via claim path, one via
+  skip path at 375px), same zero-error/zero-failed-request bar. Exercises
+  rack re-renders across a floor advance too.
+- NOT re-run: `test:mobile`, `test:qa`, `test:itch-build`,
+  `test:run-header`, `test:audio`, `test:drag-interrupt`,
+  `test:branching-map` — none target files touched this run (only
+  `CombatScreen.jsx` + its own test file + `GOALS.md`).
+
+**Not done / explicitly deferred:** touch-mode detection is unwired in
+React (still always `false`); the blank-letter picker, the tile-staging/
+drag system (`selectedTileIds`, pointer-capture drag, touch reorder), and
+the `tile-settle` cosmetic class (tied to staging, since `markSettle` only
+fires from stage/unstage actions) are all still unbuilt. Per-hit damage/
+HP-flash/screen-shake animations also remain unbuilt (unchanged from
+update-2's original finding: `Game.submitWord` resolves inside its own
+setTimeout with nothing exposed for React to hook a one-shot animation
+off).
+
+**Next:** the real remaining shape of scope (c), now more precisely
+scoped than before this run:
+1. Wire touch-mode detection into the React app (call
+   `Game.applyTouchModeFromMedia()` + the `matchMedia` change listener from
+   `App.jsx` or `main.jsx` on mount) — currently entirely missing, and
+   nothing touch-specific can be meaningfully tested without it.
+2. Rebuild `CombatScreen.jsx`'s word-entry model around
+   `state.selectedTileIds` (tile-id-based staging) instead of the current
+   plain-string `word` state — this is the real prerequisite the blank
+   picker, `unstageTile`, and drag reordering all sit on top of. Likely
+   means exposing a small set of new `Game.*` wrappers around the
+   currently-private `selectTileForWord`/`unstageTile`/`openBlankPicker`/
+   `closeBlankPicker`/`assignBlankLetter`/`startTouchReorder`/
+   `reorderRackOnDrop` functions, same pattern already established for
+   `getAudioSettings`/`setMusicVolume`/`toggleMusicMute` in update-4.
+3. Once staging exists, the blank-picker overlay and pointer/touch drag
+   reordering both become genuinely portable on top of it.
+This is still a multi-run push — (1) and (2) together are a reasonable
+single-run scope for whoever picks this up next.

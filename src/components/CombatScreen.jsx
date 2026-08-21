@@ -83,13 +83,43 @@ export default function CombatScreen({ state, Game, act }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word, monster && monster.hp, state.overchargeArmed]);
 
+  // Combo-bump (GOALS.md STRUCTURAL remaining-scope (c), "the combo chip's
+  // one-shot bump-pop class"): game.js's own renderCombat() reads a shared
+  // state.comboBumped flag and clears it as a side effect of rendering --
+  // not portable here as-is, since React (especially StrictMode, which
+  // main.jsx wraps the app in) may invoke a function component's body more
+  // than once per commit, and a consumed-during-render one-shot flag would
+  // get eaten by a throwaway invocation. Tracked natively instead: a ref
+  // holds the combo value as of the last COMMITTED render, updated in an
+  // effect (which StrictMode only double-invokes harmlessly, never mutating
+  // shared engine state); comparing the current combo against it during
+  // render tells us if this render is the one where the streak grew.
+  const combo = (state.comboState && state.comboState.combo) || 0;
+  const prevComboRef = useRef(combo);
+  const comboBumped = combo > prevComboRef.current;
+  useEffect(() => { prevComboRef.current = combo; }, [combo]);
+
+  // new-tile slide-in (GOALS.md STRUCTURAL remaining-scope (c), "the rack's
+  // ...new-tile...cosmetic class"): vanilla diffs the rack against
+  // state.lastRackTileIds (a tile id absent from last render's rack is
+  // freshly drawn). Ported the same way, natively: a ref holds the rack's
+  // tile ids as of the last committed render. Note this naturally covers
+  // "just entered this fight" too (the ref starts empty on mount, so every
+  // starting tile reads as new) -- vanilla needs a separate rackJustRefilled
+  // flag for that case only because it reuses one persistent DOM tree across
+  // fights; React remounts CombatScreen per fight already. Known minor
+  // divergence, harmless: opening/closing a mid-fight side panel (deck
+  // viewer etc.) also remounts this component, so the untouched rack
+  // briefly re-plays the slide-in too -- cosmetic only, not a functional gap.
+  const prevRackIdsRef = useRef([]);
+  useEffect(() => { prevRackIdsRef.current = state.player.rack.map((t) => t.id); });
+
   if (!monster) return null;
 
   const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
   const activeTraitId = Traits.activeTraitForHpRatio(monster.traitPhases, hpRatio);
   const trait = Traits.TRAITS[activeTraitId];
   const tierClass = monster.isBoss ? 'boss-tier' : (monster.tier ? 'tier-' + monster.tier : '');
-  const combo = (state.comboState && state.comboState.combo) || 0;
   const canOvercharge = state.player.ink >= Combat.OVERCHARGE_INK_COST;
   const canRewrite = state.player.ink >= Combat.REWRITE_INK_COST;
   const dead = monster.hp <= 0;
@@ -127,12 +157,17 @@ export default function CombatScreen({ state, Game, act }) {
             {Intents.describeIntent(monster.intent)}
           </div>
         )}
-        {combo > 0 && <div className="combo-chip">Combo x{combo} &middot; +{Math.min(combo, 5) * 12}%</div>}
+        {combo > 0 && (
+          <div className={'combo-chip' + (comboBumped ? ' combo-chip-bump' : '')}>
+            Combo x{combo} &middot; +{Math.min(combo, 5) * 12}%
+          </div>
+        )}
       </div>
 
       <div className="rack-display">
         {state.player.rack.map((tile) => {
           const isHexed = tile.id === state.hexedTileId;
+          const isNewTile = !prevRackIdsRef.current.includes(tile.id);
           const val = Lexicon.LETTER_VALUES[tile.letter] || 0;
           const displayVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
           let bonusClass = '';
@@ -152,7 +187,7 @@ export default function CombatScreen({ state, Game, act }) {
             <button
               key={tile.id}
               type="button"
-              className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '')}
+              className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '') + (isNewTile ? ' new-tile' : '')}
               disabled={isHexed}
               title={title}
               onClick={() => {

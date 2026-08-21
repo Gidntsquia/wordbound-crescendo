@@ -122,4 +122,52 @@ describe('CombatScreen', () => {
     expect(state.player.ink).toBe(inkBefore - Combat.REWRITE_INK_COST);
     expect(state.player.rack.map((t) => t.id)).not.toEqual(rackBefore);
   });
+
+  // STRUCTURAL remaining-scope (c): rack tiles that weren't in the previous
+  // committed render get game.js's own 'new-tile' slide-in class, ported
+  // natively via a ref-tracked previous-ids diff (CombatScreen.jsx's own
+  // header comment on the combo-bump hooks explains why the shared
+  // state.rackJustRefilled/lastRackTileIds flags aren't reused directly).
+  it('rack tiles are all "new-tile" on the fight\'s first render, and no longer once the rack is unchanged', async () => {
+    const state = startFight();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const rackIds = state.player.rack.map((t) => t.id);
+    let buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
+    expect(buttons.length).toBe(rackIds.length);
+    buttons.forEach((btn) => expect(btn.className).toContain('new-tile'));
+
+    // An unrelated local re-render (typing, which only touches CombatScreen's
+    // own `word` state -- no rack mutation) must NOT keep replaying the
+    // slide-in: this is the one-shot behavior new-tile is meant to have.
+    await user.type(screen.getByPlaceholderText('Type or click letters...'), 'A');
+    buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
+    expect(buttons.length).toBe(rackIds.length);
+    buttons.forEach((btn) => expect(btn.className).not.toContain('new-tile'));
+  });
+
+  // STRUCTURAL remaining-scope (c): "the combo chip's one-shot bump-pop
+  // class" -- ported natively (see CombatScreen.jsx's header comment on the
+  // combo-bump hooks for why the shared state.comboBumped flag isn't reused
+  // directly: React/StrictMode can invoke a component body more than once
+  // per commit, and that flag is consumed as a render side effect in
+  // vanilla, which isn't safe to replicate here).
+  it('the combo chip gets combo-chip-bump the render the streak grows, and loses it on the next unrelated render', async () => {
+    const state = startFight();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
+    await user.type(screen.getByPlaceholderText('Type or click letters...'), word);
+    await user.click(screen.getByRole('button', { name: 'Play Word' }));
+    expect(state.comboState.combo).toBeGreaterThan(0);
+    const chip = screen.getByText(/Combo x/);
+    expect(chip.className).toContain('combo-chip-bump');
+
+    // An unrelated local re-render (typing) must clear the one-shot bump
+    // class without the combo streak itself changing.
+    await user.type(screen.getByPlaceholderText('Type or click letters...'), 'Z');
+    const chipAfter = screen.getByText(/Combo x/);
+    expect(chipAfter.className).not.toContain('combo-chip-bump');
+    expect(state.comboState.combo).toBeGreaterThan(0);
+  });
 });
