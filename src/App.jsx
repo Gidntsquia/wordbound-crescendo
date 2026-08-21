@@ -1,12 +1,29 @@
-// React/Vite scaffold checkpoint (GOALS.md STRUCTURAL ticket, step 1 of 5).
-// The real game still lives in wordbound.html while screens get ported here
-// one at a time; this placeholder just proves the Vite+React toolchain boots.
+// React/Vite scaffold (GOALS.md STRUCTURAL ticket). Screens are ported one at
+// a time; wordbound.html remains the actual playable game until the port has
+// full feature parity. Main menu + how-to-play overlay are the first real
+// screens ported; character select is a documented placeholder (see
+// CharacterSelectPlaceholder.jsx) until the next STRUCTURAL run.
+import { useState } from 'react';
+import MainMenu from './components/MainMenu.jsx';
+import HowToPlayOverlay from './components/HowToPlayOverlay.jsx';
+import CharacterSelectPlaceholder from './components/CharacterSelectPlaceholder.jsx';
+
 export default function App() {
+  const [screen, setScreen] = useState('main-menu');
+  const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', color: '#e8dfc8', background: '#1a1712', minHeight: '100vh' }}>
-      <h1>Wordbound: Crescendo</h1>
-      <p>React/Vite scaffold is wired up. Screens are being ported here one at a time.</p>
-      <p>Until the port is complete, the playable game is <code>wordbound.html</code>.</p>
+    <div id="wb-root">
+      {screen === 'main-menu' && (
+        <MainMenu
+          onNewRun={() => setScreen('character-select')}
+          onHowToPlay={() => setHowToPlayOpen(true)}
+        />
+      )}
+      {screen === 'character-select' && (
+        <CharacterSelectPlaceholder onBack={() => setScreen('main-menu')} />
+      )}
+      <HowToPlayOverlay open={howToPlayOpen} onClose={() => setHowToPlayOpen(false)} />
     </div>
   );
 }
