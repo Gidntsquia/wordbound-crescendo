@@ -828,3 +828,152 @@ significantly overdue — every run since scaffold has added more real
 interactive behavior verified only by throwaway Playwright scripts instead
 of a committed, repeatable test; strongly consider making it the very next
 pick over further screen ports.
+
+## 2026-08-21T15:24Z — repo-health check + STRUCTURAL sub-step 3: Vitest/RTL stood up (orchestrator)
+
+**Repo-health check before starting:** `git status` showed HEAD detached
+again (same class of issue the STRUCTURAL 6/N run hit and fixed). This time
+it was benign: local `main` was just stale in this fresh container (it
+pointed at the very first seed commit, `f98ff83`), while `origin/main` (after
+`git fetch`) and detached `HEAD` both already sat at the same, correct
+commit (`21ef9fe`, everything through the last two orchestrator tickets).
+Confirmed with `git merge-base --is-ancestor` both ways before touching
+anything, then `git checkout -B main origin/main` to reattach HEAD and fix
+the local branch pointer — no lost work, nothing to re-push. Flagging the
+general pattern again for future runs: always `git fetch origin main` and
+diff against the fetched ref, not just the locally-cached `origin/main`,
+before concluding local state is stale or ahead.
+
+**What was done:** picked up the orchestrator's own note (previous entry)
+making Vitest/RTL migration (GOALS.md STRUCTURAL sub-step 3) the next chunk.
+Stood up Vitest + React Testing Library and wrote real, repeatable tests for
+every screen ported so far, replacing what had only ever been verified by
+throwaway Playwright scripts:
+
+- `npm install`-ed `vitest`, `@testing-library/react`,
+  `@testing-library/jest-dom`, `@testing-library/user-event`,
+  `@vitest/coverage-v8` (installed but coverage not wired into a script —
+  available for a future run to use) as devDependencies; bumped `jsdom` to
+  satisfy the new peer range.
+- `vite.config.mjs`: added a `test` block (jsdom environment, `globals:
+  true` so React Testing Library's automatic per-test `afterEach` cleanup/
+  unmount just works, `setupFiles`).
+- `src/test/setup.js` (new): imports the vanilla engine modules for their
+  `window.Wordbound.*` side effects in the EXACT SAME ORDER `src/main.jsx`
+  uses, then calls `Game._initDependencies()` — this is what lets every
+  component test drive the REAL engine (real `Game.startRun`, real
+  `Combat.previewWord`, real seeded `Floor` generation) instead of a mock.
+- `src/test/gameHelpers.js` (new): `freshRun(seed, characterId)` (calls the
+  real `Game.startRun`, returns the live `Game._state` object every
+  component reads directly); `pickPlayableWord` (validates a candidate word
+  against the CURRENT rack via `Combat.previewWord` rather than hardcoding
+  one word that could silently go stale if wordlist.js or the seeded rack
+  ever drift — throws loudly if none of the candidates are playable, so a
+  drift breaks tests instead of silently testing nothing);
+  `findNodeIdByType`/`findAvailableCombatNodeId` (see the bug this fixed,
+  below); `defeatCurrentMonster` (forces the current monster to 1 HP, plays
+  a real valid word, polls the real state for the async TILE_REWARD
+  transition instead of a fixed sleep).
+- 30 tests across 6 files (`src/components/__tests__/*.test.jsx`):
+  `MainMenu` (renders, button callbacks, real achievement-count read),
+  `CharacterSelect` (real roster from `window.Wordbound.Characters`, click +
+  keyboard-Enter selection, seed passthrough, Back), `HowToPlayOverlay`
+  (hidden-class toggle, close callback), `RunScreen` (real header/map
+  render, only-available-nodes-clickable + entering one starts a REAL fight
+  via the real engine, mid-fight abandon → `Game.returnToMainMenu`, screen
+  routing to TREASURE/SHOP/unported-placeholder), `CombatScreen` (rack
+  render, click-to-build-word, live damage preview, `Play Word` calling the
+  real `Game.submitWord` and dropping monster HP SYNCHRONOUSLY — same fact
+  the previous run's Playwright script relied on, now asserted in a
+  committed test — Overcharge arming with the real multiplier constant,
+  Rewrite spending ink and dealing a fresh rack), `RewardScreens`
+  (Treasure pick, Shop afford/disable gating + real purchase + Leave Shop,
+  TileReward pick-adds-to-deck and Skip, BossReward reached via a REAL boss
+  kill → tile-reward skip → boss-item pick advancing the floor). All of
+  these exercise the real engine end to end (real RNG, real word validation,
+  real combat math, real shop economy) — no mocked `Game`/`Combat`/`Items`.
+- `package.json`: added `pretest:react` (same `tools/ensure-deps.js`
+  fresh-sandbox auto-install pattern every other test script uses) and
+  `test:react` (`vitest run`).
+- GOALS.md: added an ADDED-2026-08-21 note under MANDATORY VERIFICATION —
+  `npm run test:react` is now also mandatory for any `src/components/*.jsx`
+  change, alongside (not replacing) `npm test`, since `wordbound.html`
+  remains the complete reference implementation until the port reaches full
+  parity. Updated the STRUCTURAL ticket's own orchestrator note to reflect
+  sub-step 3 being done for ported screens, and flagged what's still
+  missing (Playwright's `test:mobile`/`test:qa`/`test:itch-build` still only
+  target `wordbound.html`, not the Vite/React app — that's real remaining
+  sub-step-3 scope, not finished by this run).
+
+**A real bug this caught, in the test harness, not the app:** the first
+version of the RewardScreens tests crashed with `Cannot read properties of
+null (reading 'map')` — `state.tileRewardOptions`/`state.bossRewardOptions`
+read `null` inside the component's render despite being confirmed non-null
+moments earlier in the same synchronous test code. Root-caused by adding a
+temporary `console.log` inside the component itself (not just the test):
+the naive test harness kept re-rendering the SAME screen component
+unconditionally on every `bump()`, including AFTER the user clicked a
+choice — which calls the real `resolveTileReward()`/equivalent that legally
+nulls those fields once the screen resolves. Real `RunScreen.jsx` never hits
+this because it ROUTES AWAY to a different component the instant
+`state.screen` changes; the test harness didn't mirror that guard. Fixed by
+making the harness route the same way (render `null` once `state.screen` no
+longer matches the screen under test) instead of forcing the real component
+to render stale, now-nulled options — this was a test-only bug, not a
+product bug, but worth logging since it looked exactly like a real crash
+until traced.
+
+**A second real bug this caught, in the FIRST test-writing pass, not the
+app:** hardcoded node ids (`'node1'`, `'node6'`, `'node11'`, ...) taken from
+a one-off manual `node -e` script broke the moment those same tests ran
+inside Vitest, because `js/wordbound/floor.js`'s node-id counter (`var
+nextNodeId = 1`) is a plain module-level variable that is NEVER reset
+between runs — so which literal id a "floor-1 boss node" gets depends on how
+many floors any EARLIER test in the same run already generated. Fixed by
+adding `findNodeIdByType`/`findAvailableCombatNodeId` to look nodes up by
+TYPE off the freshly generated `state.floor.nodes` every time, never by a
+literal id — the same "test scenario setup" convention `game.js`'s own
+comments already document for `Game.enterCurrentNode`'s zero-arg re-entry
+form, just applied consistently. Documented in both `gameHelpers.js` and a
+header comment on `RunScreen.test.jsx` so a future run doesn't reintroduce
+literal ids.
+
+**Verified:**
+- `npx vitest run`: 30/30 passing, run 3 times in a row (including once
+  immediately after the two bugs above were fixed) with no flakes — the
+  suite mixes real async waits (`defeatCurrentMonster`'s real-timer poll for
+  Game.submitWord's ~720ms kill-resolution delay) with synchronous
+  assertions, so repeat runs were worth the time to rule out timing
+  flakiness before calling it done.
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED, unaffected —
+  this run touched no `game.js`/`wordbound.html`/CSS.
+- `npm run build`: clean, 38 modules (unchanged from the last build-touching
+  run — this run added no new `src/` production code, only test
+  infrastructure and `src/test/*`, which Vite's build doesn't bundle since
+  nothing imports it from `src/main.jsx`).
+- NOT re-run (this run touched no CSS, no `game.js`, no `wordbound.html`):
+  `test:mobile`, `test:qa`, `test:itch-build`, `test:branching-map`,
+  `test:audio`. Consistent with prior runs' own reasoning for skipping
+  suites whose target tree wasn't touched.
+
+**Current state:** every React screen ported so far (MainMenu,
+HowToPlayOverlay, CharacterSelect, RunScreen's map + routing, CombatScreen,
+all four reward/shop panels) now has a committed, repeatable Vitest/RTL
+test alongside it, driving the real engine — not just a one-time Playwright
+script that gets deleted after the run that wrote it. `wordbound.html`
+remains the complete, unmodified reference implementation; the React app's
+feature set is unchanged by this run (test-only, zero `src/components/*.jsx`
+behavior changes).
+
+**Next:** resume the actual STRUCTURAL screen ports — EVENT (per-choice
+`disabledReason(state)` checks) and SHREDDER (multi-select-then-confirm)
+are the last two `renderRun()` sub-panels, then GAME_OVER/VICTORY (currently
+unreached in React at all, per the STRUCTURAL 6/N run's note) — with a
+Vitest/RTL test landing alongside each one this time, per this sub-step's
+now-established pattern (`gameHelpers.js`'s `freshRun`/`findNodeIdByType`/
+`defeatCurrentMonster`, look up node ids by type not literal value). Also
+still open for a future run: port Playwright's `test:mobile`/`test:qa`/
+`test:itch-build` (or an equivalent) to actually exercise the Vite/React
+app rather than only `wordbound.html` — real sub-step-3 scope this run
+did not attempt. The tile-staging/drag system and the per-hit animations
+remain the same real, scoped follow-ups noted by earlier runs.
