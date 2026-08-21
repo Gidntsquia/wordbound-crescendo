@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react';
 import CombatScreen from './CombatScreen.jsx';
+import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen } from './RewardScreens.jsx';
 
 // Real port of #screen-run's node map (STRUCTURAL ticket, next sub-step after
 // character select). What's genuinely ported this run: Game.startRun is
@@ -8,15 +9,13 @@ import CombatScreen from './CombatScreen.jsx';
 // -- rows, lanes, edges, node types -- via the same Floor.directNextNodeIds
 // traversal renderNodeMap() in game.js uses).
 //
-// The combat panel is now real too (CombatScreen.jsx) -- see its own header
-// comment for what that does and doesn't cover. Row 0 of every floor is
-// always 'combat' (floor.js), so combat was the only node type reachable at
-// all until this landed; treasure/shop/event/rest nodes are STILL
-// unreachable through this screen (clearing a fight is required to reach
-// them, and what a cleared fight resolves into -- tile reward, boss item
-// reward, or the next node -- isn't ported yet either). Rather than build
-// untestable UI for screens nothing can fully reach yet, entering any
-// non-combat node still shows one honest, generic "not ported yet" panel
+// The combat panel is real too (CombatScreen.jsx) -- see its own header
+// comment for what that does and doesn't cover. And so is the "choose from
+// a list" reward/shop family (RewardScreens.jsx): TREASURE, SHOP,
+// TILE_REWARD (reachable after literally every fight, not just bosses'),
+// and BOSS_ITEM_REWARD. EVENT (choices carry a live `disabledReason(state)`
+// check) and SHREDDER (multi-select-then-confirm) are NOT ported yet --
+// both still fall through to the generic "not ported yet" placeholder below,
 // reflecting the real resulting Game._state (screen name) with a way back
 // to the menu.
 //
@@ -46,7 +45,10 @@ export default function RunScreen({ onBackToMenu }) {
     onBackToMenu();
   }
 
-  const otherUnportedNode = !state.combatActive && state.screen !== 'RUN' && state.screen !== 'MAIN_MENU';
+  const rewardOrShopScreen = state.screen === 'TREASURE' || state.screen === 'SHOP'
+    || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD';
+  const otherUnportedNode = !state.combatActive && !rewardOrShopScreen
+    && state.screen !== 'RUN' && state.screen !== 'MAIN_MENU';
 
   return (
     <div className="screen">
@@ -65,6 +67,12 @@ export default function RunScreen({ onBackToMenu }) {
             Back to Menu (abandon run)
           </button>
         </>
+      ) : state.screen === 'TREASURE' || state.screen === 'SHOP' ? (
+        <TreasureOrShopScreen state={state} Game={Game} act={act} />
+      ) : state.screen === 'TILE_REWARD' ? (
+        <TileRewardScreen state={state} Game={Game} act={act} />
+      ) : state.screen === 'BOSS_ITEM_REWARD' ? (
+        <BossRewardScreen state={state} Game={Game} act={act} />
       ) : otherUnportedNode ? (
         <NodePlaceholder state={state} onBack={backToMenu} />
       ) : (
