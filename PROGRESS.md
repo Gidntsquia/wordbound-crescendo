@@ -234,3 +234,106 @@ half-converted module could break the still-live vanilla game. After the
 main-menu proof of concept, continue screen by screen per the ticket order;
 Vitest/RTL test migration (sub-step 3) can start once there's real component
 behavior worth testing.
+
+## 2026-08-21T10:49Z — STRUCTURAL 2/5: main menu + how-to-play ported to React (orchestrator)
+
+**Housekeeping first:** session started with local `main` detached at HEAD
+(5 commits ahead of the local `main` ref but matching `origin/main`, which
+was already at 114bf57 — the detached state was a purely local artifact from
+how the previous session's environment was torn down, no data was at risk).
+Fast-forwarded local `main` to match; `git push` correctly reported
+"Everything up-to-date". No repo damage, just confirming for the record since
+a detached HEAD is exactly the kind of thing worth double-checking before
+doing anything else.
+
+**What was done:** continued the multi-run STRUCTURAL ticket (React + Vite
+migration) per the previous run's "Next" note — ported the first two real
+screens instead of just the scaffold:
+- `src/components/MainMenu.jsx`: React port of `#screen-main-menu` (title,
+  version, tagline, goal text, New Run / How to Play buttons, achievements
+  progress line). Achievement data comes from the EXISTING
+  `js/wordbound/achievements.js` — imported once in `src/main.jsx` as a
+  side-effecting import (it's a self-contained IIFE with no dependency on
+  the rest of the engine, still attaching to `window.Wordbound.Achievements`
+  exactly as it does for `wordbound.html`) and read directly by the
+  component. Nothing in achievements.js was touched or rewritten — this is
+  the concrete first proof of GOALS.md's "game logic stays framework-
+  agnostic plain JS, import it from React" instruction.
+- `src/components/HowToPlayOverlay.jsx`: React port of `#howto-overlay`,
+  desktop-copy only. The vanilla version swaps in touch-mode wording and an
+  iOS ringer-switch tip via pointer-coarse media-query detection; that
+  input-mode logic lives with the combat screen's touch handling (a later
+  sub-step) and was NOT ported here — said so directly in the component's
+  comment rather than faking touch copy with no way to actually detect
+  touch yet.
+- `src/components/CharacterSelectPlaceholder.jsx` + `src/App.jsx` (now holds
+  `screen`/`howToPlayOpen` state instead of being a static placeholder):
+  "New Run" needed to lead somewhere, and character select isn't ported yet
+  (that's the natural next sub-step). Rather than a dead click or a faked
+  screen, it's an honestly-labeled placeholder panel pointing at
+  `wordbound.html` for an actual playable run, with a working Back button.
+  This keeps every commit "working" per the ticket's own instruction without
+  jumping ahead to build character select before its turn.
+- Wired `css/wordbound.css` into `src/main.jsx` (global import) instead of
+  writing new CSS — the existing class names (`.main-menu-panel`,
+  `.game-title`, `.btn`, `.btn-primary`/`.btn-secondary`,
+  `.character-select-panel`, `.howto-overlay`, etc.) already do exactly what
+  the ported markup needs, and reusing them is also what keeps Crescendo's
+  React screens visually identical to the sibling's ink-woodcut style
+  without any extra design work.
+- Deliberately did NOT port the `#dictionary-loading-indicator`: the
+  wordlist-loading logic it reflects isn't wired into the React tree yet
+  (that's a `js/wordbound/wordlist.js` concern, not touched this run), and a
+  perpetually-visible "Loading dictionary..." with nothing to ever hide it
+  would be worse than honestly leaving it out. Also skipped the decorative
+  `#wb-ambient-bg` backdrop to keep this run's diff scoped to the two actual
+  screens; it's cheap to add back in a later pass.
+
+**Verified:**
+- `npm run build`: clean (20 modules, no warnings).
+- Real-browser check (Playwright, `/opt/pw-browsers/chromium`, served build
+  via `npm run preview`): title/version/tagline render correctly;
+  achievements line reads "Achievements unlocked: 0 / 5" (correct — fresh
+  localStorage); How to Play opens the overlay and Got It closes it
+  (`.hidden` class toggles correctly); New Run navigates to the character-
+  select placeholder and Back to Menu returns; ZERO console/page errors
+  across the whole click-through. Throwaway script deleted after.
+- `npm test` (jsdom dom-check, 100+ assertions): ALL CHECKS PASSED —
+  unaffected, since `wordbound.html`/`js/wordbound/*` weren't touched.
+- `npm run test:mobile`: all layouts OK (375/414px), touch-mode input OK.
+- `npm run test:qa`: ALL CHECKS PASSED, zero console/page errors.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+  (16/16 dom-check against the unzipped build, zero 404s in a real browser).
+  Note: hit one flaky failure on a `test:itch-build` run where a leftover
+  `vite preview` process was still holding a port from my own manual
+  Playwright check moments earlier — killed it and re-ran clean twice in a
+  row after; confirmed via `git stash` that the baseline (pre-this-run) also
+  passes cleanly, so this was a local port-contention flake in my own
+  session, not a regression from this run's changes.
+
+**Not verified / not applicable:** no Vitest/RTL migration yet (ticket
+sub-step 3 — still deferred, so GOALS.md's MANDATORY VERIFICATION header is
+correctly still untouched); no component-level unit tests added for
+MainMenu/HowToPlayOverlay since that test harness doesn't exist yet — full
+real-browser click-through is what's covering them for now, same as the
+scaffold run.
+
+**Current state:** two toolchains still coexist. `wordbound.html` is
+untouched and remains the actual playable game. The Vite+React app (root
+`index.html` → `src/`) now has two real, tested screens (main menu,
+how-to-play) plus an honest placeholder for character select; `npm test`
+and friends are all green. `dist/` still gitignored, itch build unaffected.
+
+**Next:** continue the STRUCTURAL ticket — port character select for real
+next (replace `CharacterSelectPlaceholder.jsx`), which will need
+`js/wordbound/characters.js` pulled in the same side-effect-import way
+achievements.js was this run, plus the seed-input field and a real "start
+run" action. That's naturally the next screen in `wordbound.html`'s own
+flow. After that, the run screen (combat/map/panels) is the big one — it's
+where `game.js`'s ~3400 lines of intertwined state and DOM manipulation
+live, and it'll likely need its own state-shape design pass (what becomes
+React state vs. what stays a plain-JS module function) before porting
+starts, worth thinking through up front rather than mid-port. Vitest/RTL
+test migration (sub-step 3) can reasonably start once there's real
+stateful behavior worth testing — the character-select run-start flow is
+probably the first candidate.
