@@ -146,6 +146,39 @@
   Game.getAudioSettings = function () { return { volume: audioSettings.volume, muted: audioSettings.muted }; };
   Game.setMusicVolume = function (volume) { setMusicVolume(volume); render(); };
   Game.toggleMusicMute = function () { toggleMusicMute(); render(); };
+  // STRUCTURAL ticket (GOALS.md, remaining scope (c) step 2, tile-staging
+  // rebuild): same "real public API, not test-only" reasoning as the audio
+  // wrappers above -- wordbound.html's rack/staging-area click listeners call
+  // the private selectTileForWord/unstageTile/stagedWord functions directly
+  // (same closure); React's CombatScreen has no such access. Takes a tile id
+  // (not a tile object) since that's what a React click handler naturally has
+  // on hand (the tile object itself is a plain data record already in scope,
+  // but an id-based wrapper matches unstageTile's own existing id-based shape
+  // and stays valid even if the rack array is rebuilt between renders).
+  // openBlankPicker/closeBlankPicker/assignBlankLetter are exposed too even
+  // though nothing in React opens the picker yet (that overlay is still
+  // unbuilt, GOALS.md's own note on why) -- selectTileForWord's touch-mode
+  // blank branch calls openBlankPicker internally, so leaving it private
+  // would make a blank-tile tap throw for a touch-mode React player instead
+  // of harmlessly no-op-ing (blankPickerOpen flips true with no overlay to
+  // read it, same inert result as today's plain-string model already gives a
+  // blank click in every mode).
+  Game.selectTileForWord = function (tileId) {
+    var tile = state.player.rack.find(function (t) { return t.id === tileId; });
+    if (!tile) return;
+    selectTileForWord(tile);
+  };
+  Game.unstageTile = function (tileId) { unstageTile(tileId); };
+  Game.openBlankPicker = function (tileId) { openBlankPicker(tileId); };
+  Game.closeBlankPicker = function () { closeBlankPicker(); };
+  Game.assignBlankLetter = function (letter) { assignBlankLetter(letter); };
+  Game.stagedWord = function () { return stagedWord(); };
+  // Mirrors #btn-clear-word's own handler (game.js's Game.init, below) minus
+  // the DOM value reset, which React's CombatScreen does itself.
+  Game.clearStagedWord = function () {
+    state.selectedTileIds = [];
+    state.blankAssignments = {};
+  };
   Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
@@ -1921,8 +1954,15 @@
   // Keep the desktop typing box in sync with the staged tiles WITHOUT focusing
   // it -- focusing is what pops the soft keyboard on mobile (MOBILE INPUT 1/3),
   // so the focus() call is gated on desktop mode at every call site instead.
+  // Null-guarded (STRUCTURAL ticket, React port): React's CombatScreen has no
+  // #word-input element (its input is a plain, unid'd React node) -- this and
+  // every other $('word-input') access below is a no-op there, same pattern
+  // as render()'s own DOM-tree guard elsewhere in this file. React syncs its
+  // own input state from Game.stagedWord() itself after calling the tile-
+  // selection wrappers (see Game.selectTileForWord/unstageTile below).
   function syncWordInput() {
-    $('word-input').value = stagedWord();
+    var input = $('word-input');
+    if (input) input.value = stagedWord();
   }
 
   function selectTileForWord(tile) {
@@ -1965,7 +2005,7 @@
     // rather than surgically edit the string, so removals from the middle
     // work correctly too.
     syncWordInput();
-    if (!state.touchMode) $('word-input').focus();
+    if (!state.touchMode) { var wordInputEl = $('word-input'); if (wordInputEl) wordInputEl.focus(); }
     render();
     flipTile(fromRect, tileElIn('staging-area', tile.id));
   }

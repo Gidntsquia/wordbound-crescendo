@@ -72,6 +72,57 @@ describe('CombatScreen', () => {
     expect(screen.getByPlaceholderText('Type or click letters...')).toHaveValue('');
   });
 
+  // STRUCTURAL ticket, remaining-scope (c) step 2: the previous three tests
+  // only ever observed the word-input's TEXT, which would have kept passing
+  // even under the old fake local-string model this run replaced. These
+  // assert directly on the real engine state (state.selectedTileIds) and the
+  // real staging-area DOM (mirrors game.js's renderStagingArea()), which is
+  // the actual thing that changed.
+  it('clicking a rack tile stages it for real: state.selectedTileIds updates, the rack shows an empty slot, and the tile appears in the staging area', async () => {
+    const state = startFight();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const tile = state.player.rack[0];
+    const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    await user.click(tileBtn);
+    expect(state.selectedTileIds).toEqual([tile.id]);
+    // The clicked tile's old rack button is gone (replaced by an empty slot).
+    expect(screen.queryByRole('button', { name: 'Return staged tile to rack' })).toBeInTheDocument();
+    // ...and a real .staged-tile now exists in the staging area showing the same letter/value.
+    const staged = document.querySelector('.staging-area .staged-tile');
+    expect(staged).not.toBeNull();
+    expect(staged.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter)).toBe(true);
+  });
+
+  it('clicking the staged tile (or its rack slot) unstages it back to a normal rack tile', async () => {
+    const state = startFight();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const tile = state.player.rack[0];
+    const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    await user.click(tileBtn); // stage
+    await user.click(document.querySelector('.staging-area .staged-tile')); // unstage via the staged tile itself
+    expect(state.selectedTileIds).toEqual([]);
+    expect(document.querySelector('.staging-area .staged-tile')).toBeNull();
+    // The tile is back in the rack as a real, clickable letter-tile.
+    const backInRack = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    expect(backInRack).toBeInTheDocument();
+  });
+
+  it('Clear resets both the typed word AND the real staged-tile selection', async () => {
+    const state = startFight();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const tile = state.player.rack[0];
+    const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    await user.click(tileBtn);
+    expect(state.selectedTileIds).toEqual([tile.id]);
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(state.selectedTileIds).toEqual([]);
+    expect(screen.getByPlaceholderText('Type or click letters...')).toHaveValue('');
+    expect(document.querySelector('.staging-area .staged-tile')).toBeNull();
+  });
+
   it('shows a live damage preview for a valid typed word', async () => {
     const state = startFight();
     const user = userEvent.setup();

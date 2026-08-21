@@ -467,6 +467,101 @@ Rules for the routine:
       next piece and is still substantial -- treat as its own run. Once
       staging exists, the blank-picker overlay and pointer/touch drag
       reordering both become portable on top of it, per update-6's note.
+      ORCHESTRATOR NOTE 2026-08-21 (update 8): landed the CORE of remaining
+      scope (c) step 2 -- rack-tile clicks in `CombatScreen.jsx` now go
+      through the real engine staging mechanism instead of a fake local
+      string, the real prerequisite update-6/7 both pointed at. Scoped this
+      run to the tap-to-stage/unstage piece only (no drag, no blank-picker
+      UI yet -- see below), a deliberately smaller cut than "all of step 2"
+      since the drag system is genuinely its own sub-feature (pointer
+      capture, ghost tiles, insertion-index math, FLIP animations, haptics)
+      that doesn't fit one bounded run on top of the staging rebuild itself.
+      - `js/wordbound/game.js`: exposed real public wrappers (not
+        test-only, same "React has no closure access" reasoning as the
+        audio wrappers) -- `Game.selectTileForWord(tileId)` (looks the tile
+        up in `state.player.rack`, calls the private function),
+        `Game.unstageTile(tileId)`, `Game.openBlankPicker(tileId)`,
+        `Game.closeBlankPicker()`, `Game.assignBlankLetter(letter)`,
+        `Game.stagedWord()`, and `Game.clearStagedWord()` (mirrors
+        `#btn-clear-word`'s state reset). Needed two small additive
+        null-guards to make the private functions safe to call from
+        React: `syncWordInput()`'s and `selectTileForWord()`'s
+        `$('word-input')` DOM access now checks the element exists first
+        (same `reactTreeActive()`-style reasoning as every prior "make a
+        vanilla function React-safe" fix this ticket has needed --
+        confirmed by reading `wordbound.html`, its `#word-input` always
+        exists there, so this is a guaranteed no-op for vanilla, not a
+        behavior change -- `npm test` full suite stayed green).
+      - `src/components/CombatScreen.jsx`: rack-tile clicks now call
+        `Game.selectTileForWord(tile.id)`/`Game.unstageTile(tileId)`
+        instead of `setWord((w) => w + tile.letter)`. A staged tile
+        renders as an empty `rack-slot-empty` button in its rack position
+        (matches `renderCombat()`'s "same footprint, tile lives in
+        staging now" behavior) and a real `.staging-area` row (new, sits
+        between the rack and the damage preview, mirroring
+        `renderStagingArea()`'s DOM shape/CSS classes exactly) shows the
+        staged tiles, each clickable to unstage. The free-typing desktop
+        path is UNCHANGED and still the actual submit source (confirmed by
+        re-reading `game.js`'s `btn-submit-word` handler: desktop submits
+        `word-input`'s raw text regardless of what's staged -- real
+        existing vanilla behavior, not a shortcut) -- local `word` state
+        stays, now resynced from the real `Game.stagedWord()` after every
+        stage/unstage/clear, exactly like vanilla's `syncWordInput()`.
+        Deliberately did NOT resync on a blank-tile click in desktop mode
+        (a genuine no-op in the engine, confirmed by reading
+        `selectTileForWord`'s own early return) -- an earlier draft of
+        this run's diff called `setWord(Game.stagedWord())`
+        unconditionally on every tile click, which would have silently
+        clobbered manually-typed text on a blank click; caught and fixed
+        before committing by re-reading `game.js`'s branching instead of
+        assuming symmetry.
+      - Left genuinely untouched (still the real remaining scope):
+        pointer-drag and touch-drag reordering within the rack/staging
+        row (`startStagingDrag`/`startTouchReorder`/`reorderRackOnDrop`),
+        the FLIP slide animations (`flipTile`) and one-shot land-settle
+        class (`markSettle`/`tile-settle`), haptic ticks, and the
+        blank-letter picker OVERLAY UI itself -- `Game.openBlankPicker`
+        is now wired (a touch-mode blank-tile click calls it for real),
+        but nothing renders the overlay yet, so it's an inert flag, not a
+        crash and not a regression from the prior always-no-op blank
+        click in every mode.
+      **Verified:** `npm run build` clean (39 modules, same pre-existing
+      chunk-size notice). `npm test` (jsdom dom-check, full suite): ALL
+      CHECKS PASSED -- confirms the two `game.js` null-guards are true
+      no-ops against wordbound.html's real DOM. `npx vitest run
+      src/components/__tests__/CombatScreen.test.jsx`: 13/13 (10
+      pre-existing + 3 new, added this run specifically because the
+      pre-existing tile-click tests only ever asserted on the word-input's
+      TEXT, which would have kept passing even under the old fake model --
+      the 3 new tests assert directly on `state.selectedTileIds` and the
+      real `.staging-area`/`.staged-tile` DOM: stage-by-click, unstage-by-
+      click, and Clear resetting both). Full `npx vitest run`: 47/47 in 2
+      of 3 repeated runs, 1 failure in the third -- the exact same
+      pre-existing "combo chip gets combo-chip-bump" full-suite flake
+      STRUCTURAL-15/N already characterized (not this run's change; same
+      signature, same ~1/3 rate, unrelated file). `npm run test:react-build`
+      (real browser, built output): ALL CHECKS PASSED, run 3x clean
+      including 5 new assertions added this run (stage a rack tile for
+      real, confirm `state.selectedTileIds`/the real staging DOM, unstage,
+      confirm both are empty again) alongside the pre-existing typed-word
+      playthrough (still passes unchanged, confirming the desktop typing
+      path survived the rewrite). `npm run test:react-qa`: ALL CHECKS
+      PASSED (full boss-reward flow, unaffected). `npm run test:mobile` +
+      `npm run test:qa` + `npm run build:itch` + `npm run test:itch-build`:
+      ALL CHECKS PASSED -- confirms wordbound.html's own touch-mode/
+      blank-picker path (which DOES render the overlay) is completely
+      unaffected by the two null-guards.
+      **Not done:** drag reordering (mouse + touch), the blank-picker
+      overlay UI, FLIP/settle/haptic juice -- all correctly still open.
+      Ticket stays unchecked. **Next:** the blank-picker overlay is now
+      genuinely buildable on top of this run's staging (it just needs a
+      React overlay component wired to `state.blankPickerOpen`/
+      `state.blankPickerTileId` + a grid of 26 buttons each calling
+      `Game.assignBlankLetter(letter)`, all already exposed) -- a
+      reasonably-scoped next chunk on its own, smaller than the drag
+      system. Drag reordering (pointer capture, ghost tiles, insertion-
+      index math, FLIP animations) remains the biggest genuinely open
+      piece and is likely still its own multi-run push after that.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

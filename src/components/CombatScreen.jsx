@@ -12,16 +12,36 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 // toggleOvercharge, rewriteRack) -- the same functions the dom-check test
 // suite already drives headlessly.
 //
-// Word input: uses the desktop "type or click a letter" path (Combat.playWord
-// matches a submitted word against the rack by LETTER, not by pre-selected
-// tile id -- confirmed by reading combat.js/lexicon.js -- so a plain text
-// value is sufficient and needs no tile-staging state machine). The
-// touch-mode drag/tap-to-play staging system (game.js's selectTileForWord/
-// startTouchReorder/staging-area drag handlers) is NOT ported this run --
-// real drag-and-drop reordering is a whole feature in its own right (pointer
-// capture, ghost tiles, insertion-index math) and out of this run's bounded
-// scope; typing/clicking to append letters is fully functional today and
-// this is flagged as a known gap for a later pass, not silently dropped.
+// Word input (STRUCTURAL ticket, remaining-scope (c) step 2, rebuilt this
+// run): rack-tile clicks now go through the REAL engine staging functions
+// (Game.selectTileForWord/unstageTile, wrapping game.js's private
+// selectTileForWord/unstageTile) instead of appending to a local plain
+// string -- state.selectedTileIds is the actual source of truth, same as
+// wordbound.html, and a clicked tile visually moves out of the rack into a
+// real staging row (mirrors renderStagingArea()), leaving an empty
+// rack-slot behind that unstages it back. `word` is still local React state
+// for the free-typing desktop path (Combat.playWord matches a submitted
+// word against the rack by LETTER, and desktop submits `word-input`'s raw
+// text value regardless of what's staged -- confirmed by reading game.js's
+// btn-submit-word handler, this is real existing vanilla behavior, not a
+// port shortcut) but it's now kept in sync with the engine's own
+// Game.stagedWord() after every stage/unstage/clear, exactly like
+// game.js's syncWordInput() keeps its #word-input mirrored.
+// Two pieces of the vanilla staging system remain genuinely NOT ported,
+// same "real, scoped follow-up" status the ticket has flagged since
+// STRUCTURAL 5/N: the touch-mode blank-letter picker overlay (clicking a
+// blank tile in touch mode now calls the real Game.openBlankPicker, which
+// sets state.blankPickerOpen -- but nothing renders that overlay yet, so
+// it's an inert flag, not a crash, not a regression from the old
+// always-no-op blank click) and pointer/touch DRAG reordering within the
+// staging row or rack (game.js's startStagingDrag/startTouchReorder/
+// reorderRackOnDrop -- tap-to-stage/unstage works fully, drag does not).
+// game.js itself needed two small additive null-guards to make this safe:
+// syncWordInput()'s and selectTileForWord()'s `$('word-input')` DOM access
+// now checks the element exists first (same "no #word-input in the React
+// tree" reasoning as every other reactTreeActive()-style guard this ticket
+// has added) -- a guaranteed no-op for wordbound.html, which always has
+// that element.
 //
 // Damage/hit animations (floating numbers, hp-flash, screen-shake,
 // CRUSHING!/MAGNIFICENT! banners): also not ported. Game.submitWord resolves
@@ -68,8 +88,31 @@ export default function CombatScreen({ state, Game, act }) {
   }
 
   function clearWord() {
+    // Mirrors game.js's #btn-clear-word handler: clears the typed text AND
+    // the real staged-tile selection (Game.clearStagedWord), not just this
+    // component's local mirror of it.
+    act(Game.clearStagedWord);
     setWord('');
     if (!state.touchMode) inputRef.current?.focus();
+  }
+
+  function stageOrUnstage(tile) {
+    act(() => Game.selectTileForWord(tile.id));
+    // A blank tile is a genuine no-op here on desktop (game.js's
+    // selectTileForWord returns immediately without touching
+    // selectedTileIds -- typing the letter is how a blank gets used) or
+    // opens the blank picker in touch mode (also no selectedTileIds
+    // change yet, resolved later by Game.assignBlankLetter once that
+    // overlay exists) -- either way nothing staged changed, so don't
+    // clobber whatever's currently typed. Every other tile really did just
+    // get pushed onto state.selectedTileIds, so resync for real, matching
+    // game.js's own syncWordInput() call in the same branch.
+    if (tile.letter !== '?') setWord(Game.stagedWord());
+  }
+
+  function unstage(tileId) {
+    act(() => Game.unstageTile(tileId));
+    setWord(Game.stagedWord());
   }
 
   const preview = useMemo(() => {
@@ -167,9 +210,24 @@ export default function CombatScreen({ state, Game, act }) {
       <div className="rack-display">
         {state.player.rack.map((tile) => {
           const isHexed = tile.id === state.hexedTileId;
+          const isStaged = state.selectedTileIds.indexOf(tile.id) !== -1;
           const isNewTile = !prevRackIdsRef.current.includes(tile.id);
           const val = Lexicon.LETTER_VALUES[tile.letter] || 0;
           const displayVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
+          // A staged tile "lives" in the staging area below -- the rack
+          // leaves an empty, same-footprint slot behind so the rack doesn't
+          // reflow, exactly like game.js's renderCombat() does.
+          if (isStaged) {
+            return (
+              <button
+                key={tile.id}
+                type="button"
+                className="rack-slot-empty"
+                aria-label="Return staged tile to rack"
+                onClick={() => unstage(tile.id)}
+              />
+            );
+          }
           let bonusClass = '';
           if (tile.variant) bonusClass = ' has-bonus variant-' + tile.variant;
           else if (tile.bonus) {
@@ -179,7 +237,7 @@ export default function CombatScreen({ state, Game, act }) {
             else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
           }
           const title = isHexed ? 'Hexed -- locked for this turn'
-            : tile.letter === '?' ? 'Blank -- type the letter you want, it fills in automatically'
+            : tile.letter === '?' ? 'Blank -- tap to stage, then type the letter you want (touch) or type it directly (desktop)'
             : tile.variant ? Tiles.describeVariant(tile.variant)
             : tile.bonus ? Tiles.describeBonus(tile.bonus)
             : undefined;
@@ -190,18 +248,40 @@ export default function CombatScreen({ state, Game, act }) {
               className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '') + (isNewTile ? ' new-tile' : '')}
               disabled={isHexed}
               title={title}
-              onClick={() => {
-                // Desktop word-entry path (game.js's selectTileForWord, same
-                // rule): a blank tile has no letter to append, so a click is
-                // a no-op here too -- typing the target letter is how a blank
-                // gets used; Lexicon.canFormFromRack fills it in from the
-                // typed string. Appending the literal '?' character (as this
-                // used to) breaks word validation, since '?' is never a real
-                // letter in a played word.
-                if (!isHexed && tile.letter !== '?') setWord((w) => w + tile.letter);
-              }}
+              onClick={() => stageOrUnstage(tile)}
             >
               {tile.letter === '?' ? '★' : tile.letter}<sub>{displayVal}</sub>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="staging-area">
+        {state.selectedTileIds.map((tileId) => {
+          const tile = state.player.rack.find((t) => t.id === tileId);
+          if (!tile) return null;
+          const val = Lexicon.LETTER_VALUES[tile.letter] || 0;
+          const stagedVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
+          const stagedGlyph = tile.letter === '?' ? (state.blankAssignments[tileId] || '★') : tile.letter;
+          let bonusClass = '';
+          if (tile.variant) bonusClass = ' has-bonus variant-' + tile.variant;
+          else if (tile.bonus) {
+            bonusClass = ' has-bonus';
+            if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
+            else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
+            else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
+          }
+          const variantTip = tile.variant ? Tiles.describeVariant(tile.variant)
+            : (tile.bonus ? Tiles.describeBonus(tile.bonus) : '');
+          return (
+            <button
+              key={tileId}
+              type="button"
+              className={'staged-tile' + bonusClass}
+              title={(variantTip ? variantTip + ' -- ' : '') + 'tap to remove'}
+              onClick={() => unstage(tileId)}
+            >
+              {stagedGlyph}<sub>{stagedVal}</sub>
             </button>
           );
         })}

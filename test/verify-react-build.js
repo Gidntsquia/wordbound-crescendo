@@ -172,6 +172,36 @@ async function main() {
     }, WORD_CANDIDATES);
     check(`a playable word was found on the real rack (candidates: ${WORD_CANDIDATES.join(', ')})`, !!word);
 
+    // STRUCTURAL ticket, remaining-scope (c) step 2 (GOALS.md): rack-tile
+    // clicks now stage through the real engine (state.selectedTileIds), not
+    // a fake local string -- verify that mechanism for real in a browser,
+    // not just jsdom/Vitest. Stage the first rack tile, confirm it actually
+    // landed in state.selectedTileIds and the real staging-area DOM, then
+    // unstage it by clicking it there, confirming a full round-trip leaves
+    // no residue before the typed word below is played.
+    const staged = await page.evaluate(() => {
+      const rackBtn = document.querySelector('.rack-display .letter-tile:not(:disabled)');
+      if (!rackBtn) return false;
+      rackBtn.click();
+      return true;
+    });
+    check('a rack tile was found and clicked to stage', staged);
+    if (staged) {
+      check('clicking staged the tile for real (state.selectedTileIds has one entry)', await page.evaluate(() =>
+        window.Wordbound.Game._state.selectedTileIds.length === 1,
+      ));
+      check('the staged tile appears in the real staging area', await page.evaluate(() =>
+        document.querySelectorAll('.staging-area .staged-tile').length === 1,
+      ));
+      await page.click('.staging-area .staged-tile');
+      check('clicking the staged tile unstaged it (state.selectedTileIds empty again)', await page.evaluate(() =>
+        window.Wordbound.Game._state.selectedTileIds.length === 0,
+      ));
+      check('the staging area is empty again after unstaging', await page.evaluate(() =>
+        document.querySelectorAll('.staging-area .staged-tile').length === 0,
+      ));
+    }
+
     if (word) {
       const startingHp = await page.evaluate(() => window.Wordbound.Game._state.monster.hp);
       await page.fill('input[placeholder="Type or click letters..."]', word);
