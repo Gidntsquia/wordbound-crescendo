@@ -585,3 +585,156 @@ main-menu/character-select), then Vitest/RTL test migration (sub-step 3),
 which is increasingly overdue now that there's real stateful behavior
 (startRun, enterCurrentNode, the defensive reset) worth unit-testing
 directly instead of only through Playwright click-throughs.
+
+## 2026-08-21T13:55Z — STRUCTURAL (5/5-ish): combat panel React port
+
+**What was done:** ported wordbound.html's `#combat-panel` to a real React
+component (`src/components/CombatScreen.jsx`), the next STRUCTURAL
+sub-step flagged by the previous run. Combat is now genuinely playable
+end-to-end through the Vite/React app, not just reachable.
+
+- Decided the "how" the previous run's note left open (option a vs b) as a
+  **hybrid**, after reading the actual call graph rather than guessing:
+  - Word input/scoring: **(b), React-native.** Confirmed by reading
+    `combat.js`/`lexicon.js` that `Combat.playWord`/`Lexicon.formWord` match
+    a submitted word against the rack **by letter**, not by pre-selected
+    tile id (blanks auto-fill for any letter not otherwise in the rack) —
+    so a plain typed/clicked-together word string is sufficient and needs
+    no tile-staging state machine. `CombatScreen` keeps its own local
+    `word` string (typed via a text input, or built by clicking rack
+    tiles — each click appends that tile's letter) and calls the real
+    `Game.submitWord(word)` with it — the exact function the dom-check
+    suite already drives headlessly. The touch-mode drag/tap-to-play
+    staging system (`selectTileForWord`/`startTouchReorder`/staging-area
+    pointer-drag handlers, ~500 lines of `game.js`) is explicitly **NOT**
+    ported — real drag-reordering is its own feature (pointer capture,
+    ghost tiles, insertion-index math) and out of this run's bounded
+    scope. Flagged as a known gap in the component's own header comment,
+    not silently dropped.
+  - Animation side effects: **(a), guard at the source.** Found a real bug
+    while wiring this up that the previous run's audit hadn't caught yet:
+    `animateDamage`/`celebrateHit`/`animatePlayerDamage` aren't only called
+    from `render()` (which already had the `#screen-main-menu` DOM-tree
+    guard) — `Game.submitWord` itself calls all three **unconditionally**,
+    so calling the real `submitWord` from React threw
+    `Cannot read properties of null (reading 'classList')` the first time
+    it actually ran in a browser (caught by this run's own Playwright
+    check, not by `npm test` — jsdom's dom-check suite only ever exercises
+    `submitWord` against wordbound.html's real DOM, where these elements
+    exist, so it had no way to catch this). Fixed by adding a shared
+    `reactTreeActive()` guard (mirrors `render()`'s own
+    `!document.getElementById('screen-main-menu')` check) to the top of
+    all three functions in `js/wordbound/game.js` — a 16-line, purely
+    additive change; wordbound.html always has that element, so this is a
+    guaranteed no-op there. This is *why* CombatScreen's own animations
+    (floating damage numbers, hp-flash, screen-shake, CRUSHING!/
+    MAGNIFICENT! banners) are the piece explicitly NOT re-implemented in
+    React this run: `Game.submitWord` resolves the counterattack inside
+    its own `setTimeout` and never returns or exposes the intermediate
+    `result`, so there's nothing for React to hook a one-shot animation
+    off without reaching back into `game.js` internals — a real design
+    question for a later pass, not an oversight. The message log and HP
+    bar both update for real, so the fight is fully legible without the
+    juice, just quieter.
+- `src/components/CombatScreen.jsx` (new): monster name/tier glyph/HP bar/
+  weakness hint/intent line/combo chip (direct reads off `state.monster`/
+  `state.comboState`, same values `renderCombat()` computes, via the same
+  `Traits.activeTraitForHpRatio`/`Intents.describeIntent`/
+  `Intents.isSignatureIntent` calls), a clickable rack (bonus/variant/
+  hexed styling ported 1:1), a live damage preview (`Combat.previewWord`,
+  same logic as `updateDamagePreview()`), word input + Play/Clear buttons,
+  and the overcharge/rewrite ink-spend buttons (`Game.toggleOvercharge`/
+  `Game.rewriteRack` — both synchronous, no special handling needed).
+  Handles `Game.submitWord`'s async counterattack resolution explicitly:
+  `Combat.playWord` mutates `state.monster.hp` synchronously (confirmed by
+  reading `combat.js`), so the immediate `act()` bump already shows new
+  HP, but the counterattack (ink loss, next intent) resolves inside
+  `submitWord`'s own `setTimeout` (220ms, +500ms more on a killing blow) —
+  a second, debounced bump is scheduled past that delay so the ink/intent
+  update actually reaches the screen once it lands.
+- `src/components/RunScreen.jsx`: wires `CombatScreen` in for
+  `state.combatActive` (replacing the generic placeholder for that one
+  case — other unported screens, e.g. `TILE_REWARD`/`GAME_OVER`/`SHOP`,
+  still get the honest placeholder), adds an "abandon run" escape hatch
+  next to it (same `Game.returnToMainMenu` path the map screen's back
+  button already used), and adds a real message-log component
+  (`MessageLog`, a direct port of `renderRun()`'s log block including
+  auto-scroll-to-bottom) — needed as the primary combat feedback channel
+  now that the flashy per-hit animations aren't ported.
+
+**Verified:**
+- `npm test` (jsdom dom-check, full suite incl. the ink-spend/boss-skip/
+  audio/panel-stacking assertions that directly exercise
+  `celebrateHit`/`animateDamage` via `Game._celebrateHit` and real combat):
+  ALL CHECKS PASSED both before and after the `reactTreeActive()` guard —
+  confirms the guard is a true no-op against wordbound.html's real DOM
+  (`#screen-main-menu` always present there), not a behavior change.
+- `npm run test:mobile`: all layouts OK (375/414px) incl. combat/
+  tile-reward/game-over screens and touch-mode input — wordbound.html
+  only, unaffected by this run's changes, run anyway since `game.js` was
+  touched.
+- `npm run test:qa`: ALL CHECKS PASSED (full boss-reward orchestration,
+  zero console/page errors) — same reasoning.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+  (16/16 dom-check against the unzipped build, zero 404s, real-browser
+  `window.Wordbound.Game` check).
+- `npm run build`: clean, 37 modules.
+- Real-browser Playwright checks against the built Vite app (`vite
+  preview`), throwaway script deleted after — this is what actually
+  caught the `reactTreeActive()` bug, not any of the above:
+  - **Loss path** (seed `smoketest-combat-full-fight`): started a fight,
+    played 6 real words through the actual UI (text input + Play Word
+    click, picking from a candidate list filtered by `Combat.previewWord`
+    each turn), watched HP/ink drop turn over turn including a correctly
+    -detected repeat-word penalty ("The Archive has heard that one
+    before.") and a weak-point multiplier hit; ink hit 0 and the game
+    correctly transitioned to `GAME_OVER` (`combatActive: false`). Zero
+    console/page errors.
+  - **Win path** (seed `smoketest-combat-win-attempt`): same setup against
+    a weaker monster, 5 words including a combo chain (log showed
+    "Combo x3!"/"Combo x4!" with the right damage-bonus percentages),
+    monster HP hit 0, screen correctly transitioned to `TILE_REWARD`
+    (`combatActive: false`), defeat message with the real overkill-gold
+    formula logged. Zero console/page errors.
+  - Both runs used `Combat.previewWord` from inside the page (the same
+    function the live damage-preview UI element reads) to pick a
+    real-dictionary word the current rack could actually form each turn —
+    not a scripted/mocked word list — so this exercised the real
+    `Lexicon`/`Combat` matching path, not a stub.
+
+**Not verified / not applicable:** the drag/tap-to-play tile-staging
+system (explicitly deferred, see above — desktop typing/clicking is the
+only input path ported); the per-hit animations (floating damage numbers,
+hp-flash, screen-shake, CRUSHING!/MAGNIFICENT! banners — also explicitly
+deferred, needs a `Game.submitWord` API change to expose its result before
+it can be done cleanly); no Vitest/RTL migration yet (ticket sub-step 3,
+still correctly deferred). Audio (background music/SFX during a React
+fight) was not specifically checked this run — the existing
+`initAudioContext`/`playCombatSound` calls inside `submitWord` are
+unguarded but only touch the Web Audio API, not the DOM, so they should be
+unaffected by the React tree the same way the state-mutation logic is; not
+directly confirmed by ear or by inspecting `AudioContext` state this run.
+
+**Current state:** a full fight is playable start-to-finish through the
+Vite/React app — enter a combat node from the map, type or click words,
+watch the monster's HP drop and your own ink drop from its counterattack,
+win (→ tile reward, not yet ported, shows the honest placeholder) or lose
+(→ game over, same). `wordbound.html` remains fully intact and unchanged
+(all its gates still green) as the actual complete playable game in the
+meantime.
+
+**Next:** treasure/shop/tile-reward/boss-item-reward/event/rest panels are
+now the only things standing between "you can fight" and "you can play a
+full run" in React — each is a small, mostly self-contained render
+function in `game.js` (`renderRun()`'s `treasure-panel`/`tile-reward-
+panel`/`boss-reward-panel`/`event-panel`/`shredder-panel` blocks), same
+shape as main-menu/character-select, and TILE_REWARD in particular is
+reachable on literally every single fight (not just bosses) so it's the
+highest-value one to port next — right now winning any fight in React
+dead-ends at the generic placeholder. After that: the tile-staging/drag
+system (deferred above) and the per-hit animations are both real, scoped
+follow-up tickets in their own right, not just polish. Vitest/RTL
+migration (sub-step 3) keeps getting more overdue as more real interactive
+behavior (submitWord's async resolution timing, in particular) accumulates
+that's currently only checked by ad-hoc Playwright throwaway scripts
+instead of a committed, repeatable test.
