@@ -265,6 +265,44 @@ Rules for the routine:
       header comment documents this gap directly -- word entry is
       type-or-click-to-append only, no drag reordering, no floating-damage/
       screen-shake juice). Ticket stays unchecked.
+      ORCHESTRATOR NOTE 2026-08-21 (update 4): found and closed a real,
+      previously-unflagged parity gap while scoping between (a)/(c) above --
+      auditing what `renderRun()` actually renders in vanilla (not just the
+      `state.screen`-keyed panel family RunScreen.jsx already dispatches on)
+      turned up that `#items-owned` (the owned-items chip strip),
+      `#deck-viewer-panel`, `#item-inspector-panel`, `#consumables-panel`,
+      and the run-header's Deck/Consumables/music-mute/music-volume controls
+      had NO React equivalent at all -- confirmed by grepping `src/` for
+      `item-chip`/`deck-viewer`/`consumablesPanelOpen`/etc: zero hits. A
+      player in the React app who picked up an item, wanted to check their
+      deck, or wanted to use a consumable mid-fight had no way to do any of
+      it; music mute/volume had no control surface either (worse: those two
+      vanilla functions, `setMusicVolume`/`toggleMusicMute`, are PRIVATE
+      closures in `game.js` wired directly to `wordbound.html`'s own DOM
+      listeners -- not exposed on `Game.*` at all, so React genuinely
+      couldn't have called them even if it tried). Picked this over (a)/(c)
+      because it's a correctness/parity bug (a whole feature invisible, not
+      just untested or unbuilt-but-known), the fix pattern was already
+      established (the reward/shop family's `.treasure-panel` shape, reused
+      as-is), and it was cleanly bounded, unlike (c)'s drag system.
+      Landed: `js/wordbound/game.js` gained 3 small public wrappers
+      (`Game.getAudioSettings`/`setMusicVolume`/`toggleMusicMute`, calling
+      the pre-existing private functions + the pre-existing `render()`
+      no-op-when-no-legacy-DOM guard, zero behavior change for
+      `wordbound.html`); `src/components/RunSidePanels.jsx` (new) ports
+      `renderItemsOwned`/`renderDeckViewer`/`renderItemInspector`/
+      `renderConsumablesPanel` + the header's action buttons; `RunScreen.jsx`
+      wires them in with the same `sidePanelOpen` precedence rule
+      `renderRun()` uses (a side panel replaces map/combat/reward alike, not
+      just the map). 6 new Vitest/RTL tests
+      (`src/components/__tests__/RunSidePanels.test.jsx`) drive the real
+      `RunScreen` end-to-end: chip render + click-to-inspect, deck viewer
+      listing the real deck + hiding the map + closing, a real consumable
+      disabled outside combat and usable (real ink restore) inside it, and
+      both music controls against `Game.getAudioSettings()`. `(a)` test:qa
+      parity and `(c)` the drag/animation system are UNCHANGED, still open
+      -- this was a genuinely separate, higher-priority find, not progress
+      on either. Ticket stays unchecked.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

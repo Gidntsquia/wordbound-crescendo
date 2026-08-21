@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react';
 import CombatScreen from './CombatScreen.jsx';
 import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen, EventScreen, ShredderScreen } from './RewardScreens.jsx';
+import { ItemsOwnedStrip, DeckViewerPanel, ItemInspectorPanel, ConsumablesPanel, RunHeaderActions } from './RunSidePanels.jsx';
 
 // Real port of #screen-run's node map (STRUCTURAL ticket, next sub-step after
 // character select). What's genuinely ported this run: Game.startRun is
@@ -69,6 +70,13 @@ export default function RunScreen({ onBackToMenu }) {
     || state.screen === 'EVENT' || state.screen === 'SHREDDER';
   const otherUnportedNode = !state.combatActive && !rewardOrShopScreen
     && state.screen !== 'RUN' && state.screen !== 'MAIN_MENU';
+  // Direct port of renderRun()'s `sidePanelOpen`: the deck viewer/item
+  // inspector/consumables panel are opened from the always-visible
+  // run-header (RunHeaderActions/ItemsOwnedStrip below), independent of
+  // state.screen and even mid-combat, and replace whatever would otherwise
+  // be showing -- same "one side panel wins over everything else" rule
+  // game.js enforces via that shared boolean.
+  const sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen || state.consumablesPanelOpen;
 
   return (
     <div className="screen">
@@ -76,11 +84,21 @@ export default function RunScreen({ onBackToMenu }) {
         <div className="ink-display">Ink {state.player.ink} / {state.player.maxInk}</div>
         <div className="gold-display">{state.player.gold} 🪙</div>
         <div className="floor-label">Floor {state.floorNumber} / {Floor.TOTAL_FLOORS}</div>
+        <RunHeaderActions state={state} Game={Game} act={act} />
       </div>
+      <ItemsOwnedStrip state={state} Game={Game} act={act} />
       <div className="run-seed-display">Seed: {state.runSeed}</div>
       <MessageLog messages={state.messages} />
 
-      {state.combatActive ? (
+      {sidePanelOpen ? (
+        state.deckViewerOpen ? (
+          <DeckViewerPanel state={state} Game={Game} act={act} />
+        ) : state.itemInspectorOpen ? (
+          <ItemInspectorPanel state={state} Game={Game} act={act} />
+        ) : (
+          <ConsumablesPanel state={state} Game={Game} act={act} />
+        )
+      ) : state.combatActive ? (
         <>
           <CombatScreen state={state} Game={Game} act={act} />
           <button className="btn btn-secondary" style={{ width: '100%', marginTop: 10 }} onClick={backToMenu}>

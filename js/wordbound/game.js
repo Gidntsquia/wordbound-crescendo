@@ -137,6 +137,15 @@
   };
   Game._state = state; // exposed for headless/browser test inspection only
   Game._getMusicMode = function () { return currentMusicMode; }; // exposed for headless/browser test inspection only (review F2)
+  // STRUCTURAL ticket (GOALS.md, React port, items/deck/consumables/music
+  // parity pass): wordbound.html's #btn-toggle-music/#music-volume listeners
+  // call the private setMusicVolume()/toggleMusicMute() functions below
+  // directly (same closure) -- the React app has no such access, so these
+  // are real public API, not test-only, mirroring how Game.toggleOvercharge
+  // etc. are exposed for React to call.
+  Game.getAudioSettings = function () { return { volume: audioSettings.volume, muted: audioSettings.muted }; };
+  Game.setMusicVolume = function (volume) { setMusicVolume(volume); render(); };
+  Game.toggleMusicMute = function () { toggleMusicMute(); render(); };
   Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
