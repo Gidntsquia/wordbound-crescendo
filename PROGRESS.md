@@ -1453,3 +1453,114 @@ doesn't" audit for the MAIN_MENU/CHARACTER_SELECT screens and the
 `howToPlayOpen`/blank-picker overlays might be worth a quick pass too, given
 this run's find — I did not have time to do that audit this run, flagging it
 as a possible next check rather than a confirmed gap.
+
+---
+
+## 2026-08-21T17:06Z — STRUCTURAL 12/N: MAIN_MENU/CHARACTER_SELECT parity audit (clean) + real blank-tile bug found and fixed in CombatScreen
+
+**Repo-health note:** started detached at `origin/main`'s exact commit
+(same pattern the last several runs flagged, no local drift to lose). Ran
+`git checkout main && git reset --hard origin/main` to get onto a proper
+branch tracking origin cleanly. `npm install` was needed first — a fresh
+container, `node_modules` wasn't present.
+
+**What I did:** last run's "Next" note suggested a quick audit of whether
+`MAIN_MENU`/`CHARACTER_SELECT`'s React ports are missing anything `render()`
+actually touches for those screens, given the same style of audit had just
+turned up the items/deck/consumables gap. Did that first (cheap, bounded):
+read `renderMainMenu()`/`renderCharacterSelect()` in `game.js` line by line
+against `MainMenu.jsx`/`CharacterSelect.jsx` — both are full parity already
+(achievements block, seed input, character cards, back button all present
+and correctly wired). Also checked `render()`'s two screen-independent
+pieces (`howto-overlay` via `state.howToPlayOpen`, `renderBlankPicker()` via
+`state.blankPickerOpen`) against `src/`: `howToPlayOpen` IS wired
+(`HowToPlayOverlay.jsx` + `App.jsx`), but `blankPickerOpen`/
+`blankPickerTileId`/`blankAssignments` have ZERO hits anywhere in `src/` —
+the touch-mode blank-letter picker overlay has no React port at all. This is
+squarely inside CombatScreen.jsx's own already-documented gap (c), the
+tile-staging/drag system — touchMode isn't implemented in React at all yet,
+so a standalone blank-picker port would be inconsistent with everything else
+in that screen. Correctly deferred to (c) as a whole, not a new separate
+finding.
+
+While reading `game.js`'s blank-tile handling to understand that gap
+(`selectTileForWord`'s comment: on desktop, clicking a blank tile is a
+NO-OP — the player types the letter they want and `Lexicon.canFormFromRack`
+resolves it from the rack, preferring a real letter tile over a blank), I
+checked what `CombatScreen.jsx`'s own rack-tile `onClick` did for a blank
+tile and found a real, live bug: `setWord((w) => w + tile.letter)` had no
+guard at all, so clicking a blank tile (`tile.letter === '?'`) appended the
+literal `?` character to the word field — a string `Lexicon.canFormFromRack`
+can never resolve (`?` isn't a real letter a played word can contain), so
+the word would just never validate. Vanilla's equivalent path is explicitly
+a no-op for this exact case. Confirmed by grep that no existing Vitest test
+exercised a blank-tile click at all (the fixed test seed's starting rack
+happens to have no blank), so this had zero coverage and could ship
+unnoticed.
+
+**What changed (`src/components/CombatScreen.jsx`):**
+- The rack-tile `onClick` now guards `tile.letter !== '?'` before appending,
+  matching `selectTileForWord`'s desktop no-op exactly (a comment explains
+  why, referencing the same vanilla function).
+- The tile's `title` tooltip now explains blanks ("type the letter you
+  want, it fills in automatically") instead of falling through to
+  `variant`/`bonus` text — ordered AFTER the `isHexed` check so a hexed
+  blank still shows "Hexed" (checked this ordering explicitly after an
+  earlier pass got it backwards).
+
+**New test (`src/components/__tests__/CombatScreen.test.jsx`):** since the
+fixed seed's starting rack has no blank tile, one is injected directly via
+`Tiles.createTile('?', null)` (the same helper `items.js` itself uses to add
+blanks to a draw pile) pushed onto the real `state.player.rack`, then a real
+`userEvent.click()` on the rendered blank tile's button (found by its `★`
+glyph) — asserts the word input stays empty afterward. This is a regression
+test for the exact bug found, not a coverage-padding test.
+
+**Verified:**
+- `npx vitest run`: 41/41 passing (40 pre-existing + 1 new), no flakes, ran
+  twice (once before the title-ordering fix, once after) to confirm both
+  changes independently.
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED — unaffected,
+  `CombatScreen.jsx` isn't in that suite's tree.
+- `npm run build`: clean, 39 modules, same pre-existing single-large-chunk
+  notice as every prior run, no new warnings.
+- `node test/verify-react-build.js` (real Chromium against a fresh `vite
+  build` output): ALL CHECKS PASSED — full seeded playthrough (main menu →
+  character select → run map → real fight, "RADIO" dropping monster HP
+  52→44), zero console/page errors, no mobile overflow at 375/414px at any
+  screen along the path. This run's fix doesn't touch that script's own
+  playthrough path (its seed's starting rack has no blank either), so it
+  doesn't directly exercise the fix, but confirms no regression from the
+  edit.
+- NOT re-run (untouched by this change): `test:mobile`, `test:qa`,
+  `test:itch-build`, `test:run-header`, `test:audio`, `test:drag-interrupt`,
+  `test:branching-map` — none target `src/`, and `wordbound.html`/`css/` are
+  unchanged this run.
+
+**Current state:** MAIN_MENU/CHARACTER_SELECT are confirmed full parity (no
+action needed). A real, previously-invisible correctness bug in
+CombatScreen's blank-tile handling is fixed and covered by a regression
+test. STRUCTURAL's remaining open scope is unchanged and still exactly:
+(a) `test:qa`'s deeper multi-floor/boss-reward-flow React equivalent, and
+(c) the tile-staging/drag system (which now also subsumes the touch-mode
+blank-letter picker port, confirmed missing this run) — no progress on
+either this run, this was a separate audit+fix. Ticket stays unchecked.
+
+**Not done / explicitly out of scope this run:** touch-mode input as a
+whole is still entirely unported in React (confirmed again this run via the
+blank-picker gap) — CombatScreen.jsx only implements the desktop type-or-
+click path. (a) and (c) remain exactly as open as before.
+
+**Next:** (c) the tile-staging/drag system is the most product-shaped
+remaining piece and now has a slightly larger confirmed scope (touch-mode
+staging AND the blank-letter picker together, since they're the same
+touchMode-gated system in vanilla) — a future run should probably start
+there. (a)'s `test:qa` React equivalent remains the other legitimate option.
+Given three runs in a row have now done "audit what render()/renderX()
+touches vs. what's actually ported" and found something each time
+(items/deck/consumables, then this blank-tile bug), a similar audit pass
+specifically over `renderCombat()`'s OWN full body (not just the
+click-to-append substitute CombatScreen.jsx already documents as
+deliberate) might be worth one more targeted look before committing to the
+full drag-system build — flagging as a possible cheap check, not a
+confirmed gap, since I did not have time to do it this run.
