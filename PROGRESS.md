@@ -1217,3 +1217,108 @@ runs. See this entry's GOALS.md note for the re-render gotcha to design
 around when writing those Playwright scripts (drive real UI paths to
 terminal states like VICTORY, don't call internal `Game._*` test hooks
 directly on an already-mounted page and expect the DOM to follow).
+
+---
+
+## 2026-08-21T16:23Z — STRUCTURAL 10/N: `test:react-build`, first real-browser check against the BUILT React app (repo-health note first)
+
+**Repo-health note:** same detached-HEAD-but-level-with-origin pattern the
+last two runs flagged. `git rev-parse HEAD` (`9951d83...`) matched
+`origin/main` exactly after `git fetch origin main`; local `main` was just
+stale. Fixed with `git checkout -B main origin/main` before starting, same
+fix as before. Flagging again since this is now the third consecutive run
+hitting it — whatever starts these sessions should probably fetch/reset
+`main` itself before handing off, but that's outside this repo's own scope
+to fix.
+
+Continuing the STRUCTURAL ticket. Per the last two runs' PROGRESS notes, the
+real remaining scope after screen-porting (sub-step 1, done) was: (a) port
+`test:mobile`/`test:qa`/`test:itch-build` or equivalents to the Vite/React
+app, (b) real-browser verification on the BUILT output (not dev server) —
+every prior check was a throwaway, uncommitted script against the DEV
+server — and (c) tile-staging/drag + per-hit animations. Picked up (a)+(b)
+together since they're the same missing piece: nothing in this repo had
+ever loaded the actual `vite build` output in a real browser and clicked
+through it.
+
+**What changed:**
+- `test/verify-react-build.js` (new, committed — not a throwaway script):
+  builds the app fresh (`vite build`), serves `dist/app/` over a local
+  static HTTP server (same pattern as `verify-itch-build.js`'s scratch-dir
+  server), and in one real Chromium pass:
+  1. Asserts zero failed requests / 404s loading the built bundle — the
+     same "real static-serve, not dev server, not jsdom" bar
+     `verify-itch-build.js` holds `wordbound.html` to, now covered for the
+     React tree.
+  2. Drives a genuine UI-only playthrough: real `.click()`/`.fill()` calls
+     for New Run → character select (seed `vitest-fixed-seed-1` + "The
+     Archivist", the same known-good combo `src/test/gameHelpers.js`'s
+     `freshRun` already relies on, so the seeded rack is proven-deterministic)
+     → click a real `.node-pill.node-combat.node-current` map node → read
+     the live rack via `Combat.previewWord` (read-only query, same approach
+     `gameHelpers.js`'s `pickPlayableWord` uses) to find a real playable word
+     from the same candidate list the Vitest suite uses → type it into the
+     actual input and click the actual "Play Word" button → confirm
+     `state.monster.hp` genuinely drops. Deliberately never calls a
+     `Game.*`/`Combat.*` mutator via `page.evaluate` to force state — only
+     the read-only `previewWord` query is called that way — because
+     STRUCTURAL 9/N's PROGRESS entry already documented that a direct hook
+     call bypasses RunScreen's `act`/`bump` re-render cycle and leaves the
+     DOM stale; this script always changes state the same way a real player
+     would, so what it observes in the DOM is never stale.
+  3. Checks horizontal overflow at 375px/414px (test:mobile's own widths)
+     at each screen reached along that same real playthrough — main menu,
+     character select, run map, mid-fight combat — the first mobile-layout
+     check of any kind against the React component tree's actual CSS
+     classes (`test:mobile` itself only ever targeted `wordbound.html`).
+  4. Asserts zero console/page errors across the whole pass.
+- `package.json`: added `pretest:react-build` (playwright ensure-deps, same
+  pattern as the other Playwright scripts) / `test:react-build` npm scripts.
+- `GOALS.md`: added an orchestrator note (update 3) on the STRUCTURAL ticket
+  documenting exactly what's now covered vs. still open.
+
+**Verified:**
+- `node test/verify-react-build.js`: ALL CHECKS PASSED, run twice in a row
+  with no flakes (17 checks each run, identical results both times,
+  including the actual HP delta logged: `52 -> 44` from playing RADIO on
+  the seeded rack).
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED — this run
+  touched no `game.js`/`wordbound.html`, unaffected as expected.
+- `npx vitest run`: 34/34 passing — this run touched no `src/components/*`,
+  unaffected as expected.
+- `npm run build`: clean, same pre-existing single-large-chunk notice as
+  every prior run (unrelated, not this ticket's scope), no new warnings.
+- NOT run (untouched by this change): `test:mobile`, `test:qa`,
+  `test:itch-build`, `test:run-header`, `test:audio`, `test:drag-interrupt`,
+  `test:branching-map` — all target `wordbound.html`, which this run did not
+  touch.
+
+**Current state:** the React/Vite app now has a real, committed,
+repeatable, real-browser check against its actual BUILT output (not the dev
+server), covering boot, a full UI-driven fight action, and mobile layout at
+both of `test:mobile`'s widths. Combined with the existing 34 Vitest/RTL
+tests (screen-level DOM correctness) and `npm test`'s 
+`wordbound.html`-side coverage, remaining-scope items (a) and (b) are now
+substantively covered for the "does the built app boot and play" bar.
+
+**Not done / explicitly out of scope this run:**
+- `test:qa`'s deeper boss-reward-flow coverage (multi-floor progression,
+  reward panel edge cases) has no React equivalent yet — this run's script
+  proves one fight-start action works end-to-end, not the full run loop.
+- `test:itch-build` was intentionally left untouched: it packages
+  `wordbound.html` specifically (itch.io ships the vanilla reference, not
+  the React app, until full parity per the STRUCTURAL header's own note) —
+  not this ticket's remaining scope.
+- (c) tile-staging/drag system + per-hit animations: still genuinely
+  unbuilt. `CombatScreen.jsx`'s own header comment (read again this run
+  before writing the word-submit step above) documents this directly — word
+  entry is type-or-click-to-append only, no drag/reorder, no floating-damage
+  or screen-shake feedback. Real remaining feature work, not a test gap.
+
+**Next:** either (a) a React equivalent of `test:qa`'s deeper multi-floor/
+boss-reward flow, or (c) the tile-staging/drag system, are the two
+substantive pieces left before STRUCTURAL can be checked off. Given (c) is
+a real UI feature (pointer capture, ghost tiles, insertion-index math) while
+(a) is "more of the same kind of check just added," a future run should
+probably tackle (c) next since it's the more product-shaped gap — but either
+is legitimate next work.

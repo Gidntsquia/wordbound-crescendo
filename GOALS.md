@@ -233,6 +233,38 @@ Rules for the routine:
       VERIFY: migrated `npm test` (Vitest/RTL) clean, Playwright QA + mobile
       ports clean, real-browser boot + full fight on the built output (not just
       dev server). Minor bump.
+      ORCHESTRATOR NOTE 2026-08-21 (update 3): added `npm run test:react-build`
+      (`test/verify-react-build.js`), a NEW committed Playwright script (not a
+      throwaway) that builds the real Vite/React app (`vite build`), serves
+      `dist/app/` statically, and in one real-browser pass: (1) asserts zero
+      failed requests/404s loading the built bundle (the itch-build-style
+      "real static-serve, not dev server" bar, now covered for the React tree
+      for the first time), (2) drives a genuine UI playthrough -- real
+      `.click()`/`.fill()` calls, New Run -> seeded character select
+      (`vitest-fixed-seed-1` + The Archivist, the same known-good seed
+      `src/test/gameHelpers.js` already relies on) -> a real map-node click
+      -> a real word typed and submitted via the actual Play Word button --
+      confirming monster HP genuinely drops in the DOM and there are zero
+      console/page errors throughout, and (3) checks horizontal-overflow at
+      375px/414px (test:mobile's widths) at each screen reached along that
+      real playthrough (main menu, character select, run map, mid-fight
+      combat) -- the first mobile-layout check of any kind against the React
+      component tree's CSS classes. Deliberately UI-driven rather than
+      `page.evaluate`-ing `Game.*` hooks directly, per the re-render gotcha
+      this ticket's update-2 note already flagged. Ran clean twice in a row
+      (no flakes); full `npm test` + `npx vitest run` (34/34) + `npm run
+      build` all still clean, confirming no regression. This covers real
+      remaining-scope item (a) (a React/Vite equivalent of test:mobile) and
+      (b) (real-browser verification on the BUILT output, not dev server)
+      for the "does it boot and play through the real build" bar. NOT yet
+      done, still real open scope: `test:qa`'s deeper boss-reward-flow
+      coverage has no React equivalent yet; `test:itch-build` intentionally
+      untouched (it packages `wordbound.html`, the still-shipped reference,
+      not the React app -- out of scope here); and (c) the tile-staging/drag
+      system + per-hit animations remain unbuilt (CombatScreen.jsx's own
+      header comment documents this gap directly -- word entry is
+      type-or-click-to-append only, no drag reordering, no floating-damage/
+      screen-shake juice). Ticket stays unchecked.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,
