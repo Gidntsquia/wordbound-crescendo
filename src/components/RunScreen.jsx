@@ -1,4 +1,5 @@
-import { useReducer } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
+import CombatScreen from './CombatScreen.jsx';
 
 // Real port of #screen-run's node map (STRUCTURAL ticket, next sub-step after
 // character select). What's genuinely ported this run: Game.startRun is
@@ -7,16 +8,17 @@ import { useReducer } from 'react';
 // -- rows, lanes, edges, node types -- via the same Floor.directNextNodeIds
 // traversal renderNodeMap() in game.js uses).
 //
-// What's NOT ported: everything a node resolves INTO. Row 0 of every floor
-// is always 'combat' (floor.js), so the combat panel is the only thing this
-// screen can ever actually reach right now -- there is no way to clear a
-// floor-0 fight without it, so treasure/shop/event/rest nodes are simply
-// unreachable through this screen today regardless of what's built for them.
-// Rather than build untestable UI for screens nothing can currently reach,
-// entering ANY node (of any type) shows one honest, generic "not ported yet"
-// panel reflecting the real resulting Game._state (monster name/HP for a
-// fight, screen name otherwise) with a way back to the menu. Dedicated
-// per-screen UI (starting with the combat panel) is the next STRUCTURAL step.
+// The combat panel is now real too (CombatScreen.jsx) -- see its own header
+// comment for what that does and doesn't cover. Row 0 of every floor is
+// always 'combat' (floor.js), so combat was the only node type reachable at
+// all until this landed; treasure/shop/event/rest nodes are STILL
+// unreachable through this screen (clearing a fight is required to reach
+// them, and what a cleared fight resolves into -- tile reward, boss item
+// reward, or the next node -- isn't ported yet either). Rather than build
+// untestable UI for screens nothing can fully reach yet, entering any
+// non-combat node still shows one honest, generic "not ported yet" panel
+// reflecting the real resulting Game._state (screen name) with a way back
+// to the menu.
 //
 // Game._state is a single mutable object the vanilla engine mutates in place
 // (not React state) -- see js/wordbound/game.js. `bump` is a force-update
@@ -44,7 +46,7 @@ export default function RunScreen({ onBackToMenu }) {
     onBackToMenu();
   }
 
-  const inNode = state.combatActive || (state.screen !== 'RUN' && state.screen !== 'MAIN_MENU');
+  const otherUnportedNode = !state.combatActive && state.screen !== 'RUN' && state.screen !== 'MAIN_MENU';
 
   return (
     <div className="screen">
@@ -54,9 +56,17 @@ export default function RunScreen({ onBackToMenu }) {
         <div className="floor-label">Floor {state.floorNumber} / {Floor.TOTAL_FLOORS}</div>
       </div>
       <div className="run-seed-display">Seed: {state.runSeed}</div>
+      <MessageLog messages={state.messages} />
 
-      {inNode ? (
-        <NodePlaceholder state={state} Monsters={Monsters} onBack={backToMenu} />
+      {state.combatActive ? (
+        <>
+          <CombatScreen state={state} Game={Game} act={act} />
+          <button className="btn btn-secondary" style={{ width: '100%', marginTop: 10 }} onClick={backToMenu}>
+            Back to Menu (abandon run)
+          </button>
+        </>
+      ) : otherUnportedNode ? (
+        <NodePlaceholder state={state} onBack={backToMenu} />
       ) : (
         <NodeMap state={state} Floor={Floor} Traits={Traits} Monsters={Monsters}
           available={Game._availableNodeIds()}
@@ -66,17 +76,29 @@ export default function RunScreen({ onBackToMenu }) {
   );
 }
 
-function NodePlaceholder({ state, Monsters, onBack }) {
-  let detail;
-  if (state.combatActive && state.monster) {
-    detail = `Fighting: ${state.monster.name} (${state.monster.hp} / ${state.monster.maxHp} HP). Combat panel isn't ported to React yet.`;
-  } else {
-    detail = `Screen "${state.screen}" isn't ported to React yet.`;
-  }
+// Direct port of renderRun()'s message-log block: same placeholder text,
+// same auto-scroll-to-bottom behavior (a plain effect keyed on the message
+// array instead of the imperative `log_.scrollTop = log_.scrollHeight`
+// render() did).
+function MessageLog({ messages }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
+  }, [messages]);
+  return (
+    <div className="message-log" ref={ref}>
+      {messages.length
+        ? messages.map((m, i) => <div key={i}>{m}</div>)
+        : <div className="message-log-placeholder">The Stacks are quiet.</div>}
+    </div>
+  );
+}
+
+function NodePlaceholder({ state, onBack }) {
   return (
     <div className="panel character-select-panel">
       <p style={{ textAlign: 'center', color: '#b8ac8a', margin: '20px 0' }}>
-        {detail} Play a full run at <code>wordbound.html</code> for now.
+        Screen "{state.screen}" isn't ported to React yet. Play a full run at <code>wordbound.html</code> for now.
       </p>
       <button className="btn btn-secondary" style={{ width: '100%', marginTop: 20 }} onClick={onBack}>
         Back to Menu

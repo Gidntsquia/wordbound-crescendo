@@ -1322,8 +1322,20 @@
 
   // ---- combat animations --------------------------------------------------------
 
+  // STRUCTURAL ticket (GOALS.md, React port): these three functions are
+  // called unconditionally from inside Game.submitWord, not just from
+  // render() -- so, unlike render() itself, they need their OWN DOM-tree
+  // guard. Confirmed by a real-browser run that skipping this guard throws
+  // ("Cannot read properties of null (reading 'classList')") the moment
+  // CombatScreen.jsx (React) calls the real Game.submitWord: there is no
+  // #combat-panel in the React tree for $('monster-hp-fill') etc. to find.
+  // wordbound.html always has these elements, so this is a no-op there.
+  function reactTreeActive() {
+    return !document.getElementById('screen-main-menu');
+  }
+
   function animateDamage(damage) {
-    if (damage <= 0) return;
+    if (damage <= 0 || reactTreeActive()) return;
     var hpFill = $('monster-hp-fill');
     hpFill.classList.remove('flash-damage');
     void hpFill.offsetWidth; // trigger reflow to restart animation
@@ -1358,6 +1370,7 @@
   // show statically under reduced motion since they carry info; the shake is
   // dropped entirely there, being pure motion).
   function celebrateHit(damage, magnificent) {
+    if (reactTreeActive()) return;
     var panel = $('combat-panel');
     if (damage >= CRUSHING_DAMAGE_THRESHOLD) {
       var monsterInfo = $('monster-info');
@@ -1385,6 +1398,7 @@
   }
 
   function animatePlayerDamage() {
+    if (reactTreeActive()) return;
     var inkDisplay = $('player-ink-display');
     inkDisplay.classList.remove('take-damage');
     void inkDisplay.offsetWidth; // trigger reflow to restart animation
