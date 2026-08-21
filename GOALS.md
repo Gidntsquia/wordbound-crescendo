@@ -6,15 +6,16 @@ unchecked item, does a complete working chunk, checks it off only when fully don
 verified, and logs to PROGRESS.md.
 
 **WHAT THIS PROJECT IS:** a new "words vs music" game, forked from the Wordbound
-engine (sibling repo: descent-of-essence, forked at its v0.42 state). Jaxon's concept,
-verbatim intent: bosses are backed by famous operas/classical pieces, normal enemies
-by lesser-known pieces; permanent progression is unlocking letters the evil music
-faction has stolen; bosses get entrance cutscenes (taunt, flaunt, character); bosses
-attack ON THE CRESCENDOS of their music — a real-time pressure element where you get
-the best word you can QUICKLY, not the best word possible; submitting your word right
-on a crescendo "parries" some incoming damage. It is a SEPARATE GAME in a separate
-repo precisely because the engine is expected to diverge — change engine code freely
-when the design needs it, no obligation to stay compatible with the sibling.
+engine (sibling repo: descent-of-essence, forked at its v0.42 state). Jaxon's concept:
+every fight is a real-time MUSICAL DUEL (wizard-duel tug-of-war — see the combat
+decision below); bosses are backed by famous operas/classical pieces, normal enemies
+by lesser-known pieces; the piece's actual dynamics ARE the enemy's offense;
+permanent progression is unlocking letters the evil music faction has stolen; bosses
+get entrance cutscenes (taunt, flaunt, character). The pressure element is central:
+you get the best word you can QUICKLY, not the best word possible. It is a SEPARATE
+GAME in a separate repo precisely because the engine is expected to diverge — change
+engine code freely when the design needs it, no obligation to stay compatible with
+the sibling.
 
 **STANDING DECISIONS (made by Jaxon or logged by the orchestrator — don't re-litigate):**
 - All music is SYNTHESIZED from sequenced note data via the WebAudio engine. NEVER
@@ -29,6 +30,34 @@ when the design needs it, no obligation to stay compatible with the sibling.
   otherwise (logged orchestrator default so the two games read as siblings).
 - Working title "Wordbound: Crescendo" — a naming pass lives in the theme-bible
   ticket; Jaxon has final say.
+- COMBAT MODEL (Jaxon, 2026-08-21, direct instruction — this supersedes any older
+  "boss attacks on a turn/crescendo counter" phrasing elsewhere): every fight is a
+  DUEL GAUGE — a tug-of-war meter between player and enemy, Harry Potter
+  wizard-duel style. The MUSIC pushes the gauge toward the player-damaging end,
+  continuously and in correspondence with the actual piece playing (crescendos push
+  much harder); later-stage enemies push a base amount more than earlier-stage
+  ones. The PLAYER pushes it back toward the enemy-damaging end by spelling words
+  (the scrabble system's word score = push force). Health is only lost when the
+  player LOSES A DUEL PUSH (gauge fully reaches their end).
+- HEALTH MODEL (Jaxon, same instruction): discrete BLOCKS, total much lower than
+  the sibling's ink pool — about 5 blocks of a thematically-fitting unit (NOT
+  necessarily hearts; the theme bible names it). Losing a duel push costs exactly
+  one block, followed by INVINCIBILITY FRAMES (a grace period + gauge reset) so a
+  brutal passage can never instantly chain away all health. Items can increase max
+  blocks.
+- DIFFICULTY CURVE (Jaxon, same instruction): expressed through the MUSIC itself.
+  Early-stage enemies have slow, chill pieces posing little threat; middle-stage
+  pieces have a few spikes to worry about; end-stage enemies have frequent,
+  scarily powerful crescendos that only the strongest runs and players survive.
+  FINAL BOSS: Beethoven's 5th Symphony (Jaxon's pick; composed 1808, Beethoven
+  d. 1827 — safely public domain; its four movements are a natural phase
+  structure).
+- FRAMEWORK (Jaxon, 2026-08-21, direct instruction): this game is built in REACT
+  ("because I like it more"). The vanilla-JS engine fork gets migrated: game
+  LOGIC (combat math, RNG, wordlist, items, seeded generation) stays as plain,
+  framework-agnostic JS modules; the entire UI/rendering layer becomes React.
+  Vite is the build tool (boring default; orchestrator-logged). The sibling
+  repo's "no build step" convention does NOT apply here.
 
 **MANDATORY VERIFICATION (inherited from the sibling repo, same reasons):** run
 `npm test` (jsdom dom-check) clean before checking off ANY task touching game logic,
@@ -89,7 +118,50 @@ Rules for the routine:
       - PD vetting noted per piece, per the standing rule.
       Also: settle the game's display name (working title "Wordbound: Crescendo";
       propose alternatives if something better fits — flag for Jaxon either way).
+      AMENDED 2026-08-21 (Jaxon's duel-gauge instruction, see header decisions):
+      organize the WHOLE roster as a threat curve expressed through the music —
+      early-stage enemies get slow/chill pieces (Satie Gymnopédies/Gnossiennes,
+      Bach Air on the G String, Debussy Clair de Lune (d. 1918, vet the 1930 rule),
+      Grieg Morning Mood...), middle-stage pieces have a few real spikes (In the
+      Hall of the Mountain King's accelerando, Danse Macabre, Moonlight 3rd mvt),
+      end-stage enemies get frequent, powerful crescendos (Ride of the Valkyries,
+      Toccata & Fugue, Night on Bald Mountain, Flight of the Bumblebee), and the
+      FINAL BOSS is Beethoven's 5th Symphony (per the header decision; consider its
+      movements as fight phases and give the boss a personality worthy of the
+      da-da-da-DUM motif — that motif is the game's scariest crescendo telegraph
+      for free). ALSO name two themed things: the health-block unit (~5 discrete
+      blocks; NOT default hearts unless nothing better fits — candidates in the
+      bible's voice, e.g. verses, stanzas, quills, seals; pick one, flag for
+      Jaxon) and the duel gauge itself.
       VERIFY: n/a (design doc) — but keep it consistent with what the engine can do.
+
+- [ ] STRUCTURAL: migrate to React + Vite (Jaxon's instruction — see header
+      FRAMEWORK decision). Do this BEFORE the music engine and any duel-UI work,
+      so the signature systems get built React-native instead of rewritten later.
+      1. Scaffold Vite + React in this repo; wordbound.html's UI becomes React
+         components (menu, character select, combat screen, rack/staging, shop,
+         map, panels). Port screen by screen; keep commits working.
+      2. Game LOGIC stays framework-agnostic plain JS (combat math, RNG, wordlist,
+         seeded generation, items): import it from React, don't rewrite it. The
+         wordlist's load strategy may need a Vite-friendly import (it's large —
+         keep it lazy/async as it effectively is today).
+      3. Tests: migrate the verification gates — Vitest + React Testing Library
+         replaces the jsdom dom-check harness for logic/DOM assertions; Playwright
+         stays for real-browser/mobile/QA flows (port the existing scripts to hit
+         the Vite dev server or built output). The migrated suite must cover what
+         dom-check covered — don't drop assertions, port them. UPDATE GOALS.md's
+         MANDATORY VERIFICATION header in the same commit that changes what
+         `npm test` means, so the gates stay accurate for future runs.
+      4. Dev/prod: `npm run dev` (Vite), `npm run build` producing a static
+         bundle; GitHub Pages deployment can be deferred to a later ticket, but
+         the built output must work when statically served (correct base path).
+      5. Touch-mode input (tap/drag from the sibling) must survive the port —
+         re-verify with the Playwright touch checks.
+      This is a multi-run ticket. Acceptance: full feature parity with the pruned
+      v0.1 game, all migrated gates green, no vanilla-DOM rendering left.
+      VERIFY: migrated `npm test` (Vitest/RTL) clean, Playwright QA + mobile
+      ports clean, real-browser boot + full fight on the built output (not just
+      dev server). Minor bump.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,
@@ -103,40 +175,72 @@ Rules for the routine:
         hook (an item will slow enemy music later — build the hook now), pause/stop.
       - An event API the combat layer subscribes to: 'crescendo-approaching' (lead
         time configurable), 'crescendo-peak', 'piece-ended'. This API is what makes
-        boss attacks and the parry window possible — its TIMING ACCURACY is the
-        acceptance bar.
+        crescendo attacks and the parry window possible — its TIMING ACCURACY is
+        the acceptance bar.
+      - AMENDED 2026-08-21 (duel-gauge decision): in addition to the discrete
+        crescendo events, the dynamics track must expose a CONTINUOUS INTENSITY
+        function — intensity(t) sampled from the piece's dynamics — because the
+        duel gauge is pushed continuously in correspondence with the music, not
+        only at crescendo peaks. Crescendos are the spikes of that same curve.
+        Pieces also carry a stage-tier field (early/mid/late/final) the combat
+        layer reads for the base-push multiplier.
       - Sequence at least ONE vetted famous piece end-to-end as the proof.
       VERIFY: unit tests with a mocked clock proving events fire at the right
       musical positions (±1 scheduler tick), tempo-scale correctness, mute/volume
       integration; real-browser Playwright check that a piece schedules real nodes
       without errors. Audible musicality: flag for Jaxon's ears, honestly.
 
-- [ ] BOSS CRESCENDO COMBAT + PARRY: the signature mechanic. Boss fights become
-      real-time-pressured: the boss's piece plays during the fight and the boss
-      ATTACKS AT ITS CRESCENDOS (not on a turn counter). Requirements:
-      - A visible telegraph: the player must SEE a crescendo coming (a swelling
-        meter, a scrolling score ribbon — implementing run's design call) with
-        enough lead time to react. Attack lands at the peak with existing damage/
-        spill flow.
-      - PARRY: submitting a valid word within a tight window around the peak
-        (start ~±200ms, tune from there) reduces incoming spill by a meaningful
-        percent (tune; make the parry feel earned — distinct SFX/visual).
-      - The player can still play words freely between crescendos (word play stays
-        the core verb; the clock pressure changes WHICH word you go for — that's
-        Jaxon's stated intent, preserve it).
-      - Regular (non-boss) fights stay turn-based; their pieces are ambience (that
-        wiring belongs to the regulars ticket, not here).
-      - Accessibility: a "Largo" assist setting (global tempo scale via the engine
-        hook, clearly labeled, no shame) so real-time pressure doesn't lock players
-        out entirely.
-      - Balance: the sim can't play real-time — add a virtual-clock simulation mode
-        for boss fights (deterministic crescendo schedule + a bot with configurable
-        reaction time) and sanity-check boss fights are winnable/losable across
-        reaction profiles. Document the chosen numbers.
-      VERIFY: mocked-clock unit tests (attack fires at peak; parry window math;
-      no attack while piece paused), Playwright real-browser run of one full boss
-      fight with a scripted fast bot (zero console errors, fight completes both
-      ways), `npm test` full suite. Real-feel: Jaxon.
+- [ ] DUEL-GAUGE COMBAT: the signature mechanic, per the header COMBAT MODEL /
+      HEALTH MODEL decisions (Jaxon, 2026-08-21 — this ticket REPLACES the older
+      "boss attacks at crescendos" combat spec). EVERY fight is a real-time
+      tug-of-war duel:
+      - THE GAUGE: one meter between player and enemy. The enemy's piece pushes
+        it toward the player-damaging end CONTINUOUSLY, force proportional to the
+        music-engine's intensity(t) curve — crescendos push much harder — times a
+        stage-tier base multiplier (late-stage enemies push a base amount more
+        than early-stage; final tier above that). The player pushes it back by
+        playing words: word score (full scrabble system — tiles, length,
+        weaknesses, items, overcharge if kept) converts to opposing push force.
+        Tune the conversion so a decent word visibly moves the gauge and a great
+        word swings it.
+      - LOSING A PUSH: gauge fully reaches the player's end → lose exactly ONE
+        health block, then INVINCIBILITY FRAMES: a grace window (~2-4s, tune)
+        where the music's push is suspended/heavily damped and the gauge resets
+        toward center — a brutal passage must never chain away multiple blocks
+        before the player can respond. Make i-frames visually obvious.
+      - WINNING A PUSH: gauge fully reaches the enemy's end → the enemy takes a
+        decisive blow. Regulars die in one won push; bosses take several and/or
+        phase-shift (Beethoven's 5th: consider a phase per movement, per the
+        bible). Implementing run's call on exact structure — document it.
+      - HEALTH: ~5 discrete themed blocks (bible names the unit), max raisable
+        by items. The sibling's continuous ink-as-HP pool is GONE in this game;
+        if ink survives at all it's only as a spend resource, implementing run's
+        call — don't keep two life systems.
+      - TELEGRAPH: the player must SEE the music coming — current push intensity
+        NOW and the upcoming crescendo (swelling meter, scrolling dynamics
+        ribbon — design call). The da-da-da-DUM problem is the design target: a
+        player who reads the telegraph should feel a big crescendo bearing down
+        BEFORE it hits.
+      - PARRY (kept from the earlier concept, reinterpreted for the gauge):
+        submitting a valid word within a tight window around a crescendo PEAK
+        (start ~±200ms, tune) blunts that crescendo's push by a meaningful
+        percent, with a distinct SFX/visual so it feels earned.
+      - PACING: words playable at any time (the core verb is untouched); clock
+        pressure changes WHICH word you go for. Early-tier duels should be
+        nearly-safe learning space (their chill pieces barely push); final-tier
+        duels only the strongest runs/players survive — the difficulty lives in
+        the MUSIC, per the header curve decision.
+      - Accessibility: "Largo" assist (global tempo scale via the engine hook,
+        clearly labeled, no shame).
+      - Balance: virtual-clock duel simulation (deterministic intensity schedule
+        + bot with configurable word-rate/reaction profiles); confirm each tier
+        is winnable/losable as intended (early ~always winnable, final brutal).
+        Document the numbers and the tuning trail.
+      VERIFY: mocked-clock unit tests (gauge integration math, block loss at the
+      end-state only, i-frame suppression, parry window, tier multipliers),
+      Playwright real-browser full duel win AND loss with zero console errors,
+      full migrated `npm test` suite. Real feel: Jaxon's playtest — flag when a
+      duel is playable end-to-end.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the
@@ -181,13 +285,23 @@ Rules for the routine:
          a clean flipped form make a word unplayable) and remember upside-down
          reading REVERSES letter order. Precompute or check via the mapping +
          dictionary. This is a build-warping rare — cost/rarity accordingly.
-      Plus 4-8 more leaning into crescendo/parry/tempo/letter-recovery space.
+      AMENDED 2026-08-21 (Jaxon): also add HEALTH ITEMS — items that increase max
+      health blocks (and/or restore a lost block; rare, since ~5 blocks makes each
+      one precious — sim-check that health items don't trivialize late tiers).
+      Plus 4-8 more leaning into the duel-gauge space: gauge push-resistance,
+      longer i-frames, wider parry windows, crescendo-payback effects, tempo/
+      letter-recovery synergies.
       Each item: real hook-level `npm test` assertions, seeded-shop appearance
-      check, sim band sanity. VERIFY as the sibling's item batches did.
+      check, sim sanity per tier. VERIFY as the sibling's item batches did.
 
-- [ ] REGULAR ENEMIES: build the 6-10 regulars from the bible — turn-based fights
-      (no crescendo pressure), but each with their lesser-known piece sequenced and
-      playing as their battle ambience (quiet mix, under the SFX), plus their
-      one-line gimmick implemented. Woodcut portraits in the shared style.
-      VERIFY: `npm test` per-enemy, `npm run test:mobile`, Playwright fight
-      smoke per enemy tier, PD vetting noted per piece.
+- [ ] REGULAR ENEMIES: build the 6-10 regulars from the bible — every one a
+      DUEL-GAUGE fight (per the header combat decision; no turn-based mode
+      exists), with their lesser-known piece sequenced and driving their push
+      curve. The tier curve lives in the music: early regulars' chill pieces
+      barely threaten (gentle intensity, rare weak crescendos — the player's
+      learning space), mid-tier pieces carry a few real spikes, late regulars
+      approach boss-adjacent pressure. Each regular keeps a one-line gimmick on
+      top. Woodcut portraits in the shared style.
+      VERIFY: migrated `npm test` per-enemy, mobile check, Playwright duel smoke
+      per tier (win + loss paths), virtual-clock sim confirming the tier curve,
+      PD vetting noted per piece.
