@@ -2320,3 +2320,124 @@ real Playwright touch-drag verification using the same synthetic-Touch
 technique `test/verify-mobile-layout.js` already uses). The staged-tile
 ghost/gap drag system is the last and biggest piece after that, likely its
 own multi-run push.
+
+## 2026-08-21T21:01Z — STRUCTURAL 19/N: touch-based rack reordering (orchestrator)
+
+**Concurrent-run collision, again:** `git fetch origin main` at start showed
+local HEAD already matching `origin/main` (`308391f`, STRUCTURAL 17/N's
+commit). Picked up STRUCTURAL 17/N's "Next" note -- desktop mouse-drag rack
+reordering -- read the full drag implementation in `game.js`, implemented
+`Game.startTileDrag`/`reorderRackOnDrop`/`endTileDrag` wrappers plus the
+HTML5 drag handlers in `CombatScreen.jsx`, wrote and ran the full
+verification suite (all green), then hit a push rejection: another hourly
+instance had landed and pushed the SAME feature first (`fa30d88`/`0f5e442`
+on `origin/main`) -- confirmed genuinely identical by diffing their commit
+(same three wrapper names, same approach, same reasoning about
+`dragOverIndex` being dead state). Per this ticket's own established
+precedent for exactly this situation (STRUCTURAL 17/N's process note): did
+NOT force-push a redundant duplicate. `git reset --hard origin/main` to
+take their pushed work as-is, discarding my own now-redundant commit, then
+read their PROGRESS.md entry's own "Next" note and picked that up instead
+-- touch-based rack reordering -- to land real, non-duplicate value this
+run rather than re-doing already-finished work.
+
+**What I did:** implemented `Game.startTouchReorder`/`updateTouchReorder`/
+`endTouchReorder`/`cancelTouchReorder`, the same thin-wrapper pattern as
+the (already-landed) mouse-drag trio, around the private functions
+`wordbound.html`'s own `touchstart`/`touchmove`/`touchend`/`touchcancel`
+rack listeners already call. `endTouchReorder`'s wrapper takes a `tileId`
+instead of the private function's tile OBJECT parameter (same "React has
+no closure access" reasoning as `Game.selectTileForWord`) and looks the
+live tile up by id right before calling through. `CombatScreen.jsx`'s rack
+tiles gained matching `onTouchStart`/`onTouchMove`/`onTouchEnd`/
+`onTouchCancel` handlers, plus `data-tile-index` (nothing needed it
+before this) and the rack container gained `id="rack-display"` -- the one
+deliberate exception to the React tree's usual id-less convention, needed
+because `getTileAtPosition` (called by `updateTouchReorder`) locates the
+rack via `document.getElementById`.
+
+**One real, deliberate, documented gap:** `onTouchMove` does NOT call
+`e.preventDefault()` the way `wordbound.html`'s explicit
+`{ passive: false }` listener does. Confirmed by research (not assumed):
+React registers `onTouchMove` passively at its root listener specifically
+so touch scrolling isn't blocked by default, which means a `preventDefault()`
+call inside a React `onTouchMove` handler is a silent no-op there. Rather
+than chase a native-listener workaround (would need a ref + `useEffect`
+registering a raw `addEventListener` with `{ passive: false }`, real added
+complexity for a purely cosmetic concern), documented the gap plainly: a
+real touch rack-drag may let the page scroll slightly during the gesture
+instead of suppressing it. The reorder mechanism itself is completely
+unaffected -- this is a minor UX nicety gap, not a functional one.
+
+**A jsdom limitation surfaced and worked around properly, not silently:**
+`getTileAtPosition` resolves a touch position via `getBoundingClientRect`,
+which jsdom always returns as an all-zero rect for every element --
+confirmed directly. This means Vitest/RTL tests can exercise the real
+state-machine wiring (draggedTileId set on touchstart, threshold crossed
+on touchmove, tap-vs-reorder resolved on touchend) but literally cannot
+verify POSITIONAL accuracy (which slot a given touchX resolves to) --
+documented this plainly in the new tests' own comments rather than writing
+an assertion that would silently pass regardless of whether the real
+positioning logic worked. Closed the real gap with a genuine positional
+check in `test/verify-react-build.js`: dispatches real `Touch`/`TouchEvent`
+objects at actual on-screen coordinates from `boundingBox()` (same
+technique `test/verify-touch-tap-fix.js` already uses against
+`wordbound.html`, since Playwright's `touchscreen` API only supports
+`tap()`, not a drag gesture) -- this is the first proof the touch-reorder
+mechanism resolves real screen positions correctly, not just that its
+state machine transitions correctly.
+
+**Verified:**
+- `npx vitest run src/components/__tests__/CombatScreen.test.jsx`: 20/20
+  (17 pre-existing + 3 new: a plain tap resolving through the tap
+  fallback exactly like a click; a real threshold-crossing touch drag
+  reordering the rack through the actual engine splice, deliberately
+  started from a non-zero rack index so the reorder branch is genuinely
+  exercised despite jsdom's zero-rect quirk always resolving position to
+  index 0; touchcancel aborting cleanly with the rack untouched).
+- Full `npx vitest run`, 3 consecutive runs: **54/54 every time, zero
+  flakes.**
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED -- confirms
+  the four new `game.js` exports are true no-ops for `wordbound.html`.
+- `npm run build`: clean, 39 modules, same pre-existing chunk-size notice.
+- `npm run test:react-build` (real browser, built `dist/app/` output,
+  never dev server): ALL CHECKS PASSED, run 3x in a row with zero flakes,
+  including the new real `Touch`/`TouchEvent` positional drag-reorder
+  check (drags the first rack tile onto the last one's real bounding-box
+  position, confirms the resulting order matches `reorderRackOnDrop`'s
+  real insertion semantics, and confirms `draggedTileId`/
+  `touchDragThresholdCrossed` are both cleared afterward).
+- `npm run test:react-qa`: ALL CHECKS PASSED (full boss-reward flow,
+  unaffected).
+- `npm run test:mobile`: ALL CHECKS PASSED, including the pre-existing
+  touch-mode/blank-picker overlay check against `wordbound.html`.
+- `npm run test:qa`: ALL CHECKS PASSED (full boss-reward orchestration
+  against `wordbound.html`, unaffected).
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+  (16/16 dom-check against the unzipped build, zero 404s, real-browser
+  `window.Wordbound.Game` check).
+
+**Not done / explicitly deferred:** the staged-tile ghost/gap drag-and-
+drop-to-remove system (`startStagingDrag`/`updateStagingDrag`/
+`endStagingDrag`) remains completely unbuilt in React. This is now the
+ONE real remaining piece before STRUCTURAL's stated acceptance bar ("full
+feature parity... no vanilla-DOM rendering left") is met.
+
+**Current state:** the rack can now be reordered by BOTH mouse drag
+(landed by the concurrent run this session reconciled with) and touch
+drag (this run), both backed by the real engine's `state.player.rack`
+array, both verified against real browser input (native HTML5
+drag-and-drop for mouse, real `Touch`/`TouchEvent` dispatch for touch) in
+addition to Vitest/RTL. `wordbound.html` remains fully intact and
+unchanged -- all its own gates green throughout.
+
+**Next:** per GOALS.md's update-11 note, the staged-tile ghost/gap drag
+system is the last piece of remaining scope (c). It's architecturally
+different from the rack drag work landed so far: it live-mutates DOM
+`style.transform` on sibling tiles mid-gesture (a ghost tile tracking the
+pointer, tiles sliding to open a gap), which fights React's render model
+by design if wrapped naively -- worth weighing a from-scratch React-native
+pointer-capture reimplementation against wrapping the existing vanilla
+state machine before diving in. A final vanilla-DOM-rendering audit
+against `wordbound.html` is still owed once this lands, before this
+ticket's stated acceptance bar is met.
