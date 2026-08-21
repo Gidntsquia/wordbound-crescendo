@@ -427,3 +427,161 @@ combat panel, then the reward panels — rather than one giant run. Vitest/RTL
 test migration (sub-step 3) is overdue to start alongside this, since the
 run screen is exactly the kind of stateful behavior worth real component
 tests rather than only Playwright click-throughs.
+
+## 2026-08-21T12:55Z — STRUCTURAL 4/5: Game.startRun wired to real React state, node map ported (orchestrator)
+
+**Housekeeping first:** same benign pattern as every previous run — local
+`main` started 9 commits behind `origin/main` (container-recreation
+artifact, HEAD wasn't even detached this time, just stale). `git fetch` +
+`git checkout main && git merge --ff-only origin/main` fast-forwarded
+cleanly; nothing rewritten or lost.
+
+**What was done:** continued the STRUCTURAL ticket per the previous run's
+"Next" note (state wiring first, then the map, then combat panel, then
+reward panels). This run did the first two:
+
+- **The real blocker, found by reading `Game.init`/`render()` closely:**
+  `Game.startRun` (and every other `Game.*` action) ends by calling the
+  internal `render()`, which immediately does `$('howto-overlay')
+  .classList...` — `$('howto-overlay')` is `document.getElementById`, which
+  is `null` in the React tree (React renders its own `#root`, not
+  wordbound.html's `#screen-*` markup), so calling `Game.startRun` from
+  React would throw on the very first line of `render()`. Fixed with a
+  one-line guard: `render()` now returns immediately if
+  `#screen-main-menu` isn't in the DOM. Traced through every function
+  `Game.startRun` and `Game.enterCurrentNode` call (newPlayer,
+  createCharacterDeck, Floor.generateBranchingFloor, startBackgroundMusic,
+  startCombat, rest/treasure/shop/event entry) to confirm none of them
+  touch the DOM directly outside of `render()` — they don't; the *only*
+  other DOM-touching code lives in post-render animation calls
+  (`animateDamage`, called from `Game.submitWord`) which are NOT yet safe
+  to call headlessly. That's the real reason this run stops at the map and
+  doesn't attempt the combat panel: submitWord's damage-number/screen-shake
+  code assumes real DOM nodes render() would have created, and none of
+  that plumbing exists in the React tree yet.
+- `js/wordbound/game.js`: split `Game.init` into `Game._initDependencies()`
+  (just the module reference assignments: Lexicon, Floor, RNG, Characters,
+  etc.) called first, then the rest (20+ `$(id).addEventListener` calls
+  assuming wordbound.html's exact markup). React calls only the former.
+  Added the `render()` DOM-tree guard described above. Added a defensive
+  `state.combatActive = false; state.monster = null;` reset inside
+  `startRun` — needed because React's run screen adds a "Back to Menu" that
+  can abandon a run mid-fight (no such escape exists in the vanilla UI, so
+  `startRun` never had to guard against stale mid-combat state before);
+  without this a second run in the same session would render stuck on the
+  "Fighting: ..." placeholder instead of a fresh map. Exposed
+  `Game._availableNodeIds()` (same test-exposure pattern as the existing
+  `Game._advanceFloor` etc.) so React's map reuses the exact node-traversal
+  logic `renderNodeMap()` uses instead of re-deriving it.
+- `src/main.jsx`: extended the side-effect import list from just
+  achievements.js/characters.js to the FULL engine dependency chain, in
+  wordbound.html's own `<script>` order (namespace, rng, wordlist, lexicon,
+  tiles, traits, monsters, intents, combat, items, achievements,
+  consumables, events, characters, floor, game), then calls
+  `Game._initDependencies()` once at module load. Confirmed by grep that
+  every one of those files except achievements.js (localStorage only) is
+  DOM-free — game.js's own header comment ("the only Wordbound file
+  allowed to touch the DOM") holds.
+- `src/components/RunScreen.jsx` (replaces the old `RunPlaceholder.jsx`,
+  deleted): a real run header (ink/gold/floor/seed pulled live from
+  `Game._state`) and a real, clickable branching-map view, ported from
+  `renderNodeMap()` — same edge-line SVG math, same `.node-pill`/
+  `.branch-edge` classes, same boss/elite trait-hint labels, so it's
+  visually equivalent to wordbound.html's map, not a redesign. Clicking an
+  available node calls the real `Game.enterCurrentNode`. Deliberately did
+  NOT build dedicated treasure/shop/event/rest screens this run: floor.js
+  always makes row 0 `'combat'`, so with no combat panel yet, nothing
+  behind ANY node type is actually reachable through this screen except
+  the honest "fight started, not ported yet" state — building untestable
+  UI for screens nothing can currently reach would be exactly the kind of
+  unverified "done" GOALS.md's verification discipline exists to prevent.
+  So entering any node shows one generic, honest placeholder reflecting
+  the real resulting state (monster name/HP for a fight, the raw screen
+  name otherwise) with a "Back to Menu" escape.
+- `src/App.jsx`: character select now calls the real `Game.startRun`
+  (previously it only echoed the pick back) and routes to `RunScreen`.
+- Uses a `useReducer`-based force-update (`bump()`) as the React/imperative-
+  singleton bridge: `Game._state` stays the one mutable object the engine
+  already mutates in place (not duplicated into React state); every action
+  call re-renders by bumping a counter, then RunScreen reads `Game._state`
+  fresh. Documented inline why (avoids maintaining a parallel copy of a
+  3000+ line state machine's state shape).
+
+**Verified:**
+- `npm test` (jsdom dom-check, 100+ assertions incl. the full boss-skip/
+  victory/audio/ink-spend/panel-stacking suites): ALL CHECKS PASSED —
+  confirms the `game.js` refactor (Game.init split, render() guard,
+  startRun's defensive reset, the new `Game._availableNodeIds` export) is
+  behavior-preserving for wordbound.html; none of dom-check's assertions
+  changed.
+- `npm run test:mobile`: all layouts OK (375/414px), touch-mode input OK.
+- `npm run test:qa`: ALL CHECKS PASSED (full boss-reward orchestration
+  flow), zero console/page errors.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+  (16/16 dom-check against the unzipped build, zero 404s, real-browser
+  `window.Wordbound.Game` check).
+- `npm run build`: clean, 36 modules. Bundle jumped to ~6.3MB (Vite's
+  500kB-chunk warning fired) because `js/wordbound/wordlist.js` (a 7MB
+  static dictionary array) is now part of the bundle for the first time —
+  this is NOT a regression from this run (wordbound.html already ships the
+  same 7MB synchronously via a plain `<script>` tag, same total bytes
+  either way) and it isn't yet lazy/async in EITHER build (grepped for
+  `fetch`/`import(`/`async` in wordlist.js/lexicon.js — none). GOALS.md's
+  STRUCTURAL ticket already flags "the wordlist's load strategy may need a
+  Vite-friendly import... keep it lazy/async" as a named concern — leaving
+  that for the run that actually needs to address it (it's an existing gap
+  in both builds, not something introduced here) rather than scope-creeping
+  it into this one.
+- Real-browser check (Playwright, `/opt/pw-browsers/chromium`, served the
+  build via `vite preview`): New Run → character select (3 cards) → typed
+  a seed, picked a character → landed on a REAL run screen: header showed
+  live `Floor 1 / 3`, `Ink 22 / 22`, and the exact typed seed; the map
+  rendered 18 real node pills (a real generated branching floor) with 3
+  correctly marked available (row 0); clicked an available node → the
+  fight actually started (`Game._state.combatActive === true`,
+  `Game._state.monster` a real monster object) and the honest placeholder
+  named the REAL monster ("Fighting: The Consonant Constrictor (56 / 56
+  HP)"); clicked Back to Menu, started a SECOND run with a different
+  character → confirmed the defensive reset worked: the new run showed a
+  fresh 19-pill map, NOT stuck on the old "Fighting: ..." placeholder.
+  ZERO console/page errors across the whole flow. Throwaway script deleted
+  after.
+
+**Not verified / not applicable:** combat panel, treasure/shop/event/rest
+screens — genuinely not reachable yet (explained above), so nothing to
+verify there; that's next run's actual porting work, not a gap in this
+run's testing. No Vitest/RTL migration yet (ticket sub-step 3, still
+correctly deferred — GOALS.md's MANDATORY VERIFICATION header stays
+untouched until it lands).
+
+**Current state:** `wordbound.html` remains untouched and is still the
+actual full playable game (all gates green, zero behavior change from the
+refactor). The Vite+React app now has a real menu → character-select →
+run flow: `Game.startRun` executes for real with real seeded RNG and a
+real generated branching floor, the map is fully real and clickable, and
+entering any node triggers real engine state changes — the only thing not
+yet real is what a fight/shop/treasure/event LOOKS like once you're in one
+(the generic placeholder covers that honestly).
+
+**Next:** the combat panel is the natural next STRUCTURAL sub-step, and
+now unblocks everything else transitively (treasure/shop/event/rest all
+sit behind clearing at least the row-0 fight). Before porting it, the
+in-combat animation functions (`animateDamage`, `celebrateHit`,
+`animatePlayerDamage`, the drag/touch staging handlers) need the same
+"does this touch the DOM outside of render()?" audit this run did for
+startRun/enterCurrentNode — `animateDamage` in particular calls
+`$('monster-hp-fill')`/`$('monster-info')` directly and is NOT null-guarded
+(confirmed by reading it this run), so it WILL throw if `Game.submitWord`
+is called from React as-is. The likely shape: either (a) guard those
+functions the same way `render()` was guarded (skip the DOM-manipulation
+parts, keep the pure state-mutation), or (b) have React own the actual
+tile-rack/staging/drag interactions as native React state+handlers (a
+rewrite, not a port, per the previous run's note that this is "worth a
+state-shape design pass") while still calling the pure `Game.submitWord`
+for scoring/state. Worth deciding explicitly next run rather than
+discovering it mid-port. After combat: treasure/shop/event/rest panels
+(each is a small, self-contained render function — same pattern as
+main-menu/character-select), then Vitest/RTL test migration (sub-step 3),
+which is increasingly overdue now that there's real stateful behavior
+(startRun, enterCurrentNode, the defensive reset) worth unit-testing
+directly instead of only through Playwright click-throughs.
