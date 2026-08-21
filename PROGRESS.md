@@ -80,3 +80,80 @@ it).
 **Next:** THEME BIBLE ticket — replace THEME.md with the Crescendo world bible
 (faction name, player role, 3 vetted famous-piece bosses, 6-10 vetted lesser-known
 regulars, PD vetting notes, a display-name proposal for Jaxon).
+
+## 2026-08-21T08:49Z — THEME BIBLE complete (orchestrator)
+
+**What was done:** completed GOALS.md's THEME BIBLE ticket, rewriting THEME.md as
+the Crescendo world bible (design doc only — no code touched).
+
+- **Premise:** player is a Junior Lyricist at the Concert Eternal (a concert hall
+  vast enough to stage every piece ever written, mirroring the sibling's Boundless
+  Archive naming pattern); the antagonist faction is the Fermata, who staged a coup
+  and stole the alphabet so music alone would fill the world. Tone note up top:
+  operatic melodrama played mostly straight, explicitly contrasted with the
+  sibling's whimsical library-pun tone so future sessions don't default to the
+  wrong voice.
+- **Duel-gauge naming** (per the header's amended combat model): the gauge itself
+  is named **the Volume** (loudness dial / book pun); health blocks are named
+  **Verses** (song unit and poetry unit at once). Both are flagged as proposals
+  for Jaxon per the standing rule, with the alternates I considered and rejected
+  noted so the reasoning isn't lost.
+- **3 floor bosses + 1 final boss**, each with a name, personality tied directly to
+  their piece's actual dynamics (not generic flavor), and a proposed hostage
+  letter: The Mountain King (Grieg, accelerando as the mechanic-teaching first
+  boss), Death the Fiddler (Saint-Saëns' Danse Macabre, lull-then-sting structure),
+  the Valkyrie Marshal (Wagner, continuous late-tier pressure), and the Maestro
+  (Beethoven's 5th — ties the boss's "Fate knocking" personality straight to the
+  symphony's own historical nickname for its opening motif; four movements =
+  four proposed fight phases, per the header's final-boss note).
+- **9 regulars, 3 per tier** (early/mid/late), each a lesser-known piece with a
+  one-line gimmick tied to its real musical structure (e.g. the Metronome/Czerny
+  for the "metronome-creature" GOALS.md suggested, the Organist/Bach Toccata &
+  Fugue for late-tier's biggest single spikes).
+- **PD vetting table** covering all 9 GOALS.md-suggested famous-piece candidates
+  (not just the 3 used) — composer death year and years-since for each, so the
+  3 unused ones (Queen of the Night, Moonlight 3rd mvt, Vivaldi Summer/Winter) are
+  pre-vetted and ready for milestone-2 roster expansion instead of needing
+  re-vetting later. Noted the Toccata & Fugue's disputed-authorship trivia
+  explicitly since it doesn't change the PD verdict either way.
+- **Display name:** proposed keeping "Wordbound: Crescendo" (mechanic is in the
+  title, keeps the sibling-branding pattern), listed 3 alternatives considered and
+  set aside with reasons, flagged for Jaxon per the standing rule — did NOT touch
+  wordbound.html's branding, that's Jaxon's call same as the SCAFFOLD ticket left
+  it.
+- **Stolen letters:** added a proposal section (not this ticket's job, but useful
+  for the next meta-progression ticket) noting the four hostage letters (K, V, X,
+  Z) all fall inside GOALS.md's own suggested starting-stolen set (J K Q V X Z),
+  which reads well thematically — flagged explicitly as the meta-progression
+  ticket's decision to accept or override.
+- **Concert Eternal floor map:** proposed names for the existing 3-floor structure
+  (Open Rehearsal / Recital Hall / Grand Stage / the Podium for the final boss),
+  explicitly noted as a proposal for whichever ticket wires floors to bosses, not
+  a requirement of this one — `js/wordbound/floor.js`'s `TOTAL_FLOORS = 3` was not
+  touched.
+
+**Verified:** `npm test` (jsdom dom-check) still ALL CHECKS PASSED after the edit
+— expected, since this ticket only touched THEME.md, no game code or DOM. Per the
+ticket's own VERIFY line ("n/a, design doc — but keep it consistent with what the
+engine can do"): cross-checked every naming/mechanic reference in the new THEME.md
+against what GOALS.md's header decisions and the existing engine (floor.js's
+3-floor structure) actually support — no invented mechanics beyond what's already
+decided or already-ticketed.
+
+**Not verified / not applicable:** nothing here is code, so `test:mobile`/`test:qa`
+don't apply and weren't run. All naming proposals (display name, Volume, Verses,
+hostage letters) are explicitly flagged for Jaxon per GOALS.md's guardrail on
+naming/feel calls — none of them are final.
+
+**Current state:** THEME.md fully replaced, GOALS.md's THEME BIBLE box checked.
+Full roster (3 floor bosses + 1 final boss + 9 regulars, all PD-vetted) plus core
+naming (Volume, Verses, Concert Eternal, the Fermata, Junior Lyricist) exists for
+future tickets to consume. `npm test` clean.
+
+**Next:** STRUCTURAL ticket — migrate to React + Vite, per the header FRAMEWORK
+decision. This is explicitly sequenced before the music engine and duel-UI work so
+those get built React-native. Multi-run ticket; expect this to span several
+sessions. Read the ticket's 5 sub-steps in GOALS.md closely before starting,
+especially the requirement to update GOALS.md's MANDATORY VERIFICATION header in
+the same commit that changes what `npm test` means (Vitest/RTL replacing the
+jsdom dom-check harness) — future runs depend on that header staying accurate.

@@ -101,7 +101,7 @@ Rules for the routine:
       VERIFY: full `npm test` clean, `npm run test:qa` clean or explicitly amended,
       game boots and plays a fight in a real browser (Playwright smoke).
 
-- [ ] THEME BIBLE: replace THEME.md with the Crescendo world bible. Premise (Jaxon's,
+- [x] THEME BIBLE: replace THEME.md with the Crescendo world bible. Premise (Jaxon's,
       keep its spine): an evil music faction has STOLEN THE LETTERS; the player spells
       words to fight musical enemies and win the alphabet back. Name the faction, the
       player role, the setting, in a consistent voice. Design the roster:
