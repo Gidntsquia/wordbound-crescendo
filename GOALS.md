@@ -281,7 +281,14 @@ Rules for the routine:
       across a simulated reload, display correct), sim sanity, `npm run test:qa`.
 
 - [ ] SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS (Jaxon, 2026-08-21): the friendly
-      faces of the words side are famous dead authors, per the bible's roster.
+      faces of the words side are famous dead authors.
+      0. FIRST, AMEND THE BIBLE: THEME.md was completed before this request
+         landed, so the design work moved here — add the guide + shopkeeper
+         section to THEME.md per the "AMENDED 2026-08-21 (Jaxon, guide +
+         shopkeepers)" block in the THEME BIBLE ticket above (Shakespeare's
+         voice + quest-setting beats; the 4-6 author roster with personality,
+         shop lines, quirk, exclusive-item concepts). Match the bible's
+         existing voice and PD-persona rule.
       1. GUIDE INTRO: William Shakespeare delivers the quest-setting intro on a
          new game / first run (who stole the letters, what the player must do),
          fully in-character per the bible. Keep it SHORT and skippable (same
