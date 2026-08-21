@@ -1322,3 +1322,134 @@ a real UI feature (pointer capture, ghost tiles, insertion-index math) while
 (a) is "more of the same kind of check just added," a future run should
 probably tackle (c) next since it's the more product-shaped gap — but either
 is legitimate next work.
+
+---
+
+## 2026-08-21T16:55Z — STRUCTURAL 11/N: items-owned/deck-viewer/item-inspector/consumables-panel + music controls React port (repo-health note first)
+
+**Repo-health note:** started detached at HEAD (matched `origin/main` exactly
+after `git fetch origin main` — same stale-local-`main` pattern the last
+three runs flagged). Fixed with `git checkout main && git merge --ff-only
+origin/main` (24 commits fast-forwarded cleanly, nothing local to lose).
+
+**What I looked at first:** GOALS.md's own recommendation for this run was
+(c) tile-staging/drag system or (a) a React `test:qa` equivalent. Before
+picking one, I re-read `CombatScreen.jsx`'s header comment (documents (c)'s
+scope precisely: pointer capture, ghost tiles, insertion-index math, a whole
+feature in its own right) and then audited what `js/wordbound/game.js`'s
+`renderRun()` actually renders beyond the `state.screen`-keyed panel family
+RunScreen.jsx already dispatches on (map/combat/treasure/shop/tile-reward/
+boss-reward/event/shredder/game-over/victory). That turned up a real,
+previously-unflagged gap: `renderRun()` ALSO unconditionally renders
+`#items-owned` (a chip per owned item) and toggles three more side panels —
+`#deck-viewer-panel`, `#item-inspector-panel`, `#consumables-panel` — opened
+from the run-header's Deck/Consumables buttons, independent of
+`state.screen`. Grepped `src/` for `item-chip`/`deck-viewer`/
+`consumablesPanelOpen`/`itemInspectorOpen`/`btn-view-deck`: zero hits in any
+of them. Concretely: a player in the React app who picked up an item from a
+treasure/shop/boss-reward screen (all of which DO work — `state.player.items`
+gets pushed to correctly) had literally no UI to ever see what they owned,
+view their deck, or use a consumable mid-fight. The existing Vitest suite
+never caught this because it only asserts `state.player.items` mutated
+correctly, never that anything renders it (confirmed by grepping the test
+files too). Also found: `setMusicVolume`/`toggleMusicMute` are PRIVATE
+closures inside `game.js`, wired directly to `wordbound.html`'s own
+`#btn-toggle-music`/`#music-volume` DOM listeners — not exposed on `Game.*`
+at all, so React had no way to reach them even in principle.
+
+Picked this over both (a) and (c): it's a correctness/parity bug (a whole
+feature invisible to the React player, not just untested-but-built or
+known-and-flagged-unbuilt like (c)), the fix pattern was already established
+by the reward/shop family (`.treasure-panel`/`.treasure-choices`, which
+`#deck-viewer-panel` etc. already reuse verbatim in `wordbound.html`'s own
+markup), and it's cleanly bounded — unlike (c)'s pointer-capture/ghost-tile
+system, which is genuinely its own multi-hour ticket.
+
+**What changed:**
+- `js/wordbound/game.js`: added `Game.getAudioSettings()` / `setMusicVolume()`
+  / `toggleMusicMute()` — thin public wrappers around the pre-existing
+  private `setMusicVolume`/`toggleMusicMute` functions + a `render()` call
+  (which already no-ops when the legacy `#screen-main-menu` DOM doesn't
+  exist, per its own STRUCTURAL-ticket comment — confirmed this guard before
+  relying on it, so calling `render()` from the React app is safe). Zero
+  behavior change for `wordbound.html`: its own DOM listeners still call the
+  private functions directly, untouched.
+- `src/components/RunSidePanels.jsx` (new): direct ports of
+  `renderItemsOwned()` (`ItemsOwnedStrip` — chips, click-to-inspect, the
+  proc-flash-once behavior via a `useEffect` that clears
+  `state.proccedItemIds` after commit instead of mutating during render, so
+  React's render-purity rule isn't violated while still landing "flashes for
+  exactly one render"), `renderDeckViewer()` (`DeckViewerPanel`), 
+  `renderItemInspector()` (`ItemInspectorPanel`), `renderConsumablesPanel()`
+  (`ConsumablesPanel` — real mid-combat-only enablement, matching
+  `Game.useConsumable`'s own guard), and the header's Deck/Consumables/
+  music-toggle/music-volume controls (`RunHeaderActions`).
+- `src/components/RunScreen.jsx`: wires all of the above in. Added
+  `RunHeaderActions` to the run-header and `ItemsOwnedStrip` right below it
+  (matching `renderRun()`'s DOM order exactly). Computed `sidePanelOpen =
+  state.deckViewerOpen || state.itemInspectorOpen ||
+  state.consumablesPanelOpen` and gave it precedence over the existing
+  combat/reward/map branch chain — same "one side panel wins over
+  everything else, openable mid-combat too" rule `renderRun()`'s own
+  `sidePanelOpen` boolean enforces.
+- `src/components/__tests__/RunSidePanels.test.jsx` (new, 6 tests): renders
+  the real `RunScreen` (not a harness) and drives it through real
+  `userEvent` clicks — item chip renders + opens the real inspector (and
+  closes), Deck button opens a real deck listing (every real deck tile's
+  letter is asserted present) and hides the node map, then restores it on
+  close; a real consumable (`errata_slip`) is disabled outside combat and,
+  once a real fight is entered, actually usable (asserts real ink
+  restoration, not just that a button exists); both music controls assert
+  against `Game.getAudioSettings()` (mute toggle flips + restores the
+  original value so it doesn't leak into other test files via
+  `localStorage`; volume set/restored the same way).
+
+**Verified:**
+- `npx vitest run`: 40/40 passing (34 pre-existing + 6 new), no flakes.
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED — untouched by
+  this change (no `game.js` render-path logic changed, only new `Game.*`
+  wrappers added), confirmed unaffected.
+- `npm run build`: clean, 39 modules (was 38 — the one new file), same
+  pre-existing single-large-chunk notice, no new warnings.
+- `node test/verify-react-build.js` (real Chromium against the fresh
+  `vite build` output): ALL CHECKS PASSED, including the existing full
+  playthrough + zero-console-errors + 375/414px overflow checks at every
+  screen it already covers (main menu, character select, run map, mid-fight
+  combat) — the run-map check's viewport now includes the new
+  `RunHeaderActions` row and showed no overflow, so the new header controls
+  don't break mobile layout at either of `test:mobile`'s widths.
+- A throwaway (uncommitted, deleted after the run) real-browser Playwright
+  script specifically exercising the NEW surfaces against the same built
+  `dist/app/` output: starting item chip renders (1, matching the
+  archivist's real `startingItems`), Deck button opens a real deck listing
+  and hides the map, Consumables button opens a real (empty, for this
+  character) consumables panel, clicking the item chip opens a real
+  inspector showing "Spare Satchel", and a real click on the music-mute
+  button flips `Game.getAudioSettings().muted` — zero console/page errors
+  throughout. All 8 checks passed.
+- NOT re-run (untouched by this change): `test:mobile`, `test:qa`,
+  `test:itch-build`, `test:run-header`, `test:audio`, `test:drag-interrupt`,
+  `test:branching-map` — none target `src/`, and `wordbound.html`/`css/` are
+  unchanged this run.
+
+**Current state:** the React app now has full rendering parity for
+items-owned/deck/item-inspector/consumables + music controls — every piece
+of state a player can accumulate during a run (items, deck contents,
+consumables) is now visible and usable in the React UI, and music mute/
+volume has a real control surface for the first time in that tree. This
+closes a genuine, previously-invisible feature gap, not just a test gap.
+
+**Not done / explicitly out of scope this run:** (a) `test:qa`'s deeper
+multi-floor/boss-reward-flow React equivalent and (c) the tile-staging/drag
+system + per-hit animations remain exactly as open as before — this run
+found and fixed a separate, higher-priority parity bug instead of advancing
+either. STRUCTURAL stays unchecked.
+
+**Next:** (a) and (c) are still the two flagged remaining pieces; (c) is
+still probably the more product-shaped one to tackle next, per the last two
+runs' reasoning (unchanged by this run's detour). A future run doing a
+similar "what does `renderRun()`/`render()` actually touch that RunScreen.jsx
+doesn't" audit for the MAIN_MENU/CHARACTER_SELECT screens and the
+`howToPlayOpen`/blank-picker overlays might be worth a quick pass too, given
+this run's find — I did not have time to do that audit this run, flagging it
+as a possible next check rather than a confirmed gap.
