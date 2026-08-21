@@ -1564,3 +1564,141 @@ click-to-append substitute CombatScreen.jsx already documents as
 deliberate) might be worth one more targeted look before committing to the
 full drag-system build — flagging as a possible cheap check, not a
 confirmed gap, since I did not have time to do it this run.
+
+---
+
+## 2026-08-21T18:31Z — STRUCTURAL 13/N: renderCombat() audit (clean, no new gap) + test:react-qa closes remaining scope (a)
+
+**Repo-health note:** started on a detached HEAD at `origin/main`'s exact
+commit (same pattern flagged by several prior runs). `git checkout main`
+put it on a proper branch tracking origin; already up to date, no local
+drift to lose, no `git reset --hard` needed. `npm install` was already
+satisfied (node_modules present from a prior run's cache in this
+container).
+
+**What I did:** last run's "Next" note flagged a possible cheap audit —
+read `renderCombat()` in `js/wordbound/game.js` line by line (lines
+2949-3096) against `CombatScreen.jsx` to see if the same "audit turns up a
+real gap" pattern that hit three runs running would repeat a fourth time.
+It didn't: every difference found (touch-mode drag/tap-to-play tile
+staging via `startTouchReorder`/`reorderRackOnDrop`, the blank-letter
+picker overlay (`renderBlankPicker`/`state.blankPickerOpen`), per-hit
+damage/HP-flash/screen-shake animations, the combo chip's one-shot
+`comboBumpClass` pop, and the rack's `new-tile`/`tile-settle` cosmetic
+classes) is already known and already correctly filed under STRUCTURAL's
+remaining scope (c) — CombatScreen.jsx's own header comment and the last
+run's update-4 note both already say so. A clean audit is itself a useful
+result: it confirms this particular angle (render-body diffing) is now
+exhausted for CombatScreen specifically, not that nothing is left overall.
+
+Moved on to remaining scope (a): `test:qa`
+(`test/orchestrator-qa-boss-reward.js`) drives wordbound.html's boss-kill
+-> tile-reward -> boss-item-reward panel flow with real Playwright clicks;
+nothing exercised that flow against the React/Vite app. Added
+`test/verify-react-qa-boss-reward.js` (new, committed script, wired to
+`npm run test:react-qa` + a matching `pretest:react-qa` ensure-deps
+entry in `package.json`, same pattern as `test:react-build`), built
+against a real `vite build` output statically served (never the dev
+server — same bar `verify-react-build.js` established).
+
+Deliberately narrower in scope than `test:qa` itself, for a documented
+reason: real-word combat play is already double-covered by
+`verify-react-build.js`'s full UI playthrough and
+`CombatScreen.test.jsx`'s RTL suite, so re-proving "a real word drops real
+HP" here would be redundant. Instead this script sets `monster.hp = 1` as
+setup (the exact same convention `src/test/gameHelpers.js`'s
+`defeatCurrentMonster` helper already uses and the Vitest suite already
+relies on) and lands the actual kill via ONE real word typed into the
+real input and submitted via a real click on the real Play Word button —
+the thing genuinely under test is the reward-PANEL sequencing after that
+kill, not the fight itself.
+
+**A second real instance of the React re-render gotcha (found and worked
+around, not just re-flagged):** the vanilla `test:qa` script forces a
+re-render after jumping the run's map position to the boss node by calling
+`window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();`
+directly via `page.evaluate` — in vanilla, any state-mutating `Game.*` call
+triggers `render()` internally, so this is a legitimate "force a redraw"
+trick there. I initially wrote this script the same way and it silently
+produced a stale DOM: `RunScreen.jsx`'s `act()` (the only thing that calls
+`bump()`, the useReducer-based force-update) is a local closure defined
+inside the component, unreachable from `page.evaluate` — calling
+`Game.openDeckViewer()` directly mutates `state.deckViewerOpen` but nothing
+ever re-renders React to read it. Confirmed this by reading
+`RunSidePanels.jsx`/`RunScreen.jsx` again before writing the fix: every
+control in that file routes through `act(...)`, never a bare `Game.*` call.
+Fixed by replacing the `page.evaluate` trick with a REAL UI click on the
+run-header's "Deck" button (opens, via a real actionability-checked click
+routing through the genuine `act()` cycle) then "Close" (closes the same
+way) — this is the same "real UI-driven path forces the real re-render"
+rule STRUCTURAL's update-2 note already established for a different case
+(the VICTORY-screen re-render check), now applied to a second, independent
+spot that would otherwise have shipped a script asserting against a stale
+map.
+
+**What changed:**
+- `test/verify-react-qa-boss-reward.js` (new): builds `dist/app/` fresh,
+  serves it statically on port 9883, then in one real-browser pass: reaches
+  a deterministic run (seed `vitest-fixed-seed-1` + The Archivist, same
+  known-good seed the rest of the React suite already relies on), jumps to
+  floor 1's boss (setup, via the fixed re-render trick above), kills it via
+  a real submitted word, asserts the tile-reward panel appears and the
+  boss-reward panel does NOT (sequential, never stacked), real-clicks a
+  tile choice, asserts the boss-reward panel appears with only rare/
+  legendary options (`Items.ITEM_DEFS[id].rarity`, read-only query),
+  real-clicks a claim, asserts the item chip count grows by exactly one and
+  the floor advances by exactly one. Then repeats the boss-jump-and-kill at
+  a 375px viewport for floor 2's boss, this time real-clicking Skip on both
+  the tile reward and the boss reward, and checks the boss-reward panel's
+  layout at that width (zero horizontal overflow, panel's right edge fits
+  the viewport, every button's rendered height >=36px) — the first
+  mobile-layout check of any kind against `RewardScreens.jsx`'s
+  `.treasure-panel` shape. Asserts zero console/page errors and zero failed
+  requests across the whole run throughout.
+- `package.json`: added `pretest:react-qa` (`ensure-deps.js @playwright/test`,
+  matching every other Playwright script's pattern) and `test:react-qa`.
+
+**Verified:**
+- `npm run test:react-qa`: ALL CHECKS PASSED, run twice in a row back to
+  back with no flakes (both full 24-check passes identical) — confirms the
+  re-render fix is solid, not a lucky single run.
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED — unaffected,
+  none of this run's files are in that suite's tree.
+- `npx vitest run`: 41/41 passing — unaffected (no `src/components/*.jsx`
+  files were touched this run, only a new top-level test script + a
+  `package.json` script entry).
+- `npm run build`: clean, same pre-existing single-large-chunk notice every
+  prior run has seen, no new warnings — confirms the new script's own
+  internal `vite build` calls (it runs one fresh each invocation, like
+  `verify-react-build.js` does) aren't masking a real build regression.
+- NOT re-run (untouched by this change): `test:mobile`, `test:qa`,
+  `test:itch-build`, `test:run-header`, `test:audio`, `test:drag-interrupt`,
+  `test:branching-map`, `test:react-build` — none target the files touched
+  this run (a new standalone script + one `package.json` block); the engine
+  files (`js/wordbound/game.js`) and existing `src/` components are
+  byte-for-byte unchanged.
+
+**Current state:** STRUCTURAL's remaining scope (a) (`test:qa`'s React
+equivalent) is now DONE. The only piece left before the ticket's own
+stated acceptance bar ("full feature parity with the pruned v0.1 game, all
+migrated gates green, no vanilla-DOM rendering left") is met is (c): the
+tile-staging/drag system, which this run's audit reconfirmed also
+subsumes touch-mode reordering, the blank-letter picker, and the hit/
+combo-bump animation juice — all still unbuilt in React. Ticket stays
+unchecked.
+
+**Not done / explicitly out of scope this run:** (c) is completely
+untouched — this run was audit + a new test script, not combat-UI work.
+`test:itch-build` remains intentionally out of scope (packages
+`wordbound.html`, not the React app, per GOALS.md's own note).
+
+**Next:** (c) the tile-staging/drag system is now the ONLY item standing
+between STRUCTURAL and full parity. It's a genuinely large, self-contained
+build (pointer-capture-based drag, ghost-tile rendering, insertion-index
+math, the touch-reorder finger-tracking state machine, the blank-letter
+picker overlay, and the animation/combo-bump juice game.js's renderCombat()
+already implements) — a future run should treat it as this ticket's last
+multi-run push rather than trying to land it in one hour, and should
+probably start by porting the blank-picker overlay and combo-bump class
+first (small, self-contained, already fully read and understood by this
+run's audit) before tackling full pointer-based drag reordering.

@@ -303,6 +303,45 @@ Rules for the routine:
       parity and `(c)` the drag/animation system are UNCHANGED, still open
       -- this was a genuinely separate, higher-priority find, not progress
       on either. Ticket stays unchecked.
+      ORCHESTRATOR NOTE 2026-08-21 (update 5): a follow-up audit (read
+      `renderCombat()` in `js/wordbound/game.js` line by line against
+      `CombatScreen.jsx`, prompted by update-4's own suggestion) turned up
+      nothing new -- every gap found (touch-mode drag/tap-to-play staging,
+      the blank-letter picker overlay, hit/damage animations, the combo
+      chip's one-shot bump-pop class, rack `new-tile`/`tile-settle` cosmetic
+      classes) was already known and correctly filed under remaining scope
+      (c). Picked up (a) instead: added
+      `test/verify-react-qa-boss-reward.js` (`npm run test:react-qa`), a
+      React/Vite equivalent of `test:qa` targeting the one genuinely
+      uncovered surface -- the boss-kill -> tile-reward -> boss-item-reward
+      panel SEQUENCING -- against a real `vite build` output statically
+      served (never the dev server). Deliberately narrower than `test:qa`
+      itself: real-word-combat is already double-covered
+      (`verify-react-build.js`'s full playthrough, `CombatScreen.test.jsx`'s
+      RTL suite), so this sets `monster.hp = 1` as setup (same convention as
+      `gameHelpers.js`'s `defeatCurrentMonster`) and lands the kill via one
+      real word typed and submitted through the real Play Word button --
+      the reward-panel flow, not combat pacing, is under test. Hit the same
+      React re-render gotcha update-2/3 flagged, in a new spot: forcing a
+      re-render after jumping the map position to the boss node via a direct
+      `Game.openDeckViewer()`/`closeDeckViewer()` `page.evaluate` call (the
+      vanilla script's trick) silently no-ops in React since it bypasses
+      `RunScreen.jsx`'s `act()`/`bump()` closure -- fixed by using a REAL UI
+      click on the run-header's "Deck" button then "Close" instead, both
+      routing through the real `act()` cycle. Ran clean twice in a row (no
+      flakes): full claim path (tile pick -> rare/legendary boss reward ->
+      claim -> chip appears -> floor advances, panels confirmed sequential
+      not stacked) plus the skip path at a 375px viewport (first-ever
+      mobile-layout check of RewardScreens.jsx's `.treasure-panel` shape:
+      zero overflow, panel fits viewport, buttons >=36px tappable), zero
+      console/page errors, zero failed requests. `npm test` + `npx vitest
+      run` (41/41) + `npm run build` all still clean. This closes remaining
+      scope (a) in full. Still open, unchanged: (c) the tile-staging/drag
+      system (now confirmed to also subsume the blank picker, touch
+      reordering, and the hit-animation/combo-bump juice). STRUCTURAL stays
+      unchecked -- (c) is the only piece left before the ticket's stated
+      acceptance bar ("full feature parity... no vanilla-DOM rendering
+      left") is met.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

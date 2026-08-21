@@ -27,7 +27,9 @@
     "pretest:react": "node tools/ensure-deps.js vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event",
     "test:react": "vitest run",
     "pretest:react-build": "node tools/ensure-deps.js @playwright/test",
-    "test:react-build": "node test/verify-react-build.js"
+    "test:react-build": "node test/verify-react-build.js",
+    "pretest:react-qa": "node tools/ensure-deps.js @playwright/test",
+    "test:react-qa": "node test/verify-react-qa-boss-reward.js"
   },
   "dependencies": {
     "react": "^19.2.8",
