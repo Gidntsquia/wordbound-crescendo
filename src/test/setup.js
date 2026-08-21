@@ -25,6 +25,8 @@ import '../../js/wordbound/consumables.js';
 import '../../js/wordbound/events.js';
 import '../../js/wordbound/characters.js';
 import '../../js/wordbound/floor.js';
+import '../../js/wordbound/music.js';
+import '../../js/wordbound/pieces/mountain-king.js';
 import '../../js/wordbound/game.js';
 
 // Mirrors main.jsx: wires Game's internal module references without running

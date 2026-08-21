@@ -22,6 +22,12 @@ import '../js/wordbound/consumables.js';
 import '../js/wordbound/events.js';
 import '../js/wordbound/characters.js';
 import '../js/wordbound/floor.js';
+// MUSIC ENGINE ticket (GOALS.md, 2026-08-21): standalone, no dependency on
+// game.js and nothing consumes it yet (that's DUEL-GAUGE COMBAT's job) --
+// loaded here anyway for the same "every engine module attaches to
+// window.Wordbound.* consistently" reason every other module above does.
+import '../js/wordbound/music.js';
+import '../js/wordbound/pieces/mountain-king.js';
 import '../js/wordbound/game.js';
 import App from './App.jsx';
 
