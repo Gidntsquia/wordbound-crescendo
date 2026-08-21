@@ -406,4 +406,113 @@ describe('CombatScreen', () => {
     expect(state.touchDragThresholdCrossed).toBe(false);
     expect(state.player.rack.map((t) => t.id)).toEqual(before); // untouched -- cancel never reorders
   });
+
+  // STRUCTURAL ticket, remaining scope (c), the staged-tile ghost/gap drag
+  // system (the last core piece): pointerdown is bound per-tile in
+  // CombatScreen.jsx, but pointermove/pointerup/pointercancel are wired at
+  // the document level (mirroring vanilla's own Game.init wiring) -- so
+  // these tests fire pointerdown on the real staged-tile button and
+  // pointermove/pointerup/pointercancel directly on `document`, exactly the
+  // path a real gesture takes. Same jsdom zero-rect limitation as the
+  // touch-reorder tests above: `$('staging-area')`'s and every staged
+  // tile's `getBoundingClientRect()` all read as {left:0, width:0, ...},
+  // which happens to make the "is the pointer within tolerance of the
+  // staging area" and "which staged tile is the pointer over" checks
+  // BOTH resolve deterministically off pointer sign/magnitude alone
+  // (documented per-test below), not by real screen position -- real
+  // positional accuracy is left for a Playwright check against the built
+  // output, same split as the touch-reorder work.
+  // jsdom has no native PointerEvent constructor (confirmed directly), so
+  // RTL's fireEvent.pointerDown/Move/Up/Cancel silently fall back to a bare
+  // `Event`, whose constructor -- unlike MouseEvent's or TouchEvent's --
+  // does NOT accept clientX/clientY/pointerId via its init dict, and
+  // nothing copies them on afterward (confirmed by a throwaway debug test:
+  // clientX/pointerId came through as `undefined` on the handler side no
+  // matter what was passed to fireEvent.pointerDown). Building the event by
+  // hand and assigning the properties directly is what game.js's handlers
+  // actually need -- a bare Event allows arbitrary own-property assignment,
+  // unlike a real PointerEvent's read-only getters.
+  function firePointer(target, type, props) {
+    const event = new Event(type, { bubbles: true, cancelable: true, composed: true });
+    Object.assign(event, props);
+    fireEvent(target, event);
+  }
+
+  function letterTileButtons() {
+    return screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
+  }
+
+  // Stages the first two rack tiles in order. Each click re-queries the
+  // rendered letter-tile buttons -- staging the first tile replaces its
+  // button with a rack-slot-empty placeholder, so the "new first letter-tile"
+  // after that click is a genuinely different tile, not a stale reference.
+  function stageTwo(state) {
+    fireEvent.click(letterTileButtons()[0]);
+    fireEvent.click(letterTileButtons()[0]);
+    return state.selectedTileIds.slice();
+  }
+
+  it('pointer-dragging a staged tile a small distance within the staging area reorders it through the real engine splice', () => {
+    const state = startFight();
+    render(<Harness />);
+    const staged = stageTwo(state);
+    expect(staged.length).toBe(2);
+    const firstStagedBtn = document.querySelector(`.staging-area [data-tile-id="${staged[0]}"]`);
+    firePointer(firstStagedBtn, 'pointerdown', { clientX: 0, clientY: 0, pointerId: 1 });
+    expect(state.stagingDrag).not.toBeNull();
+    // dx=10 crosses the 8px threshold; jsdom's zero-rect staging-area reads
+    // any positive clientX as "within" (tolerance is +/-30 of a rect at 0),
+    // and every staged tile's zero-rect center reads as left of it, so this
+    // resolves to insertIndex === staged.length (append past the end) --
+    // which, per reorderStagedTile's own insertIndex comment, moves the
+    // dragged (first) tile to become the LAST staged tile: a real, engine-
+    // verified swap, not a snap-back to the same order.
+    firePointer(document, 'pointermove', { clientX: 10, clientY: 10, pointerId: 1 });
+    firePointer(document, 'pointerup', { clientX: 10, clientY: 10, pointerId: 1 });
+    expect(state.stagingDrag).toBeNull();
+    expect(state.selectedTileIds).toEqual([staged[1], staged[0]]);
+    // Both tiles are still staged (a reorder, not a removal).
+    expect(document.querySelectorAll('.staging-area .staged-tile').length).toBe(2);
+
+    // The browser's own synthesized click always follows a real pointerup --
+    // confirm it's suppressed (state.suppressNextStagingClick, set by
+    // endStagingDrag because this gesture crossed the threshold) rather than
+    // undoing the reorder it just performed.
+    fireEvent.click(firstStagedBtn);
+    expect(state.selectedTileIds).toEqual([staged[1], staged[0]]);
+    expect(document.querySelectorAll('.staging-area .staged-tile').length).toBe(2);
+  });
+
+  it('pointer-dragging a staged tile far outside the staging area removes it (drag-out-to-remove)', () => {
+    const state = startFight();
+    render(<Harness />);
+    const tile = state.player.rack[0];
+    fireEvent.click(screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter)));
+    expect(state.selectedTileIds).toEqual([tile.id]);
+    const stagedBtn = document.querySelector(`.staging-area [data-tile-id="${tile.id}"]`);
+    firePointer(stagedBtn, 'pointerdown', { clientX: 0, clientY: 0, pointerId: 2 });
+    // 500px clears both the 8px move threshold and pointerOutsideStaging's
+    // 30px tolerance around the (zero-rect) staging area -- a real drag-out.
+    firePointer(document, 'pointermove', { clientX: 500, clientY: 500, pointerId: 2 });
+    firePointer(document, 'pointerup', { clientX: 500, clientY: 500, pointerId: 2 });
+    expect(state.selectedTileIds).toEqual([]);
+    expect(document.querySelector('.staging-area .staged-tile')).toBeNull();
+    // The tile is back in the rack as a normal, clickable letter-tile.
+    const backInRack = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    expect(backInRack).toBeInTheDocument();
+  });
+
+  it('pointercancel aborts a staged-tile drag cleanly, leaving the staged order untouched', () => {
+    const state = startFight();
+    render(<Harness />);
+    const staged = stageTwo(state);
+    const firstStagedBtn = document.querySelector(`.staging-area [data-tile-id="${staged[0]}"]`);
+    firePointer(firstStagedBtn, 'pointerdown', { clientX: 0, clientY: 0, pointerId: 3 });
+    firePointer(document, 'pointermove', { clientX: 50, clientY: 50, pointerId: 3 });
+    expect(state.stagingDrag).not.toBeNull();
+    firePointer(document, 'pointercancel', { pointerId: 3 });
+    expect(state.stagingDrag).toBeNull();
+    expect(state.selectedTileIds).toEqual(staged); // untouched -- cancel never applies a drop
+    expect(document.querySelectorAll('.staging-area .staged-tile').length).toBe(2);
+  });
 });

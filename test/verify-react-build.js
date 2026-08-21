@@ -202,6 +202,112 @@ async function main() {
       ));
     }
 
+    // STRUCTURAL ticket, remaining scope (c) (GOALS.md), this run: the
+    // staged-tile ghost/gap drag system -- the last core piece of remaining
+    // scope (c). Real browser mouse input (page.mouse.move/down/up) drives
+    // genuine native PointerEvent dispatch AND, critically, real
+    // getBoundingClientRect() measurements -- jsdom always returns a
+    // zero-sized rect for every element (CombatScreen.test.jsx's own note),
+    // so its Vitest/RTL coverage can prove the state-machine transitions
+    // (crossed/insertIndex/outside) but not that a drag genuinely resolves
+    // to the right on-screen slot. This is that positional proof, the same
+    // split the rack mouse-drag and touch-reorder checks above already use.
+    // A blank ('?') tile is a no-op click on desktop (selectTileForWord
+    // never stages it -- typing the letter is how a blank gets used), so
+    // staging picks ENABLED, NON-BLANK rack tiles specifically, rather than
+    // just "the next clickable button". The two clicks are separate
+    // page.evaluate round-trips, not two .click() calls in one script: a
+    // click dispatched from in-page JS doesn't necessarily flush React's
+    // resulting DOM update before the surrounding synchronous script
+    // continues (confirmed directly -- two `.click()` calls back to back in
+    // one evaluate() staged, then immediately re-staged-and-unstaged the
+    // SAME stale first tile, per selectTileForWord's own "already staged ->
+    // deselects it" branch, leaving selectedTileIds empty every time).
+    // Splitting into two round-trips gives the browser a turn to actually
+    // commit the first click's re-render before the second one queries the
+    // DOM.
+    let stagedForDrag = [];
+    for (let i = 0; i < 2; i++) {
+      const clicked = await page.evaluate(() => {
+        const tile = Array.from(document.querySelectorAll('.rack-display .letter-tile:not(:disabled)'))
+          .find((b) => !b.textContent.startsWith('★'));
+        if (!tile) return null;
+        tile.click();
+        return window.Wordbound.Game._state.selectedTileIds.slice();
+      });
+      if (!clicked) break;
+      stagedForDrag = clicked;
+    }
+    if (stagedForDrag.length === 2) {
+      check('two rack tiles were staged for the staged-tile drag check', true);
+      const stagedTiles = page.locator('.staging-area .staged-tile');
+      const firstBox = await stagedTiles.first().boundingBox();
+      const secondBox = await stagedTiles.last().boundingBox();
+      // Target near the SECOND tile's right edge, not its center: reorder-
+      // StagedTile's insertIndex is "insert before whatever tile currently
+      // sits at insertIndex" (same insert-before semantics
+      // reorderRackOnDrop's own comment documents for the rack) --
+      // stagedTileAtPosition only counts a tile as "left of the pointer"
+      // when the pointer is strictly past its CENTER, so landing exactly on
+      // the last tile's center resolves to insertIndex 1 (== dragIndex 0
+      // once the dragged tile's removed and adjusted), which is a genuine
+      // no-op restore, not a swap -- confirmed by hitting exactly that
+      // no-op the first time this check was written. Past its center (but
+      // still inside the tile, so this stays within the staging area's own
+      // drag-out tolerance) makes both tiles count, landing the dragged
+      // tile after the second one -- a real swap for a 2-tile staging row.
+      const targetX = secondBox.x + secondBox.width - 4;
+      const targetY = secondBox.y + secondBox.height / 2;
+      await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y + firstBox.height / 2);
+      await page.mouse.down();
+      // Intermediate moves so the gesture crosses the real 8px threshold via
+      // genuine incremental pointermove events, not one big jump.
+      const steps = 5;
+      for (let i = 1; i <= steps; i++) {
+        await page.mouse.move(
+          firstBox.x + firstBox.width / 2 + (targetX - (firstBox.x + firstBox.width / 2)) * (i / steps),
+          firstBox.y + firstBox.height / 2 + (targetY - (firstBox.y + firstBox.height / 2)) * (i / steps),
+        );
+      }
+      await page.mouse.up();
+      const afterDragOrder = await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.slice());
+      check('a real mouse drag of the first staged tile onto the second\'s real on-screen position reordered them',
+        JSON.stringify(afterDragOrder) === JSON.stringify([stagedForDrag[1], stagedForDrag[0]]));
+      check('both tiles are still staged after the reorder, not removed',
+        (await page.locator('.staging-area .staged-tile').count()) === 2);
+      check('the engine\'s drag state is cleared after a real staged-tile drag',
+        await page.evaluate(() => window.Wordbound.Game._state.stagingDrag === null));
+
+      // Drag the now-first staged tile well clear of the staging area -- a
+      // real drag-out-to-remove, at a real on-screen distance (not a
+      // synthetic coordinate jsdom can't validate).
+      const dragOutBox = await stagedTiles.first().boundingBox();
+      await page.mouse.move(dragOutBox.x + dragOutBox.width / 2, dragOutBox.y + dragOutBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(dragOutBox.x + dragOutBox.width / 2, dragOutBox.y + 300, { steps: 5 });
+      await page.mouse.up();
+      const afterDragOut = await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.slice());
+      check('dragging a staged tile well clear of the staging area removed it (drag-out-to-remove)',
+        afterDragOut.length === 1 && afterDragOut[0] === afterDragOrder[1]);
+      check('the removed tile is back in the rack as a real, enabled letter-tile (not left staged or hexed-locked)',
+        await page.evaluate((tileId) => {
+          const idx = window.Wordbound.Game._state.player.rack.findIndex((t) => t.id === tileId);
+          return idx !== -1 && !!document.querySelector(`.rack-display button.letter-tile[data-tile-index="${idx}"]:not(:disabled)`);
+        }, afterDragOrder[0]));
+
+      // Clean up: unstage the one tile this block left staged, so the rack
+      // returns to a fully-unstaged state before the next check (desktop
+      // mouse-drag rack reordering, right below) -- which locates rack
+      // tiles via `.rack-display .letter-tile` and would otherwise
+      // miscount against `state.player.rack`'s full array (a staged tile
+      // renders as `.rack-slot-empty`, not `.letter-tile`).
+      await page.click('.staging-area .staged-tile');
+      check('staging area is fully clean again before the next check',
+        await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.length === 0));
+    } else {
+      console.log('  (fewer than 2 enabled non-blank rack tiles at this point -- staged-tile drag check skipped)');
+    }
+
     // STRUCTURAL ticket, remaining-scope (c) (GOALS.md): desktop mouse-drag
     // rack reordering. Vitest/RTL (CombatScreen.test.jsx) already drives the
     // fireEvent.dragStart/dragOver/drop/dragEnd sequence directly, but jsdom
@@ -400,6 +506,7 @@ async function main() {
     } else {
       console.log('  (fewer than 2 rack tiles at this point -- touch-drag-reorder check skipped)');
     }
+
   } finally {
     if (browser) await browser.close();
     server.close();

@@ -215,6 +215,34 @@
     endTouchReorder(tile, e);
   };
   Game.cancelTouchReorder = function () { cancelTouchReorder(); };
+  // STRUCTURAL ticket (GOALS.md, remaining scope (c), staged-tile ghost/gap
+  // drag system -- the last core piece of remaining scope (c)): thin
+  // wrappers around the private pointer-drag state machine wordbound.html's
+  // own renderStagingArea() wires directly (pointerdown on each staged
+  // tile; pointermove/pointerup/pointercancel at the document level, once,
+  // in Game.init). Same shape/signature as the private functions -- no
+  // tileId-lookup indirection needed here since startStagingDrag/
+  // moveStagingDrag/endStagingDrag/cancelStagingDrag already take a real
+  // DOM element + the real pointer event, which React's handlers have
+  // direct access to (e.currentTarget / the native event), unlike the
+  // rack's drag wrappers above which had to bridge a closure gap. These
+  // deliberately do NOT call render() themselves beyond what the private
+  // functions already do internally (a no-op in the React tree either way,
+  // per render()'s own guard) -- CombatScreen.jsx decides when to wrap a
+  // call in its own act() (only on drop/cancel, never on move, matching
+  // this system's own "DOM re-rendered exactly once, on release" design
+  // documented just above these functions -- re-rendering mid-gesture would
+  // destroy the ghost element the exact same way in React as in vanilla).
+  Game.startStagingDrag = function (tileId, el, e) { startStagingDrag(tileId, el, e); };
+  Game.moveStagingDrag = function (e) { moveStagingDrag(e); };
+  Game.endStagingDrag = function (e) { endStagingDrag(e); };
+  Game.cancelStagingDrag = function (e) { cancelStagingDrag(e); };
+  // Exposed so React can run the same defensive sweep renderRun() runs on
+  // every vanilla render ("a stuck drag ghost must never survive a
+  // re-render") -- guards the one React-specific hazard vanilla doesn't
+  // have (CombatScreen remounting, e.g. via a mid-fight side panel toggle,
+  // which detaches the live d.el out from under an in-progress gesture).
+  Game.sweepStagingDragArtifacts = function () { sweepStagingDragArtifacts(); };
   Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate

@@ -70,12 +70,67 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 // no-op there), so a real touch rack-drag may let the page scroll slightly
 // instead of suppressing it the way wordbound.html's explicit
 // { passive: false } listener does -- the reorder itself is unaffected.
-// Still genuinely NOT ported: pointer/touch drag reordering of already-
-// STAGED tiles (game.js's startStagingDrag ghost/gap system, which live-
-// mutates DOM styles mid-gesture) -- tap-to-stage/unstage/pick-a-blank-
-// letter/drag-to-reorder-the-rack are all fully functional without it, but
-// reordering an already-staged word still means unstaging and re-tapping
-// in the new order, on any input method.
+// Staged-tile ghost/gap drag system (STRUCTURAL ticket, remaining scope (c),
+// the last core piece, this run): wired via Game.startStagingDrag/
+// moveStagingDrag/endStagingDrag/cancelStagingDrag, the same thin-wrapper
+// pattern as the rack drag work above, around game.js's own unified
+// pointer-based (mouse + touch, via PointerEvent) drag machinery. Unlike
+// the rack's HTML5-dnd/touch-event handlers, this system live-mutates
+// `style.transform` on real DOM nodes mid-gesture BY DESIGN (a ghost tile
+// tracking the pointer, siblings sliding to open a gap) and deliberately
+// renders exactly once, on release -- see game.js's own header comment on
+// startStagingDrag et al. for the render-destroys-the-dragged-element
+// hazard this avoids. That means, unlike every other Game.* call in this
+// file, `Game.startStagingDrag`/`moveStagingDrag` are called DIRECTLY,
+// never through `act()` -- wrapping them would force a React re-render
+// mid-gesture and destroy the very ghost/gap transforms the gesture is
+// animating. Only the terminal calls (`endStagingDrag` on drop,
+// `cancelStagingDrag` on an aborted gesture) go through `act()`, since
+// those are the two points where `state.selectedTileIds` may actually have
+// changed (a reorder or a drag-out-to-remove) and the word needs
+// resyncing -- matching vanilla's own "one render on release" design.
+// pointerdown is bound per-tile (mirrors vanilla's own stageTile.addEvent-
+// Listener('pointerdown', ...)); pointermove/pointerup/pointercancel are
+// registered at the document level in a mount-once effect below, mirroring
+// vanilla's Game.init() wiring them once globally -- pointer capture
+// (`el.setPointerCapture`, called inside Game.startStagingDrag) routes
+// those events to the dragged tile regardless of where the pointer
+// physically is, and a document listener still receives them via bubbling.
+// `#staging-area` (id, new this run) and each staged tile's
+// `data-tile-id` (new this run) are what the private machinery's
+// `$('staging-area')`/`getAttribute('data-tile-id')` DOM reads need --
+// same "add the one id/attribute the vanilla function already expects"
+// pattern as `#rack-display`/`data-tile-index` before it.
+// Click suppression: a real drag's pointerup is followed by the browser's
+// own synthesized click (pointerup -> click, always, per spec) -- vanilla's
+// own stageTile click listener checks `state.suppressNextStagingClick`
+// (set true by endStagingDrag only when the gesture actually crossed the
+// move threshold) before unstaging, so a real drag's synthesized click
+// doesn't immediately undo the reorder/removal it just performed; a plain
+// tap (never crossed) leaves the flag false and the click still unstages
+// normally -- ported as the same read-then-clear check inline below,
+// since `state` is the same mutable object read/written directly, same as
+// vanilla, and this check itself was never behind a Game.* wrapper there
+// either (it lives inline in renderStagingArea's own click listener).
+// One accepted, documented gap vs. vanilla, genuinely React-specific:
+// vanilla's DOM is one persistent tree, so a stuck ghost from an
+// interrupted gesture is always reachable by the next render's
+// sweepStagingDragArtifacts() sweep. If CombatScreen itself unmounts mid-
+// gesture (e.g. the ~800ms killing-blow window transitioning the screen
+// away while a drag is live -- a genuinely obscure input timing), this
+// component's document listeners are torn down with it and
+// state.stagingDrag can outlive the component that started it. The
+// mount-once effect's cleanup does NOT explicitly abort a live drag for
+// this reason (not confirmed reachable in practice, and forcibly aborting
+// on every unmount -- including ordinary screen transitions after combat
+// ends -- would be a bigger, unverified behavior change for a hazard this
+// narrow); flagged here rather than silently assumed away.
+// Genuinely NOT ported, deliberately out of scope for this run: the FLIP-
+// style land-settle animation (`state.settleTileIds`/`.tile-settle`, a
+// one-shot class on a tile that just staged/unstaged) and haptic ticks --
+// both are cosmetic "juice" on top of an already-functional mechanism, the
+// same category as the combo-chip bump/rack new-tile classes ported
+// earlier in this ticket, not the drag mechanism itself.
 // game.js itself needed two small additive null-guards to make this safe:
 // syncWordInput()'s and selectTileForWord()'s `$('word-input')` DOM access
 // now checks the element exists first (same "no #word-input in the React
@@ -156,6 +211,63 @@ export default function CombatScreen({ state, Game, act }) {
     act(() => Game.unstageTile(tileId));
     setWord(Game.stagedWord());
   }
+
+  // The staged-tile row's own click handler -- see the header comment's
+  // "Click suppression" section. Only the staging-area buttons need this;
+  // the rack's empty-slot "return to rack" button (below) has no drag
+  // gesture of its own and unstages unconditionally, same as vanilla.
+  function unstageFromStagingArea(tileId) {
+    if (state.suppressNextStagingClick) {
+      state.suppressNextStagingClick = false;
+      return;
+    }
+    unstage(tileId);
+  }
+
+  // Document-level pointermove/pointerup/pointercancel for the staged-tile
+  // ghost/gap drag system -- see the header comment for why these are wired
+  // once here rather than per-tile, and why move/cancel bypass act() while
+  // drop doesn't. Registered once per mount (a fresh CombatScreen per
+  // fight), torn down on unmount.
+  // Every pointerup anywhere in the document reaches this listener -- not
+  // just ones ending a staging drag (e.g. userEvent's own click-to-focus
+  // choreography on the word input, or a plain Play Word click, both fire a
+  // real pointerdown/pointerup pair that bubbles here). Guarding on
+  // `state.stagingDrag` truthiness BEFORE calling through is required, not
+  // an optimization: Game.endStagingDrag's own early return already no-ops
+  // safely when there's nothing to end, but this component's act()/
+  // setWord() wrapper around it does not -- an unconditional call was
+  // caught forcing a bump() and resyncing `word` to Game.stagedWord() (''
+  // outside a drag) on every unrelated pointerup, clobbering text the
+  // player had just started typing. Caught by RunScreen.test.jsx's own
+  // GAME_OVER test going from consistently green to consistently red the
+  // moment this effect was added, root-caused rather than left as a
+  // mystery regression.
+  useEffect(() => {
+    function onMove(e) { Game.moveStagingDrag(e); }
+    function onUp(e) {
+      if (!state.stagingDrag) return;
+      act(() => Game.endStagingDrag(e));
+      setWord(Game.stagedWord());
+    }
+    function onCancel(e) { Game.cancelStagingDrag(e); }
+    document.addEventListener('pointermove', onMove, { passive: false });
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onCancel);
+    return () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onCancel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Runs after every commit (no dependency array, deliberately) -- mirrors
+  // vanilla's renderRun() calling sweepStagingDragArtifacts() on every
+  // render. Cheap (a few DOM reads); see the header comment's "accepted gap"
+  // note for the one hazard this can't fully close (a component unmount
+  // mid-gesture).
+  useEffect(() => { Game.sweepStagingDragArtifacts(); });
 
   function pickBlankLetter(letter) {
     act(() => Game.assignBlankLetter(letter));
@@ -363,7 +475,7 @@ export default function CombatScreen({ state, Game, act }) {
         })}
       </div>
 
-      <div className="staging-area">
+      <div className="staging-area" id="staging-area">
         {state.selectedTileIds.map((tileId) => {
           const tile = state.player.rack.find((t) => t.id === tileId);
           if (!tile) return null;
@@ -384,9 +496,11 @@ export default function CombatScreen({ state, Game, act }) {
             <button
               key={tileId}
               type="button"
+              data-tile-id={tileId}
               className={'staged-tile' + bonusClass}
               title={(variantTip ? variantTip + ' -- ' : '') + 'tap to remove'}
-              onClick={() => unstage(tileId)}
+              onClick={() => unstageFromStagingArea(tileId)}
+              onPointerDown={(e) => Game.startStagingDrag(tileId, e.currentTarget, e)}
             >
               {stagedGlyph}<sub>{stagedVal}</sub>
             </button>
