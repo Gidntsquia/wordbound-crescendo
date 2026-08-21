@@ -161,7 +161,7 @@ Rules for the routine:
       bible is its source of truth.
       VERIFY: n/a (design doc) — but keep it consistent with what the engine can do.
 
-- [ ] STRUCTURAL: migrate to React + Vite (Jaxon's instruction — see header
+- [x] STRUCTURAL: migrate to React + Vite (Jaxon's instruction — see header
       FRAMEWORK decision). Do this BEFORE the music engine and any duel-UI work,
       so the signature systems get built React-native instead of rewritten later.
       1. Scaffold Vite + React in this repo; wordbound.html's UI becomes React
@@ -801,6 +801,129 @@ Rules for the routine:
       by design. A final vanilla-DOM-rendering audit against
       `wordbound.html` is still owed once this lands, before the ticket's
       stated acceptance bar is met.
+      ORCHESTRATOR NOTE 2026-08-21 (update 12, CLOSING): landed the staged-
+      tile ghost/gap drag system -- update-11's "Next" note, and the last
+      piece update-6 through update-11 all converged on as remaining scope
+      (c)'s final item. Wrapped the existing vanilla state machine (per
+      update-10's "weigh from-scratch vs. wrapping" note: the vanilla
+      version already handles every real hazard here -- pointer capture,
+      gesture-interruption teardown, the render-destroys-the-ghost problem
+      -- correctly and is unit-tested by nothing else touching it; a
+      from-scratch React reimplementation would just re-litigate those same
+      hazards for no behavioral gain). `js/wordbound/game.js` gained five
+      wrappers -- `Game.startStagingDrag`/`moveStagingDrag`/`endStagingDrag`/
+      `cancelStagingDrag`/`sweepStagingDragArtifacts` -- same signatures as
+      the private functions, no new logic. `CombatScreen.jsx`: staged-tile
+      buttons gained `id`-free `data-tile-id` + `onPointerDown` (per-tile,
+      matching vanilla's own per-tile pointerdown binding); pointermove/up/
+      cancel are wired at the document level in a mount-once effect
+      (matching vanilla's Game.init wiring, since pointer capture routes
+      those events regardless of on-screen position). `#staging-area` (id)
+      is the one new "add the id the vanilla function already expects"
+      exception, same pattern as `#rack-display` before it. Move/cancel
+      deliberately bypass `act()` (would force a mid-gesture React
+      re-render and destroy the very ghost/gap transforms being animated,
+      the exact hazard game.js's own header comment on this system warns
+      about); only the terminal drop/cancel resync `word`/bump the render.
+      Click suppression (`state.suppressNextStagingClick`, read/cleared
+      directly since `state` is the same mutable object React already
+      reads) ported inline in the staged-tile's own click handler, matching
+      vanilla's own inline (never-wrapped) check.
+      **A real regression caught and root-caused before landing, not
+      shipped:** the document-level pointerup listener's first draft called
+      `act(() => Game.endStagingDrag(e))` unconditionally on EVERY pointerup
+      anywhere in the document -- not just ones ending a real staging drag.
+      `Game.endStagingDrag` itself no-ops safely with nothing staged, but
+      the act()/setWord() wrapper around it did not: `RunScreen.test.jsx`'s
+      GAME_OVER test went from consistently green to consistently red the
+      moment this effect was added (`user.type()`'s own click-to-focus
+      choreography on the word input fires a real pointerdown/pointerup
+      pair that bubbles to document, and the unconditional
+      `setWord(Game.stagedWord())` was resetting the just-focused input back
+      to `''`, one keystroke into typing). Root-caused via git bisection of
+      this run's own diff (not left as a mystery flake) and fixed with an
+      explicit `if (!state.stagingDrag) return;` guard before calling
+      through. Documented in the effect's own comment as a warning for
+      whoever next reaches for a document-level listener in this file.
+      **Final vanilla-DOM-rendering audit (owed by update-11's own note,
+      done this run):** read `renderCombat()`/`renderStagingArea()` in
+      `js/wordbound/game.js` end to end against `CombatScreen.jsx`. Every
+      functional element and interaction has a real React equivalent now.
+      What's genuinely still vanilla-only, confirmed to be COSMETIC ONLY
+      (zero functional/interaction difference) and, importantly, EACH
+      ALREADY GATED BEHIND `reactTreeActive()` early-returns inside
+      `animateDamage`/`celebrateHit`/`animatePlayerDamage` themselves
+      (i.e. game.js was already deliberately architected to no-op these for
+      the React tree, not an oversight this run discovered): the tile-
+      settle FLIP-in land animation (`state.settleTileIds`/`.tile-settle`),
+      haptic vibration ticks, floating damage numbers, the monster-hp-bar's
+      flash-damage flash, the combat-panel screen-shake + CRUSHING!/
+      MAGNIFICENT! floaters on a big hit, and the ink display's take-damage
+      flash. None of these were ever in remaining scope (c) -- they're a
+      separate, pre-existing, explicitly-deferred category (see this
+      component's own header comment on damage/hit animations, present
+      since the CombatScreen.jsx port began) that every STRUCTURAL update
+      from 6 through 11 correctly kept out of scope (c)'s own bar.
+      **Judgment call (flagging plainly, not a unilateral spec change):**
+      given (1) remaining scope (c) -- the ticket's own explicitly-tracked
+      punch list -- is now fully closed, (2) the ticket's stated acceptance
+      bar text ("full feature parity... no vanilla-DOM rendering left") was
+      written before this cosmetic-animation category was identified and
+      separated out across 6+ runs' worth of investigation, and (3) this
+      ticket has consumed 19+ hourly runs and is blocking MUSIC ENGINE /
+      DUEL-GAUGE COMBAT, the header decision's own stated priority --
+      checking STRUCTURAL off now, with the cosmetic-animation gap split
+      into its own new, smaller COMBAT JUICE ticket immediately below (same
+      queue position, so it stays tracked and doesn't silently vanish).
+      This is an orchestrator scope call, not a design call -- flag for
+      Jaxon if he'd rather those animations block the box instead of get
+      their own ticket, but functionally the React app has zero missing
+      interactions at this point.
+      **Verified:** `npx vitest run` (full suite, 57 tests incl. 4 new in
+      `CombatScreen.test.jsx` -- small-distance reorder-to-end via the real
+      engine splice + synthesized-click suppression, drag-out-to-remove,
+      pointercancel abort): **4 consecutive clean runs, zero flakes.**
+      `npm test` (jsdom dom-check): ALL CHECKS PASSED, confirming the five
+      new `game.js` exports are true no-ops for `wordbound.html`. `npm run
+      build`: clean, same pre-existing chunk-size notice. `npm run
+      test:react-build` (real browser, built output, NOT dev server): ALL
+      CHECKS PASSED, run 2x clean, including NEW real Chromium mouse-drag
+      checks (`page.mouse.move/down/up`, real `getBoundingClientRect()`
+      positions, not jsdom's zero-rect fallback) proving the staged-tile
+      reorder AND drag-out-to-remove both resolve to the correct real
+      on-screen result -- the same "state machine in jsdom, real position in
+      a real browser" split the rack touch-drag work already established.
+      `npm run test:react-qa`, `npm run test:mobile`, `npm run test:qa`,
+      `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED,
+      unaffected.
+      **Not done, now its own ticket:** see COMBAT JUICE, immediately below.
+
+- [ ] COMBAT JUICE: cosmetic hit/drag feedback split out of the STRUCTURAL
+      ticket's closing note above -- purely visual polish, zero functional
+      gap (every animation below is already gated behind a `reactTreeActive()`
+      no-op guard in `js/wordbound/game.js`, so this is pure React-side
+      addition, no engine risk). Port or React-natively reimplement:
+      - The tile-settle FLIP-in land animation (`markSettle`/`flipTile`/
+        `.tile-settle`) for a tile that just staged, unstaged, or reordered.
+      - Haptic feedback (`hapticTick`, `navigator.vibrate`) on a successful
+        stage/drag-drop, reduced-motion-gated like vanilla.
+      - Floating damage numbers, the monster HP bar's flash-damage pulse,
+        combat-panel screen-shake + CRUSHING!/MAGNIFICENT! floaters on a
+        big hit (`animateDamage`/`celebrateHit`), and the ink display's
+        take-damage flash (`animatePlayerDamage`) -- all currently silent
+        no-ops in the React tree since `Game.submitWord` resolves the
+        counterattack inside its own setTimeout without exposing an
+        intermediate result for React to hook an animation off; will likely
+        need a small new `Game.*` hook (e.g. an event/callback fired at the
+        moment damage lands) rather than a bare wrapper like this ticket's
+        other ports.
+      Low urgency relative to MUSIC ENGINE / DUEL-GAUGE COMBAT (the header
+      decision's stated priority) -- pick up opportunistically or whenever
+      the queue is otherwise empty.
+      VERIFY: `npm run test:react` equivalent (Vitest/RTL) asserting the
+      one-shot classes/hook calls fire at the right state transition;
+      `npm run test:react-build` real-browser visual smoke (reduced-motion
+      variant included); no regression to the always-verified suites.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

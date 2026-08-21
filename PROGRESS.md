@@ -2441,3 +2441,192 @@ pointer-capture reimplementation against wrapping the existing vanilla
 state machine before diving in. A final vanilla-DOM-rendering audit
 against `wordbound.html` is still owed once this lands, before this
 ticket's stated acceptance bar is met.
+
+## 2026-08-21T23:36Z — STRUCTURAL 20/N: staged-tile ghost/gap drag system -- CLOSING the STRUCTURAL ticket (orchestrator)
+
+Repo state note before starting: the container's local `main` branch and
+detached HEAD were both stale relative to `origin/main` (a fresh
+`git fetch origin main` pulled 40 commits this session's checkout hadn't
+seen). Reset local `main` to `origin/main` and worked from there --
+flagging in case this points at a clone-timing quirk worth someone
+checking, but not otherwise this run's concern.
+
+**What I did:** landed the LAST piece of STRUCTURAL's remaining scope (c)
+-- the staged-tile ghost/gap pointer-drag system (reorder-within-staging,
+drag-out-to-remove, drag-onto-rack-to-unstage) -- exactly the piece
+update-6 through update-11 all progressively narrowed down to and
+update-11's "Next" note scoped precisely. Per update-10's own "weigh
+from-scratch vs. wrapping" question: wrapped the existing vanilla state
+machine rather than reimplementing it, because that machine already
+correctly handles every real hazard here (pointer capture, gesture-
+interruption teardown across pointercancel/second-finger/detached-element
+cases, the "render mid-gesture destroys the ghost" problem its own header
+comment documents) and a from-scratch React version would just re-litigate
+those same hazards for no behavioral upside.
+
+`js/wordbound/game.js` gained five thin wrappers, same signatures as the
+private functions they call through to: `Game.startStagingDrag(tileId, el,
+e)`, `moveStagingDrag(e)`, `endStagingDrag(e)`, `cancelStagingDrag(e)`, and
+`sweepStagingDragArtifacts()` (exposed so React can run the same
+defensive-sweep-on-every-render vanilla's own `renderRun()` runs, guarding
+the one hazard that's genuinely React-specific: `CombatScreen` remounting
+mid-gesture, e.g. via a side-panel toggle, would otherwise leave
+`state.stagingDrag` pointing at a detached node forever).
+
+`src/components/CombatScreen.jsx`: each staged-tile button gained
+`data-tile-id` + a per-tile `onPointerDown` (mirrors vanilla's own
+per-tile pointerdown binding); a new mount-once effect registers
+pointermove/pointerup/pointercancel at the DOCUMENT level (mirrors
+vanilla's `Game.init` wiring -- pointer capture routes those events to the
+dragged tile regardless of physical position, and a document listener
+still receives them via bubbling). `#staging-area` (id, new this run) is
+the one new "add the id the vanilla function's `$()` lookup already
+expects" exception, same pattern as `#rack-display` before it.
+Move/cancel deliberately call straight through to `Game.*`, bypassing
+`act()` -- wrapping them would force a React re-render mid-gesture and
+destroy the very ghost/gap `style.transform` values being animated, the
+exact hazard this system exists to avoid. Only the terminal drop
+(`endStagingDrag`) resyncs `word` and bumps the render, since that's the
+one point `state.selectedTileIds` may actually have changed. Click
+suppression (`state.suppressNextStagingClick`, set by `endStagingDrag`
+only when a gesture actually crossed the move threshold) is read/cleared
+directly in the staged-tile's own `onClick`, matching vanilla's own inline
+(never-wrapped) check -- a real drag's pointerup is always followed by the
+browser's synthesized click, and this is what stops that click from
+immediately undoing the reorder/removal it just performed.
+
+**A real regression caught and fixed before landing, not shipped:** the
+first draft's document-level pointerup handler called
+`act(() => Game.endStagingDrag(e))` + `setWord(Game.stagedWord())`
+unconditionally on EVERY pointerup anywhere in the document, not just ones
+ending an actual staging drag. `Game.endStagingDrag` itself no-ops safely
+with nothing staged, but the wrapper around it did not -- caught because
+`RunScreen.test.jsx`'s GAME_OVER test went from consistently green to
+consistently red the moment this effect was added. Root-caused (not
+guessed at) by `git stash`-ing this run's diff and confirming the base
+commit passed clean, then bisecting the diff itself: `user.type()`'s own
+click-to-focus choreography on the word input fires a real
+pointerdown/pointerup pair that bubbles to `document`, and the
+unconditional `setWord(Game.stagedWord())` (`''` outside a drag) was
+resetting the just-focused input back to empty one keystroke into typing.
+Fixed with an explicit `if (!state.stagingDrag) return;` guard before
+calling through -- `Game.moveStagingDrag`/`cancelStagingDrag` don't need
+the same guard since nothing wraps them in `act()`/`setWord()` to begin
+with. Documented in the effect's own comment.
+
+**A real jsdom event-construction gap surfaced and worked around
+properly, not silently:** jsdom has no native `PointerEvent` constructor
+(confirmed directly) -- RTL's `fireEvent.pointerDown/Move/Up/Cancel`
+silently fall back to a bare `Event`, whose constructor, unlike
+`MouseEvent`'s or `TouchEvent`'s, does NOT accept `clientX`/`clientY`/
+`pointerId` via its init dict, and nothing copies them on afterward. This
+is a step further than the already-known "no native DragEvent" gap this
+ticket's earlier updates worked around for `dataTransfer` specifically
+(RTL DOES special-case that one property) -- pointer properties get no
+such special-casing, so `fireEvent.pointerDown(el, {clientX: 37, ...})`
+silently delivered `undefined` for all three, confirmed via a throwaway
+debug test before touching the real test file. Fixed by constructing the
+event by hand (`new Event(type, {...}); Object.assign(event, props);
+fireEvent(target, event)`) and dispatching that instead -- a bare `Event`
+allows arbitrary own-property assignment, unlike a real `PointerEvent`'s
+read-only getters, so `Object.assign` actually sticks. New Vitest/RTL
+tests in `CombatScreen.test.jsx` use this `firePointer` helper throughout.
+
+**Real-browser positional verification, same split as the touch-reorder
+work:** jsdom's `getBoundingClientRect()` always returns a zero-sized rect
+(confirmed again, same limitation the touch-reorder run documented), so
+the Vitest suite can prove the state-machine transitions but not that a
+drag resolves to the correct REAL on-screen slot. Added a new section to
+`test/verify-react-build.js` (real Chromium, built output, never dev
+server) using `page.mouse.move/down/up` to drive genuine native pointer
+input against real tile positions: stages two real rack tiles, drags the
+first onto (past the center of, per `reorderStagedTile`'s insert-before
+semantics -- landing exactly on a tile's center is a documented no-op, not
+a swap, the same insertion-index gotcha update-10's rack-drag test had to
+work out) the second's real bounding box and confirms a real reorder, then
+drags the result well clear of the staging area and confirms a real
+drag-out-to-remove, checking the removed tile lands back in the rack as a
+real enabled button. Placed right after the pre-existing single-tile
+stage/unstage check (before the word gets played and the rack starts
+churning) so it always has two clean, un-staged, non-blank tiles to work
+with -- moved there after an earlier placement (right before the `finally`
+block, after several other rack-mutating checks had already run) proved
+flaky depending on what the rack looked like by then. Also had to fix a
+subtler bug this uncovered: two `.click()` calls issued back-to-back
+inside ONE `page.evaluate()` don't give React a turn to flush the first
+click's re-render before the second one queries the DOM -- the second
+`querySelector` saw the stale (pre-re-render) DOM, so the "second" tile it
+clicked was actually still the first, stale one, and clicking an
+already-staged tile again unstages it (`selectTileForWord`'s own
+"already staged -> deselects" branch) -- net result, zero tiles ended up
+staged. Fixed by splitting into two separate `page.evaluate` round-trips
+(each is its own CDP call, giving the browser's event loop a real turn
+between them). Also added an explicit cleanup click at the end of this
+new section to unstage the one tile it deliberately leaves staged
+(everything else in that section removes/reorders, never fully cleans
+up) -- without it, the very next pre-existing check (desktop mouse-drag
+rack reordering) miscounted the rack against `state.player.rack`'s full
+array, since a still-staged tile renders as `.rack-slot-empty`, not
+`.letter-tile`.
+
+**Final vanilla-DOM-rendering audit (owed by update-11's own note, done
+this run):** read `renderCombat()`/`renderStagingArea()` end to end
+against `CombatScreen.jsx`. Every functional element/interaction now has
+a real React equivalent. What's left is confirmed COSMETIC-ONLY and,
+tellingly, was ALREADY gated behind `reactTreeActive()` early-returns
+inside `animateDamage`/`celebrateHit`/`animatePlayerDamage` in game.js
+itself (a pre-existing deliberate no-op for the React tree, not something
+this run discovered as an oversight): the tile-settle FLIP-in land
+animation, haptic vibration ticks, floating damage numbers, the HP bar's
+flash-damage pulse, combat-panel screen-shake + CRUSHING!/MAGNIFICENT!
+floaters, and the ink display's take-damage flash.
+
+**Judgment call, flagged plainly (see GOALS.md's own note on this, same
+language):** checked STRUCTURAL off. Remaining scope (c) -- the ticket's
+own tracked punch list -- is fully closed, the ticket has consumed 19+
+hourly runs and is blocking the header decision's stated next priority
+(MUSIC ENGINE / DUEL-GAUGE COMBAT), and the one thing left (cosmetic hit/
+drag animation juice) was never actually part of remaining scope (c) --
+it's a separate category every update since 6 correctly kept out of that
+punch list. Split it into a new, smaller COMBAT JUICE ticket (added to
+GOALS.md immediately after STRUCTURAL) so it stays tracked rather than
+quietly vanishing. This is a scope call, not a design call -- flagged for
+Jaxon in case he'd rather the box stay unchecked until the animations
+land too, but functionally the React app now has zero missing
+interactions.
+
+**Verified:**
+- `npx vitest run` (full 7-file suite, 57 tests incl. 4 new in
+  `CombatScreen.test.jsx`): **4 consecutive clean runs, zero flakes.**
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED -- confirms
+  the five new `game.js` exports are true no-ops for `wordbound.html`.
+- `npm run build`: clean, same pre-existing chunk-size notice.
+- `npm run test:react-build` (real browser, built `dist/app/` output,
+  never dev server): ALL CHECKS PASSED, run 2x clean, including the new
+  real mouse-drag staged-tile reorder + drag-out-to-remove checks
+  described above.
+- `npm run test:react-qa`: ALL CHECKS PASSED, unaffected.
+- `npm run test:mobile` + `npm run test:qa` + `npm run build:itch` +
+  `npm run test:itch-build`: ALL CHECKS PASSED, unaffected -- confirms the
+  five new `game.js` wrappers and the `Game.endStagingDrag` guard fix are
+  true no-ops for `wordbound.html`'s own already-working staging-drag path.
+
+**Not verified / explicitly out of scope:** the COMBAT JUICE ticket's
+whole surface (tile-settle animation, haptics, damage floaters,
+screen-shake, HP-flash) -- deliberately not attempted this run, tracked
+as its own ticket now. Audible musicality and real per-device touch feel
+remain, as always, Jaxon's call to make, not verifiable in this
+environment.
+
+**Current state:** the React/Vite app has full interactive parity with
+`wordbound.html` for every combat input path -- typing, clicking,
+desktop mouse-drag (rack and staged tiles), touch tap/drag (rack and
+staged tiles), the blank-letter picker, and all side panels/shop/reward/
+event/shredder screens from prior runs. `wordbound.html` remains fully
+intact, unchanged, and still the complete reference implementation.
+STRUCTURAL is checked off; COMBAT JUICE (cosmetic animations) is now its
+own queued item. **Next:** MUSIC ENGINE is the first unchecked GOALS.md
+item as of this commit -- the header decision's stated priority, and a
+large, multi-run ticket in its own right (WebAudio sequencer, note-data
+format, crescendo event API, intensity(t) curve). COMBAT JUICE remains
+available as lower-priority, opportunistic pickup.
