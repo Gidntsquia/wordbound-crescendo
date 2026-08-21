@@ -2002,3 +2002,146 @@ ticket's own scope: the Vitest full-suite flake documented above is worth a
 dedicated look before it erodes confidence in `npm run test:react` as a
 gate — a future run (or Jaxon) should decide whether to prioritize it ahead
 of continuing (c).
+
+---
+
+## 2026-08-21T19:56Z — STRUCTURAL 16/N: CombatScreen's word-entry rebuilt around real state.selectedTileIds (tap-to-stage/unstage only) (orchestrator)
+
+**Repo-health note:** `git fetch origin main` + `git rev-parse` showed local
+`main` stale (still at the seed commit `f98ff83`) while `origin/main`/`HEAD`
+both sat at `a7ec359` (everything through the last run). `git checkout -B
+main origin/main` fixed it before touching anything -- same benign
+container-recreation pattern every recent run has flagged, no data at risk
+(confirmed nothing was ahead of `origin/main` locally).
+
+**What I did:** picked up remaining-scope-(c) step 2 exactly as the previous
+run's "Next" note scoped it -- rebuild `CombatScreen.jsx`'s word-entry model
+around `state.selectedTileIds` instead of a fake local string. Read
+`selectTileForWord`/`unstageTile`/`syncWordInput`/`stagedWord`/
+`renderStagingArea`/the `btn-clear-word`/`btn-submit-word` handlers in
+`game.js` closely first (not just the functions named in the previous run's
+note) to understand the FULL real interaction contract before touching
+`CombatScreen.jsx` -- this surfaced two things worth doing differently than
+a naive port would have:
+
+1. Calling the private staging functions from React would throw. Neither
+   `selectTileForWord` nor `syncWordInput` is guarded the way `render()`/
+   `animateDamage`/etc. already are -- both call `$('word-input')`
+   unconditionally (`.value = ...` / `.focus()`), and React's
+   `CombatScreen` input has no `id="word-input"` at all, so `$('word-input')`
+   is `null` there. Fixed with the same two-line null-guard pattern this
+   ticket has used every time it's hit this class of bug before
+   (`reactTreeActive()`, `render()`'s DOM-tree guard): both call sites now
+   check the element exists first. Confirmed a true no-op for
+   `wordbound.html` (`#word-input` always exists there) by running the full
+   `npm test` suite before and after -- unchanged, all passing.
+2. Desktop's ACTUAL submit source is the typed `#word-input` text, not
+   `stagedWord()` -- confirmed by re-reading `btn-submit-word`'s handler
+   (`word = state.touchMode ? stagedWord() : input.value`). So staging and
+   typing are two genuinely independent mechanisms in vanilla that happen to
+   both feed the same visible text box; clicking a tile REPLACES the input's
+   value with the full reconstructed staged word (vanilla's `syncWordInput`),
+   but a blank-tile click on desktop is a true no-op (early return before
+   `syncWordInput` is ever called) that must NOT touch whatever's typed. My
+   first draft resynced `setWord(Game.stagedWord())` unconditionally after
+   every tile click, which would have silently overwritten manually-typed
+   text on a blank-tile click -- caught this myself before running any
+   tests, by re-reading `selectTileForWord`'s actual branches instead of
+   assuming every click needs a resync, and gated the resync on
+   `tile.letter !== '?'` to match.
+
+**What changed:**
+- `js/wordbound/game.js`: the two null-guards above, plus new real public
+  wrappers (same "React has no closure access, so these are real API not
+  test-only" reasoning as the existing audio wrappers) --
+  `Game.selectTileForWord(tileId)`, `Game.unstageTile(tileId)`,
+  `Game.openBlankPicker(tileId)`, `Game.closeBlankPicker()`,
+  `Game.assignBlankLetter(letter)`, `Game.stagedWord()`, and
+  `Game.clearStagedWord()` (mirrors `#btn-clear-word`'s state reset, minus
+  the DOM value clear React does itself).
+- `src/components/CombatScreen.jsx`: rack-tile clicks call the real
+  `Game.selectTileForWord`/`Game.unstageTile` instead of appending to a
+  local string. A staged tile renders as an empty `rack-slot-empty` button
+  in its rack slot (same footprint, matches vanilla) and a new
+  `.staging-area` row (sits between the rack and the damage preview, same
+  DOM position/CSS classes as `renderStagingArea()`) shows the staged
+  tiles, each clickable to unstage. `Clear` now calls `Game.clearStagedWord`
+  too, not just resetting local text. The free-typing desktop path is
+  otherwise unchanged and remains the actual submit source, per the
+  btn-submit-word finding above. Full reasoning is in the component's own
+  updated header comment, not just here.
+- `src/components/__tests__/CombatScreen.test.jsx`: 3 new tests. The 10
+  pre-existing tests only ever asserted on the word-input's TEXT (which
+  would have kept passing under the old fake model too, since that model
+  also produced the right text) -- these assert directly on the real
+  mechanism: stage-by-click sets `state.selectedTileIds` and produces a real
+  `.staging-area .staged-tile`; clicking that staged tile (or its rack slot)
+  unstages it back to a normal clickable letter-tile with
+  `state.selectedTileIds` empty again; `Clear` resets both the typed text
+  AND the real selection.
+- `test/verify-react-build.js` (built-output-only, this ticket's
+  established bar): added a real-browser stage/unstage round-trip -- click a
+  real rack tile, confirm `state.selectedTileIds`/the real
+  `.staging-area .staged-tile` DOM, click it again, confirm both are empty
+  -- inserted before the pre-existing typed-word playthrough so it doesn't
+  disturb that check's own rack-state assumptions.
+- `GOALS.md`: STRUCTURAL ticket update-8 note (full reasoning + explicit
+  "not done" list for whoever picks up the blank-picker overlay or drag
+  reordering next).
+
+**Verified:**
+- `npm run build`: clean, 39 modules, same pre-existing chunk-size notice.
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED -- confirms
+  the two `game.js` null-guards are true no-ops against wordbound.html.
+- `npx vitest run src/components/__tests__/CombatScreen.test.jsx`: 13/13
+  (10 pre-existing + 3 new).
+- Full `npx vitest run`, run 3 times: 47/47 in 2 runs, 1 failure in the
+  third -- the SAME pre-existing "combo chip gets combo-chip-bump" flake
+  STRUCTURAL-15/N already characterized in detail (unrelated file, same
+  signature, same ~1/3 rate) -- not introduced or changed by this run.
+- `npm run test:react-build` (real browser, built `dist/app/` output, never
+  dev server): ALL CHECKS PASSED, run 3x in a row with zero flakes,
+  including the 5 new staging-round-trip assertions and the pre-existing
+  typed-word playthrough (still passes unchanged -- confirms desktop typing
+  survived the rewrite intact) and the pre-existing touch-mode-detection
+  checks (unaffected).
+- `npm run test:react-qa` (real browser, built output, full boss-reward
+  flow): ALL CHECKS PASSED, unaffected.
+- `npm run test:mobile`: ALL CHECKS PASSED, including the touch-mode/
+  blank-picker overlay check against wordbound.html (confirms that path,
+  which DOES render the picker, is untouched by this run's null-guards).
+- `npm run test:qa`: ALL CHECKS PASSED (full boss-reward orchestration).
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+  (16/16 dom-check against the unzipped build, zero 404s, real-browser
+  `window.Wordbound.Game` check).
+
+**Not done / explicitly deferred (same real remaining scope, narrowed):**
+pointer-drag and touch-drag reordering within the rack/staging row
+(`startStagingDrag`/`startTouchReorder`/`reorderRackOnDrop`), the FLIP
+slide animations (`flipTile`) and one-shot land-settle class
+(`markSettle`/`tile-settle`), haptic ticks, and the blank-letter picker
+OVERLAY UI itself. `Game.openBlankPicker` is now wired for real (a
+touch-mode blank-tile click calls it), but nothing renders the overlay
+yet -- an inert flag, not a crash, not a regression from the prior
+always-no-op blank click in every mode (confirmed: no test or real-browser
+check hit an error from this). The pre-existing Vitest full-suite flake
+(STRUCTURAL-15/N) remains open, unrelated to this run.
+
+**Current state:** `CombatScreen.jsx`'s tile-click word entry is now
+genuinely backed by `state.selectedTileIds`, the real engine staging
+mechanism -- the actual prerequisite the ticket's remaining scope (c) has
+been building toward since update-6. Free-typing on desktop is untouched
+and still works exactly as before. `wordbound.html` remains fully intact
+and unchanged (all its own gates green). STRUCTURAL stays unchecked --
+drag reordering and the blank-picker overlay are the real remaining pieces.
+
+**Next:** per GOALS.md's update-8 note, the blank-picker overlay is now the
+smaller, more tractable next chunk (a React overlay component wired to
+`state.blankPickerOpen`/`state.blankPickerTileId` + 26 letter buttons each
+calling the now-exposed `Game.assignBlankLetter(letter)` -- everything it
+needs is already public). Drag reordering (pointer capture, ghost tiles,
+insertion-index math, FLIP animations, haptics) remains the biggest
+genuinely open piece of remaining scope (c) and is likely its own
+multi-run push after the picker. Separately: the Vitest full-suite flake
+documented by STRUCTURAL-15/N is still open and still worth a dedicated
+look by a future run or Jaxon.
