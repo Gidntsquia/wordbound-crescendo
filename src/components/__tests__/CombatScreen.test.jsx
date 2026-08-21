@@ -51,6 +51,27 @@ describe('CombatScreen', () => {
     expect(screen.getByPlaceholderText('Type or click letters...')).toHaveValue(word);
   });
 
+  it('clicking a blank rack tile is a no-op, matching desktop vanilla behavior', async () => {
+    // Regression test: CombatScreen used to append the literal '?' letter on
+    // a blank-tile click (setWord((w) => w + tile.letter) with no guard),
+    // which broke word validation -- '?' is never a real letter in a played
+    // word. game.js's own selectTileForWord makes a blank click a no-op on
+    // desktop (typing the target letter is how a blank gets used instead).
+    // The fixed seed's starting rack has no blank, so one is injected
+    // directly -- same Tiles.createTile('?', null) pattern items.js itself
+    // uses to add blanks to a pile.
+    const state = startFight();
+    const Tiles = window.Wordbound.Tiles;
+    const blank = Tiles.createTile('?', null);
+    state.player.rack.push(blank);
+    const user = userEvent.setup();
+    render(<Harness />);
+    const blankBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith('★'));
+    expect(blankBtn).toBeInTheDocument();
+    await user.click(blankBtn);
+    expect(screen.getByPlaceholderText('Type or click letters...')).toHaveValue('');
+  });
+
   it('shows a live damage preview for a valid typed word', async () => {
     const state = startFight();
     const user = userEvent.setup();

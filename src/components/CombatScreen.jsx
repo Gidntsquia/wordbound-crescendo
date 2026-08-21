@@ -144,6 +144,7 @@ export default function CombatScreen({ state, Game, act }) {
             else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
           }
           const title = isHexed ? 'Hexed -- locked for this turn'
+            : tile.letter === '?' ? 'Blank -- type the letter you want, it fills in automatically'
             : tile.variant ? Tiles.describeVariant(tile.variant)
             : tile.bonus ? Tiles.describeBonus(tile.bonus)
             : undefined;
@@ -154,7 +155,16 @@ export default function CombatScreen({ state, Game, act }) {
               className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '')}
               disabled={isHexed}
               title={title}
-              onClick={() => { if (!isHexed) setWord((w) => w + tile.letter); }}
+              onClick={() => {
+                // Desktop word-entry path (game.js's selectTileForWord, same
+                // rule): a blank tile has no letter to append, so a click is
+                // a no-op here too -- typing the target letter is how a blank
+                // gets used; Lexicon.canFormFromRack fills it in from the
+                // typed string. Appending the literal '?' character (as this
+                // used to) breaks word validation, since '?' is never a real
+                // letter in a played word.
+                if (!isHexed && tile.letter !== '?') setWord((w) => w + tile.letter);
+              }}
             >
               {tile.letter === '?' ? '★' : tile.letter}<sub>{displayVal}</sub>
             </button>
