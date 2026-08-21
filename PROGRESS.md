@@ -1861,3 +1861,144 @@ scoped than before this run:
    reordering both become genuinely portable on top of it.
 This is still a multi-run push — (1) and (2) together are a reasonable
 single-run scope for whoever picks this up next.
+
+## 2026-08-21T19:22Z — STRUCTURAL 15/N: touch-mode detection wired into React; real, reproducible pre-existing Vitest flake found and characterized (orchestrator)
+
+**Repo-health note:** started on a detached HEAD, exact same class of issue
+every recent run has flagged (a container-recreation artifact — HEAD sat at
+`origin/main`'s exact commit `9ac7911`, just not attached to the local
+`main` ref). `git checkout -B main origin/main` fixed it; nothing lost.
+
+**What I did:** picked up remaining-scope-(c) step 1 exactly as the previous
+run's "Next" note scoped it — wire real touch-mode detection into the React
+app, since nothing in it had ever called `Game.applyTouchModeFromMedia()`
+(state.touchMode was always `false` regardless of device, and the previous
+run's update-6 note had already established that porting anything
+touch-specific on top of that — the blank-picker, staging — would be dead
+code with no way to open it).
+
+- `src/main.jsx`: added the two calls `wordbound.html`'s full `Game.init()`
+  makes for this (`Game.applyTouchModeFromMedia()` once at load, plus
+  registering the live `matchMedia('(pointer: coarse)')` change listener) —
+  the one piece of `Game.init()` React genuinely still needed, since
+  `_initDependencies()` deliberately skips the other ~20 listener bindings
+  (they target legacy element ids that don't exist in this tree). Read
+  `applyTouchModeFromMedia`/`applyTouchModeCopy` closely first to confirm
+  they're safe to call as-is: every DOM touch inside them
+  (`$('howto-blank-tip')`, `$('howto-audio-tip')`) is already null-guarded,
+  and `document.body` always exists — no `game.js` change was needed, unlike
+  every previous "make a vanilla function React-safe" fix this ticket has
+  needed (`render()`'s guard, `reactTreeActive()`). Also grepped
+  `css/wordbound.css` for `.touch-mode` to confirm its one rule
+  (`.touch-mode #word-input { display: none }`) targets an id absent from
+  the React tree — so toggling the body class is a currently-invisible,
+  forward-compatible no-op there, not a behavior change today.
+- `src/test/setup.js`: mirrored the same call for parity with `main.jsx`'s
+  real startup sequence. Confirmed it's a guaranteed no-op in Vitest's jsdom
+  environment by direct test (`typeof new JSDOM(...).window.matchMedia ===
+  'undefined'`) — matches `test/dom-check.js`'s own pre-existing comment on
+  the same gap, so `state.touchMode` still defaults to `false` for every
+  component test, unchanged.
+- The one real, live behavior change: `CombatScreen.jsx`'s pre-existing
+  `if (!state.touchMode) inputRef.current?.focus()` guards (in `submit`/
+  `clearWord`) were dead code before this run (the condition was always
+  true) — now a real touch device stops getting its word input silently
+  re-focused (and its soft keyboard silently popped back up) after every
+  play/clear. No `CombatScreen.jsx` change was needed; the guards were
+  already correctly written, just unreachable.
+- `src/components/__tests__/CombatScreen.test.jsx`: new test setting
+  `state.touchMode = true` directly (jsdom can't drive the real matchMedia
+  detection) and confirming a real word play leaves focus off the input.
+- `test/verify-react-build.js`: extended with real-browser checks against
+  the actual built output (this ticket's established bar) —
+  (1) default/fine-pointer Chromium confirms `state.touchMode` stays `false`
+  and `<body>` gets no `.touch-mode` class (proves the desktop path is
+  unaffected); (2) the same in-page `matchMedia` mock
+  `test/verify-mobile-layout.js` already uses for `wordbound.html`'s own
+  touch-mode check, applied via `page.addInitScript` + a reload (detection
+  only runs once at module load, so a fresh navigation is required),
+  confirms the coarse-pointer path flips both `state.touchMode` and the body
+  class; (3) a real UI-driven fight + word play in that same mocked-coarse
+  page confirms the input genuinely isn't re-focused after a real submit.
+
+**Verified:**
+- `npm run test:react-build` (real browser, built `dist/app/` output, never
+  dev server): ALL CHECKS PASSED, including all 4 new touch-mode checks —
+  run twice in a row, no flakes.
+- `npm run test:react-qa` (real browser, built output, boss-reward flow):
+  ALL CHECKS PASSED, unaffected.
+- `npm run build`: clean, same pre-existing single-large-chunk notice every
+  prior run has seen, no new warnings.
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED — unaffected, this run
+  touched no `wordbound.html`/`js/wordbound/*` file.
+- `npx vitest run` (component suite): the new touch-mode test passes
+  consistently. See below for a **separate, pre-existing** failure this
+  run's repeated full-suite runs surfaced and characterized.
+- NOT re-run: `test:mobile`, `test:qa`, `test:itch-build`,
+  `test:run-header`, `test:audio`, `test:drag-interrupt`,
+  `test:branching-map` — none target files touched this run (`wordbound.html`
+  and `js/wordbound/*` are byte-for-byte unchanged; only `src/main.jsx`,
+  `src/test/setup.js`, one new test, and `test/verify-react-build.js`
+  changed).
+
+**A real, reproducible pre-existing Vitest flake, found and characterized
+(not introduced by this run, not fixed):** running the full `npx vitest run`
+suite repeatedly to confirm no regression turned up
+`CombatScreen.test.jsx`'s "the combo chip gets combo-chip-bump..." test
+failing roughly 1 run in 3 — but ONLY as part of the full 7-file suite; run
+alone (`npx vitest run src/components/__tests__/CombatScreen.test.jsx`) it
+passed 10/10 every time across many repeats. Isolated this from my own
+changes properly: `git stash`-ed this run's entire diff and re-ran the full
+suite 3 times against the exact unmodified base commit (`9ac7911`) — same
+failure, same ~2/3 rate, confirming this is pre-existing and unrelated to
+touch-mode. Went one step further than the STRUCTURAL-14/N entry's audio
+flake note (which called it a flake on a single observed instance and moved
+on): added temporary debug logging, reproduced the failure 3 more times, and
+every single failure showed the identical signature — word "RADIO", monster
+"Quoth" at its UNCHANGED starting HP of 52, `comboState.usedWords` still an
+empty object. That means `Game.submitWord` was never actually invoked for
+that play at all — the simulated `user.type()` + `user.click()` sequence
+itself didn't register, not a seeded-RNG determinism drift or a game-logic
+bug in `combat.js`'s combo math (which this debugging confirms behaves
+correctly every time its actual precondition — a real word genuinely getting
+submitted — holds). This points at a `userEvent`/React Testing Library
+timing interaction between test files sharing one Vitest process (e.g. a
+stale real `setTimeout` from an earlier test's `CombatScreen` instance
+racing a later file's render, or an internal `userEvent` timer), not
+anything in the engine. Removed the debug logging before committing (kept
+the finding here, not in the shipped test file). Deliberately did NOT chase
+this further — root-causing a cross-file Vitest timing race is a real,
+possibly sizable investigation of its own, well outside this run's bounded
+touch-mode scope, and confirmed nothing else in the 44-test suite is
+affected (every failure across every repeat was this exact one test, this
+exact signature).
+
+**Not done / explicitly deferred:** the Vitest flake above is documented,
+not fixed — a future run should either root-cause it (concrete lead: a
+leftover real timer or async cleanup gap between test files, per the
+reproduction steps in GOALS.md's update-7 note) or, at minimum, treat
+`npm run test:react` as needing a retry rather than a single clean run until
+it's fixed, since it's currently NOT 100% reliable in one pass. Remaining
+scope (c) step 2 — rebuilding `CombatScreen.jsx`'s word-entry model around
+`state.selectedTileIds` (the real prerequisite for the blank picker and drag
+reordering) — is completely untouched, same open scope as before this run.
+
+**Current state:** touch-mode is now genuinely detected and live in the
+React app (state.touchMode reflects the real device, the body class toggles,
+a touch device no longer gets its input silently re-focused after a play).
+`wordbound.html` remains fully intact and unchanged. STRUCTURAL stays
+unchecked — step 2 of remaining scope (c) is the next real piece, and the
+Vitest flake found this run is a new, separate, documented loose end.
+
+**Next:** remaining scope (c) step 2, per GOALS.md's update-7 note: rebuild
+`CombatScreen.jsx`'s word-entry model around `state.selectedTileIds`
+(tile-id-based staging) instead of the current plain-string `word` state —
+likely means exposing small `Game.*` wrappers around the currently-private
+`selectTileForWord`/`unstageTile`/`openBlankPicker`/`closeBlankPicker`/
+`assignBlankLetter`/`startTouchReorder`/`reorderRackOnDrop` functions, same
+pattern already established for the audio wrappers in update-4. This is
+still a substantial, multi-run push. Separately, and NOT part of this
+ticket's own scope: the Vitest full-suite flake documented above is worth a
+dedicated look before it erodes confidence in `npm run test:react` as a
+gate — a future run (or Jaxon) should decide whether to prioritize it ahead
+of continuing (c).
