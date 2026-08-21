@@ -2145,3 +2145,110 @@ genuinely open piece of remaining scope (c) and is likely its own
 multi-run push after the picker. Separately: the Vitest full-suite flake
 documented by STRUCTURAL-15/N is still open and still worth a dedicated
 look by a future run or Jaxon.
+
+## 2026-08-21T20:18Z — STRUCTURAL 17/N: blank-letter picker overlay landed on top of a concurrent run's staging rebuild; the pre-existing Vitest flake actually fixed (orchestrator)
+
+**A concurrent-run reconciliation, not a normal single-threaded run:** this
+run started on `origin/main` at `a7ec359` (STRUCTURAL 15/N's commit) and
+independently rebuilt `CombatScreen.jsx`'s touch-mode word entry around
+`state.selectedTileIds`, including the blank-picker overlay, before
+attempting to push. The push was rejected — another hourly instance had
+already landed and pushed an overlapping change (STRUCTURAL 16/N: tap-to-
+stage/unstage, deliberately WITHOUT the blank-picker overlay, per its own
+"Next" note). Rather than force-pushing over already-merged, already-tested
+work, reconciled properly: saved my own diff as a patch for reference,
+`git reset --hard origin/main` to their actual pushed state, and re-verified
+what was genuinely still missing before redoing any work.
+
+**What I did:** landed exactly the one piece STRUCTURAL 16/N's own PROGRESS
+note identified as the next reasonably-scoped chunk — the touch-mode
+blank-letter picker overlay UI. 16/N had already exposed every `Game.*`
+wrapper this needed (`assignBlankLetter`/`closeBlankPicker`) and already
+wired `Game.selectTileForWord` to open `state.blankPickerOpen` on a blank
+tap in touch mode — but nothing rendered that flag, so a blank tile was
+silently unplayable on touch. `src/components/CombatScreen.jsx` now renders
+a real `.blank-picker-overlay` (A-Z grid + Cancel, matching
+`wordbound.html`'s own overlay's CSS classes/shape) whenever
+`state.blankPickerOpen` is true. No `game.js` changes were needed this run.
+
+**The actual highest-value part of this run:** adding 2 new blank-picker
+tests made `CombatScreen.test.jsx`'s pre-existing Vitest flake (STRUCTURAL
+14/N and 15/N first flagged it; 16/N's own verification section hit it
+again at "1 failure in 3 full-suite runs") fail on almost EVERY run within
+that one file alone — confirmed this was already true on 16/N's unmodified
+commit before touching anything, so not something this run's tests caused,
+just finally enough exposure to force a real fix instead of a third
+re-deferral. Root-caused it: instrumented the component's one real timer
+(`pendingResolveRef`'s `setTimeout`) with temporary console logging across
+many repeated runs — it never once fired late or stale, completely ruling
+out the "leaked timer races a later test" theory both prior entries had
+guessed at. Tested the real trigger directly instead: swapped every
+`userEvent.click()`/`type()` call in `CombatScreen.test.jsx` for RTL's
+synchronous `fireEvent.click()`/`change()` (skips `@testing-library/user-
+event`'s async hover/pointerdown/pointerup/focus choreography entirely).
+The flake disappeared completely. Root cause: user-event v14's internal
+async event simulation racing against something in this Vitest/jsdom setup
+— not this component, its timer, or a cross-file leak as previously
+guessed. Documented the finding directly in the test file's own new header
+comment for whoever next touches Vitest/RTL setup elsewhere in the repo.
+NOT claimed: that this is the only possible cause of Vitest/jsdom timing
+flakiness in this repo, or that every other test file needs the same
+treatment preemptively (none currently show the same symptom).
+
+**Verified:**
+- `npm test` (jsdom dom-check, `wordbound.html`): ALL CHECKS PASSED —
+  unaffected, this run touched no `js/wordbound/*` file.
+- `npx vitest run` (full 7-file suite, 49 tests): **3 consecutive clean
+  runs, zero flakes** — a real, measured improvement over 16/N's own "1
+  failure in 3" note and this run's own confirmed "fails almost every run"
+  state on `CombatScreen.test.jsx` alone before the `fireEvent` fix.
+  `CombatScreen.test.jsx` alone: 5/5 consecutive clean runs, 15/15 tests
+  (13 pre-existing + 2 new blank-picker tests).
+- `npm run test:react-build` (real browser, built `dist/app/` output, never
+  dev server): ALL CHECKS PASSED, run twice in a row, no flakes. New
+  opportunistic touch-mode blank-picker check added (taps a real ★ tile via
+  `.click()` if this deterministic seed's rack holds one at that point in
+  the fight; this run's playthrough didn't — logged honestly as a skip
+  rather than silently omitted, and the Vitest/RTL tests inject a blank
+  directly so the path stays unconditionally covered either way).
+- `npm run test:react-qa` (real browser, built output, boss-reward flow):
+  ALL CHECKS PASSED, unaffected.
+- `npm run build`: clean, same pre-existing single-large-chunk notice.
+- NOT re-run: `test:mobile`, `test:qa`, `test:itch-build`, `test:run-header`,
+  `test:audio`, `test:drag-interrupt`, `test:branching-map` — none target
+  files touched this run (`wordbound.html`/`js/wordbound/*` untouched).
+
+**Not done / explicitly deferred:** pointer/touch DRAG reordering of
+racked or staged tiles (`startTouchReorder`/`startStagingDrag` + their
+document-level listeners) is the one remaining piece before STRUCTURAL's
+stated acceptance bar ("full feature parity... no vanilla-DOM rendering
+left") is met — tap-to-stage/unstage/pick-a-blank-letter is now fully
+functional without it, but reordering an already-staged word still means
+unstaging and re-tapping in the new order.
+
+**Current state:** touch mode now has fully functional word entry end to
+end — tap to stage/unstage letters, tap a blank to pick its letter via a
+real overlay, Clear to reset, Play Word to submit. `wordbound.html` remains
+fully intact and byte-for-byte unchanged. STRUCTURAL stays unchecked — drag
+reordering is the last real gap. `npm run test:react` is now reliably
+clean, resolving a real, previously-annoying gate-reliability problem this
+same ticket had carried since STRUCTURAL 14/N.
+
+**Next:** drag reordering — `game.js`'s `startTouchReorder`/
+`reorderRackOnDrop` (rack) and `startStagingDrag`/`updateStagingDrag`/
+`endStagingDrag` (staged-tile reorder + drag-out-to-remove), currently
+wired only in the legacy `Game.init()` path via document-level pointer/
+touch listeners. Needs its own `Game.*` wrappers (or a React-native
+reimplementation using pointer events directly, worth weighing against
+wrapping the existing vanilla state machine) plus real Playwright
+touch-drag verification. Once this lands, remaining scope (c) — and likely
+the whole STRUCTURAL ticket, pending a final vanilla-DOM-rendering audit —
+should be closeable.
+
+**Process note for future runs:** this is the second time in this ticket's
+history two hourly instances have picked up the same GOALS.md item
+concurrently (a container-recreation/scheduling artifact, not a queue
+problem) — reconciling by resetting to the actually-pushed `origin/main`
+and re-diffing what's genuinely still missing, rather than force-pushing a
+stale local commit, is the correct response and cost this run roughly one
+extra investigation pass, not a redo of anyone's real work.
