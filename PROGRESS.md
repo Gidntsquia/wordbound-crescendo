@@ -1081,3 +1081,139 @@ React-app equivalents) to actually exercise the Vite/React app rather than
 only `wordbound.html`, verifying the built (not just dev-server) output in a
 real browser end-to-end, and the tile-staging/drag system + per-hit
 animations noted as open by earlier runs.
+
+---
+
+## 2026-08-21T15:55Z — STRUCTURAL 9/N: GAME_OVER + VICTORY screens ported to React (repo-health note first)
+
+**Repo-health note:** this run started on a detached HEAD, several commits
+ahead of the local `main` branch pointer but level with `origin/main` (`git
+ls-remote origin` confirmed the remote's real `main` matched HEAD exactly —
+local `main` was just stale/unfetched from an earlier run, not a lost-push
+situation). Fixed with `git fetch origin main && git checkout -B main
+origin/main` before starting any work. No data was at risk, but flagging the
+pattern again since at least one earlier run's PROGRESS entry already
+mentions a "detached-HEAD check" — worth a future run adding a guard/note to
+whatever wrapper starts these sessions if this keeps recurring.
+
+Continuing the STRUCTURAL ticket (React/Vite migration). GAME_OVER and
+VICTORY were the last two `renderRun()`-family screens without a React port
+per the last run's note.
+
+**What changed:**
+- `src/components/RunScreen.jsx`: added `GameOverScreen`, `VictoryScreen`,
+  and a shared `RunStatsSummary` (direct ports of game.js's
+  `renderGameOver()`/`renderVictory()`/`renderRunStats()`). Reused the
+  existing `run-stats-summary`/`run-stat-row`/`run-stat-label`/
+  `run-stat-value` CSS classes (already in `css/wordbound.css`, no new CSS
+  needed) and the plain `.panel`/`.btn.btn-primary` classes the vanilla
+  screens use.
+  - Important layout fix caught by re-reading the vanilla markup before
+    porting: GAME_OVER/VICTORY are NOT sub-panels of `#screen-run` the way
+    TREASURE/SHOP/EVENT/etc. are (those stay visible under the run header +
+    message log). They're genuinely separate top-level screens in vanilla —
+    `render()`'s dispatch (`if (state.screen === 'GAME_OVER') { show(...);
+    renderGameOver(); return; }`) swaps `#screen-run` out entirely, so the
+    ink/gold/floor header and message log disappear. My first draft routed
+    GAME_OVER/VICTORY through RunScreen's normal ternary chain (which stays
+    wrapped in the run-header div) — caught this via a plain read of
+    `wordbound.html`'s markup before writing the browser check below, and
+    restructured RunScreen to `return <GameOverScreen .../>` /
+    `return <VictoryScreen .../>` BEFORE the run-header wrapper, matching
+    vanilla exactly.
+  - The "Main Menu" button on both screens calls RunScreen's existing
+    `backToMenu` (same one the mid-combat "abandon run" button uses): a real
+    `Game.returnToMainMenu()` call plus the `onBackToMenu` callback so App's
+    own screen state also leaves "run" — vanilla's `#btn-gameover-continue`/
+    `#btn-victory-continue` just call `Game.returnToMainMenu` directly since
+    there's no separate App-level router to also flip.
+- `src/components/__tests__/RunScreen.test.jsx`: two new tests driving the
+  REAL engine (no mocks), plus one existing test fixed:
+  - GAME_OVER: enters a real combat node, sets `state.player.ink = 0`
+    directly, then types and submits a real playable word through the
+    actual `CombatScreen` UI. game.js's own player-death check
+    (`state.player.ink <= 0`, right after a word is scored, BEFORE the
+    monster's counterattack even rolls — see the "Cursed Quill" comment
+    above that check in game.js) fires synchronously, so this is
+    deterministic regardless of monster intent RNG and needs no fake
+    timers. Asserts the real screen transition, the stats/seed text, that
+    the run-header ink display and message log are genuinely gone (not just
+    that the game-over text is present), and that clicking "Main Menu"
+    really returns to `MAIN_MENU`.
+  - VICTORY: calls the already-exposed `Game._advanceFloor()` test hook
+    three times (`Floor.TOTAL_FLOORS` is 3; the 4th advance is the real
+    `endRun(true)` condition) before the first render — mutating state
+    before mounting sidesteps a React re-render gap described below.
+    Asserts the real heading/stats/seed text and the absent run-header, and
+    that "Main Menu" works here too.
+  - Fixed the "falls back to the honest not-ported-yet placeholder" test,
+    which had hardcoded `state.screen = 'GAME_OVER'` as its example of an
+    unported screen — GAME_OVER is ported now, so there is no genuine
+    unported `renderRun()` screen left to demonstrate the fallback with.
+    Switched to a synthetic `'NOT_A_REAL_SCREEN'` value with a comment
+    explaining why, since the test's real point (the defensive fallback
+    branch itself still works for an unrecognized value) doesn't need a
+    real screen name.
+- `GOALS.md`: updated the STRUCTURAL ticket's orchestrator note (sub-step 1,
+  screen porting, is now fully done) and documented a re-render gotcha this
+  run hit directly (below) for whoever tackles the still-open Playwright
+  port sub-step.
+
+**Verified:**
+- `npx vitest run`: 34/34 passing, run 3 times in a row with no flakes.
+- `npm test` (jsdom dom-check, full suite): ALL CHECKS PASSED — this run
+  touched no `game.js`/`wordbound.html`/CSS, unaffected as expected.
+- `npm run build`: clean, 38 modules, same pre-existing single-chunk-size
+  notice as prior runs, no new warnings.
+- Real-browser Playwright check (throwaway script, not committed): booted
+  the real Vite dev server, played through New Run → character select →
+  clicked a real "Foe" pill on the map (through the actual UI, not a direct
+  engine call, so React genuinely re-rendered into CombatScreen), zeroed
+  `state.player.ink` directly, typed and submitted a real word via the real
+  input + "Play Word" button. Confirmed for real: `state.screen` became
+  `GAME_OVER`, "The Well Ran Dry" rendered, the run-header ink display was
+  genuinely NOT visible (confirming the layout fix above), and clicking the
+  real "Main Menu" button both returned `state.screen` to `MAIN_MENU` and
+  showed the real main menu — zero console/page errors throughout.
+- NOT verified live in the real browser: VICTORY's rendered DOM on an
+  already-mounted page. Calling `Game._advanceFloor()` three times via
+  `page.evaluate` on an already-mounted RunScreen DID flip `state.screen` to
+  `VICTORY` for real (confirmed by reading the engine state directly), but
+  the on-screen DOM stayed stale — no React re-render happened, because
+  `page.evaluate` calls the engine directly, bypassing the UI's `act`/`bump`
+  cycle (`bump` is the ONLY thing that triggers a RunScreen re-render, and
+  it only runs from inside a real click handler — see RunScreen.jsx's own
+  header comment). This is a test-harness gap, not a product bug: real
+  gameplay only ever reaches `advanceFloor()` through
+  `Game.enterCurrentNode()`, itself always called from a real UI click
+  already wrapped in `act()`. The Vitest/RTL test for VICTORY sidesteps this
+  by mutating state BEFORE the component's first `render()` call (valid for
+  a fresh test render, confirmed 3x stable above) rather than after an
+  already-mounted one — so VICTORY's actual rendered DOM (heading, stats,
+  seed, absent header, working Main Menu button) IS genuinely verified,
+  just not via a live already-mounted browser page. Documented the gap in
+  GOALS.md's orchestrator note so whoever ports the Playwright suites next
+  drives VICTORY through a real boss-kill-on-floor-3 UI path instead of a
+  direct hook call.
+- NOT re-run (this run touched no CSS, no `game.js`, no `wordbound.html`):
+  `test:mobile`, `test:qa`, `test:itch-build`, `test:branching-map`,
+  `test:audio`.
+
+**Current state:** every `renderRun()`-family screen (map, combat,
+treasure/shop/tile-reward/boss-reward, event, shredder, game-over, victory)
+now has a real, committed React port with a repeatable Vitest/RTL test
+driving the real engine. `wordbound.html` remains the complete, unmodified
+reference implementation. STRUCTURAL's sub-step 1 (screen-by-screen port)
+is done; the ticket itself stays unchecked — sub-steps 3-5 (Playwright
+suite ports, built-output verification, touch/drag re-verification) are
+real remaining scope, unchanged from what earlier runs already flagged.
+
+**Next:** the actual remaining STRUCTURAL work is porting Playwright's
+`test:mobile`/`test:qa`/`test:itch-build` (or React-app equivalents) to
+exercise the Vite/React app instead of only `wordbound.html`, verifying the
+BUILT output (not just the dev server) end-to-end in a real browser, and the
+tile-staging/drag system + per-hit animations noted open by several earlier
+runs. See this entry's GOALS.md note for the re-render gotcha to design
+around when writing those Playwright scripts (drive real UI paths to
+terminal states like VICTORY, don't call internal `Game._*` test hooks
+directly on an already-mounted page and expect the DOM to follow).
