@@ -346,4 +346,64 @@ describe('CombatScreen', () => {
     expect(screen.queryByText('Choose a letter')).not.toBeInTheDocument();
     expect(document.querySelector('.staging-area .staged-tile')).toBeNull();
   });
+
+  // touch-reorder tests: jsdom's getBoundingClientRect always returns a
+  // zero-sized rect, so game.js's getTileAtPosition (which picks the
+  // closest button by measured center) always resolves to the first
+  // .letter-tile in DOM order regardless of the touchX passed in -- a real
+  // browser is what actually proves POSITIONAL accuracy (see
+  // test/verify-react-build.js's real Playwright touch checks). What these
+  // tests verify instead is the real state-machine wiring end to end
+  // (touchstart -> touchmove crossing the threshold -> touchend resolving
+  // either a tap or a reorder), the same real Game.* functions
+  // wordbound.html's own touch listeners call, not a reimplementation.
+  it('touch mode: a plain tap (no movement past the threshold) on a rack tile stages it, same as a click', () => {
+    const state = startFight();
+    render(<Harness />);
+    const buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
+    const tileId = state.player.rack[0].id;
+    fireEvent.touchStart(buttons[0], { touches: [{ clientX: 5, identifier: 1 }] });
+    expect(state.draggedTileId).toBe(tileId);
+    fireEvent.touchEnd(buttons[0], { changedTouches: [{ clientX: 5, identifier: 1 }] });
+    expect(state.draggedTileId).toBeNull(); // cleared by cancelTouchReorder at the end of endTouchReorder
+    expect(state.touchDragThresholdCrossed).toBe(false); // never crossed -> resolved as a tap
+    expect(state.selectedTileIds).toContain(tileId); // the tap fallback staged it, like a click would
+  });
+
+  it('touch mode: a touchmove past the 10px threshold crosses it, and touchend reorders the rack for real', () => {
+    const state = startFight();
+    render(<Harness />);
+    expect(state.player.rack.length).toBeGreaterThanOrEqual(3);
+    const before = state.player.rack.map((t) => t.id);
+    const buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
+    // Start the drag on index 2, not 0 -- jsdom's zero-rect quirk always
+    // resolves touchmove's position to index 0, so starting elsewhere
+    // guarantees touchCurrentIndex genuinely differs from touchStartIndex,
+    // exercising the real reorder branch of endTouchReorder rather than its
+    // "no movement" no-op.
+    fireEvent.touchStart(buttons[2], { touches: [{ clientX: 5, identifier: 7 }] });
+    expect(state.touchStartIndex).toBe(2);
+    fireEvent.touchMove(buttons[2], { touches: [{ clientX: 500, identifier: 7 }] });
+    expect(state.touchDragThresholdCrossed).toBe(true);
+    fireEvent.touchEnd(buttons[2], { changedTouches: [{ clientX: 500, identifier: 7 }] });
+    expect(state.draggedTileId).toBeNull();
+    const after = state.player.rack.map((t) => t.id);
+    expect(after).not.toEqual(before); // a real reorder happened, through the real engine splice
+    expect(after.includes(before[2])).toBe(true); // no tile lost
+    expect(after.length).toBe(before.length);
+  });
+
+  it('touch mode: touchcancel aborts the drag without touching the rack', () => {
+    const state = startFight();
+    render(<Harness />);
+    const before = state.player.rack.map((t) => t.id);
+    const buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
+    fireEvent.touchStart(buttons[0], { touches: [{ clientX: 5, identifier: 3 }] });
+    fireEvent.touchMove(buttons[0], { touches: [{ clientX: 500, identifier: 3 }] });
+    expect(state.draggedTileId).not.toBeNull();
+    fireEvent.touchCancel(buttons[0]);
+    expect(state.draggedTileId).toBeNull();
+    expect(state.touchDragThresholdCrossed).toBe(false);
+    expect(state.player.rack.map((t) => t.id)).toEqual(before); // untouched -- cancel never reorders
+  });
 });

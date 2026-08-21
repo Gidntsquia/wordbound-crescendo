@@ -193,6 +193,28 @@
   Game.startTileDrag = function (tileId) { startTileDrag(tileId); };
   Game.endTileDrag = function () { endTileDrag(); };
   Game.reorderRackOnDrop = function (dropIndex) { reorderRackOnDrop(dropIndex); };
+  // STRUCTURAL ticket (GOALS.md, remaining scope (c), touch-based rack
+  // reordering): same wrapper reasoning as the mouse-drag trio above, for
+  // wordbound.html's touchstart/touchmove/touchend/touchcancel rack
+  // listeners. startTouchReorder/updateTouchReorder/cancelTouchReorder are
+  // pure state mutations (no DOM access) so these three wrap them as-is.
+  // endTouchReorder(tappedTile, e) takes a TILE OBJECT (it calls
+  // selectTileForWord(tappedTile) on a plain tap, not a drag) -- the
+  // wrapper takes a tileId instead, same "React has no closure access"
+  // pattern as Game.selectTileForWord, and looks the live tile up by id
+  // right before calling through (safer than vanilla's stale closure
+  // reference would be if the rack were rewritten mid-touch, though that
+  // edge case is equally unhandled in both trees).
+  // getTileAtPosition (called by updateTouchReorder) reads
+  // $('rack-display') via getElementById -- the React rack container
+  // below now carries id="rack-display" for exactly this reason.
+  Game.startTouchReorder = function (tileId, index, touchX, touchId) { startTouchReorder(tileId, index, touchX, touchId); };
+  Game.updateTouchReorder = function (touchX) { updateTouchReorder(touchX); };
+  Game.endTouchReorder = function (tileId, e) {
+    var tile = tileId ? state.player.rack.find(function (t) { return t.id === tileId; }) : null;
+    endTouchReorder(tile, e);
+  };
+  Game.cancelTouchReorder = function () { cancelTouchReorder(); };
   Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate

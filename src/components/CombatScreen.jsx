@@ -39,22 +39,43 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 // unplayable on touch (desktop is unaffected -- selectTileForWord no-ops on
 // a blank there, typing the letter is still how a blank gets used).
 // Desktop MOUSE drag reordering within the rack (STRUCTURAL ticket,
-// remaining scope (c), this run): wired via the three new Game.startTileDrag/
-// reorderRackOnDrop/endTileDrag wrappers, calling game.js's own private
-// dragstart/drop/dragend handlers -- same HTML5 draggable/dragstart/dragover/
-// drop/dragend event set wordbound.html's rack tiles use, same semantics
-// (drop reorders the dragged tile to land at the target tile's index).
-// state.dragOverIndex is deliberately not mirrored here: it has no CSS rule
-// or DOM read anywhere in either tree (confirmed by grep), so vanilla itself
-// never uses it for visual feedback -- onDragOver only needs preventDefault()
-// to make the drop legal.
-// Still genuinely NOT ported: TOUCH drag reordering within the rack
-// (startTouchReorder/reorderRackOnDrop's touch entry point) and pointer/touch
-// drag reordering of already-STAGED tiles (game.js's startStagingDrag ghost/
-// gap system) -- tap-to-stage/unstage/pick-a-blank-letter is fully functional
-// without either, but reordering an already-staged word on a touch device, or
-// via a live drag rather than a fresh mouse-drag from the rack, still means
-// unstaging and re-tapping/re-clicking in the new order.
+// remaining scope (c)): wired via Game.startTileDrag/reorderRackOnDrop/
+// endTileDrag wrappers, calling game.js's own private dragstart/drop/
+// dragend handlers -- same HTML5 draggable/dragstart/dragover/drop/dragend
+// event set wordbound.html's rack tiles use, same semantics (drop reorders
+// the dragged tile to land at the target tile's index). state.dragOverIndex
+// is deliberately not mirrored here: it has no CSS rule or DOM read
+// anywhere in either tree (confirmed by grep), so vanilla itself never uses
+// it for visual feedback -- onDragOver only needs preventDefault() to make
+// the drop legal.
+// TOUCH reordering within the rack (STRUCTURAL ticket, remaining scope (c),
+// this run): wired via Game.startTouchReorder/updateTouchReorder/
+// endTouchReorder/cancelTouchReorder, same wrapper pattern, calling
+// game.js's own private touch-reorder state machine. The rack container
+// below carries id="rack-display" (new this run) because
+// updateTouchReorder's private getTileAtPosition looks tiles up via
+// document.getElementById -- React's other containers stay id-less on
+// purpose, this is the one exception, scoped narrowly to what that one
+// function needs. Each letter-tile also now carries data-tile-index,
+// which getTileAtPosition reads to resolve a touch position back to a rack
+// slot -- not previously rendered since nothing needed it before this.
+// A plain tap (no drag) resolves through endTouchReorder -> the same
+// selectTileForWord tap path onClick already uses; e.preventDefault() on
+// touchend (called inside endTouchReorder itself, unaffected by React's
+// passive-listener treatment of touchstart/touchmove) suppresses the
+// browser's synthesized post-touchend click, so a real tap does not
+// double-fire through onClick, matching vanilla exactly. Known minor gap
+// vs. vanilla: touchmove does NOT call preventDefault() here (React
+// registers onTouchMove passively at the root, so it would be a silent
+// no-op there), so a real touch rack-drag may let the page scroll slightly
+// instead of suppressing it the way wordbound.html's explicit
+// { passive: false } listener does -- the reorder itself is unaffected.
+// Still genuinely NOT ported: pointer/touch drag reordering of already-
+// STAGED tiles (game.js's startStagingDrag ghost/gap system, which live-
+// mutates DOM styles mid-gesture) -- tap-to-stage/unstage/pick-a-blank-
+// letter/drag-to-reorder-the-rack are all fully functional without it, but
+// reordering an already-staged word still means unstaging and re-tapping
+// in the new order, on any input method.
 // game.js itself needed two small additive null-guards to make this safe:
 // syncWordInput()'s and selectTileForWord()'s `$('word-input')` DOM access
 // now checks the element exists first (same "no #word-input in the React
@@ -237,7 +258,7 @@ export default function CombatScreen({ state, Game, act }) {
         )}
       </div>
 
-      <div className="rack-display">
+      <div className="rack-display" id="rack-display">
         {state.player.rack.map((tile, index) => {
           const isHexed = tile.id === state.hexedTileId;
           const isStaged = state.selectedTileIds.indexOf(tile.id) !== -1;
@@ -276,6 +297,7 @@ export default function CombatScreen({ state, Game, act }) {
               key={tile.id}
               type="button"
               draggable
+              data-tile-index={index}
               className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '') + (isNewTile ? ' new-tile' : '')}
               disabled={isHexed}
               title={title}
@@ -293,6 +315,47 @@ export default function CombatScreen({ state, Game, act }) {
                 act(() => Game.reorderRackOnDrop(index));
               }}
               onDragEnd={() => act(() => Game.endTileDrag())}
+              onTouchStart={(e) => {
+                // Mirrors wordbound.html's own touchstart handler exactly:
+                // a drag already live (another finger) is ignored.
+                if (state.draggedTileId !== null) return;
+                if (e.touches.length > 0) {
+                  Game.startTouchReorder(tile.id, index, e.touches[0].clientX, e.touches[0].identifier);
+                }
+              }}
+              onTouchMove={(e) => {
+                if (state.draggedTileId === null) return;
+                // Inline equivalent of game.js's private ownTouch(list) --
+                // finds the touch that owns this drag (falls back to the
+                // first touch for synthetic/no-identifier events, same as
+                // the private helper). Pure state read, so done directly
+                // here rather than via a Game.* wrapper.
+                const touches = e.touches;
+                let ownX = null;
+                if (touches && touches.length) {
+                  if (state.touchIdentifier === null || state.touchIdentifier === undefined) {
+                    ownX = touches[0].clientX;
+                  } else {
+                    for (let i = 0; i < touches.length; i++) {
+                      if (touches[i].identifier === state.touchIdentifier) { ownX = touches[i].clientX; break; }
+                    }
+                  }
+                }
+                if (ownX === null) return;
+                Game.updateTouchReorder(ownX);
+                // NOT calling e.preventDefault() here (unlike wordbound.html's
+                // { passive: false } touchmove listener): React registers
+                // onTouchMove passively at the root, so preventDefault() would
+                // be a silent no-op there. Known minor gap vs. vanilla: the
+                // page can scroll slightly during a real touch rack-drag
+                // instead of being suppressed. The reorder itself (state
+                // tracking, final drop on touchend) is unaffected.
+              }}
+              onTouchEnd={(e) => {
+                act(() => Game.endTouchReorder(tile.id, e));
+                setWord(Game.stagedWord());
+              }}
+              onTouchCancel={() => { Game.cancelTouchReorder(); }}
             >
               {tile.letter === '?' ? '★' : tile.letter}<sub>{displayVal}</sub>
             </button>

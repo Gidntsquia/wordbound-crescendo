@@ -351,6 +351,55 @@ async function main() {
     } else {
       console.log('  (no blank tile in this seed\'s rack at this point -- blank-picker tap check skipped; Vitest/RTL covers it unconditionally)');
     }
+
+    // STRUCTURAL ticket, remaining-scope (c) (GOALS.md), this run: TOUCH-
+    // based rack reordering. game.js's getTileAtPosition (called by
+    // updateTouchReorder) measures real tile positions via
+    // getBoundingClientRect -- jsdom always returns a zero-sized rect for
+    // every element (see CombatScreen.test.jsx's own note on this), so
+    // Vitest/RTL can exercise the state-machine wiring but can't prove
+    // POSITIONAL accuracy. This is that proof: dispatch a genuine
+    // touchstart/touchmove x N/touchend sequence at REAL on-screen
+    // coordinates (same technique test/verify-touch-tap-fix.js already
+    // uses against wordbound.html, since Playwright's touchscreen API only
+    // supports tap(), not a drag gesture) dragging the first rack tile onto
+    // the last one's real position, and confirm the resulting order
+    // matches reorderRackOnDrop's real insertion semantics.
+    const rackIdsBeforeTouchDrag = await page.evaluate(() =>
+      window.Wordbound.Game._state.player.rack.map((t) => t.id));
+    if (rackIdsBeforeTouchDrag.length >= 2) {
+      const tiles = page.locator('.rack-display .letter-tile');
+      const startBox = await tiles.first().boundingBox();
+      const endBox = await tiles.last().boundingBox();
+      await page.evaluate(({ startX, startY, endX, endY }) => {
+        const els = document.querySelectorAll('.rack-display .letter-tile');
+        const el = els[0];
+        function touch(type, x, y) {
+          const t = new Touch({ identifier: 42, target: el, clientX: x, clientY: y });
+          el.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
+        }
+        touch('touchstart', startX, startY);
+        const steps = 5;
+        for (let i = 1; i <= steps; i++) {
+          touch('touchmove', startX + (endX - startX) * (i / steps), startY + (endY - startY) * (i / steps));
+        }
+        touch('touchend', endX, endY);
+      }, {
+        startX: startBox.x + startBox.width / 2, startY: startBox.y + startBox.height / 2,
+        endX: endBox.x + endBox.width / 2, endY: endBox.y + endBox.height / 2,
+      });
+      const rackIdsAfterTouchDrag = await page.evaluate(() =>
+        window.Wordbound.Game._state.player.rack.map((t) => t.id));
+      const expectedTouch = rackIdsBeforeTouchDrag.slice(1, -1)
+        .concat([rackIdsBeforeTouchDrag[0], rackIdsBeforeTouchDrag[rackIdsBeforeTouchDrag.length - 1]]);
+      check('a real touchstart/touchmove/touchend gesture dragged the first rack tile onto the last one\'s real on-screen position and reordered the rack',
+        JSON.stringify(rackIdsAfterTouchDrag) === JSON.stringify(expectedTouch));
+      check('the touch-drag state the engine tracked mid-gesture is cleared after a real touch drag',
+        await page.evaluate(() => window.Wordbound.Game._state.draggedTileId === null
+          && window.Wordbound.Game._state.touchDragThresholdCrossed === false));
+    } else {
+      console.log('  (fewer than 2 rack tiles at this point -- touch-drag-reorder check skipped)');
+    }
   } finally {
     if (browser) await browser.close();
     server.close();

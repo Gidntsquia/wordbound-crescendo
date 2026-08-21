@@ -720,6 +720,87 @@ Rules for the routine:
       pointer-capture implementation against wrapping the existing vanilla
       state machine, since the latter's direct DOM-transform approach fights
       React's render model by design (per the hazard comment above).
+      ORCHESTRATOR NOTE 2026-08-21 (update 11): landed touch-based rack
+      reordering, exactly the piece update-10's "Next" note scoped.
+      **Concurrent-run collision hit again first:** this run's first attempt
+      at desktop mouse-drag rack reordering (the actual update-10 scope) lost
+      a push race to another hourly instance that had already landed and
+      pushed the identical feature (same wrapper names, same approach) --
+      confirmed genuinely identical by diffing, not just similar. Followed
+      this ticket's own established precedent (STRUCTURAL 17/N): did NOT
+      force-push a redundant duplicate. `git reset --hard origin/main` to
+      take their pushed commit as-is, then picked up THEIR "Next" note
+      instead (touch rack-reorder) to land real, non-duplicate value this
+      run.
+      Implemented touch reordering via the same wrapper pattern as the
+      mouse-drag trio: `Game.startTouchReorder`/`updateTouchReorder`/
+      `endTouchReorder`/`cancelTouchReorder`, thin wrappers around the
+      private functions `wordbound.html`'s own touch listeners already
+      call. `endTouchReorder(tileId, e)` differs slightly from its private
+      counterpart's signature (`(tappedTile, e)`, a tile OBJECT) -- the
+      wrapper takes a tileId and looks the live tile up by id right before
+      calling through, same "React has no closure access" pattern as
+      `Game.selectTileForWord`. `CombatScreen.jsx`'s rack tiles gained
+      `onTouchStart`/`onTouchMove`/`onTouchEnd`/`onTouchCancel` handlers
+      mirroring `wordbound.html`'s exactly, plus `data-tile-index`
+      (previously unrendered -- nothing needed it before this) and the rack
+      container gained `id="rack-display"`, the one deliberate exception to
+      the React tree's usual id-less convention, scoped narrowly to what
+      `getTileAtPosition`'s `getElementById` lookup needs.
+      One real, deliberate gap: `onTouchMove` does NOT call
+      `e.preventDefault()` (unlike `wordbound.html`'s explicit
+      `{ passive: false }` listener) -- React registers `onTouchMove`
+      passively at its root, so calling it there would be a silent no-op.
+      Documented in the component's header comment. Functional consequence:
+      a real touch rack-drag may let the page scroll slightly during the
+      gesture instead of suppressing it; the reorder itself is unaffected.
+      Flagging as a known, minor, honestly-disclosed gap rather than
+      claiming full parity.
+      **A genuinely useful jsdom limitation surfaced and documented, not
+      worked around silently:** `game.js`'s `getTileAtPosition` resolves a
+      touch position via `getBoundingClientRect`, which jsdom always
+      returns as a zero-sized rect for every element -- meaning Vitest/RTL
+      can exercise the real state-machine wiring (touchstart sets
+      `draggedTileId`, touchmove crosses the 10px threshold, touchend
+      resolves a tap or a reorder) but CANNOT prove positional accuracy
+      (which rack slot a given touchX actually resolves to). Documented
+      this plainly in the new tests rather than asserting something jsdom
+      can't actually verify, and closed the gap with a REAL positional
+      check in `test/verify-react-build.js` (dispatches genuine
+      `Touch`/`TouchEvent` objects at real on-screen coordinates from
+      `boundingBox()`, same technique `test/verify-touch-tap-fix.js`
+      already uses against `wordbound.html`) -- this is the first proof
+      the touch-reorder mechanism resolves REAL screen positions correctly,
+      not just that its state machine transitions correctly.
+      **Verified:** `npx vitest run src/components/__tests__/CombatScreen.test.jsx`:
+      20/20 (17 pre-existing + 3 new -- a plain tap resolving via the tap
+      fallback, a real threshold-crossing drag reordering the rack through
+      the actual engine splice, and touchcancel aborting cleanly without
+      touching the rack). Full `npx vitest run`, 3 consecutive runs: 54/54
+      every time, zero flakes. `npm test` (jsdom dom-check): ALL CHECKS
+      PASSED, confirming the four new `game.js` exports are true no-ops for
+      `wordbound.html`. `npm run build`: clean. `npm run test:react-build`
+      (real browser, built output, NOT dev server): ALL CHECKS PASSED, run
+      3x clean, including the new real `Touch`/`TouchEvent` positional
+      drag-reorder check described above. `npm run test:react-qa`, `npm run
+      test:mobile`, `npm run test:qa`, `npm run build:itch` + `npm run
+      test:itch-build`: ALL CHECKS PASSED, unaffected.
+      **Not done:** the staged-tile ghost/gap drag-and-drop-to-remove
+      system remains the one real piece left before this ticket's stated
+      acceptance bar is met -- reordering an already-staged word still
+      means unstaging and re-tapping/re-dragging-from-the-rack in the new
+      order, on any input method. Ticket stays unchecked. **Next:** the
+      staged-tile ghost/gap system (`startStagingDrag`/`updateStagingDrag`/
+      `endStagingDrag`, which live-mutates DOM styles mid-gesture by
+      design -- its own header comment in `js/wordbound/game.js` documents
+      the render-destroys-the-dragged-element hazard it exists to avoid) is
+      now the LAST remaining piece of remaining scope (c). Per update-10's
+      note, worth weighing a from-scratch React-native pointer-capture
+      implementation against wrapping the existing vanilla state machine,
+      since the direct-DOM-transform approach fights React's render model
+      by design. A final vanilla-DOM-rendering audit against
+      `wordbound.html` is still owed once this lands, before the ticket's
+      stated acceptance bar is met.
 
 - [ ] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,
