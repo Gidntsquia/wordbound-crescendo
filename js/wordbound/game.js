@@ -179,6 +179,20 @@
     state.selectedTileIds = [];
     state.blankAssignments = {};
   };
+  // STRUCTURAL ticket (GOALS.md, remaining scope (c), desktop mouse-drag
+  // rack reordering): mirrors wordbound.html's own dragstart/drop/dragend
+  // listeners, which call these three private functions directly (same
+  // closure) -- React's rack tile buttons have no such access, same
+  // reasoning as the staging wrappers above. Deliberately NOT exposing
+  // state.dragOverIndex or a dragover wrapper: grepped css/wordbound.css and
+  // wordbound.html and confirmed dragOverIndex has no CSS rule or DOM read
+  // anywhere -- vanilla's own dragover handler sets it directly on `state`
+  // without calling render(), so it has never driven any visible feedback in
+  // either tree. React's onDragOver only needs preventDefault() to make the
+  // drop legal; nothing here for it to call.
+  Game.startTileDrag = function (tileId) { startTileDrag(tileId); };
+  Game.endTileDrag = function () { endTileDrag(); };
+  Game.reorderRackOnDrop = function (dropIndex) { reorderRackOnDrop(dropIndex); };
   Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate

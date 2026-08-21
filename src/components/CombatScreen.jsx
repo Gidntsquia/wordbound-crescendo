@@ -38,11 +38,23 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 // player tapping a blank saw no feedback at all; a blank was effectively
 // unplayable on touch (desktop is unaffected -- selectTileForWord no-ops on
 // a blank there, typing the letter is still how a blank gets used).
-// Pointer/touch DRAG reordering within the staging row or rack (game.js's
-// startStagingDrag/startTouchReorder/reorderRackOnDrop) remains genuinely
-// NOT ported -- tap-to-stage/unstage/pick-a-blank-letter is fully
-// functional without it, but reordering an already-staged word means
-// unstaging and re-tapping in the new order.
+// Desktop MOUSE drag reordering within the rack (STRUCTURAL ticket,
+// remaining scope (c), this run): wired via the three new Game.startTileDrag/
+// reorderRackOnDrop/endTileDrag wrappers, calling game.js's own private
+// dragstart/drop/dragend handlers -- same HTML5 draggable/dragstart/dragover/
+// drop/dragend event set wordbound.html's rack tiles use, same semantics
+// (drop reorders the dragged tile to land at the target tile's index).
+// state.dragOverIndex is deliberately not mirrored here: it has no CSS rule
+// or DOM read anywhere in either tree (confirmed by grep), so vanilla itself
+// never uses it for visual feedback -- onDragOver only needs preventDefault()
+// to make the drop legal.
+// Still genuinely NOT ported: TOUCH drag reordering within the rack
+// (startTouchReorder/reorderRackOnDrop's touch entry point) and pointer/touch
+// drag reordering of already-STAGED tiles (game.js's startStagingDrag ghost/
+// gap system) -- tap-to-stage/unstage/pick-a-blank-letter is fully functional
+// without either, but reordering an already-staged word on a touch device, or
+// via a live drag rather than a fresh mouse-drag from the rack, still means
+// unstaging and re-tapping/re-clicking in the new order.
 // game.js itself needed two small additive null-guards to make this safe:
 // syncWordInput()'s and selectTileForWord()'s `$('word-input')` DOM access
 // now checks the element exists first (same "no #word-input in the React
@@ -226,7 +238,7 @@ export default function CombatScreen({ state, Game, act }) {
       </div>
 
       <div className="rack-display">
-        {state.player.rack.map((tile) => {
+        {state.player.rack.map((tile, index) => {
           const isHexed = tile.id === state.hexedTileId;
           const isStaged = state.selectedTileIds.indexOf(tile.id) !== -1;
           const isNewTile = !prevRackIdsRef.current.includes(tile.id);
@@ -263,10 +275,24 @@ export default function CombatScreen({ state, Game, act }) {
             <button
               key={tile.id}
               type="button"
+              draggable
               className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '') + (isNewTile ? ' new-tile' : '')}
               disabled={isHexed}
               title={title}
               onClick={() => stageOrUnstage(tile)}
+              onDragStart={(e) => {
+                act(() => Game.startTileDrag(tile.id));
+                if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                act(() => Game.reorderRackOnDrop(index));
+              }}
+              onDragEnd={() => act(() => Game.endTileDrag())}
             >
               {tile.letter === '?' ? '★' : tile.letter}<sub>{displayVal}</sub>
             </button>

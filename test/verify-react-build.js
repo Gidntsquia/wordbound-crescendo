@@ -202,6 +202,35 @@ async function main() {
       ));
     }
 
+    // STRUCTURAL ticket, remaining-scope (c) (GOALS.md): desktop mouse-drag
+    // rack reordering. Vitest/RTL (CombatScreen.test.jsx) already drives the
+    // fireEvent.dragStart/dragOver/drop/dragEnd sequence directly, but jsdom
+    // has no native DragEvent constructor at all -- this is the first check
+    // of the real browser's own native HTML5 drag-and-drop path (Playwright's
+    // dragTo() drives real mouse down/move/up over draggable elements,
+    // producing genuine browser dragstart/dragover/drop events, not
+    // synthetic ones).
+    const rackIdsBeforeDrag = await page.evaluate(() =>
+      window.Wordbound.Game._state.player.rack.map((t) => t.id));
+    if (rackIdsBeforeDrag.length >= 2) {
+      const rackTiles = page.locator('.rack-display .letter-tile');
+      await rackTiles.first().dragTo(rackTiles.last());
+      const rackIdsAfterDrag = await page.evaluate(() =>
+        window.Wordbound.Game._state.player.rack.map((t) => t.id));
+      // Same insertIndex semantics as game.js's reorderRackOnDrop (see its
+      // own comment): dragging index 0 onto the last index lands the dragged
+      // tile just BEFORE the tile that originally sat there, not appended
+      // after it.
+      const expected = rackIdsBeforeDrag.slice(1, -1)
+        .concat([rackIdsBeforeDrag[0], rackIdsBeforeDrag[rackIdsBeforeDrag.length - 1]]);
+      check('dragging the first rack tile onto the last tile\'s slot reorders the real rack via native browser drag-and-drop',
+        JSON.stringify(rackIdsAfterDrag) === JSON.stringify(expected));
+      check('the drag state the engine tracked mid-gesture is cleared after a real drag',
+        await page.evaluate(() => window.Wordbound.Game._state.draggedTileId === null));
+    } else {
+      console.log('  (fewer than 2 rack tiles at this point -- drag-reorder check skipped)');
+    }
+
     if (word) {
       const startingHp = await page.evaluate(() => window.Wordbound.Game._state.monster.hp);
       await page.fill('input[placeholder="Type or click letters..."]', word);

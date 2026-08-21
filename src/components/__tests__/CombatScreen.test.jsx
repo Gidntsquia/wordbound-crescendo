@@ -284,6 +284,50 @@ describe('CombatScreen', () => {
     expect(staged.textContent).toContain('E');
   });
 
+  // STRUCTURAL ticket, remaining scope (c): desktop mouse-drag rack
+  // reordering. Fires the real HTML5 drag event sequence (dragStart -> drop
+  // -> dragEnd) on the actual rendered rack buttons -- jsdom has no native
+  // DragEvent constructor, but RTL's fireEvent falls back to a generic Event
+  // it can still attach a fake `dataTransfer` to, which is all
+  // CombatScreen.jsx's handlers read.
+  it('dragging a rack tile onto another tile\'s slot reorders the real rack for real (Game.reorderRackOnDrop)', async () => {
+    const state = startFight();
+    render(<Harness />);
+    const rackIds = state.player.rack.map((t) => t.id);
+    // Drag the tile at index 0 onto the slot at the LAST index.
+    const buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
+    expect(buttons.length).toBe(rackIds.length);
+    const dragged = buttons[0];
+    const target = buttons[buttons.length - 1];
+    const dataTransfer = {};
+    fireEvent.dragStart(dragged, { dataTransfer });
+    fireEvent.dragOver(target, { dataTransfer });
+    fireEvent.drop(target, { dataTransfer });
+    fireEvent.dragEnd(dragged, { dataTransfer });
+
+    // game.js's reorderRackOnDrop inserts the dragged tile BEFORE whatever
+    // tile originally sat at dropIndex (here, the last tile) -- so it lands
+    // second-to-last, not appended at the very end. See the function's own
+    // insertIndex comment in js/wordbound/game.js.
+    const expected = rackIds.slice(1, -1).concat([rackIds[0], rackIds[rackIds.length - 1]]);
+    expect(state.player.rack.map((t) => t.id)).toEqual(expected);
+    // The drag state the engine tracked mid-gesture is cleared afterward.
+    expect(state.draggedTileId).toBeNull();
+  });
+
+  it('dropping a dragged tile back on its own slot is a no-op', async () => {
+    const state = startFight();
+    render(<Harness />);
+    const rackIds = state.player.rack.map((t) => t.id);
+    const buttons = screen.getAllByRole('button').filter((b) => b.className.includes('letter-tile'));
+    const dataTransfer = {};
+    fireEvent.dragStart(buttons[0], { dataTransfer });
+    fireEvent.dragOver(buttons[0], { dataTransfer });
+    fireEvent.drop(buttons[0], { dataTransfer });
+    fireEvent.dragEnd(buttons[0], { dataTransfer });
+    expect(state.player.rack.map((t) => t.id)).toEqual(rackIds);
+  });
+
   it('touch mode: Cancel closes the blank picker without staging anything', async () => {
     const state = startFight();
     state.touchMode = true;
