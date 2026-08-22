@@ -4610,7 +4610,11 @@ Rules for the routine:
       content shipped (3 of 9 regulars are now live, replacing generic
       turn-based placeholders).
       **Live deploy refreshed** per the header's own standing rule (game
-      code/assets changed) -- see PROGRESS.md for the curl confirmation.
+      code/assets changed) -- push confirmed via git's own ref-update
+      output, but curl/WebFetch verification of the live URL hit this
+      session's own network egress block (domain-specific, not a general
+      outage -- `api.github.com` worked fine) -- see PROGRESS.md for the
+      full honest writeup, flagged rather than silently assumed.
       **Not done, honest gaps:** real remaining scope (3) -- compose the 6
       mid/late regulars (Gnossienne/Invention/Metronome for 'normal' tier,
       Swarm/Sabbath/Organist for 'strong' tier, THEME.md's own table already

@@ -7232,8 +7232,23 @@ same retirement + a fresh full VERIFY pass.
 
 **Live deploy refresh:** ran per the header's standing rule (game code/
 assets changed this run) -- `npm run build`, published `dist/app/`'s
-contents (+ `.nojekyll`) as the new `gh-pages` branch root, confirmed via
-curl (see below).
+contents (+ `.nojekyll`) as the new `gh-pages` branch root
+(`git push -f origin gh-pages`, confirmed by git's own ref-update output:
+`... -> gh-pages (forced update)`). **Could NOT curl-verify this run,
+honestly flagged rather than assumed** -- both `curl` and the `WebFetch`
+tool got an explicit `EGRESS_BLOCKED`/403 from this session's own network
+proxy specifically for `gidntsquia.github.io` (confirmed it's domain-
+specific, not a general outage: `api.github.com` returned a clean 200 in
+the same session). The DEPLOY ticket's own closing entry
+(2026-08-22T14:02Z) DID successfully curl-verify this identical URL, so
+this reads as a per-session egress-policy difference rather than a change
+in the deploy mechanism itself -- the push succeeded by the same method
+that worked then. Flagging plainly per the header rule's own "if the
+deploy push ever 403s... do not silently drop the rule" instruction, even
+though here it's the verification step rather than the push itself that
+hit the block. A future run with unrestricted egress should curl-verify
+this deploy (live index + one hashed asset URL, expect 200s) to close the
+loop.
 
 **Next:** real remaining scope (3), starting with ONE mid-tier piece
 (Gnossienne No. 1, Satie -- off-kilter, no time signature, spikes land where
