@@ -39,10 +39,14 @@ import '../js/wordbound/pieces/air-g-string.js';
 import '../js/wordbound/pieces/morning-mood.js';
 // gnossienne-1.js / invention-4.js (REGULAR ENEMIES ticket): the first 2 of
 // the mid tier's 3 named regulars -- both now real, reachable 'normal'-tier
-// duel-mode monsters (`gnossienne`/`invention` in monsters.js). The
-// Metronome (Czerny) is the mid tier's still-unstarted third piece.
+// duel-mode monsters (`gnossienne`/`invention` in monsters.js).
 import '../js/wordbound/pieces/gnossienne-1.js';
 import '../js/wordbound/pieces/invention-4.js';
+// czerny-299.js (REGULAR ENEMIES ticket): the mid tier's 3rd and final
+// piece, The Metronome -- composed and unit-tested in isolation this run,
+// deliberately NOT wired into any MONSTER_DEFS entry yet, per this
+// ticket's own established "proof piece before wiring" precedent.
+import '../js/wordbound/pieces/czerny-299.js';
 import '../js/wordbound/monsters.js';
 import '../js/wordbound/bossEntrances.js';
 import '../js/wordbound/shakespeareGuide.js';

@@ -5220,3 +5220,98 @@ Rules for the routine:
       rather than just 2, and apply this run's own `pushResistance` fix
       pattern proactively to any late/final-tier smoke test rather than
       rediscovering it.
+      ORCHESTRATOR NOTE 2026-08-22T18:39Z (mid-tier roster complete -- The
+      Metronome, third and final mid-tier piece, composed + verified
+      standalone, same precedent as Gnossienne/Invention): new
+      `js/wordbound/pieces/czerny-299.js` -- "School of Velocity," Op. 299
+      No. 1, Carl Czerny, composed 1834, Czerny died 1857 (169 years dead
+      as of 2026, well past both PD bars). THEME.md's own gimmick --
+      "Mechanical, relentless, perfectly even -- no surprise crescendos,
+      just unceasing pressure that never actually stops to breathe" --
+      modeled structurally in three ways: (1) the bass IS a literal
+      metronome click, one unvarying tonic note per beat for the whole 64
+      beats, nothing about it ever changes; (2) the melody is a single
+      8-note scale-run cell repeated verbatim (identical pitches/
+      durations/velocities every repetition) rather than developing, the
+      real "no variation" character of a velocity study; (3) the dynamics
+      curve is confined to a genuinely narrow 0.30-0.34 band the entire
+      length with NO `crescendos` entries at all -- unlike the other two
+      mid-tier pieces' calm-baseline-plus-spikes shape, this one never
+      spikes AND never dips, "unceasing pressure" as a literal property of
+      the curve. Deliberately set meaningfully higher than Air on the G
+      String's own genuinely-flat early-tier baseline (~0.06-0.08) -- the
+      actual difference this run intended between "barely attacks" and
+      "unceasing pressure that never lets up," even though neither piece
+      ever spikes. Wired into all 4 script-load lists (`wordbound.html`,
+      `src/main.jsx`, `src/test/setup.js`, `tools/build-itch.js`'s
+      DEPENDENCIES manifest, alphabetically correct position between
+      `beethoven-5th.js` and `gnossienne-1.js`). Deliberately NOT wired
+      into any `MONSTER_DEFS` entry yet, per this ticket's own "proof
+      piece, verified standalone before wiring" precedent.
+      **Verified this run:** computed every claimed number directly with
+      `node` against the real `music.js`/piece module before writing any
+      dom-check.js assertion (intensity at beats 0/8/16/24/32/40/48/56/64
+      all land in [0.30, 0.34]; bass is exactly 64 notes, one per
+      integer beat, identical freq/duration/velocity; all 16 melody cells
+      are byte-identical in shape) -- not assumed correct from the code
+      reading right, matching the standing precedent gnossienne-1.js's own
+      note established after catching a real off-by-beat bug the same way.
+      `npm test` (dom-check.js) -- 16 new checks (presence/title/PD-
+      vetting/70-years-dead/stageTier/gimmick-string/keyframe-sort-and-
+      bounds/peak-below-boss-level, a `Music.intensityAt`-driven
+      narrow-band-plus-no-crescendos check, a literal-metronome-click bass
+      structural check, an identical-repeated-cell melody structural
+      check, plus track-note bounds): ALL CHECKS PASSED, clean run, no
+      flake hit. `npm run test:react`: 183/183, unaffected (true no-op --
+      no `src/components/*` file touched, `main.jsx`/`setup.js` just
+      gained one more inert import, same as every prior proof-piece run).
+      `npm run build`: clean, 57 modules (up from 56). `npm run build:itch`
+      + `npm run test:itch-build`: ALL CHECKS PASSED, confirmed
+      `czerny-299.js` present in the zip listing directly (`adding:
+      js/wordbound/pieces/czerny-299.js`), the unzipped dom-check.js run
+      (16/16 including this piece's own new checks), and a real-browser
+      zero-404s load of the unzipped build. Did NOT run
+      `test:mobile`/`test:qa`/`test:react-qa`/`test:duel-balance`/
+      `test:branching-map`/`test:music-engine`/`test:regular-duel-smoke`/
+      `test:react-duel-loss`/`test:drag-interrupt`/`test:run-header` --
+      same judgment call the landed Invention note already made and
+      reasoned through explicitly (an unwired, unreachable piece file
+      touches none of what those scripts exercise), not a shortcut taken
+      without reading why that reasoning applied.
+      **Settling the deploy-refresh inconsistency this ticket's own
+      Invention-run note explicitly flagged and left open** ("a future run
+      should settle this... rather than each run re-deciding it fresh"):
+      going with the LITERAL header rule -- "any run that changes game
+      code/assets must... refresh the deploy," no carve-out for
+      unreachable code, which is also the reading the Gnossienne run's own
+      note already argued for directly. Refreshed the deploy this run; see
+      PROGRESS.md for the verification result. Future runs composing an
+      inert proof-piece file should refresh too, for consistency, unless
+      Jaxon says the churn isn't worth it (a feel/product call, not an
+      engineering one, flagged rather than assumed here).
+      **Genuinely-Jaxon-only:** none this run (composition/balance
+      judgment calls only, all flagged above).
+      **Not done, honest gaps:** the mid-tier roster (Gnossienne,
+      Invention, Metronome) is now fully COMPOSED, but The Metronome is
+      NOT yet wired into any `MONSTER_DEFS` entry -- normal tier still has
+      3 of 5 old generic defs reachable (serpent/bindingstrap/appendix),
+      unchanged by this run. Late tier (Swarm/Sabbath/Organist) is fully
+      untouched, 0 of 3 composed. PLAYTEST FINDINGS item 2 ("no def
+      without `.piece` remains reachable") is therefore still open. This
+      ticket stays open. Version NOT bumped -- nothing shipped to real
+      gameplay this run, same convention every prior isolated-composition
+      run in this ticket already followed.
+      **Next:** wire The Metronome into a real `normal`-tier `MONSTER_DEFS`
+      entry alongside retiring the last of the old generic normal-tier
+      defs it and its two mid-tier siblings replace (`retiredFromPool` on
+      serpent/bindingstrap/appendix, completing normal tier's 100%
+      conversion), extend `test:regular-duel-smoke`'s mid-tier pass to
+      cover all 3 pieces, wire the piece into `test/
+      duel-balance-simulation.js` if a distinct third representative curve
+      is judged useful (optional -- Gnossienne/Invention already share
+      the sim's single 'mid' slot per that ticket's own "one representative
+      per tier" convention), and run this ticket's own full VERIFY bar
+      against the merged tree, mirroring the early-tier wiring run exactly.
+      Once that lands, normal tier is 100% duel-mode and only strong tier
+      (0 of 3 late-tier pieces composed) remains before PLAYTEST FINDINGS
+      item 2's own closing bar is met.

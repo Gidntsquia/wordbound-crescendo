@@ -53,6 +53,7 @@ const DEPENDENCIES = [
   'js/wordbound/music.js',
   'js/wordbound/pieces/air-g-string.js',
   'js/wordbound/pieces/beethoven-5th.js',
+  'js/wordbound/pieces/czerny-299.js',
   'js/wordbound/pieces/gnossienne-1.js',
   'js/wordbound/pieces/gymnopedie-1.js',
   'js/wordbound/pieces/invention-4.js',

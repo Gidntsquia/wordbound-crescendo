@@ -4706,6 +4706,80 @@ async function main() {
     }
   }
 
+  // REGULAR ENEMIES ticket (real remaining scope (3)): The Metronome, third
+  // and final mid-tier regular -- composed and validated in ISOLATION this
+  // run, same "proof piece, verified standalone before wiring" precedent
+  // every prior regular in this file already established. Deliberately NOT
+  // wired into any MONSTER_DEFS entry yet.
+  {
+    const Music = window.Wordbound.Music;
+    const Pieces = window.Wordbound.Pieces;
+    const czerny = Pieces.czerny299;
+
+    check('REGULAR ENEMIES: window.Wordbound.Pieces.czerny299 is present', !!czerny && typeof czerny === 'object');
+    if (czerny) {
+      check('REGULAR ENEMIES: School of Velocity, Op. 299 No. 1 has the right title', czerny.title === 'School of Velocity, Op. 299 No. 1');
+      // PD vetting, re-checked directly against the piece's own fields
+      // rather than trusted from THEME.md's table.
+      check('REGULAR ENEMIES: School of Velocity PD vetting matches its own vetting fields',
+        czerny.vetting.composed === 1834 && czerny.vetting.composerDied === 1857 && czerny.vetting.publicDomain === true);
+      check('REGULAR ENEMIES: School of Velocity composer has been dead 70+ years as of 2026', (2026 - czerny.vetting.composerDied) >= 70);
+      check("REGULAR ENEMIES: The Metronome is 'mid' stageTier", czerny.stageTier === 'mid');
+      check('REGULAR ENEMIES: The Metronome has a non-empty gimmick string', typeof czerny.gimmick === 'string' && czerny.gimmick.length > 0);
+      check('REGULAR ENEMIES: The Metronome keyframes are sorted ascending by beat',
+        czerny.dynamics.keyframes.every((kf, i) => i === 0 || kf.beat > czerny.dynamics.keyframes[i - 1].beat));
+      check('REGULAR ENEMIES: The Metronome keyframes never exceed lengthBeats',
+        czerny.dynamics.keyframes[czerny.dynamics.keyframes.length - 1].beat <= czerny.lengthBeats);
+      check('REGULAR ENEMIES: The Metronome every keyframe intensity is within 0..1',
+        czerny.dynamics.keyframes.every((kf) => kf.intensity >= 0 && kf.intensity <= 1));
+      // Same mid-tier peak convention gnossienne-1.js's/invention-4.js's own
+      // blocks already establish (< 0.6).
+      const peakIntensity = Math.max(...czerny.dynamics.keyframes.map((kf) => kf.intensity));
+      check('REGULAR ENEMIES: The Metronome never reaches a boss-level peak intensity (< 0.6)', peakIntensity < 0.6);
+
+      // The gimmick itself, verified against the real intensity curve via
+      // Music.intensityAt: stays inside a genuinely narrow band (0.28-0.36)
+      // across the ENTIRE length (sampled every 8 beats, start to finish),
+      // and carries NO crescendos array at all -- "no surprise crescendos,
+      // just unceasing pressure that never actually stops to breathe," a
+      // real structural property of the curve, not just trusted from a
+      // comment. Also meaningfully HIGHER than a genuinely-flat early-tier
+      // piece's own baseline (The G String's own check above: ~0.06-0.08)
+      // -- the actual difference between "barely attacks" and "unceasing
+      // pressure," even though neither piece ever spikes.
+      const sampleBeats = [0, 8, 16, 24, 32, 40, 48, 56, 64];
+      check("REGULAR ENEMIES: The Metronome stays in a narrow, unceasing band the entire length, never dipping to an early-tier-quiet level ('mechanical, relentless, perfectly even')",
+        sampleBeats.every((b) => Music.intensityAt(czerny, b) >= 0.28 && Music.intensityAt(czerny, b) <= 0.36) &&
+        !czerny.dynamics.crescendos);
+
+      // The bass IS a literal metronome click: one note per beat, every
+      // beat, identical pitch/duration/velocity throughout -- direct sonic
+      // proof of the regular's own name, not just a description of one.
+      check('REGULAR ENEMIES: The Metronome bass is a literal unvarying click, one identical note per beat for the whole length',
+        czerny.tracks.bass.length === czerny.lengthBeats &&
+        czerny.tracks.bass.every((n, i) => n.beat === i && n.duration === czerny.tracks.bass[0].duration &&
+          n.freq === czerny.tracks.bass[0].freq && n.velocity === czerny.tracks.bass[0].velocity));
+
+      // The melody is one identical scale-run cell repeated verbatim, never
+      // developing -- "perfectly even," a real structural property (every
+      // repetition has the same relative durations/frequencies/velocities
+      // as the first), not just an early-vs-late spot check.
+      const CELL_NOTES = 8;
+      const cellShape = (startIdx) => czerny.tracks.melody.slice(startIdx, startIdx + CELL_NOTES)
+        .map((n) => [n.freq, n.duration, n.velocity]);
+      const firstCell = cellShape(0);
+      const cellCount = czerny.tracks.melody.length / CELL_NOTES;
+      check('REGULAR ENEMIES: The Metronome melody is one identical cell repeated verbatim across the whole piece',
+        Number.isInteger(cellCount) && cellCount > 1 &&
+        Array.from({ length: cellCount }, (_, c) => c).every((c) => JSON.stringify(cellShape(c * CELL_NOTES)) === JSON.stringify(firstCell)));
+
+      const allNotes = Object.values(czerny.tracks).flat();
+      check('REGULAR ENEMIES: The Metronome has at least one note in its tracks', allNotes.length > 0);
+      check('REGULAR ENEMIES: The Metronome every note starts within [0, lengthBeats) and has positive duration/freq',
+        allNotes.every((n) => n.beat >= 0 && n.beat < czerny.lengthBeats && n.duration > 0 && n.freq > 0));
+    }
+  }
+
   // REGULAR ENEMIES ticket: the monster-info glyph-rendering groundwork
   // (game.js's renderCombat) -- purely additive and currently inert (no
   // real MONSTER_DEFS entry sets `.glyph` yet, deliberately, per the note
