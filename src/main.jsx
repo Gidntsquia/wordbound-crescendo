@@ -37,6 +37,11 @@ import '../js/wordbound/pieces/beethoven-5th.js';
 import '../js/wordbound/pieces/gymnopedie-1.js';
 import '../js/wordbound/pieces/air-g-string.js';
 import '../js/wordbound/pieces/morning-mood.js';
+// gnossienne-1.js (REGULAR ENEMIES ticket, real remaining scope (3)): first
+// of the mid-tier regulars, composed and unit-tested in isolation this run
+// -- not yet referenced by monsters.js, per the same "proof piece before
+// wiring" precedent the early-tier pieces above established.
+import '../js/wordbound/pieces/gnossienne-1.js';
 import '../js/wordbound/monsters.js';
 import '../js/wordbound/bossEntrances.js';
 import '../js/wordbound/shakespeareGuide.js';

@@ -4746,3 +4746,92 @@ Rules for the routine:
       run's own new `test:regular-duel-smoke` script alongside the rest of
       the VERIFY bar -- it's now a real regression gate for the duel-routing
       mechanism itself, not just a one-off check.
+      ORCHESTRATOR NOTE 2026-08-22T16:44Z (real remaining scope (3) started
+      -- The Gnossienne, first mid-tier regular, composed + verified in
+      isolation, same precedent as the 3 early-tier pieces): new
+      `js/wordbound/pieces/gnossienne-1.js` -- "Gnossienne No. 1," Erik
+      Satie, composed 1890, Satie died 1925 (101 years ago as of 2026 --
+      matches THEME.md's own table, and correctly identical to the
+      Gymnopédiste's own 101y figure despite the different composition
+      year, since both share the same death year). PD-vetted directly
+      (past both the pre-1930 and 70-years-dead bars). `stageTier: 'mid'`.
+      THEME.md's own gimmick -- "Deliberately off-kilter, no time signature
+      to read -- the spikes land where you don't expect them" -- modeled
+      STRUCTURALLY, not just in a comment: the melody uses irregular 7/5/9-
+      beat phrase lengths (unlike every early-tier piece's own 4/8-aligned
+      grid) laid over the bass's own unrelated, constant 2-beat habanera
+      ostinato, so the two drift out of sync as the piece runs; three real
+      dynamics spikes (peak ~0.4-0.46, clearly below Mountain King's own
+      1.0 boss-level peak, per a documented judgment call that 'mid'
+      tier's step-up over 'early' comes mainly from
+      `Duel.STAGE_TIER_BASE_PUSH` -- 3x vs 1x -- not from a regular's own
+      peak dwarfing a boss's) are each placed DELIBERATELY mid-phrase
+      (beats 8-11, 24-29, 45-49), never on a phrase or cell boundary, so
+      nothing in the note data telegraphs them. Wired into all 4 script-
+      load lists (`wordbound.html`, `src/main.jsx`, `src/test/setup.js`,
+      `tools/build-itch.js`'s DEPENDENCIES manifest, alphabetically
+      correct position). Deliberately NOT wired into any `MONSTER_DEFS`
+      entry yet, per this ticket's own "proof piece, verified standalone
+      before wiring" precedent.
+      **A real bug caught before it shipped:** the first draft's bass
+      ostinato loop (`for (cellStart = 0; cellStart < LENGTH_BEATS; ...)`)
+      let the LAST habanera cell's own short note start at beat 55.5 on a
+      55-beat piece -- past `lengthBeats`, which would have failed this
+      run's own new "every note starts within [0, lengthBeats)" check.
+      Caught by actually computing the values (`node -e` against the real
+      `music.js`/piece module) before writing the dom-check.js assertions,
+      not assumed correct from the code reading right -- fixed by changing
+      the loop bound to `cellStart + HABANERA_CELL_BEATS <= LENGTH_BEATS`
+      (stops after the last FULLY-fitting cell; leaves a harmless ~1-beat
+      silent tail, matching the real piece's own metrically loose feel
+      rather than forcing an artificial fit).
+      **Verified this run:** `npm test` (dom-check.js) -- 13 new checks
+      (presence/title/PD-vetting/70-years-dead/stageTier/gimmick-string/
+      keyframe-sort-and-bounds/intensity-bounds/sub-boss-level-peak, plus a
+      `Music.intensityAt`-driven check confirming the three spikes land
+      exactly where the piece data says and nowhere else, plus track-note
+      structural checks) -- ALL CHECKS PASSED, run 3x (1 run hit the
+      pre-existing "STOLEN LETTERS boss-kill... TILE_REWARD" ink-timing
+      flake this file's own history already documents at ~17%, entirely
+      inside an unrelated earlier block -- confirmed by reading the crash
+      location directly, not assumed -- 2 clean reruns after). `npm run
+      test:react`: 183/183, unaffected (no `src/` component touched,
+      `main.jsx`/`setup.js` just gained one more inert import). `npm run
+      build`: clean, 55 modules (up from 54). `npm run build:itch` +
+      `npm run test:itch-build`: ALL CHECKS PASSED -- confirmed the new
+      file is actually present in the zip listing (`unzip -l`), not
+      assumed. `npm run test:mobile`/`test:qa`/`test:react-qa`/
+      `test:branching-map`/`test:regular-duel-smoke`/`test:music-engine`/
+      `test:audio`/`test:drag-interrupt`/`test:run-header`/
+      `test:react-build`/`test:react-duel-loss`: ALL CHECKS PASSED,
+      unaffected (nothing here reaches real gameplay yet). `npm run
+      test:duel-balance`: unaffected, same numbers as before (the sim's
+      own 'mid regular' row still uses its synthetic placeholder --
+      wiring a real mid-tier piece into it is future scope, alongside the
+      real `MONSTER_DEFS` wiring, per the early-tier precedent's own
+      staging).
+      **Not done, honest gaps:** real remaining scope (3) is far from
+      done -- 5 of 6 remaining regulars (Invention, Metronome for 'mid';
+      Swarm, Sabbath, Organist for 'late') are still fully unstarted, and
+      this ticket's own wiring step (real `MONSTER_DEFS` entries +
+      `retiredFromPool` on the normal-tier generic defs this replaces +
+      a fresh full VERIFY pass, including a real Playwright duel smoke and
+      the balance sim actually exercising this piece) hasn't happened for
+      Gnossienne either -- it's composed and unit-tested, nothing more.
+      Version NOT bumped -- nothing shipped to real gameplay this run,
+      same as every prior isolated-composition run in this ticket.
+      **Live deploy refreshed** per the header's standing rule (new
+      `js/wordbound/pieces/gnossienne-1.js` ships in the real build even
+      though it's inert/unreachable in actual gameplay -- the rule reads
+      "any run that changes game code/assets," not "any run that changes
+      REACHABLE game code," so treated it as in scope rather than
+      carving out an exception on my own judgment). See PROGRESS.md for
+      the verification result.
+      **Next:** the second mid-tier piece -- The Invention (Invention No.
+      4 in D minor, BWV 775, Bach) -- composed/vetted/unit-tested the same
+      way, or The Metronome (Czerny) if that's a better next pick; either
+      order is fine since neither depends on the other. Once all 3
+      mid-tier pieces exist, the wiring step (real `normal`-tier
+      `MONSTER_DEFS` entries + `retiredFromPool` + a fresh full VERIFY
+      pass, mirroring the early-tier wiring run exactly) becomes the right
+      next chunk, per this ticket's own established staging.

@@ -4593,6 +4593,59 @@ async function main() {
     });
   }
 
+  // REGULAR ENEMIES ticket (real remaining scope (3)): the first of the 6
+  // remaining mid/late regulars -- The Gnossienne, composed and validated
+  // in ISOLATION this run, same "proof piece, verified standalone before
+  // wiring" precedent the early tier's own block above already established.
+  // Deliberately NOT wired into any MONSTER_DEFS entry yet.
+  {
+    const Music = window.Wordbound.Music;
+    const Pieces = window.Wordbound.Pieces;
+    const gnossienne = Pieces.gnossienne1;
+
+    check('REGULAR ENEMIES: window.Wordbound.Pieces.gnossienne1 is present', !!gnossienne && typeof gnossienne === 'object');
+    if (gnossienne) {
+      check("REGULAR ENEMIES: Gnossienne No. 1 has the right title", gnossienne.title === 'Gnossienne No. 1');
+      // PD vetting, re-checked directly against the piece's own fields
+      // rather than trusted from THEME.md's table.
+      check('REGULAR ENEMIES: Gnossienne No. 1 PD vetting matches its own vetting fields',
+        gnossienne.vetting.composed === 1890 && gnossienne.vetting.composerDied === 1925 && gnossienne.vetting.publicDomain === true);
+      check('REGULAR ENEMIES: Gnossienne No. 1 composer has been dead 70+ years as of 2026', (2026 - gnossienne.vetting.composerDied) >= 70);
+      check("REGULAR ENEMIES: The Gnossienne is 'mid' stageTier", gnossienne.stageTier === 'mid');
+      check('REGULAR ENEMIES: The Gnossienne has a non-empty gimmick string', typeof gnossienne.gimmick === 'string' && gnossienne.gimmick.length > 0);
+      check('REGULAR ENEMIES: The Gnossienne keyframes are sorted ascending by beat',
+        gnossienne.dynamics.keyframes.every((kf, i) => i === 0 || kf.beat > gnossienne.dynamics.keyframes[i - 1].beat));
+      check('REGULAR ENEMIES: The Gnossienne keyframes never exceed lengthBeats',
+        gnossienne.dynamics.keyframes[gnossienne.dynamics.keyframes.length - 1].beat <= gnossienne.lengthBeats);
+      check('REGULAR ENEMIES: The Gnossienne every keyframe intensity is within 0..1',
+        gnossienne.dynamics.keyframes.every((kf) => kf.intensity >= 0 && kf.intensity <= 1));
+      // A mid-tier regular should still read as clearly less threatening
+      // than a mid-tier BOSS (Mountain King reaches 1.0) -- the tier
+      // step-up over 'early' comes mainly from Duel.STAGE_TIER_BASE_PUSH
+      // (3x vs 1x), not from this piece's own peak dwarfing a boss's.
+      const peakIntensity = Math.max(...gnossienne.dynamics.keyframes.map((kf) => kf.intensity));
+      check('REGULAR ENEMIES: The Gnossienne never reaches a boss-level peak intensity (< 0.6)', peakIntensity < 0.6);
+
+      // The gimmick itself, verified against the real intensity curve via
+      // Music.intensityAt: mostly calm, with three real, well-separated
+      // spikes landing mid-phrase (not on a 7/5/9 phrase boundary or the
+      // bass's own 2-beat cell boundary) -- "the spikes land where you
+      // don't expect them," not just trusted from a comment.
+      check("REGULAR ENEMIES: The Gnossienne stays mostly calm with three real, separated mid-phrase spikes ('off-kilter, spikes land where you don't expect them')",
+        Music.intensityAt(gnossienne, 0) < 0.15 &&
+        Music.intensityAt(gnossienne, 11) > 0.35 &&
+        Music.intensityAt(gnossienne, 20) < 0.15 &&
+        Music.intensityAt(gnossienne, 29) > 0.35 &&
+        Music.intensityAt(gnossienne, 40) < 0.15 &&
+        Music.intensityAt(gnossienne, 49) > 0.35);
+
+      const allNotes = Object.values(gnossienne.tracks).flat();
+      check('REGULAR ENEMIES: The Gnossienne has at least one note in its tracks', allNotes.length > 0);
+      check('REGULAR ENEMIES: The Gnossienne every note starts within [0, lengthBeats) and has positive duration/freq',
+        allNotes.every((n) => n.beat >= 0 && n.beat < gnossienne.lengthBeats && n.duration > 0 && n.freq > 0));
+    }
+  }
+
   // REGULAR ENEMIES ticket: the monster-info glyph-rendering groundwork
   // (game.js's renderCombat) -- purely additive and currently inert (no
   // real MONSTER_DEFS entry sets `.glyph` yet, deliberately, per the note
