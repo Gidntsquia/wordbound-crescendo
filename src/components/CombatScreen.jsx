@@ -557,19 +557,18 @@ export default function CombatScreen({ state, Game, act }) {
       </div>
 
       {monster.duel && state.duel && (
-        // approachingCrescendoSecondsAway is left null here -- deriving it
-        // needs the sequencer's own 'crescendo-approaching' payload (a beat
-        // position) converted to a live seconds-away countdown, which is a
-        // genuinely separate small piece of plumbing (its own local
-        // countdown state, ticked by the same loop above) not yet built.
-        // The gauge itself, i-frames, and pushes-remaining are all real and
-        // live; only the upcoming-crescendo warning banner is still
-        // silent. Known, documented gap -- not a regression, since nothing
-        // showed this warning before this run either.
+        // approachingCrescendoSecondsAway is now live: game.js's
+        // startDuelFight wires the sequencer's 'crescendo-approaching' event
+        // into state.duelApproachingCrescendo (a fixed peakTime on the
+        // duel clock's own axis), and Game.getApproachingCrescendoSecondsAway
+        // just subtracts the current reading from it -- recomputed every
+        // render, which the duel rAF loop above already forces once per
+        // frame while a duel is active, so this stays a live countdown with
+        // no extra state of its own here.
         <VolumeGauge
           duel={state.duel}
           now={Game.getDuelClockNow()}
-          approachingCrescendoSecondsAway={null}
+          approachingCrescendoSecondsAway={Game.getApproachingCrescendoSecondsAway(Game.getDuelClockNow())}
         />
       )}
 

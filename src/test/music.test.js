@@ -134,6 +134,29 @@ describe('Music.createSequencer -- beat/time conversion', () => {
     // 1.333s at 150bpm covers 1.333 * 150/60 = 3.333 beats -> beat ~7.333.
     expect(seq.currentBeat()).toBeCloseTo(7.333, 1);
   });
+
+  it('exposes beatToTime publicly, agreeing with currentBeat at the current instant', () => {
+    // DUEL-GAUGE COMBAT ticket (crescendo-approaching countdown): beatToTime
+    // was already used internally by scheduleNote, but wasn't callable by a
+    // consumer until this ticket needed to convert a future crescendo's
+    // peakBeat into a real seconds-away countdown. Confirms it's a true
+    // inverse of currentBeat()/timeToBeat at a point mid-piece (not just at
+    // beat 0), including across a tempo breakpoint.
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    const piece = simplePiece({ tempo: [{ beat: 0, bpm: 90 }, { beat: 4, bpm: 150 }], lengthBeats: 10 });
+    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false });
+    seq.play();
+    ctx.currentTime = 3;
+    const beatNow = seq.currentBeat();
+    expect(seq.beatToTime(beatNow)).toBeCloseTo(3);
+    // A future beat past the breakpoint round-trips too: convert forward
+    // then back and land on the same beat.
+    const futureTime = seq.beatToTime(8);
+    expect(futureTime).toBeGreaterThan(3);
+    ctx.currentTime = futureTime;
+    expect(seq.currentBeat()).toBeCloseTo(8);
+  });
 });
 
 describe('Music.createSequencer -- tempo scale', () => {

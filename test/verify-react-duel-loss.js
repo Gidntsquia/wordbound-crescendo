@@ -133,10 +133,81 @@ async function main() {
     await page.click('.node-pill.node-boss.node-current');
     check('boss fight starts in duel mode (real .piece auto-detection)', await page.evaluate(() => window.Wordbound.Game._state.monster.duel === true));
 
-    const initialBlocks = await page.evaluate(() => window.Wordbound.Game._state.duel.healthBlocks);
+    let initialBlocks = await page.evaluate(() => window.Wordbound.Game._state.duel.healthBlocks);
     check(`fight starts with the full Verse count (${initialBlocks})`, initialBlocks === await page.evaluate(() => window.Wordbound.Game._state.duel.maxHealthBlocks));
     check('The Volume gauge is visible and live', await page.isVisible('.volume-gauge'));
     check('no Verse is lost yet', (await page.locator('.verse-pip-lost').count()) === 0);
+    check('no crescendo warning yet (early in the piece)', !(await page.isVisible('.volume-crescendo-warning')));
+
+    // ---- Phase 0: the crescendo-approaching countdown, real sequencer + real wall-clock ----
+    // Mountain King's own crescendo peaks at beat 71 (js/wordbound/pieces/
+    // mountain-king.js); waiting through the piece's early bars naturally
+    // would take ~30s of real time to reach it, so this fast-forwards the
+    // sequencer's own anchor (seq.anchorBeat/anchorTime are public
+    // properties on the sequencer object music.js returns, not private
+    // closure state) to just before the approach beat (67 = peakBeat 71
+    // minus the default crescendoLeadBeats=4) -- then lets the REAL
+    // sequencer's own still-running setInterval tick loop discover and emit
+    // 'crescendo-approaching' on its own schedule. Nothing here calls
+    // _tick()/emits the event directly, same "force determinism via setup,
+    // let the real engine resolve the rest" convention phase 1 below uses
+    // for the gauge.
+    await page.evaluate(() => {
+      const state = window.Wordbound.Game._state;
+      const seq = state.duelSequencer;
+      seq.anchorBeat = 63;
+      seq.anchorTime = window.Wordbound.Game.getDuelClockNow();
+      // Also skip lastScheduledBeat forward so the next _tick() doesn't
+      // treat beats 0-63 as newly "in range" and burst-schedule/replay
+      // every already-passed note in one go -- this phase is testing the
+      // crescendo-approaching event, not note playback.
+      seq.lastScheduledBeat = 63;
+    });
+    await page.waitForFunction(
+      () => window.Wordbound.Game.getApproachingCrescendoSecondsAway(window.Wordbound.Game.getDuelClockNow()) != null,
+      { timeout: 5000 },
+    );
+    check('the crescendo-approaching countdown goes live from a real sequencer event', true);
+    check('VolumeGauge shows the live "Crescendo in..." warning banner', await page.isVisible('.volume-crescendo-warning'));
+
+    const secondsAway1 = await page.evaluate(() =>
+      window.Wordbound.Game.getApproachingCrescendoSecondsAway(window.Wordbound.Game.getDuelClockNow()));
+    await page.waitForTimeout(500);
+    const secondsAway2 = await page.evaluate(() =>
+      window.Wordbound.Game.getApproachingCrescendoSecondsAway(window.Wordbound.Game.getDuelClockNow()));
+    check(
+      `the countdown decreases over real wall-clock time (${secondsAway1.toFixed(2)}s -> ${secondsAway2.toFixed(2)}s)`,
+      secondsAway2 < secondsAway1,
+    );
+
+    // Let the real tick loop carry playback across peakBeat=71 for real (a
+    // couple more real seconds at this tempo) -- confirms the warning
+    // clears itself once the real crescendo-peak event actually fires, not
+    // just via the getter's own defensive "already past, treat as null"
+    // guard for a dropped frame.
+    await page.waitForFunction(() => !document.querySelector('.volume-crescendo-warning'), { timeout: 8000 });
+    check('the warning banner clears once the real crescendo-peak event fires', !(await page.isVisible('.volume-crescendo-warning')));
+
+    // Mountain King's real intensity curve is high in the beat-63..71 range
+    // this phase fast-forwarded through (0.85-1.0, see the piece's own
+    // dynamics.keyframes), so the real tick loop, still running the whole
+    // time, may well have pushed the gauge into a real Verse loss (with a
+    // real i-frame grace window) as a side effect of proving the countdown
+    // -- a genuine, correctly-resolved engine outcome, not a bug, but one
+    // that would silently corrupt phase 1/2's own "first loss" assumptions
+    // below if left as-is. Reset to a clean baseline (healthBlocks/gauge/
+    // iframeUntil are all public Duel instance properties, same "force
+    // determinism via setup" convention as everywhere else in this file) so
+    // phases 0 and 1/2 stay fully decoupled, then re-capture initialBlocks
+    // fresh for phase 1 to compare against.
+    await page.evaluate(() => {
+      const duel = window.Wordbound.Game._state.duel;
+      duel.healthBlocks = duel.maxHealthBlocks;
+      duel.gauge = window.Wordbound.Duel.GAUGE_CENTER;
+      duel.iframeUntil = -Infinity;
+    });
+    initialBlocks = await page.evaluate(() => window.Wordbound.Game._state.duel.healthBlocks);
+    check(`Verse count reset to full after the countdown check (${initialBlocks})`, initialBlocks === await page.evaluate(() => window.Wordbound.Game._state.duel.maxHealthBlocks));
 
     // ---- Phase 1: a real, NON-FATAL block loss via the real tick loop ----
     // Setup-only mutation (same convention killBossViaRealWord uses for

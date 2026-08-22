@@ -772,6 +772,7 @@
     state.duel = null;
     state.duelSequencer = null;
     state.duelPiece = null;
+    state.duelApproachingCrescendo = null;
     if (state.monster.piece) {
       Game.startDuelFight(state.monster.piece);
     } else {
@@ -946,13 +947,38 @@
       state.combatActive = false;
       endRun(false);
     });
-    sequencer.on('crescendo-peak', function () {
+    sequencer.on('crescendo-peak', function (c) {
       duel.registerCrescendoPeak(ctx.currentTime);
+      // The peak just landed -- if it's the one the warning banner was
+      // counting down to, clear it rather than let it sit on a stale
+      // (now-negative) countdown until the next 'crescendo-approaching'
+      // overwrites it. Guarded by id so an unrelated, still-pending
+      // crescendo (a piece with several close together) isn't clobbered.
+      if (state.duelApproachingCrescendo && state.duelApproachingCrescendo.id === c.id) {
+        state.duelApproachingCrescendo = null;
+      }
+    });
+    // Telegraph the crescendo before it hits (the ticket's own TELEGRAPH
+    // bullet: "the player must SEE the music coming"). beatToTime() converts
+    // the crescendo's peakBeat into a real ctx.currentTime-axis timestamp
+    // ONCE, at the moment the sequencer decides to warn -- Game.
+    // getApproachingCrescendoSecondsAway (below) just subtracts the live
+    // clock reading from that fixed point every frame, so the countdown
+    // stays accurate even under a tempo-scale change made after this fires
+    // (a later setTempoScale rebases the sequencer's own anchor, but this
+    // stored peakTime was already computed against the CURRENT tempo at
+    // warning time -- acceptable since Largo isn't wired to fire mid-duel
+    // yet, and re-deriving on every read would need re-calling beatToTime
+    // with the crescendo's beat, which this event payload already gives us
+    // cheaply here instead).
+    sequencer.on('crescendo-approaching', function (c) {
+      state.duelApproachingCrescendo = { id: c.id, peakTime: sequencer.beatToTime(c.peakBeat) };
     });
 
     state.duel = duel;
     state.duelSequencer = sequencer;
     state.duelPiece = piece;
+    state.duelApproachingCrescendo = null;
     return duel;
   };
 
@@ -962,6 +988,23 @@
   // Falls back to 0 outside a duel fight (never actually read there).
   Game.getDuelClockNow = function () {
     return audioContext ? audioContext.currentTime : 0;
+  };
+
+  // The live countdown VolumeGauge's crescendo-warning banner reads, per
+  // the DUEL-GAUGE COMBAT ticket's own TELEGRAPH bullet. `now` should be
+  // the same Game.getDuelClockNow() reading the caller's tick loop already
+  // has (kept as a parameter, not read internally, so this stays pure and
+  // matches Game.tickDuel's own signature convention). Returns null when no
+  // crescendo is pending -- either none has been warned about yet, or its
+  // peak already landed (crescendo-peak's own handler above should have
+  // cleared it by then, but the `<= 0` guard here is a defensive backstop
+  // against a stale value on a dropped frame, same "never show a negative
+  // countdown" reasoning VolumeGauge's own showCrescendoWarning check applies).
+  Game.getApproachingCrescendoSecondsAway = function (now) {
+    var c = state.duelApproachingCrescendo;
+    if (!c) return null;
+    var secondsAway = c.peakTime - now;
+    return secondsAway > 0 ? secondsAway : null;
   };
 
   // Called every animation frame by CombatScreen.jsx's own requestAnimation-
@@ -1334,6 +1377,7 @@
       state.duel = null;
       state.duelSequencer = null;
       state.duelPiece = null;
+      state.duelApproachingCrescendo = null;
     }
     var goldDrop = [0, 0];
     if (state.monster.isBoss) {

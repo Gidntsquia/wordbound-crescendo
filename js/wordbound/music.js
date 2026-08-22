@@ -61,6 +61,12 @@
 //   .getTempoScale() -> number
 //   .currentBeat() -> number, clamped to [0, piece.lengthBeats]
 //   .getIntensity() -> number 0..1, intensityAt(piece, currentBeat())
+//   .beatToTime(beat) -> ctx.currentTime-axis seconds this beat will play at,
+//       given the CURRENT anchor/tempoScale (i.e. assuming no further
+//       setTempoScale call before then) -- lets a caller turn a future beat
+//       (e.g. a 'crescendo-approaching' payload's peakBeat) into a live
+//       seconds-away countdown without duplicating the anchor/tempo math.
+//       Already used internally by scheduleNote; exposed read-only.
 //   .isPlaying -> boolean (read directly, not a method)
 //   .on(event, cb) / .off(event, cb) -- events: 'crescendo-approaching'
 //       (fired crescendoLeadBeats before a crescendo's peakBeat, clamped to
@@ -209,6 +215,8 @@
     };
 
     seq.getTempoScale = function () { return seq.tempoScale; };
+
+    seq.beatToTime = beatToTime;
 
     seq.setTempoScale = function (scale) {
       if (seq.isPlaying) seq.anchorBeat = seq.currentBeat();

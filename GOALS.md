@@ -1903,6 +1903,92 @@ Rules for the routine:
       ends are both proven live to balance against. COMBAT JUICE's
       damage-landed hook remains available as a separate, lower-priority
       pickup.
+      ORCHESTRATOR NOTE 2026-08-22 (update 7): picked up update-6's smaller,
+      self-contained "Next" pieces -- the crescendo-approaching countdown,
+      the one VolumeGauge prop that had been hardcoded `null` since update-2
+      first built the component. Wired end to end, not just the plumbing:
+      - `js/wordbound/music.js`: exposed the sequencer's already-existing
+        internal `beatToTime(beat)` as a public `seq.beatToTime` (it was
+        already used internally by `scheduleNote`, just never returned to a
+        caller) -- lets a caller convert a future beat (a crescendo's
+        `peakBeat`) into a real ctx.currentTime-axis timestamp without
+        duplicating the anchor/tempo-breakpoint math.
+      - `js/wordbound/game.js`: `Game.startDuelFight` now also subscribes to
+        the sequencer's `'crescendo-approaching'` event (previously only
+        `'crescendo-peak'` was wired, into the parry window) and stores the
+        computed `peakTime` on `state.duelApproachingCrescendo` (reset
+        alongside the other three duel-scoped fields in both `startCombat`
+        and `onMonsterDefeated`, same "defensive reset so a stray leftover
+        can never bleed into the next fight" pattern those already used).
+        The `'crescendo-peak'` handler now also clears it (id-guarded, so
+        an unrelated still-pending crescendo on a multi-crescendo piece
+        isn't clobbered) rather than leaving a stale entry for the next
+        `'crescendo-approaching'` to overwrite. New `Game.
+        getApproachingCrescendoSecondsAway(now)` is a pure function of that
+        stored peakTime and the caller's own clock reading (mirrors `Game.
+        tickDuel`'s own `(now, dt)` parameter convention rather than reading
+        the clock internally) -- returns `null` once passed rather than a
+        negative countdown, a defensive backstop for a dropped frame between
+        the peak landing and its own clear-on-peak handler running.
+      - `src/components/CombatScreen.jsx`: the `VolumeGauge` mount's
+        `approachingCrescendoSecondsAway` prop now reads `Game.
+        getApproachingCrescendoSecondsAway(Game.getDuelClockNow())` instead
+        of the hardcoded `null` -- recomputed on every render, which the
+        duel rAF loop already forces once per frame while a fight is
+        active, so no new local state was needed here.
+      **Verified:** 1 new Vitest unit test (`src/test/music.test.js`)
+      confirms `beatToTime` is a true inverse of `currentBeat()`/`timeToBeat`
+      at a point mid-piece, including across a tempo breakpoint (not just at
+      beat 0). 2 new Vitest tests (`src/test/duelIntegration.test.js`, real
+      `Game.startDuelFight` + a real sequencer, `FakeAudioContext`-driven
+      like every other test in that file) drive the crescendo-approaching ->
+      countdown -> crescendo-peak-clears-it lifecycle end to end against the
+      real engine, plus confirm the getter is `null` outside/before any duel
+      fight. `npx vitest run`, 3 consecutive runs: **127/127 every time,
+      zero flakes** (up from 124 -- 3 new). `npm test` (jsdom dom-check):
+      ALL CHECKS PASSED, unaffected (no `wordbound.html`-reachable behavior
+      changed). `npm run build`: clean, 44 modules, unchanged (no new
+      import). New real-browser phase added to `test/verify-react-duel-loss.js`
+      (against the real, already-reachable floor-1 Mountain King duel, real
+      `vite build` output, never the dev server) -- rather than waiting the
+      ~30 real seconds Mountain King's own piece takes to naturally reach its
+      approach beat, fast-forwards the sequencer's own PUBLIC `anchorBeat`/
+      `anchorTime`/`lastScheduledBeat` properties to just before it and lets
+      the sequencer's real, still-running `setInterval` tick loop discover
+      and emit `'crescendo-approaching'` on its own schedule (nothing calls
+      `_tick()`/emits the event directly) -- confirmed live: the warning
+      banner appears, a real wall-clock 500ms wait shows the countdown
+      genuinely decreasing (1.27s -> 0.76s, observed twice), and it
+      self-clears once the real `'crescendo-peak'` event fires as playback
+      crosses the peak for real. Caught and fixed one real hazard before
+      landing, not by any test failing but by reading the piece's own
+      dynamics first: Mountain King's intensity curve is 0.85-1.0 in the
+      beat-63-71 range this phase fast-forwards through, so the real tick
+      loop (running the whole time) can genuinely push a Verse loss as a
+      side effect of proving the countdown -- correct engine behavior, but
+      it would have silently corrupted phase 1/2's own "first loss"
+      assumptions below it in the same script. Fixed by resetting
+      `healthBlocks`/`gauge`/`iframeUntil` to a clean baseline immediately
+      after phase 0 (before phase 1 starts) and re-capturing `initialBlocks`
+      fresh from that reset point, so the phases stay fully decoupled rather
+      than leaving it to chance whether a run's real timing does or doesn't
+      trigger an incidental loss. `npm run test:react-duel-loss`: **ALL
+      CHECKS PASSED, 2 consecutive clean runs, zero flakes**, including all
+      pre-existing win/loss assertions unaffected. `npm run test:react-build`,
+      `npm run test:react-qa`, `npm run test:mobile`, `npm run test:qa`,
+      `npm run test:music-engine`, `npm run build:itch` + `npm run
+      test:itch-build`: ALL CHECKS PASSED, unaffected.
+      **Not done:** the Largo tempo-scale control surface, Second Wind's
+      retarget at `healthBlocks`, the virtual-clock balance sim, and
+      Valkyrie Marshal's/the final Beethoven's-5th boss's own real sequenced
+      pieces are all still open, unchanged from update-6. Ticket stays
+      unchecked. **Next:** the virtual-clock balance sim remains probably
+      the most valuable next pickup (a duel's win AND loss ends, AND now its
+      telegraph, are all proven live -- there's a complete mechanic to
+      balance against); the Largo surface and Second Wind's retarget are
+      smaller, independent UI/hook pieces. COMBAT JUICE's damage-landed hook
+      remains available as a separate, lower-priority pickup whenever this
+      queue is otherwise empty.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

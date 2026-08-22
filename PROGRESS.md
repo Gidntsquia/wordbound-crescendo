@@ -4094,3 +4094,84 @@ numbers against; the crescendo-approaching countdown and Largo surface are
 smaller, self-contained UI pieces. COMBAT JUICE's damage-landed hook
 remains available as a separate, lower-priority pickup whenever this queue
 is otherwise empty.
+
+## 2026-08-22T03:45Z -- DUEL-GAUGE COMBAT: crescendo-approaching countdown, live end to end
+
+GOALS.md's queue order lists COMBAT JUICE (line 901) ahead of DUEL-GAUGE COMBAT
+(line 1182), but COMBAT JUICE's own ticket text explicitly deprioritizes itself
+("low urgency relative to MUSIC ENGINE / DUEL-GAUGE COMBAT... pick up
+opportunistically or whenever the queue is otherwise empty"), and DUEL-GAUGE
+COMBAT's own update-6 note still had four independent, unblocked pieces open.
+Read both tickets' full history before picking; went with DUEL-GAUGE COMBAT's
+smallest self-contained "Next" item -- the crescendo-approaching countdown,
+`VolumeGauge`'s `approachingCrescendoSecondsAway` prop, hardcoded `null` in
+`CombatScreen.jsx` since update-2 first built the component (GOALS.md's own
+comment there said as much).
+
+**Built** (full detail in GOALS.md's DUEL-GAUGE COMBAT update-7 note, not
+duplicated here):
+- `js/wordbound/music.js`: exposed the sequencer's already-existing internal
+  `beatToTime(beat)` helper as public `seq.beatToTime` -- converts a future
+  beat (a crescendo's `peakBeat`) into a real ctx.currentTime-axis timestamp.
+- `js/wordbound/game.js`: `Game.startDuelFight` now also subscribes to
+  `'crescendo-approaching'` (previously only `'crescendo-peak'`, for the
+  parry window) and stores the computed peak time on
+  `state.duelApproachingCrescendo`; the peak handler clears it (id-guarded)
+  once it actually lands. New `Game.getApproachingCrescendoSecondsAway(now)`
+  is a pure function over that stored value -- `null` once passed, never a
+  negative countdown. The field is reset alongside the other three
+  duel-scoped fields in both `startCombat` and `onMonsterDefeated`.
+- `src/components/CombatScreen.jsx`: `VolumeGauge`'s prop now reads the real
+  getter every render instead of the hardcoded `null`.
+
+**A real hazard found and fixed before it could cause a flake, not by a
+failing test but by reading the piece's own dynamics before writing the
+real-browser check:** Mountain King's intensity curve is 0.85-1.0 in the
+beat-63..71 range the new `test/verify-react-duel-loss.js` phase fast-forwards
+the sequencer through (to avoid the ~30 real seconds the piece takes to reach
+its approach beat naturally) -- meaning the real, still-running tick loop can
+genuinely push a Verse loss as a side effect of proving the countdown. Correct
+engine behavior, but it would have silently corrupted the SAME script's
+existing phase 1/2 "first loss" assumptions if left alone. Fixed by resetting
+`healthBlocks`/`gauge`/`iframeUntil` to a clean baseline right after the new
+phase, before phase 1 runs, and re-capturing `initialBlocks` fresh from that
+point -- the phases stay fully decoupled rather than depending on real timing
+happening not to trigger an incidental loss.
+
+**Verified:**
+- 1 new Vitest unit test (`src/test/music.test.js`): `beatToTime` is a true
+  inverse of `currentBeat()`/`timeToBeat` mid-piece, across a tempo
+  breakpoint, not just at beat 0.
+- 2 new Vitest tests (`src/test/duelIntegration.test.js`, real
+  `Game.startDuelFight` + a real sequencer via the existing
+  `FakeAudioContext` convention): the full
+  approaching-\>countdown-\>peak-clears-it lifecycle against the real engine,
+  and confirms the getter is `null` outside/before any duel fight.
+- `npx vitest run`, 3 consecutive runs: **127/127 every time, zero flakes**
+  (up from 124).
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED, unaffected (no
+  `wordbound.html`-reachable behavior changed).
+- `npm run build`: clean, 44 modules, unchanged (no new import anywhere).
+- `npm run test:react-duel-loss` (real browser, built output, new phase
+  added): **ALL CHECKS PASSED, 2 consecutive clean runs, zero flakes** --
+  confirmed live: the warning banner appears, a real wall-clock 500ms wait
+  shows the countdown genuinely decreasing (1.27s -\> 0.76s / 1.27s -\> 0.77s
+  across the two runs), and it self-clears once the real crescendo-peak
+  event fires as playback crosses the peak for real. All pre-existing
+  win/loss assertions in that same script stayed green.
+- `npm run test:react-build`, `npm run test:react-qa`, `npm run test:mobile`,
+  `npm run test:qa`, `npm run test:music-engine`, `npm run build:itch` +
+  `npm run test:itch-build`: ALL CHECKS PASSED, unaffected.
+
+**Not done:** the Largo tempo-scale control surface, Second Wind's retarget
+at `healthBlocks`, the virtual-clock balance sim, and Valkyrie Marshal's/the
+final Beethoven's-5th boss's own real sequenced pieces are all still open,
+unchanged from update-6. DUEL-GAUGE COMBAT stays unchecked -- this was one
+more independent sub-step, not full ticket completion, so no version bump
+per this repo's own convention (bump on completed features). **Next:** the
+virtual-clock balance sim is probably the most valuable next pickup now that
+a duel's win, loss, AND telegraph are all proven live -- there's a complete,
+reachable mechanic to balance tuning numbers against. The Largo surface and
+Second Wind's retarget are smaller, independent pieces after that. COMBAT
+JUICE's damage-landed hook remains available as a separate, lower-priority
+pickup whenever this queue is otherwise empty.

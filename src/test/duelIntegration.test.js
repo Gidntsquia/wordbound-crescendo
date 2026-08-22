@@ -227,6 +227,43 @@ describe('Game.startDuelFight', () => {
     expect(state.duel.pendingPeakAt).not.toBeNull();
   });
 
+  it('wires crescendo-approaching into a live Game.getApproachingCrescendoSecondsAway countdown', () => {
+    // COMBAT JUICE / DUEL-GAUGE COMBAT ticket's own "Next" note (the
+    // crescendo-approaching countdown, previously hardcoded null in
+    // CombatScreen.jsx): the test piece's crescendo peaks at beat 10,
+    // 60bpm (1 beat/sec) -> peakTime is real-clock second 10. Default
+    // crescendoLeadBeats=4 means the approaching event fires once
+    // scheduling reaches beat 6 (startBeat=5 stays the floor, so
+    // max(5, 10-4)=6).
+    const state = freshCombat('duel-start-5');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+
+    Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+    expect(Game.getApproachingCrescendoSecondsAway(ctx.currentTime)).toBeNull();
+
+    ctx.currentTime = 6.1; // just past the approach beat
+    state.duelSequencer._tick();
+    expect(Game.getApproachingCrescendoSecondsAway(ctx.currentTime)).toBeCloseTo(3.9, 1); // 10 - 6.1
+
+    ctx.currentTime = 8;
+    expect(Game.getApproachingCrescendoSecondsAway(ctx.currentTime)).toBeCloseTo(2, 1); // stays live without re-ticking
+
+    // Past the peak, the stored value goes stale until the peak event
+    // clears it -- the getter's own defensive `<= 0` guard must still
+    // return null even before that tick runs.
+    expect(Game.getApproachingCrescendoSecondsAway(11)).toBeNull();
+
+    ctx.currentTime = 10.1; // crosses peakBeat -> crescendo-peak fires and clears it
+    state.duelSequencer._tick();
+    expect(Game.getApproachingCrescendoSecondsAway(ctx.currentTime)).toBeNull();
+  });
+
+  it('Game.getApproachingCrescendoSecondsAway is null outside/before any duel fight', () => {
+    freshCombat('duel-start-6');
+    expect(Game.getApproachingCrescendoSecondsAway(0)).toBeNull();
+  });
+
   it('ends the run on player-defeated and stops the sequencer, without touching ink', () => {
     const state = freshCombat('duel-start-4');
     const ctx = new FakeAudioContext();
