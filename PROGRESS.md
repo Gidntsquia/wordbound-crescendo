@@ -8818,3 +8818,145 @@ runs have already repeatedly documented -- a `403` on the CONNECT tunnel
 to `gidntsquia.github.io` specifically. The push itself is the actual
 deploy action and it succeeded; this is a known, recurring sandbox
 limitation, not a new one introduced by this run.
+
+---
+
+## 2026-08-22T20:48Z -- PLAYTEST FINDINGS 3, item 6 (remove combos)
+
+Continued PLAYTEST FINDINGS 3 (7 sub-items; items 3-5 done in the prior run,
+this repo's own established next-item note from that run). Picked item 6
+("REMOVE combos totally for now") over the paired items 1+2 (consumables +
+deck, which need a reward-replacement design call worth their own dedicated
+run) since it's standalone with no economy/balance surface -- same reasoning
+the prior run itself gave for deferring it.
+
+**What combos were:** `js/wordbound/combat.js`'s `Combat.playWord` tracked a
+per-fight `comboState.combo` streak of consecutive DISTINCT words -- each
+non-repeat word incremented it, a repeat reset it to 0 -- and used it for a
+`comboMultiplier` damage bonus (+12%/stack, capped at 5 stacks -> +60%),
+shown as a "Combo xN * +NN%" chip on the combat screen (both the live React
+`CombatScreen.jsx` and the vanilla `game.js` `renderCombat` reference
+implementation) with a one-shot "bump" pop animation on each stack gain, plus
+a combo-driven pitch rise on the hit sound.
+
+**Important distinction kept intact:** the SAME `comboState` object also
+carries `usedWords`, which powers a SEPARATE, still-live mechanic -- the
+repeat-word penalty (playing a word already used this fight deals x0.4
+damage, logged "The Archive has heard that one before"). Jaxon's ticket text
+names only combos for removal, not this. Verified this distinction directly
+by reading `combat.js`'s scoring math line by line before touching anything,
+not assumed from the field names.
+
+**Implementation -- cheap-disable, not hard-delete, per the ticket's own
+stated preference ("prefer clean feature-flag/disable... where cheap"):**
+`combat.js`'s `playWord` no longer increments `comboState.combo` at all (the
+mutation block at the end of `playWord` now only maintains `usedWords`) --
+`comboAtPlay`/`comboMultiplier` are still computed FROM `comboState.combo`
+exactly as before, but since nothing sets that field above 0 in real play any
+more, they permanently resolve to 0/1. The read-side formula was left in
+place rather than deleted so existing unit tests that set `combo` explicitly
+(testing the math in isolation) still exercise real code, not a stub.
+
+This is a REAL, verified removal though, not just data-starvation dressed
+up as one -- the UI/audio surface was actually deleted, confirmed nothing
+leaks:
+- React `CombatScreen.jsx`: removed the combo-bump ref/effect hooks and the
+  `.combo-chip` JSX block entirely (was gated on `combo > 0`, so it would
+  never have rendered anyway once `combo` is permanently 0 -- deleted it
+  regardless, per the ticket's own "must actually be gone, not
+  hidden-but-leaky" instruction, applied here to code cleanliness too, not
+  just visible UI).
+- vanilla `game.js` `renderCombat`: removed its equivalent combo-chip HTML
+  block, the `state.comboBumped` field (init, per-fight reset, and its
+  consumption in renderCombat), and the "Combo xN! +NN% damage." log line
+  (was gated on `result.comboAtPlay > 0`, same reasoning).
+- `playCombatSound`'s combo-driven pitch ramp: removed the `comboLevel`
+  param and the `pitchMult` calc entirely, updated its 3 call sites in
+  `game.js` to drop the second argument. This one WOULD have silently
+  stayed permanently inert (pitchMult always computing to 1x) if left
+  alone -- removed it anyway rather than leave dead math sitting in an
+  audio-synthesis function.
+- `css/wordbound.css`: deleted the `.combo-chip` rule and the `comboBump`
+  keyframe. Kept the `comboPop` keyframe -- read the CSS directly before
+  assuming and confirmed `.volume-crescendo-warning` (the crescendo-warning
+  banner) also uses it, so deleting it would have broken an unrelated,
+  still-live animation.
+
+**Verified, real not assumed:**
+- `npm test` (dom-check.js): ALL CHECKS PASSED. Amended the synthetic
+  "combo streak" test block (previously: 3 consecutive distinct words each
+  score a bigger multiplier, +12%/+24%; now: all three assert comboAtPlay 0
+  / comboMultiplier 1, damage matches raw score, no growth) and the live-DOM
+  "8/8 magnificent-gold" check (previously asserted a `.combo-chip.
+  combo-chip-bump` element existed after a real word play through the real
+  submit path; now asserts NO `.combo-chip` exists at all) -- both
+  previously-passing assertions deliberately rewritten to assert the
+  opposite, not silently dropped, per the ticket's own verification
+  instruction. The repeat-penalty checks in the same synthetic block (x0.4
+  on a repeat, isRepeat flag) are UNCHANGED and still pass, confirming that
+  separate mechanic survived untouched.
+- `npx vitest run`: 186/186 clean. Amended `CombatScreen.test.jsx`'s
+  combo-chip-bump test (replaced with a check that `.combo-chip` never
+  renders, even right after playing a real distinct word) and
+  `duelCombat.test.js`'s "honors comboState" test (now asserts
+  `comboState.combo` stays 0 after `DuelCombat.submitWord`, `usedWords`
+  still gets the word added). Hit the pre-existing, already-characterized
+  `duelIntegration.test.js` cross-test flake once, on a file this run never
+  touched (same flake the last two PROGRESS.md entries already logged) --
+  a clean immediate re-run of the full suite confirmed it, not a
+  regression.
+- `npm run build`: clean, 58 modules.
+- `npm run test:mobile`: ALL CHECKS PASSED (real browser, 375/414px) -- the
+  CSS change here is pure deletion, no new layout to regress.
+- `npm run test:react-build` (real browser, built output, full drag/touch/
+  FLIP playthrough): ALL CHECKS PASSED.
+- `npm run test:react-qa` (real browser, full 4-floor victory, all 4
+  bosses, duel mode): ALL CHECKS PASSED.
+- `npm run test:react-duel-loss` (real browser, built output, full duel
+  mechanics -- Largo/Ritardando/Sordino/Fermata/Rubato, crescendo warning,
+  i-frames, Second Wind, game over): ALL CHECKS PASSED, unaffected.
+- `npm run test:regular-duel-smoke` (real browser, every regular tier,
+  early + mid): ALL CHECKS PASSED -- real word plays, real kills, real
+  damage numbers, none of it broke from removing the combo multiplier.
+- `npm run test:qa` (vanilla wordbound.html path, real browser, full
+  4-floor victory): ALL CHECKS PASSED -- confirms the non-React reference
+  implementation's renderCombat change didn't break anything either.
+- `npm run test:branching-map`: ALL CHECKS PASSED (180 floors/seeds),
+  unaffected as expected -- no floor-gen code touched.
+- Manually ran `node test/duel-balance-simulation.js 10` (NOT a mandatory
+  gate -- extra sanity check since this touches `combat.js`'s core scoring
+  path the duel-gauge damage conversion is built on): completed cleanly, no
+  crash, win/loss/parry numbers in the same ballpark as this ticket's own
+  prior documented runs. Did NOT commit the regenerated
+  `test/duel-balance-simulation-results.json` -- reverted it before
+  committing (that file is prior runs' own recorded output at their own
+  trial count, not part of this change; running the sim at a smaller trial
+  count for speed would have overwritten it with noise).
+
+Version bumped v0.13 -> v0.14 (`MainMenu.jsx`/`wordbound.html`/
+`MainMenu.test.jsx`) -- a real, player-facing removal (no more combo chip,
+no more combo-driven pitch rise on hit sounds).
+
+**Not done, honest gaps -- GOALS.md's box stays unchecked:** items 1
+(consumables), 2 (deck view), 7 (ink) are completely untouched. The
+ticket's own acceptance bar (combat screen containing ONLY the 6 named
+elements) is still not met -- Deck/Consumables buttons and ink still show
+in the run header.
+
+**Genuinely-Jaxon-only:** none this run -- cheap-disable vs. hard-delete
+for the scoring formula's read side is an implementation judgment call the
+ticket's own header text explicitly delegates to the orchestrator.
+
+**Next:** items 1+2 (consumables + deck) are the natural next step -- same
+reasoning the prior run gave (a real reward-replacement design decision
+once tile-deck/consumable rewards go away, touching `RewardScreens.jsx`/
+`items.js`/`game.js`/`test/balance-simulation.js`). Item 7 (ink) likely
+follows 1+2 per the ticket's own text (ink removal must re-point anything
+currently priced in ink, which overlaps consumable/shop mechanics).
+PLAYTEST FINDINGS 2's own still-open gap (Mountain King's boss-duel retune,
+floor 1's real difficulty problem) remains untouched -- still the other
+live open thread above this ticket in the queue.
+
+**Live deploy refresh:** not yet executed this run -- doing it in the same
+commit sequence below, per the standing LIVE DEPLOY rule (this run changed
+game code, so a doc-only skip doesn't apply).
