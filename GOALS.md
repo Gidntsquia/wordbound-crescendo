@@ -4420,3 +4420,42 @@ Rules for the routine:
       this audit -- this run's confirmation used a synthetic/reverted
       injection on 'slime'/'sentinel' specifically, not the real def a
       future run will actually pick.
+      ORCHESTRATOR NOTE 2026-08-22 (concurrent-run collision, no code
+      change -- one real additive finding kept): started this run auditing
+      the same dom-check.js hazard independently, and hit the SAME
+      real-floor-RNG-driven combat blocks (own filenames, narrower fix --
+      only the 2 blocks the prior note named plus the 6 `Object.keys(...)[0]`
+      picks, not the character-select entry point or the literal
+      'slime'/'sentinel' pushes the landed version above also caught).
+      `git fetch` showed `origin/main` had already moved to the commit
+      documented directly above this note -- broader and more correct than
+      this run's own draft. Per this repo's own repeatedly-established
+      precedent for exactly this situation: did NOT force-push a narrower
+      duplicate. `git reset --hard origin/main` to take the landed version
+      as-is.
+      One genuinely additive finding from this run's own (discarded) audit
+      that the landed version's own GOALS/PROGRESS notes do NOT mention,
+      confirmed by grep before claiming it -- worth keeping even though the
+      code didn't land: the React/Vitest side has the IDENTICAL landmine,
+      untouched by this ticket's dom-check.js-scoped fix.
+      `src/components/__tests__/CombatScreen.test.jsx`'s `startFight()`
+      helper and `src/test/gameHelpers.js`'s shared `freshRun` both enter a
+      real, seeded-RNG regular combat node with no defId pinning and no
+      FakeAudioContext installed by default (`duelIntegration.test.js`
+      already establishes that convention where it's actually needed).
+      Harmless today (the fixed seed's first regular has no `.piece`), but
+      confirmed by reading the actual helper code (not inferred from
+      naming) that the moment a real regular gets one, if that seed's floor
+      draw lands on it, every Vitest test built on `startFight()`/`freshRun`
+      would start hard-crashing on `initAudioContext()` at once, across
+      many files -- the exact same failure mode this ticket just fixed on
+      the dom-check.js side, unfixed on the React side. Whoever does real
+      remaining scope (2) (the actual `.piece` wiring) should either
+      re-verify the fixed seed still rolls a turn-based regular first, or
+      (more robustly, matching this ticket's own now-established
+      dom-check.js convention) pin `startFight()`/`freshRun` away from
+      duel-mode nodes the same way. Not fixed this run -- flagging only,
+      since the code that would need it doesn't exist yet and speculative
+      fixes without a reproducing case are out of scope.
+      No verification run beyond confirming `npm test` is clean on the
+      landed tree (already covered by the note directly above).

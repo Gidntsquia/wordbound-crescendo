@@ -7001,3 +7001,54 @@ audit -- this run's confirmation used a synthetic/reverted injection on
 'slime'/'sentinel' specifically, not the real def a future run will
 actually pick, and the `retiredFromPool`/floor-pool-filter half of scope
 (2) is still fully unbuilt.
+
+---
+
+## 2026-08-22T15:05Z -- REGULAR ENEMIES: concurrent-run collision on the
+dom-check.js audit, one finding kept
+
+Picked up this same ticket's next chunk (the dom-check.js real-floor-RNG
+audit, per the prior two runs' notes) and independently reached the same 2
+blocks + 6 `Object.keys(MONSTER_DEFS)[0]` picks a concurrent run also found
+and fixed. `git fetch` showed `origin/main` had already landed that run's
+own version (documented directly above this entry) while this run was
+still working -- broader and more correct than this run's own draft (it
+also caught the character-select-driven first-combat entry point and
+literal `'slime'`/`'sentinel'` defId pushes, which this run's own narrower
+audit missed). Per this repo's own repeatedly-established precedent for
+exactly this situation: did NOT force-push a narrower duplicate.
+`git reset --hard origin/main` to take the landed version, then verified
+`npm test` clean on the landed tree before treating this as resolved.
+
+**One genuinely additive finding kept, confirmed absent from the landed
+version's own notes by grep before claiming it (see the ORCHESTRATOR NOTE
+appended to GOALS.md's REGULAR ENEMIES entry for the full writeup):** the
+React/Vitest side has the identical landmine, untouched by this ticket's
+dom-check.js-scoped fix. `CombatScreen.test.jsx`'s `startFight()` and
+`src/test/gameHelpers.js`'s `freshRun` both enter a real, seeded regular
+combat node with no defId pinning and no `FakeAudioContext` installed by
+default. Harmless today (no regular carries `.piece` yet), but the moment
+one does, if the fixed seed's floor draw lands on it, every Vitest test
+built on those helpers would start crashing on `initAudioContext()` at
+once -- confirmed by reading the actual helper code, not inferred from
+naming. Flagged for whoever does the real `.piece`-wiring step next, not
+fixed here (no reproducing case exists yet to fix against).
+
+**VERIFIED, this run:** `npm test` (dom-check.js) on the landed tree: ALL
+CHECKS PASSED. No other suite re-run -- the landed commit's own PROGRESS.md
+entry (directly above) already documents `npm run test:react` (183/183)
+and `npm run build` (clean) against the identical tree this run also has.
+
+**Genuinely-Jaxon-only:** none this run.
+
+**Not done, honest gaps:** no code changed this run (the landed version
+already covers the intended fix, more thoroughly than this run's own draft
+would have). Real remaining scope (2)+(3) unchanged, still open. The React/
+Vitest landmine above is flagged only, not fixed.
+
+**Next:** unchanged from the landed version's own note above -- real
+remaining scope (2) (wire the 3 early-tier pieces into real weak-tier
+`MONSTER_DEFS` entries + `retiredFromPool` + floor.js's pool filter, then
+run the ticket's full VERIFY bar) is the right next chunk, plus the newly-
+flagged React/Vitest `startFight()`/`freshRun` pinning should happen either
+alongside or immediately after that wiring lands, before it can bite.
