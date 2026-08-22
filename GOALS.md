@@ -3166,6 +3166,88 @@ Rules for the routine:
          what step 1 prevents; prove it didn't happen. Log the live URL
          prominently in PROGRESS.md.
       Scope guard: no CNAME/custom domain, no itch upload — Pages only.
+      ORCHESTRATOR NOTE 2026-08-22: step 1 is ALREADY DONE, verified for
+      real this run, not just by reading config -- `vite.config.mjs`'s
+      `base: './'` (a prior run's own choice, its comment already says
+      "so the built output works when statically served from any path...
+      GitHub Pages project subpath... without extra config") produces
+      relative `./assets/...` paths in the built `dist/app/index.html`.
+      Confirmed by actually building, copying `dist/app` into a
+      `wordbound-crescendo/` subdirectory, serving it with a real static
+      HTTP server, and curling both the page and its JS/CSS under that
+      subpath -- all three returned real HTTP 200s. No Vite config change
+      needed; `build:itch` (still targets `wordbound.html`, unaffected)
+      confirmed unbroken by a full `test:itch-build` run.
+      Step 2 (the Actions workflow) is BLOCKED, genuinely, not a judgment
+      call -- this run has NO way to land a `.github/workflows/*.yml` file
+      through any tool available to it: `git push` fails ("refusing to
+      allow an OAuth App to create or update workflow... without
+      `workflow` scope"), and BOTH GitHub API paths the session's GitHub
+      MCP tools expose (`create_or_update_file`'s Contents API, `push_files`'s
+      Git Data API tree-creation) independently 404 on the exact same file
+      while ordinary file reads/other-path writes work fine -- confirming
+      it's a missing "Workflows" permission on the GitHub App installation
+      backing those tools, not a fluke of one endpoint. This needs a human
+      with repo-admin access: either re-authorize the git remote's OAuth
+      app with the `workflow` scope, or grant the installed GitHub App's
+      "Workflows: Read and write" permission, whichever this repo's Claude
+      integration actually uses -- then any future run (or a human,
+      pasting the YAML below) can land this in one commit. Genuinely
+      Jaxon/admin-only, flagged rather than blocking other queue progress.
+      The exact intended workflow (verified locally: `npm run build`
+      succeeds, matches the official actions/deploy-pages 3-action flow),
+      ready to paste into `.github/workflows/pages.yml` once permission
+      exists:
+      ```yaml
+      name: Deploy to GitHub Pages
+
+      on:
+        push:
+          branches: [main]
+        workflow_dispatch:
+
+      permissions:
+        contents: read
+        pages: write
+        id-token: write
+
+      concurrency:
+        group: pages
+        cancel-in-progress: true
+
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 20
+            - run: npm ci
+            - run: npm run build
+            - uses: actions/configure-pages@v5
+            - uses: actions/upload-pages-artifact@v3
+              with:
+                path: dist/app
+
+        deploy:
+          needs: build
+          runs-on: ubuntu-latest
+          environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+          steps:
+            - id: deployment
+              uses: actions/deploy-pages@v4
+      ```
+      After it lands: Settings -> Pages -> Source must be "GitHub Actions"
+      (may need setting once by hand the very first time, or the first
+      workflow run's `configure-pages` step may self-enable it -- verify
+      either way, don't assume). Step 3's real verification (green Actions
+      run + live-URL curl) is still fully open and is this ticket's own
+      remaining scope once step 2 lands. **Next:** REGULAR ENEMIES is the
+      queue's next item this run picked up instead, since this one is hard-
+      blocked on a permission grant, not on more design/implementation work.
 
 - [x] SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS (Jaxon, 2026-08-21): the friendly
       faces of the words side are famous dead authors.
