@@ -24,6 +24,12 @@
 //      real i-frame duration and confirms the grace state clears on its
 //      own -- proving i-frames are a temporary window, not a permanent
 //      state change.
+//   1.5. SECOND WIND: grants the item (setup -- no shop/treasure UI to pick
+//      one up for real yet), forces the same fatal setup as phase 2 below,
+//      and confirms the real tick loop's block loss is revived back to 1
+//      Verse instead of ending the run -- items.js's onDuelBlockLost hook,
+//      GOALS.md's own flagged retarget gap. The item is stripped afterward
+//      so phase 2 still proves the real, un-saved death path.
 //   2. A FATAL defeat: forces healthBlocks to 1 (setup) and repeats the
 //      same gauge-to-the-edge trick -- the real tick loop's block loss
 //      empties healthBlocks, which the real Duel.on('player-defeated')
@@ -257,6 +263,40 @@ async function main() {
     await page.waitForFunction(() => !document.querySelector('.volume-gauge-grace'), { timeout: (iframeSec + 2) * 1000 });
     check(`the grace banner clears on its own once i-frames elapse (~${iframeSec}s)`, !(await page.isVisible('.volume-gauge-grace')));
     check('the i-frame track class clears too', (await page.locator('.volume-gauge-track.volume-gauge-iframe').count()) === 0);
+
+    // ---- Phase 1.5: Second Wind saves a real fatal block loss ----
+    // GOALS.md's own flagged gap (DUEL-GAUGE COMBAT ticket): Second Wind's
+    // onDuelBlockLost hook (js/wordbound/items.js) revives a would-be-fatal
+    // loss back to 1 health block via duel.js's own 'block-lost' event,
+    // BEFORE Game.startDuelFight's 'player-defeated' handler's post-emit
+    // check runs -- proven here against the REAL per-frame tick loop (no
+    // direct duel.tick()/loseBlock() call), same "force determinism via
+    // setup, let the real engine resolve the transition" convention phase 1
+    // above used. Granting the item via page.evaluate (player.items is a
+    // plain array, no shop/treasure UI exists yet to pick one up for real)
+    // is setup, same category as forcing healthBlocks/gauge below it.
+    await page.evaluate(() => {
+      const state = window.Wordbound.Game._state;
+      state.player.items = ['second_wind'];
+      state.duel.healthBlocks = 1;
+      state.duel.gauge = window.Wordbound.Duel.GAUGE_MIN + 2;
+    });
+    await page.waitForFunction(
+      () => window.Wordbound.Game._state.player.usedSecondWind === true,
+      { timeout: 5000 },
+    );
+    check('Second Wind revives a real fatal block loss back to 1 Verse', await page.evaluate(() => window.Wordbound.Game._state.duel.healthBlocks === 1));
+    check('the duel is not terminal -- the fight survives', await page.evaluate(() => window.Wordbound.Game._state.duel.isTerminal() === false));
+    check('combat is still active after the save', await page.evaluate(() => window.Wordbound.Game._state.combatActive === true));
+    check('the screen never reaches GAME_OVER', await page.evaluate(() => window.Wordbound.Game._state.screen !== 'GAME_OVER'));
+
+    // Wait out this save's own i-frame window, then strip the item so phase
+    // 2 below exercises the real, un-saved death path it was already
+    // written against (a fresh Duel instance is not created between phases
+    // in this script, so leaving Second Wind equipped would silently change
+    // what phase 2 proves).
+    await page.waitForFunction(() => !document.querySelector('.volume-gauge-grace'), { timeout: (iframeSec + 2) * 1000 });
+    await page.evaluate(() => { window.Wordbound.Game._state.player.items = []; });
 
     // ---- Phase 2: a real FATAL defeat -> GAME_OVER ----
     // Setup-only: force the LAST Verse (same "force determinism via setup"

@@ -989,6 +989,22 @@
       healthBlocks: state.player.healthBlocks,
       pushesToDefeat: pushesToDefeat
     });
+    // Second Wind's retarget (GOALS.md, DUEL-GAUGE COMBAT ticket's own
+    // flagged gap): turn-based combat gives onPlayerDamaged a chance to cap
+    // ctx.damage before it lands; a duel fight has no per-word damage amount
+    // to cap, only a discrete Verse (health block) loss, decided entirely
+    // inside duel.js's own loseBlock -- so the equivalent save point is
+    // 'block-lost' itself. Registered BEFORE syncHealthBlocks below so a
+    // revival lands before player.healthBlocks is read: 'block-lost'
+    // listeners run in registration order, and loseBlock's own
+    // player-defeated check (which fires AFTER every 'block-lost' listener
+    // has run, per duel.js's own emit-then-check order) reads the live
+    // duel.healthBlocks this hook may have just revived from 0 back to 1 --
+    // no duel.js change needed, since a listener mutating the engine's own
+    // state mid-emit is enough to cancel the pending defeat check.
+    duel.on('block-lost', function () {
+      Items.runHook('onDuelBlockLost', { player: state.player, duel: duel, monster: monster }, state.player);
+    });
     DuelCombat.syncHealthBlocks(state.player, duel);
     duel.on('player-defeated', function () {
       sequencer.stop();

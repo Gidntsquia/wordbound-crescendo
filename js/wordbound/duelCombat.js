@@ -55,6 +55,15 @@
 //        with `Duel.create({ healthBlocks: player.healthBlocks, ... })` and
 //        deciding what 'player-defeated' does (game-over, same as the
 //        current ink<=0 checks) -- this only keeps the field itself honest.
+//        Reads duel.healthBlocks LIVE at listener-call time rather than the
+//        event's own payload snapshot (a plain number copied into the
+//        payload object at emit() time, before any listener runs) -- this
+//        matters now that game.js registers an earlier 'block-lost'
+//        listener of its own (the Second Wind item hook, GOALS.md
+//        DUEL-GAUGE COMBAT ticket's retarget) that can revive
+//        duel.healthBlocks from 0 back to 1 mid-emit; reading the payload
+//        here would silently re-desync player.healthBlocks to the
+//        pre-revival (fatal) value even though the fight correctly continues.
 //
 // WINNING A PUSH -- decisive-blow structure (the ticket's own "implementing
 // run's call on exact structure, document it"): a won push deals
@@ -104,8 +113,8 @@
   };
 
   DuelCombat.syncHealthBlocks = function (player, duel) {
-    duel.on('block-lost', function (payload) {
-      player.healthBlocks = payload.healthBlocks;
+    duel.on('block-lost', function () {
+      player.healthBlocks = duel.healthBlocks;
     });
     return duel;
   };
