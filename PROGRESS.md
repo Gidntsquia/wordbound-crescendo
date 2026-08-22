@@ -7052,3 +7052,67 @@ remaining scope (2) (wire the 3 early-tier pieces into real weak-tier
 run the ticket's full VERIFY bar) is the right next chunk, plus the newly-
 flagged React/Vitest `startFight()`/`freshRun` pinning should happen either
 alongside or immediately after that wiring lands, before it can bite.
+
+---
+
+## 2026-08-22T15:04Z -- REGULAR ENEMIES: closed the React/Vitest duel-mode
+landmine flagged above (same run)
+
+Rather than leave the just-flagged React/Vitest gap as a dangling note for
+a future run, closed it directly since it was small, self-contained, and
+already fully diagnosed. Read (not just grepped) `src/test/gameHelpers.js`,
+`src/components/__tests__/CombatScreen.test.jsx`, and `src/test/
+duelIntegration.test.js` to confirm the actual blast radius before touching
+anything: `findAvailableCombatNodeId` (gameHelpers.js) is the single shared
+chokepoint every affected test file goes through (`CombatScreen.test.jsx`'s
+`startFight()`, plus `RewardScreens.test.jsx`/`RunScreen.test.jsx`/
+`RunSidePanels.test.jsx` directly) to pick a real, floor-generation-RNG
+combat node with no defId pinning -- the exact same hazard class
+dom-check.js's own landed audit fixed on the vanilla side. Confirmed
+`duelIntegration.test.js`'s own duel-mode-detection tests do their OWN
+direct node search for a literal `'slime'` id (needed since that test
+monkey-patches `.piece` onto slime under a FakeAudioContext it installs
+itself) rather than going through this helper, so fixing the shared helper
+could not break that file.
+
+**The fix:** added an `isDuelModeNode(node)` predicate to gameHelpers.js
+(identical logic to dom-check.js's own landed fix -- checks
+`MONSTER_DEFS[node.defId].piece`) and excluded duel-mode nodes from
+`findAvailableCombatNodeId`'s node search. It now throws its own
+already-existing "no available combat node" error (message updated to say
+"non-duel-mode") instead of silently returning a node that would crash
+`initAudioContext()` under jsdom, once a future regular def carries a real
+`.piece` and a seed's floor draw happens to land on it first.
+
+**VERIFIED, this run:**
+- `npm run test:react` (full Vitest suite): 183/183, unaffected -- true
+  no-op today, confirmed directly (no regular MONSTER_DEFS entry carries
+  `.piece` yet).
+- `npm test` (dom-check.js): ALL CHECKS PASSED, unaffected (this change is
+  entirely inside `src/`, outside dom-check.js's own tree).
+- `npm run build`: clean.
+
+**Genuinely-Jaxon-only:** none this run.
+
+**Not done, honest gaps:** real remaining scope (2) (wire the 3 landed
+early-tier pieces into real weak-tier `MONSTER_DEFS` + `retiredFromPool` +
+`floor.js`'s pool filter) and (3) (6 mid/late regulars) remain untouched --
+deliberately kept out of this run. Read enough of `js/wordbound/
+monsters.js` and `floor.js` to scope that work honestly: it's genuinely
+balance-sensitive (the weak-tier pool carries several documented rounds of
+win-rate tuning; `pickCombatDefId` in `floor.js:56` filters purely by
+`tier` today with no `retiredFromPool` check yet) and deserves its own
+dedicated run with the ticket's full VERIFY bar (Playwright duel smoke per
+tier win+loss, virtual-clock sim), not a rushed addition on top of an
+already-eventful, collision-recovering run. Version NOT bumped -- nothing
+shipped to real gameplay this run. This run is test-infrastructure-only, so
+the LIVE DEPLOY refresh rule does not apply.
+
+**Next:** real remaining scope (2) is now safe on BOTH the vanilla
+(dom-check.js) and React (Vitest) test suites -- a future run can wire a
+real `.piece` onto a weak-tier `MONSTER_DEFS` entry without either suite
+silently starting to crash. Concrete starting points: `js/wordbound/
+monsters.js`'s weak-tier defs (slime/gremlin/wisp/glossary, all currently
+turn-based) and `floor.js`'s `pickCombatDefId` (needs a `retiredFromPool`
+filter added). Recommend that as its own careful chunk, with the ticket's
+full VERIFY bar run for real once it lands.
