@@ -4255,6 +4255,160 @@ Rules for the routine:
       seeded live-build playthrough demonstrates 1, 3, and 5 together and
       the sim evidence for 2 is committed; item 4's replacement piece must
       be wired, not just composed.
+      ORCHESTRATOR NOTE 2026-08-22T19:57Z (item 1 done; item 2 partially
+      done -- a real, sim-confirmed root cause found and fixed, one gap
+      honestly left open): started at the top of the queue since this was
+      the first unchecked ticket with no prior work logged against it.
+      **Item 1 (combat model alignment):** the LOGIC side was already
+      correct going in -- `js/wordbound/duelCombat.js`'s `submitWord`
+      already forces `skipDamage: true` on every `Combat.playWord` call and
+      only calls `decisiveBlow` (the only place that touches `monster.hp`)
+      on `duelPush.pushWon`, confirmed by reading it line by line before
+      touching anything -- so no word-score-to-HP path existed to remove.
+      What was actually missing, per the item's own explicit "no numeric HP
+      anywhere in duel fights" + "SEGMENTED BAR... mirrors the player's
+      Verses pips": `CombatScreen.jsx` unconditionally rendered
+      `.monster-hp-bar`/`.monster-hp-text` (real numeric HP) even during a
+      duel, and `VolumeGauge.jsx`'s own enemy-side readout was a bare
+      "Pushes 0 / 4" text line, not a pip bar, and was hidden entirely for
+      any regular (`pushesToDefeat: 1`) rather than shown as its own
+      1-segment bar. Fixed both: `VolumeGauge.jsx` now renders a real
+      `.enemy-segments-display` of `.enemy-segment-pip`s (filled = pushes
+      still owed, lost = pushes already won), same shape as `.verse-pip`
+      but in the danger-red family so the two rows read as opposing sides,
+      shown unconditionally (a regular's 1-pip bar IS its whole health, not
+      a degenerate case to hide). `CombatScreen.jsx` now gates the old
+      numeric `.monster-hp-bar`/`.monster-hp-text` behind
+      `!duelModeActive` (`monster.duel && state.duel`, the exact same
+      condition `VolumeGauge`'s own mount condition already uses) -- a
+      classic turn-based fight (no `.piece`, `state.duel` never created)
+      is completely unaffected, still shows real numeric HP as always.
+      **Item 2 (difficulty):** ran `test/duel-balance-simulation.js`
+      first, per the item's own instruction to use it -- and it already
+      shows `early regular weak: win 100% / loss 0%` (the sim's existing
+      "weak" bot profile IS a modest/casual pace: 4.2s between words,
+      score mean 11, per `PROFILES.weak`). That looked like item 2 was
+      already satisfied on paper, so before assuming the win-rate number
+      alone closes this, checked what a "weak-tier" fight actually means
+      for a real floor-1 player -- and found the REAL bug, not a duel-math
+      one: `js/wordbound/floor.js`'s `getAllowedTiers(1)` returned
+      `['weak', 'normal']`, and REGULAR ENEMIES' normal-tier 100% duel
+      cutover (already landed) plus PLAYTEST FINDINGS item 1's own "prefer
+      any duel-capable def" selection bias (`pickCombatDefId`, narrows to
+      `duelPool` whenever ANY def in the allowed pool carries `.piece`)
+      together meant floor 1's combat nodes drew UNIFORMLY from all 6
+      duel-capable weak+normal defs -- roughly half of floor 1's regular
+      fights were actually a 'mid'-stageTier duel (Gnossienne/Invention/
+      The Metronome). The sim's own `mid regular weak` row: **0% win, 100%
+      loss** against the exact same weak/casual profile that wins 100% of
+      early-tier fights. That's the real, demonstrated mechanism behind
+      "the game is far too difficult" -- a floor-generation EXPOSURE bug
+      (a casual player's very first floor coin-flipping into fights the
+      header's own tier curve was never designed to put there), not a
+      general push-rate/word-score imbalance (early-tier duel math was
+      already fine, confirmed by the same sim run). Fixed at the actual
+      fault line: `getAllowedTiers(1)` now returns `['weak']` only --
+      floor 1 is chill-only, matching the header's own "early-stage
+      enemies have slow, chill pieces posing little threat" for real.
+      Floor 2 (`['weak', 'normal', 'strong']`) is unchanged and remains
+      the first floor 'normal' tier can appear on, which is correct by
+      design (header: "middle-stage pieces have a few real spikes").
+      Deliberately did NOT touch `Duel.STAGE_TIER_BASE_PUSH`/
+      `INTENSITY_PUSH_SCALE`/`WORD_PUSH_SCALE` or any piece's own dynamics
+      curve -- those are shared by every tier's content everywhere else in
+      the game (including 'mid' tier's own intentionally-harder later-floor
+      appearances), and the sim shows they're already correctly tuned for
+      the tiers they're meant to serve; a global nerf would have wrongly
+      softened 'mid' tier's real difficulty curve everywhere just to patch
+      one floor's exposure bug.
+      **Verified, real not assumed:** wrote and ran a throwaway jsdom
+      script (same "load the real wordbound.html, call Game.startRun
+      across many seeds" convention PLAYTEST FINDINGS item 1's own note
+      already established, deleted after running) calling `Game.startRun`
+      across 200 distinct seeds and tallying every floor-1 combat node's
+      resolved `MONSTER_DEFS[...].tier` -- result: **1800/1800 floor-1
+      combat nodes are 'weak' tier, 0 'normal', 0 'strong'** (was
+      previously an even split between weak and normal per the pre-fix
+      pool logic). `npm test` (dom-check.js): ALL CHECKS PASSED (hit the
+      already-documented pre-existing "STOLEN LETTERS boss-kill GAME_OVER"
+      flake once on an early run, confirmed by a clean immediate retry --
+      not a regression, same flake this file's history already
+      characterizes multiple times). `npx vitest run`: 184/184 clean,
+      including 2 new `VolumeGauge.test.jsx` tests (a regular's single-pip
+      enemy bar; a pip drops on a real won push) and the 2 existing tests
+      whose old "Pushes X / Y" text assertions were updated to assert on
+      the new pip DOM instead. `npm run build`: clean, 58 modules,
+      unaffected. `npm run test:branching-map`: ALL CHECKS PASSED (180
+      floors/seeds; floor-1-tier change doesn't affect any reachability/
+      orphan/rest/elite/treasure/shop guarantee, since none of those
+      depend on which regular tier fills a combat node). `npm run
+      test:mobile`: ALL CHECKS PASSED (per the header's own CSS-change
+      rule; the two new `.enemy-segment-pip`/`.verse-pip`-shaped classes
+      are additive, no existing layout touched). `npm run test:react-build`
+      (real browser, built output, full UI-driven playthrough incl. drag/
+      touch-drag/FLIP/blank-picker): ALL CHECKS PASSED twice -- confirms
+      the turn-based (`firstSafeDefId`-pinned) path is completely
+      unaffected by either change, and the floor-1 tier fix genuinely
+      changed which def that path lands on (a weak-tier 20-maxHp monster
+      instead of the prior run's ~56-maxHp one) with zero test breakage.
+      `npm run test:regular-duel-smoke`/`test:react-duel-loss`/
+      `test:react-qa`/`test:qa` (all real-browser duel-mode checks,
+      regulars AND all 4 bosses, win+loss paths, full 4-floor victory):
+      ALL CHECKS PASSED -- the new segmented enemy bar renders correctly
+      through every real duel fight these scripts drive, no regression.
+      `npm run test:music-engine`/`test:audio`/`test:drag-interrupt`/
+      `test:run-header`: ALL CHECKS PASSED, unaffected. `npm run
+      build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED (hit the
+      same pre-existing dom-check flake once, clean on retry, same as
+      above). `node test/duel-balance-simulation.js`: reran to refresh
+      `test/duel-balance-simulation-results.json` as this item's own
+      "commit the sim evidence" requirement -- content identical to
+      before (no duel-math constant changed this run), zero new sanity
+      flags.
+      Version bumped v0.11 -> v0.12 (`MainMenu.jsx`/`wordbound.html`/
+      `MainMenu.test.jsx`) -- both changes are real, structural,
+      player-facing (a new HUD element every duel fight shows; a real
+      floor-1 encounter-pool change every fresh run experiences).
+      **Not done, honest gaps -- box stays unchecked:** item 2's own
+      literal ask ("floor-1 weak-tier win rate ≥ ~80%") is satisfied for
+      the TIER LABEL itself (early-tier regulars, now the only regulars
+      floor 1 can draw, already measure 100% for a weak/casual bot) and
+      for the regular-fight EXPOSURE bug this run found and fixed -- but a
+      full floor-1 CLEAR also requires beating floor 1's own boss, Mountain
+      King (`boss_vowelmaw`), whose piece is 'mid'-stageTier -- and the
+      sim's `mid boss weak` row measures that pairing at **0% win / 100%
+      loss** too, same as the fixed regular-exposure bug. This is a
+      separate, real, still-open difficulty problem the sim already
+      demonstrates but this run did NOT attempt to fix -- Mountain King's
+      own balance (maxHp/pushesToDefeat/its piece's specific dynamics
+      curve, `js/wordbound/pieces/mountain-king.js`) has its own multi-round
+      tuning history from the pre-duel turn-based era and deserves its own
+      careful, dedicated, sim-verified retune rather than a rushed change
+      folded into this run alongside the exposure fix -- consistent with
+      this repo's own established "balance tuning gets its own dedicated
+      run" convention (see REGULAR ENEMIES' own history). Flagging
+      concretely rather than silently: **a casual player still cannot
+      clear floor 1 today**, because they cannot beat its boss, even
+      though they can now cleanly handle every regular on the way there.
+      Items 3 (music variety bug), 4 (recognizability -- replace The
+      Metronome's Czerny 299 piece), and 5 (streamline the duel UI) are
+      completely untouched this run.
+      **Live deploy refreshed** per the header's standing LIVE DEPLOY rule
+      (both items are real gameplay/UI changes) -- see PROGRESS.md for the
+      verification result.
+      **Genuinely-Jaxon-only:** none this run (the enemy-pip bar's exact
+      visual shape/color and the floor-1-only tier restriction are both
+      balance/UI judgment calls, flagged above, not naming/feel/launch
+      calls).
+      **Next:** Mountain King's own boss-duel retune (the honest gap above)
+      is the direct next step to actually close item 2's real intent (a
+      casual player can clear floor 1 start to finish) -- start from the
+      sim's own `mid boss weak`/`mid boss average` rows to see how far off
+      it is, and consider whether the fix belongs on Mountain King
+      specifically (maxHp, pushesToDefeat, its piece's dynamics) rather
+      than any shared 'mid'-tier constant, for the same "don't soften mid
+      tier everywhere" reasoning this run already applied to the regular
+      fix. Items 3-5 remain fully open after that.
 
 - [ ] PLAYTEST FINDINGS — JAXON, 2026-08-22 (~17:00 UTC), FIRST HUMAN PLAYTEST.
       His verbatim report, from the live URL: "There's no duel, there's no

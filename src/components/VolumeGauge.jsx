@@ -60,7 +60,7 @@ export function VolumeGauge({ duel, now, approachingCrescendoSecondsAway }) {
   const parryActive = duel.parryDampingUntil != null && now < duel.parryDampingUntil;
 
   const showCrescendoWarning = approachingCrescendoSecondsAway != null && approachingCrescendoSecondsAway >= 0;
-  const showPushes = duel.pushesToDefeat > 1;
+  const pushesRemaining = Math.max(0, duel.pushesToDefeat - duel.pushesWon);
 
   return (
     <div className="volume-gauge">
@@ -90,6 +90,24 @@ export function VolumeGauge({ duel, now, approachingCrescendoSecondsAway }) {
           style={{ left: fillLeft + '%', width: fillWidth + '%' }}
         />
       </div>
+      {/* PLAYTEST FINDINGS 2 item 1 (GOALS.md, 2026-08-22): the enemy's health
+          is a SEGMENTED BAR, one pip per remaining push -- mirrors the
+          Verses pips below it exactly (same shape, opposite side of the
+          tug-of-war), replacing the old numeric "Pushes 0 / 4" text. A
+          regular (pushesToDefeat: 1) still shows a single pip, same as
+          every other duel -- no special-cased hiding, since one segment IS
+          this monster's whole health bar. */}
+      <div
+        className="enemy-segments-display"
+        aria-label={pushesRemaining + ' of ' + duel.pushesToDefeat + ' enemy segments remaining'}
+      >
+        {Array.from({ length: duel.pushesToDefeat }).map((_, i) => (
+          <span
+            key={i}
+            className={'enemy-segment-pip' + (i < pushesRemaining ? ' enemy-segment-pip-filled' : ' enemy-segment-pip-lost')}
+          />
+        ))}
+      </div>
       <div
         className="verses-display"
         aria-label={duel.healthBlocks + ' of ' + duel.maxHealthBlocks + ' Verses remaining'}
@@ -101,9 +119,6 @@ export function VolumeGauge({ duel, now, approachingCrescendoSecondsAway }) {
           />
         ))}
       </div>
-      {showPushes && (
-        <div className="pushes-display">Pushes {duel.pushesWon} / {duel.pushesToDefeat}</div>
-      )}
       {iframeActive && (
         <div className="volume-gauge-grace">Grace period -- the music can't touch you</div>
       )}

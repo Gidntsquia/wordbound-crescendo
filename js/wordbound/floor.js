@@ -47,8 +47,31 @@
   // read the same trait.
   Floor.ELITE_RESISTANCE_TRAITS = ['vowelless', 'shortFuse', 'alphabetic'];
 
+  // PLAYTEST FINDINGS 2 item 2 (GOALS.md, 2026-08-22): floor 1 used to
+  // allow 'normal' tier alongside 'weak' -- harmless back when most tiers
+  // were still non-`.piece` turn-based fights (similar throughput
+  // regardless of tier), but the REGULAR ENEMIES ticket's normal-tier
+  // 100% duel cutover plus PLAYTEST FINDINGS item 1's "prefer any
+  // duel-capable def" selection bias (pickCombatDefId below) turned this
+  // into a real, sim-confirmed difficulty bug: floor 1's combat nodes drew
+  // uniformly from weak+normal's combined duel pool, so roughly HALF of
+  // floor 1's regular fights were a 'mid'-stageTier duel (Gnossienne/
+  // Invention/The Metronome) -- test/duel-balance-simulation.js's own
+  // `mid regular weak` row measures that pairing at 0% win / 100% loss
+  // against a weak/casual bot profile, against the SAME profile's 100% win
+  // rate on 'early'-stageTier (weak-tier) content. That's the direct,
+  // demonstrated mechanism behind "the game is far too difficult" --  not
+  // a general math-tuning problem (early-tier duel math was already fine),
+  // a floor-generation EXPOSURE problem letting a casual player's very
+  // first floor coin-flip into fights the tier curve itself (GOALS.md
+  // header COMBAT MODEL decision: "early-stage enemies have slow, chill
+  // pieces posing little threat") was never designed for. Floor 1 is now
+  // 'weak' only, matching that header curve for real; 'normal' still
+  // starts on floor 2 as originally designed (already a harder floor by
+  // design, alongside the header's own "middle-stage pieces have a few
+  // real spikes" framing).
   function getAllowedTiers(floorNumber) {
-    if (floorNumber <= 1) return ['weak', 'normal'];
+    if (floorNumber <= 1) return ['weak'];
     if (floorNumber === 2) return ['weak', 'normal', 'strong'];
     return ['normal', 'strong'];
   }

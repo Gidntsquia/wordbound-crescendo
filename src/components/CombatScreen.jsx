@@ -650,6 +650,13 @@ export default function CombatScreen({ state, Game, act }) {
   const canOvercharge = state.player.ink >= overchargeCost;
   const canRewrite = state.player.ink >= rewriteCost;
   const dead = monster.hp <= 0;
+  // PLAYTEST FINDINGS 2 item 1 (GOALS.md, 2026-08-22): "no numeric HP
+  // anywhere in duel fights" -- the segmented enemy-pip bar in VolumeGauge
+  // (gated on this exact same `monster.duel && state.duel` condition, see
+  // below) replaces this numeric bar/text during a duel. A classic
+  // turn-based fight (no `.piece`, `state.duel` never created) is
+  // unaffected -- it still shows real numeric HP, same as always.
+  const duelModeActive = !!(monster.duel && state.duel);
 
   let previewClass = 'damage-preview preview-empty';
   let previewLabel = '--';
@@ -675,10 +682,14 @@ export default function CombatScreen({ state, Game, act }) {
       {showEntrance && <BossEntranceOverlay entrance={entrance} onDismiss={dismissEntrance} />}
       <div className="monster-info">
         <div className={'monster-name ' + tierClass}>{tierGlyph(monster.isBoss, monster.tier)}{monster.glyph ? ' ' + monster.glyph : ''} {monster.name}</div>
-        <div className="monster-hp-bar">
-          <div className="monster-hp-fill" ref={hpFillRef} style={{ width: Math.max(0, hpRatio * 100) + '%' }} />
-        </div>
-        <div className="monster-hp-text">{monster.hp} / {monster.maxHp} HP</div>
+        {!duelModeActive && (
+          <div className="monster-hp-bar">
+            <div className="monster-hp-fill" ref={hpFillRef} style={{ width: Math.max(0, hpRatio * 100) + '%' }} />
+          </div>
+        )}
+        {!duelModeActive && (
+          <div className="monster-hp-text">{monster.hp} / {monster.maxHp} HP</div>
+        )}
         <div className="monster-weakness">Weakness: {trait.hint}</div>
         {monster.intent && (
           <div className={'monster-intent' + (Intents.isSignatureIntent(monster.intent) ? ' intent-signature' : '')}>

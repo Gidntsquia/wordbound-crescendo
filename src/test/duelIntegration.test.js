@@ -524,21 +524,22 @@ describe('startCombat -- automatic duel-mode detection off a monster def\'s .pie
     // assert against whichever def a fixed seed happens to roll (which
     // could silently pass a broken wiring vacuously if it never rolled it).
     //
-    // REGULAR ENEMIES ticket (normal tier's 100% cutover, this run): with
-    // BOTH weak and normal tier now fully real/duel-mode (no poolable
+    // REGULAR ENEMIES ticket (normal tier's 100% cutover) + PLAYTEST
+    // FINDINGS 2 item 2 (GOALS.md, floor 1 narrowed to 'weak'-tier only):
+    // with weak and normal tier both fully real/duel-mode (no poolable
     // non-`.piece` def left in either), firstPoolableNonDuelDefId() above
     // can only ever return a 'strong'-tier def (sentinel/warden/
-    // spinesplinter) -- and floor.js's getAllowedTiers(1) is ['weak',
-    // 'normal'] only, so a 'strong' def can NEVER appear on floor 1's own
-    // start nodes, confirmed directly (a floor-1-only version of this same
-    // search, run against this exact tree, found it in 0 of 40 seeds).
-    // Floor 2 (getAllowedTiers -> +'strong') is the first floor that can
-    // actually draw it, so search floor 1 first (covers the case where a
-    // future run duel-ifies more of normal/weak's siblings and this picks
-    // one of those instead) and fall back to a real Game._advanceFloor()
-    // call to floor 2 for the same seed before giving up on it -- same
-    // exposed, test-only `_advanceFloor` RunScreen.test.jsx already drives
-    // directly for an identical "jump past floor 1" need.
+    // spinesplinter) -- and floor.js's getAllowedTiers(1) is ['weak'] only,
+    // so a 'strong' (or even 'normal') def can NEVER appear on floor 1's
+    // own start nodes, confirmed directly (a floor-1-only version of this
+    // same search, run against this exact tree, found it in 0 of 40 seeds).
+    // Floor 2 (getAllowedTiers -> +'normal'/'strong') is the first floor
+    // that can actually draw it, so search floor 1 first (covers the case
+    // where a future run duel-ifies more of normal/weak's siblings and this
+    // picks one of those instead) and fall back to a real
+    // Game._advanceFloor() call to floor 2 for the same seed before giving
+    // up on it -- same exposed, test-only `_advanceFloor` RunScreen.test.jsx
+    // already drives directly for an identical "jump past floor 1" need.
     let state = null;
     for (let seed = 0; seed < 40; seed++) {
       const candidate = freshRun('duel-startcombat-seed-' + seed);

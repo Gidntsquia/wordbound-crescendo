@@ -7,7 +7,7 @@ describe('MainMenu', () => {
   it('renders the title, version, and both nav buttons', () => {
     render(<MainMenu onNewRun={() => {}} onHowToPlay={() => {}} />);
     expect(screen.getByText('WORDBOUND: CRESCENDO')).toBeInTheDocument();
-    expect(screen.getByText('v0.11')).toBeInTheDocument();
+    expect(screen.getByText('v0.12')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New Run' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'How to Play' })).toBeInTheDocument();
   });

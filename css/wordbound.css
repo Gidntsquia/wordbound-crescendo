@@ -727,10 +727,28 @@ h2 {
   background: transparent;
   border-color: #5a5040;
 }
-.pushes-display {
-  font-size: 0.8rem;
-  color: #b8ac8a;
-  margin-top: 4px;
+
+/* PLAYTEST FINDINGS 2 item 1 (GOALS.md, 2026-08-22): the enemy's segmented
+   health bar -- same pip shape as .verse-pip (mirrors it deliberately, per
+   the ticket's own "two bars, one tug-of-war" instruction), but in the
+   danger-red family (same as .monster-hp-fill/.volume-gauge-fill-danger)
+   so the two rows read as opposing sides at a glance rather than identical
+   twins. A filled pip is a push still owed; a lost pip is one already won. */
+.enemy-segments-display {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.enemy-segment-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: #a03c3c;
+  border: 1px solid #3a3226;
+}
+.enemy-segment-pip.enemy-segment-pip-lost {
+  background: transparent;
+  border-color: #5a5040;
 }
 
 /* Hexed tile: locked for the player's current turn (Hex monster intent).

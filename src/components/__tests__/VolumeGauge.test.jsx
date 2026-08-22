@@ -24,8 +24,11 @@ describe('VolumeGauge', () => {
     expect(document.querySelectorAll('.verse-pip-lost')).toHaveLength(0);
     expect(screen.queryByText(/Crescendo in/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Grace period/)).not.toBeInTheDocument();
-    // A regular (pushesToDefeat: 1, the create() default) shows no push counter.
-    expect(screen.queryByText(/Pushes/)).not.toBeInTheDocument();
+    // A regular (pushesToDefeat: 1, the create() default) still gets a
+    // segmented enemy bar -- one pip, since one push IS its whole health.
+    expect(screen.getByLabelText('1 of 1 enemy segments remaining')).toBeInTheDocument();
+    expect(document.querySelectorAll('.enemy-segment-pip-filled')).toHaveLength(1);
+    expect(document.querySelectorAll('.enemy-segment-pip-lost')).toHaveLength(0);
   });
 
   it('leans the fill toward the danger side as real music push drives the gauge down', () => {
@@ -72,7 +75,7 @@ describe('VolumeGauge', () => {
     expect(document.querySelector('.volume-gauge-track')).not.toHaveClass('volume-gauge-iframe');
   });
 
-  it('surfaces a real parry and shows the boss push counter once pushesToDefeat > 1', () => {
+  it('surfaces a real parry and shows a real boss enemy-segment bar (pushesToDefeat > 1)', () => {
     const duel = Duel.create({ stageTier: 'final', healthBlocks: 5, pushesToDefeat: 4 });
     duel.registerCrescendoPeak(5.0);
     const parried = duel.attemptParry(5.05); // within the real PARRY_WINDOW_SEC
@@ -81,6 +84,19 @@ describe('VolumeGauge', () => {
     render(<VolumeGauge duel={duel} now={5.05} approachingCrescendoSecondsAway={3.2} />);
     expect(document.querySelector('.volume-gauge-fill')).toHaveClass('volume-gauge-parried');
     expect(screen.getByText('Crescendo in 3.2s')).toBeInTheDocument();
-    expect(screen.getByText('Pushes 0 / 4')).toBeInTheDocument();
+    expect(screen.getByLabelText('4 of 4 enemy segments remaining')).toBeInTheDocument();
+    expect(document.querySelectorAll('.enemy-segment-pip-filled')).toHaveLength(4);
+    expect(document.querySelectorAll('.enemy-segment-pip-lost')).toHaveLength(0);
+  });
+
+  it('drops one enemy segment pip per real won push', () => {
+    const duel = Duel.create({ stageTier: 'early', healthBlocks: 5, pushesToDefeat: 3 });
+    duel.applyPlayerPush(0, 100); // a real push win (score >> GAUGE_MAX - GAUGE_CENTER)
+    expect(duel.pushesWon).toBe(1);
+
+    render(<VolumeGauge duel={duel} now={0} />);
+    expect(screen.getByLabelText('2 of 3 enemy segments remaining')).toBeInTheDocument();
+    expect(document.querySelectorAll('.enemy-segment-pip-filled')).toHaveLength(2);
+    expect(document.querySelectorAll('.enemy-segment-pip-lost')).toHaveLength(1);
   });
 });

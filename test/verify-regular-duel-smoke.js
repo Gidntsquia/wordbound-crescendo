@@ -275,9 +275,12 @@ async function main() {
     // to smoke-test the two real 'normal'-tier duel regulars the same way
     // -- WIN via gnossienne, LOSS via invention. A fresh run (not more
     // forced fights piled onto the same floor) because the floor-1 loss
-    // above already ended the first run at GAME_OVER; "normal" tier is
-    // allowed on floor 1 too (Floor.getAllowedTiers), so no floor advance
-    // is needed to reach it.
+    // above already ended the first run at GAME_OVER. `enterForcedRegularDuel`
+    // writes `node.defId` directly, bypassing floor.js's real tier pool
+    // (PLAYTEST FINDINGS 2 item 2, GOALS.md: floor 1 is 'weak'-tier only
+    // now, so no NATURAL floor-1 draw would ever land on a 'normal' def --
+    // that's exactly why the force is needed here) -- no floor advance is
+    // needed either way, since forcing works on any uncleared combat node.
     await page.click('button:has-text("Main Menu")');
     await page.waitForSelector('#screen-main-menu');
     await page.click('button:has-text("New Run")');
