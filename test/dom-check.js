@@ -4780,6 +4780,88 @@ async function main() {
     }
   }
 
+  // REGULAR ENEMIES ticket (real remaining scope (3), late tier): The
+  // Swarm, first of the late-tier regulars -- composed and validated in
+  // ISOLATION this run, same "proof piece, verified standalone before
+  // wiring" precedent every prior regular in this file already
+  // established. Deliberately NOT wired into any MONSTER_DEFS entry yet.
+  {
+    const Music = window.Wordbound.Music;
+    const Pieces = window.Wordbound.Pieces;
+    const bumblebee = Pieces.flightBumblebee;
+
+    check('REGULAR ENEMIES: window.Wordbound.Pieces.flightBumblebee is present', !!bumblebee && typeof bumblebee === 'object');
+    if (bumblebee) {
+      check('REGULAR ENEMIES: Flight of the Bumblebee has the right title', bumblebee.title === 'Flight of the Bumblebee');
+      // PD vetting, re-checked directly against the piece's own fields
+      // rather than trusted from THEME.md's table.
+      check('REGULAR ENEMIES: Flight of the Bumblebee PD vetting matches its own vetting fields',
+        bumblebee.vetting.composed === 1900 && bumblebee.vetting.composerDied === 1908 && bumblebee.vetting.publicDomain === true);
+      check('REGULAR ENEMIES: Flight of the Bumblebee composer has been dead 70+ years as of 2026', (2026 - bumblebee.vetting.composerDied) >= 70);
+      check("REGULAR ENEMIES: The Swarm is 'late' stageTier", bumblebee.stageTier === 'late');
+      check('REGULAR ENEMIES: The Swarm has a non-empty gimmick string', typeof bumblebee.gimmick === 'string' && bumblebee.gimmick.length > 0);
+      check('REGULAR ENEMIES: The Swarm keyframes are sorted ascending by beat',
+        bumblebee.dynamics.keyframes.every((kf, i) => i === 0 || kf.beat > bumblebee.dynamics.keyframes[i - 1].beat));
+      check('REGULAR ENEMIES: The Swarm keyframes never exceed lengthBeats',
+        bumblebee.dynamics.keyframes[bumblebee.dynamics.keyframes.length - 1].beat <= bumblebee.lengthBeats);
+      check('REGULAR ENEMIES: The Swarm every keyframe intensity is within 0..1',
+        bumblebee.dynamics.keyframes.every((kf) => kf.intensity >= 0 && kf.intensity <= 1));
+      // New late-tier peak convention this piece establishes (< 0.7) --
+      // one step above mid's already-established < 0.6 (gnossienne-1.js/
+      // invention-4.js/czerny-299.js) and early's < 0.5, staying well
+      // under a boss's 1.0 while reading as "boss-adjacent" per THEME.md.
+      const peakIntensity = Math.max(...bumblebee.dynamics.keyframes.map((kf) => kf.intensity));
+      check('REGULAR ENEMIES: The Swarm never reaches a boss-level peak intensity (< 0.7)', peakIntensity < 0.7);
+
+      // The gimmick itself, verified against the real intensity curve via
+      // Music.intensityAt: stays inside a genuinely narrow, HIGH band
+      // (0.50-0.56) across the ENTIRE length (sampled every 9 beats,
+      // start to finish), and carries NO crescendos array at all -- "no
+      // single big crescendo, just relentless... pressure," a real
+      // structural property of the curve, not just trusted from a
+      // comment. Meaningfully higher than The Metronome's own mid-tier
+      // plateau (~0.28-0.36 per its own check above).
+      const sampleBeats = [0, 9, 18, 27, 36, 45, 54, 63, 72];
+      check("REGULAR ENEMIES: The Swarm stays in a narrow, high, unceasing band the entire length ('no single big crescendo, just relentless... pressure')",
+        sampleBeats.every((b) => Music.intensityAt(bumblebee, b) >= 0.5 && Music.intensityAt(bumblebee, b) <= 0.56) &&
+        !bumblebee.dynamics.crescendos);
+
+      // The melody IS a true chromatic run: every one of the 12 chromatic
+      // pitch classes appears in a single cell (direct proof of "chromatic",
+      // not just a comment), unlike The Metronome's own 5-distinct-pitch
+      // diatonic scale-run cell.
+      const CELL_NOTES = 24;
+      const firstCellFreqs = bumblebee.tracks.melody.slice(0, CELL_NOTES).map((n) => Math.round(n.freq * 100) / 100);
+      const distinctPitchClasses = new Set(firstCellFreqs.map((f) => Math.round(12 * Math.log2(f / 440)) % 12));
+      check('REGULAR ENEMIES: The Swarm melody cell visits all 12 chromatic pitch classes (a true chromatic run)',
+        distinctPitchClasses.size === 12);
+
+      // The melody cell is repeated verbatim, never developing -- same
+      // "perfectly even, no variation" structural check as The Metronome's
+      // own block, confirming "constant" is real, not just described.
+      const cellShape = (startIdx) => bumblebee.tracks.melody.slice(startIdx, startIdx + CELL_NOTES)
+        .map((n) => [n.freq, n.duration, n.velocity]);
+      const firstCell = cellShape(0);
+      const cellCount = bumblebee.tracks.melody.length / CELL_NOTES;
+      check('REGULAR ENEMIES: The Swarm melody is one identical chromatic cell repeated verbatim across the whole piece',
+        Number.isInteger(cellCount) && cellCount > 1 &&
+        Array.from({ length: cellCount }, (_, c) => c).every((c) => JSON.stringify(cellShape(c * CELL_NOTES)) === JSON.stringify(firstCell)));
+
+      // The bass is a literal unvarying wing-beat pulse -- one identical
+      // note every half beat for the whole length, same "no variation"
+      // convention as The Metronome's own click bass.
+      check('REGULAR ENEMIES: The Swarm bass is a literal unvarying wing-beat pulse, one identical note every half beat for the whole length',
+        bumblebee.tracks.bass.length === bumblebee.lengthBeats / 0.5 &&
+        bumblebee.tracks.bass.every((n, i) => n.beat === i * 0.5 && n.duration === bumblebee.tracks.bass[0].duration &&
+          n.freq === bumblebee.tracks.bass[0].freq && n.velocity === bumblebee.tracks.bass[0].velocity));
+
+      const allNotes = Object.values(bumblebee.tracks).flat();
+      check('REGULAR ENEMIES: The Swarm has at least one note in its tracks', allNotes.length > 0);
+      check('REGULAR ENEMIES: The Swarm every note starts within [0, lengthBeats) and has positive duration/freq',
+        allNotes.every((n) => n.beat >= 0 && n.beat < bumblebee.lengthBeats && n.duration > 0 && n.freq > 0));
+    }
+  }
+
   // REGULAR ENEMIES ticket: the monster-info glyph-rendering groundwork
   // (game.js's renderCombat) -- purely additive and currently inert (no
   // real MONSTER_DEFS entry sets `.glyph` yet, deliberately, per the note

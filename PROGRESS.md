@@ -8267,3 +8267,136 @@ already repeatedly documented -- a `403` on the CONNECT tunnel to
 `gidntsquia.github.io` specifically. The push itself is the actual
 deploy action and it succeeded; this is a known, recurring sandbox
 limitation, not a new one introduced by this run.
+
+---
+
+## 2026-08-22T19:20Z -- REGULAR ENEMIES: The Swarm, late tier's first piece, composed + verified standalone
+
+Picked up GOALS.md's REGULAR ENEMIES ticket (still open -- weak/normal
+tiers are 100% duel-mode, late tier was 0 of 3 composed) at its own
+documented "Next" step: start the late tier. Composed The Swarm (Flight
+of the Bumblebee), the first of the 3 late-tier pieces THEME.md names,
+same "proof piece, verified standalone before wiring" precedent every
+mid-tier piece (Gnossienne, Invention, The Metronome) already used --
+deliberately NOT wired into any `MONSTER_DEFS` entry yet.
+
+**PD vetting** (re-checked directly, not trusted from THEME.md's table):
+Flight of the Bumblebee, an orchestral interlude from Rimsky-Korsakov's
+opera *The Tale of Tsar Saltan*, composed 1899-1900 (used 1900, the
+opera's completion/premiere year, as the `composed` field -- same
+convention every other piece file in this directory uses for a range).
+Rimsky-Korsakov died 1908 -- 118 years ago as of 2026, well past the
+70-years-dead bar and composed well before 1930. Safely public domain.
+
+**What landed:** `js/wordbound/pieces/flight-bumblebee.js` (new), wired
+into all 4 script-load lists (`wordbound.html`, `src/main.jsx`, `src/test/
+setup.js`, `tools/build-itch.js`'s DEPENDENCIES manifest -- inserted
+alphabetically right after `czerny-299.js`, since `flight-bumblebee.js`
+sorts before `gnossienne-1.js`). THEME.md's own gimmick for The Swarm --
+"Frantic, chromatic, constant -- no single big crescendo, just relentless
+high-frequency pressure" -- is modeled structurally, not just described,
+in four ways:
+
+1. **True chromaticism, not just a label.** The melody cell is a literal
+   24-note round trip built from INTEGER SEMITONE OFFSETS (0 through 12
+   going up, 11 down to 1 coming back down) rather than named scale
+   degrees the way every other piece file in this directory builds its
+   melody -- a direct structural difference from The Metronome's own
+   5-distinct-pitch DIATONIC scale-run cell. Verified this isn't just
+   claimed: a new dom-check.js structural check computes the pitch class
+   (`Math.round(12 * Math.log2(freq/440)) % 12`) of every note in one cell
+   and confirms all 12 distinct chromatic pitch classes appear.
+2. **Genuinely "frantic."** Each melody note is a sixteenth note (0.25
+   beat) with zero gaps -- the fastest, most continuous melodic motion of
+   any piece in this directory (The Metronome's own scale-run cell, the
+   next-fastest, uses 0.5-beat notes). Tempo is 168 BPM (Presto), also the
+   fastest tempo marking of any piece composed so far.
+3. **"Constant," verified as a real structural property.** Same
+   "identical cell repeated verbatim" check every prior mechanical-feeling
+   piece (The Metronome) already established, applied here to the new
+   chromatic cell instead of a diatonic one.
+4. **"No single big crescendo," verified against the actual intensity
+   curve, not assumed from a comment.** `dynamics.keyframes` stays inside
+   a genuinely narrow 0.50-0.56 band for the piece's entire 72-beat
+   length (sampled every 9 beats via `Music.intensityAt`, the pure
+   function, not the sequencer) and carries NO `crescendos` array at all
+   -- same "no crescendos" structural choice Air on the G String and The
+   Metronome already established for a piece whose whole point is that
+   there isn't one, but at a meaningfully HIGHER band (~0.50-0.56 vs The
+   Metronome's own ~0.28-0.36) -- the real difference between "unceasing
+   pressure" (mid tier) and "boss-adjacent pressure" (late tier), even
+   though neither piece ever spikes.
+
+The bass is an unvarying eighth-note "wing-beat" pulse (one identical low
+note every half beat for the whole piece) -- the buzzing hum under the
+melody's own chromatic motion, and a second "no variation" structural
+proof alongside the melody's own repeated-cell check.
+
+**stageTier judgment call** (flagged, pure balance tuning not a
+naming/feel call, same convention every prior tier's own first piece
+already established): `'late'`. Per `Duel.STAGE_TIER_BASE_PUSH`
+(`js/wordbound/duel.js`), `'late'` already pushes 6x harder than `'early'`
+(and 2x harder than `'mid'`) before this piece's own curve is even
+factored in -- so, like The Metronome before it, this piece's own job is
+the SHAPE (a sustained, only mildly undulating high baseline, no discrete
+spike) rather than out-pushing a boss on raw peak numbers. This run also
+had to ESTABLISH a new peak-intensity convention for the tier, since no
+late-tier piece existed before it to need one: `< 0.7` (one step above
+mid's already-established `< 0.6` and early's `< 0.5`), keeping "late"
+readable as "approaching boss-level" (THEME.md's own "boss-adjacent"
+phrasing) without a regular ever actually reaching a boss's own 1.0 peak
+(Mountain King, Valkyrie Marshal).
+
+**Verified this run:**
+- `npm test` (dom-check.js): 18 new checks (presence / title / PD-vetting
+  / 70-years-dead / stageTier / gimmick-string / keyframe-sort-and-bounds
+  / peak-below-0.7, a `Music.intensityAt`-driven narrow-high-band-plus-
+  no-crescendos check across 9 sample beats spanning the full 72-beat
+  length, a true-12-chromatic-pitch-classes structural check, an
+  identical-repeated-chromatic-cell melody check, a literal-wing-beat-
+  pulse bass check, plus track-note bounds): ALL CHECKS PASSED, clean run,
+  no flake hit.
+- `npm run test:react` (Vitest): 183/183, unaffected -- true no-op, no
+  `src/components/*` file touched, same as every prior unwired
+  proof-piece run.
+- `npm run build`: clean, 58 modules (up from 57).
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED.
+  Confirmed directly (not assumed) via `unzip -l dist/wordbound-itch.zip
+  | grep bumblebee` that `js/wordbound/pieces/flight-bumblebee.js` is
+  actually present in the real zip listing, plus the unzipped
+  dom-check.js run (18/18 including this piece's own new checks) and a
+  real-browser zero-404s load of the unzipped build.
+- Did NOT run `test:mobile` / `test:qa` / `test:react-qa` /
+  `test:duel-balance` / `test:branching-map` / `test:music-engine` /
+  `test:regular-duel-smoke` / `test:react-duel-loss` / `test:drag-interrupt`
+  / `test:run-header` / `test:react-build` -- same judgment call every
+  landed mid-tier proof-piece run (Gnossienne's, Invention's, The
+  Metronome's own initial composition run) already made and reasoned
+  through explicitly: an unwired, unreachable piece file touches none of
+  what those scripts exercise.
+
+Version NOT bumped -- nothing shipped to real gameplay this run, same
+convention every prior isolated-composition run in this ticket already
+followed. GOALS.md's REGULAR ENEMIES ticket stays open (box not checked)
+-- late tier is 1 of 3 composed, 0 of 3 wired; The Sabbath and The
+Organist are fully unstarted; strong tier still has all 3 old generic
+defs (sentinel/warden/spinesplinter) reachable and turn-based/silent.
+PLAYTEST FINDINGS item 2 ("no def without `.piece` remains reachable")
+therefore also stays open.
+
+**Genuinely-Jaxon-only:** none this run (composition/balance judgment
+calls only, all flagged above).
+
+**Next:** compose The Sabbath (Night on Bald Mountain) or The Organist
+(Toccata and Fugue in D minor) -- same precedent -- then wire all 3
+late-tier pieces into real `strong`-tier `MONSTER_DEFS` entries +
+`retiredFromPool` on sentinel/warden/spinesplinter in one dedicated
+wiring run, mirroring the normal-tier wiring run's own shape. That
+finally closes PLAYTEST FINDINGS item 2 and makes this ticket's remaining
+VERIFY-line items (virtual-clock sim confirming the full tier curve,
+Playwright duel smoke per tier) meaningful to run for the first time.
+
+**Live deploy refresh:** see this entry's own follow-up note below for
+the executed result (built fresh off this run's own commit, per the
+header's standing rule and this ticket's own settled "refresh always, no
+unreachable-code carve-out" convention).

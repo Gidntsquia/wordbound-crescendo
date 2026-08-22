@@ -5448,3 +5448,80 @@ Rules for the routine:
       obviously the same "silent turn-based fight" problem PLAYTEST
       FINDINGS item 2 is about) -- not decided either way yet, flagging
       for whoever picks this up next.
+      ORCHESTRATOR NOTE 2026-08-22T19:20Z (late tier started -- The Swarm,
+      first of 3 late-tier pieces, composed + verified standalone): same
+      "proof piece, verified standalone before wiring" precedent every
+      mid-tier piece before it used. `js/wordbound/pieces/
+      flight-bumblebee.js` (new), wired into all 4 script-load lists
+      (`wordbound.html`, `src/main.jsx`, `src/test/setup.js`, `tools/
+      build-itch.js`'s DEPENDENCIES manifest, alphabetically after
+      czerny-299.js). PD-vetted: Flight of the Bumblebee (Rimsky-Korsakov,
+      from the opera *The Tale of Tsar Saltan*, composed 1899-1900,
+      composer died 1908 -- 118 years, matching THEME.md's own table).
+      Models THEME.md's own gimmick ("Frantic, chromatic, constant -- no
+      single big crescendo, just relentless high-frequency pressure")
+      structurally: the melody is a literal 24-note chromatic round trip
+      (all 12 semitones, up an octave then back down) built from integer
+      semitone offsets rather than named scale degrees -- real
+      chromaticism, unlike The Metronome's own 5-note diatonic scale-run
+      cell -- at sixteenth-note speed (0.25 beat/note, the fastest of any
+      piece in this directory, matching "frantic"); the bass is an
+      unvarying eighth-note wing-beat pulse; the dynamics curve stays in a
+      narrow 0.50-0.56 band the entire length with NO `crescendos` array
+      at all (same "no crescendos" structural choice as Air on the G
+      String / The Metronome, but at a meaningfully higher band -- "no
+      single big crescendo" as a real property of the curve, not just
+      described). stageTier judgment call (flagged, balance tuning not a
+      naming/feel call): 'late'. This ALSO establishes a new peak-intensity
+      convention for the tier (< 0.7, one step above mid's already-
+      established < 0.6 and early's < 0.5) since no late-tier piece
+      existed before this run to need one -- still well under a boss's own
+      1.0 peak, reading as "boss-adjacent" per THEME.md without reaching
+      boss level.
+      **Verified this run:** `npm test` (dom-check.js) -- 18 new checks
+      (presence/title/PD-vetting/70-years-dead/stageTier/gimmick-string/
+      keyframe-sort-and-bounds/peak-below-0.7, a `Music.intensityAt`-driven
+      narrow-high-band-plus-no-crescendos check across 9 sample points, a
+      true-12-chromatic-pitch-classes structural check, an
+      identical-repeated-cell melody check, a literal-wing-beat-pulse bass
+      check, plus track-note bounds): ALL CHECKS PASSED, clean run, no
+      flake hit. `npm run test:react`: 183/183, unaffected (true no-op --
+      no `src/components/*` file touched, `main.jsx`/`setup.js` just
+      gained one more inert import, same as every prior proof-piece run).
+      `npm run build`: clean, 58 modules (up from 57). `npm run
+      build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED, confirmed
+      `flight-bumblebee.js` present in the real zip listing directly
+      (`unzip -l`), the unzipped dom-check.js run (18/18 including this
+      piece's own new checks), and a real-browser zero-404s load of the
+      unzipped build. Did NOT run `test:mobile`/`test:qa`/`test:react-qa`/
+      `test:duel-balance`/`test:branching-map`/`test:music-engine`/
+      `test:regular-duel-smoke`/`test:react-duel-loss`/`test:drag-interrupt`/
+      `test:run-header`/`test:react-build` -- same judgment call every
+      landed mid-tier proof-piece run already made and reasoned through
+      explicitly (an unwired, unreachable piece file touches none of what
+      those scripts exercise).
+      **Live deploy refreshed** per the header's LITERAL rule and this
+      ticket's own settled convention (the Invention/Gnossienne/Metronome
+      notes above already argued for "refresh always, no unreachable-code
+      carve-out" and the Metronome run adopted it) -- see PROGRESS.md for
+      the verification result.
+      **Genuinely-Jaxon-only:** none this run (composition/balance judgment
+      calls only, all flagged above).
+      **Not done, honest gaps:** The Swarm is composed but NOT wired into
+      any `MONSTER_DEFS` entry -- strong tier still has 0 of 3 old generic
+      defs (sentinel/warden/spinesplinter) retired, all 3 still reachable
+      and still turn-based/silent. The Sabbath and The Organist (late
+      tier's other 2 pieces) are fully unstarted. PLAYTEST FINDINGS item 2
+      ("no def without `.piece` remains reachable") is therefore still
+      open. Version NOT bumped -- nothing shipped to real gameplay this
+      run, same convention every prior isolated-composition run in this
+      ticket already followed.
+      **Next:** compose The Sabbath (Night on Bald Mountain) or The
+      Organist (Toccata and Fugue in D minor) next, same precedent -- then
+      wire all 3 late-tier pieces into real `strong`-tier `MONSTER_DEFS`
+      entries + `retiredFromPool` on sentinel/warden/spinesplinter in one
+      dedicated wiring run (mirroring the normal-tier wiring run's own
+      shape), which finally closes PLAYTEST FINDINGS item 2 and makes this
+      ticket's VERIFY line's remaining pieces (virtual-clock sim confirming
+      the FULL tier curve end to end, Playwright duel smoke per tier)
+      meaningful to run for the first time.

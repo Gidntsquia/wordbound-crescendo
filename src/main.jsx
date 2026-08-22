@@ -47,6 +47,11 @@ import '../js/wordbound/pieces/invention-4.js';
 // deliberately NOT wired into any MONSTER_DEFS entry yet, per this
 // ticket's own established "proof piece before wiring" precedent.
 import '../js/wordbound/pieces/czerny-299.js';
+// flight-bumblebee.js (REGULAR ENEMIES ticket): The Swarm, first of the
+// late tier's 3 named regulars -- composed and unit-tested in isolation
+// this run, deliberately NOT wired into any MONSTER_DEFS entry yet, same
+// "proof piece before wiring" precedent.
+import '../js/wordbound/pieces/flight-bumblebee.js';
 import '../js/wordbound/monsters.js';
 import '../js/wordbound/bossEntrances.js';
 import '../js/wordbound/shakespeareGuide.js';

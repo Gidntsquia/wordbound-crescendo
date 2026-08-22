@@ -31,6 +31,7 @@ import '../../js/wordbound/pieces/morning-mood.js';
 import '../../js/wordbound/pieces/gnossienne-1.js';
 import '../../js/wordbound/pieces/invention-4.js';
 import '../../js/wordbound/pieces/czerny-299.js';
+import '../../js/wordbound/pieces/flight-bumblebee.js';
 import '../../js/wordbound/monsters.js';
 import '../../js/wordbound/bossEntrances.js';
 import '../../js/wordbound/shakespeareGuide.js';
