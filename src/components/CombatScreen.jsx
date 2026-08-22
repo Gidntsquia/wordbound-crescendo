@@ -126,12 +126,19 @@ import { VolumeGauge } from './VolumeGauge.jsx';
 // on every unmount -- including ordinary screen transitions after combat
 // ends -- would be a bigger, unverified behavior change for a hazard this
 // narrow); flagged here rather than silently assumed away.
-// Genuinely NOT ported, deliberately out of scope for this run: the FLIP-
-// style land-settle animation (`state.settleTileIds`/`.tile-settle`, a
-// one-shot class on a tile that just staged/unstaged) and haptic ticks --
-// both are cosmetic "juice" on top of an already-functional mechanism, the
-// same category as the combo-chip bump/rack new-tile classes ported
-// earlier in this ticket, not the drag mechanism itself.
+// Haptic ticks (hapticTick(), navigator.vibrate): already real, not a gap --
+// selectTileForWord/unstageTile/assignBlankLetter call it unconditionally,
+// and React already calls those same private functions via the Game.*
+// wrappers, so a stage/unstage already vibrates on a real device today (no
+// separate port needed; confirmed by reading the call sites, not assumed).
+// The `.tile-settle` one-shot land flash (COMBAT JUICE ticket, GOALS.md) IS
+// now ported -- see the prevSelectedTileIdsRef block below, which computes
+// it natively (same StrictMode-safe pattern as combo-chip-bump/new-tile)
+// rather than reading the shared state.settleTileIds array, since nothing
+// in the React tree ever consumed/cleared that array. The FLIP-style
+// position-SLIDE (flipTile, a distinct mechanism from the .tile-settle CSS
+// class -- see css/wordbound.css's own comment) remains genuinely
+// unported -- still open, real remaining COMBAT JUICE scope.
 // game.js itself needed two small additive null-guards to make this safe:
 // syncWordInput()'s and selectTileForWord()'s `$('word-input')` DOM access
 // now checks the element exists first (same "no #word-input in the React
@@ -370,6 +377,35 @@ export default function CombatScreen({ state, Game, act }) {
   const prevRackIdsRef = useRef([]);
   useEffect(() => { prevRackIdsRef.current = state.player.rack.map((t) => t.id); });
 
+  // tile-settle land flash (COMBAT JUICE ticket, GOALS.md): a tile that just
+  // staged (left the rack) or unstaged (returned to the rack) gets a short
+  // one-shot brightness/glow flash for exactly one render -- the role
+  // game.js's own state.settleTileIds/markSettle plays for wordbound.html.
+  // Ported natively, same reasoning as combo-chip-bump/new-tile above,
+  // rather than reading state.settleTileIds directly: StrictMode can invoke
+  // this component's body more than once per commit, so a shared one-shot
+  // flag consumed during render risks being eaten by a throwaway
+  // invocation. A ref holds selectedTileIds as of the last COMMITTED
+  // render; comparing membership against it during render tells us which
+  // tile just crossed the rack<->staging boundary. Deliberately CSS-only,
+  // matching vanilla's own .tile-settle keyframe exactly (brightness/
+  // box-shadow only, no transform -- see css/wordbound.css's own comment on
+  // why: a transform-based keyframe would fight the separate FLIP
+  // position-slide). That FLIP slide itself (flipTile, a distinct
+  // mechanism from this CSS class) is NOT ported -- still open, per
+  // CombatScreen's header comment and GOALS.md's COMBAT JUICE ticket.
+  // Also deliberately does NOT flash on a plain drag/touch REORDER within
+  // the rack or staging row: read markSettle's only 3 call sites in
+  // game.js (unstageTile, selectTileForWord, assignBlankLetter) directly --
+  // none of the reorder functions (startStagingDrag/reorderRackOnDrop/etc.)
+  // call it either, so this matches actual vanilla behavior, not the
+  // ticket bullet's looser "staged, unstaged, or reordered" phrasing.
+  // Same known minor divergence as new-tile above: a mid-fight side-panel
+  // remount re-flashes any already-staged tiles once, since the ref starts
+  // empty on mount.
+  const prevSelectedTileIdsRef = useRef([]);
+  useEffect(() => { prevSelectedTileIdsRef.current = state.selectedTileIds.slice(); });
+
   if (!monster) return null;
 
   const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
@@ -442,6 +478,7 @@ export default function CombatScreen({ state, Game, act }) {
           const isHexed = tile.id === state.hexedTileId;
           const isStaged = state.selectedTileIds.indexOf(tile.id) !== -1;
           const isNewTile = !prevRackIdsRef.current.includes(tile.id);
+          const justUnstaged = !isStaged && prevSelectedTileIdsRef.current.includes(tile.id);
           const val = Lexicon.LETTER_VALUES[tile.letter] || 0;
           const displayVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
           // A staged tile "lives" in the staging area below -- the rack
@@ -477,7 +514,7 @@ export default function CombatScreen({ state, Game, act }) {
               type="button"
               draggable
               data-tile-index={index}
-              className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '') + (isNewTile ? ' new-tile' : '')}
+              className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '') + (isNewTile ? ' new-tile' : '') + (justUnstaged ? ' tile-settle' : '')}
               disabled={isHexed}
               title={title}
               onClick={() => stageOrUnstage(tile)}
@@ -559,12 +596,13 @@ export default function CombatScreen({ state, Game, act }) {
           }
           const variantTip = tile.variant ? Tiles.describeVariant(tile.variant)
             : (tile.bonus ? Tiles.describeBonus(tile.bonus) : '');
+          const justStaged = !prevSelectedTileIdsRef.current.includes(tileId);
           return (
             <button
               key={tileId}
               type="button"
               data-tile-id={tileId}
-              className={'staged-tile' + bonusClass}
+              className={'staged-tile' + bonusClass + (justStaged ? ' tile-settle' : '')}
               title={(variantTip ? variantTip + ' -- ' : '') + 'tap to remove'}
               onClick={() => unstageFromStagingArea(tileId)}
               onPointerDown={(e) => Game.startStagingDrag(tileId, e.currentTarget, e)}

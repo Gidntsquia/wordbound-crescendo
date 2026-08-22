@@ -924,6 +924,104 @@ Rules for the routine:
       one-shot classes/hook calls fire at the right state transition;
       `npm run test:react-build` real-browser visual smoke (reduced-motion
       variant included); no regression to the always-verified suites.
+      ORCHESTRATOR NOTE 2026-08-22 (update 1): before touching this ticket,
+      investigated DUEL-GAUGE COMBAT's own "Next" note (pick one real boss,
+      e.g. Mountain King, and give its monsters.js entry a real `.piece`) --
+      the queue's other unchecked item and, per the header decision, the
+      higher-priority one. Found a real, previously-undocumented blocker:
+      `startCombat`'s `.piece` check is shared, unconditional game.js logic
+      -- assigning `.piece` to an EXISTING boss def (e.g. reskinning
+      `boss_vowelmaw`) would route that fight into duel mode in
+      `wordbound.html` too, not just the React app, since both share the
+      same defs/floor generation. `wordbound.html` has NO duel tick loop
+      (`Game.tickDuel` is only ever called from `CombatScreen.jsx`'s own
+      `requestAnimationFrame` effect) and no gauge UI (`VolumeGauge` is a
+      React component) -- so that boss would go dead-silent in the vanilla
+      path (words only ever push toward the enemy end, the music never
+      pushes back, no visible gauge), directly breaking `test/dom-check.js`'s
+      `enterAndKillBoss('boss_vowelmaw', ...)` boss-skip test (which forces
+      `monster.hp=1` and expects ONE submitted word to be a deterministic
+      turn-based kill -- duel-mode routes that same word through
+      `DuelCombat.submitWord`'s push-accumulation instead, with no
+      guarantee a single average word crosses the gauge) and the two
+      turn-based Mend-intent counterattack tests that also fight
+      `boss_vowelmaw` directly. Confirmed by reading `Game.startDuelFight`/
+      `startCombat`/`enterAndKillBoss` line by line, not assumed. This means
+      the "Next" note's literal instruction ("reskinned name" implying
+      reuse the existing def) is unsafe as written -- it would break the
+      MANDATORY `npm test` gate and silently degrade `wordbound.html`'s
+      still-relied-upon boss fight. A real fix needs one of: (a) a new,
+      SEPARATE boss def carrying the duel piece, reachable via floor
+      generation without displacing `boss_vowelmaw` (non-trivial:
+      `Floor.pickBossDefId` is a deterministic `ids[0]` pick per floor
+      today, not random, so two floor-1 bosses need either a real selection
+      policy or a design call on which one a given seed gets, and existing
+      seeded tests/balance-sim data assume `boss_vowelmaw` specifically);
+      or (b) building `wordbound.html`/game.js a duel-tick path of its own
+      (own scope, arguably against the "vanilla stays the frozen reference
+      until full parity" spirit); or (c) a Jaxon-adjacent call that duel
+      fights are React-only going forward and `wordbound.html`'s own
+      dom-check boss tests get updated/skipped for a duel-mode def on
+      purpose. None of these are a clean bounded hour -- flagging for
+      whoever picks up DUEL-GAUGE COMBAT next rather than rushing a def
+      change that would pass a shallow look but fail `npm test` for real
+      (checked directly, not assumed: did NOT commit any monsters.js change
+      to find this out).
+      Picked up COMBAT JUICE instead (top of the actual unchecked queue, and
+      genuinely unblocked) -- scoped to bullet 1's `.tile-settle` CSS class
+      only, not the FLIP position-slide it's paired with in the ticket text.
+      Confirmed by reading `css/wordbound.css`: `.tile-settle` is a pure
+      brightness/box-shadow keyframe (deliberately transform-free, per its
+      own comment, so it doesn't fight the separate `flipTile` position
+      slide) -- a self-contained CSS-class port, same shape as the already-
+      landed `new-tile`/`combo-chip-bump` classes, not the harder
+      `flipTile` mechanism. Also confirmed by reading `markSettle`'s 3 call
+      sites in `game.js` (`unstageTile`, `selectTileForWord`,
+      `assignBlankLetter`) that vanilla itself never settle-flashes on a
+      plain drag/touch REORDER -- so "reordered" in this ticket's bullet
+      text is a slight overstatement of actual vanilla behavior; ported to
+      match what vanilla actually does (stage/unstage only), not the text.
+      Separately confirmed haptic feedback (bullet 2) is ALREADY real and
+      needs no porting: `hapticTick()` runs unconditionally inside those
+      same 3 private functions, and React already calls them for real via
+      the `Game.selectTileForWord`/`unstageTile`/`assignBlankLetter`
+      wrappers (STRUCTURAL ticket, earlier run) -- a stage/unstage already
+      vibrates on a real device today. Not something this run built; just
+      correcting the ticket's own bullet list since it was listed as a gap.
+      **Built:** `src/components/CombatScreen.jsx` -- a
+      `prevSelectedTileIdsRef` (mirrors the existing `prevRackIdsRef`/
+      `prevComboRef` native-tracking pattern, not the shared
+      `state.settleTileIds` array, since nothing ever consumed/cleared that
+      array for React and a shared one-shot flag risks being eaten by a
+      StrictMode throwaway render, per this file's own combo-bump comment)
+      drives `justUnstaged`/`justStaged` per tile, adding `.tile-settle` to
+      the rack tile a word just returned to, or the staged tile that just
+      landed, for exactly one render.
+      **Verified:** 2 new Vitest/RTL tests in `CombatScreen.test.jsx` (stage
+      flashes the staged tile, unstage flashes the rack tile, both clear on
+      the next unrelated render). `npx vitest run`, 3 consecutive runs:
+      **123/123 every time, zero flakes** (up from 121). `npm test` (jsdom
+      dom-check): ALL CHECKS PASSED, unaffected (CombatScreen.jsx is
+      React-only, no game.js change this run). `npm run build`: clean, 44
+      modules, unchanged (no new imports). `npm run test:react-build` (real
+      browser, built output): ALL CHECKS PASSED, run 2x clean. `npm run
+      test:react-qa`, `npm run test:mobile`, `npm run test:qa`, `npm run
+      test:music-engine`, `npm run build:itch` + `npm run test:itch-build`:
+      ALL CHECKS PASSED, unaffected.
+      **Not done:** the FLIP position-slide (`flipTile`'s actual
+      transform-based move, distinct from the `.tile-settle` CSS class
+      landed this run), haptic feedback (already real, see above -- no work
+      needed, but the checkbox stays open since the last two bullets
+      aren't), and the whole damage/hit-animation bullet (floating numbers,
+      HP-bar flash, screen-shake, CRUSHING!/MAGNIFICENT! banners, ink flash
+      -- still genuinely needs a new `Game.*` damage-landed hook, per the
+      ticket's own note). Ticket stays unchecked. **Next:** either the
+      FLIP position-slide (smaller, self-contained, needs `useLayoutEffect`
+      + `getBoundingClientRect` before/after a stage/unstage, not the
+      shared `flipTile`/DOM-id-lookup approach vanilla uses) or the damage-
+      landed `Game.*` hook + its animations (bigger, unblocks 4 of the
+      bullet's items at once). DUEL-GAUGE COMBAT's boss-reskin blocker
+      above is unrelated to this ticket and still needs a design call.
 
 - [x] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

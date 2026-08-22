@@ -230,6 +230,44 @@ describe('CombatScreen', () => {
     expect(state.comboState.combo).toBeGreaterThan(0);
   });
 
+  // COMBAT JUICE ticket (GOALS.md): the `.tile-settle` one-shot land flash,
+  // ported the same native way as new-tile/combo-chip-bump above (a ref
+  // tracking selectedTileIds as of the last committed render, compared
+  // during render -- see CombatScreen.jsx's own header comment). Vanilla's
+  // markSettle only fires from stage/unstage (not drag-reorder), so that's
+  // exactly what these two tests cover.
+  it('a tile gets tile-settle the render it lands in the staging area, and loses it on the next unrelated render', async () => {
+    const state = startFight();
+    render(<Harness />);
+    const tile = state.player.rack[0];
+    const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    fireEvent.click(tileBtn); // stage
+    const staged = document.querySelector('.staging-area .staged-tile');
+    expect(staged.className).toContain('tile-settle');
+
+    // An unrelated local re-render (typing) must clear the one-shot class
+    // without unstaging the tile.
+    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: 'Z' } });
+    const stagedAfter = document.querySelector('.staging-area .staged-tile');
+    expect(stagedAfter).not.toBeNull();
+    expect(stagedAfter.className).not.toContain('tile-settle');
+  });
+
+  it('a tile gets tile-settle the render it lands back in the rack, and loses it on the next unrelated render', async () => {
+    const state = startFight();
+    render(<Harness />);
+    const tile = state.player.rack[0];
+    const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    fireEvent.click(tileBtn); // stage
+    fireEvent.click(document.querySelector('.staging-area .staged-tile')); // unstage
+    const backInRack = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    expect(backInRack.className).toContain('tile-settle');
+
+    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: 'Z' } });
+    const backInRackAfter = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    expect(backInRackAfter.className).not.toContain('tile-settle');
+  });
+
   // STRUCTURAL remaining-scope (c) step 1 (GOALS.md): now that
   // main.jsx/src/test/setup.js actually call Game.applyTouchModeFromMedia()
   // (previously nothing did, so state.touchMode was always false in the
