@@ -114,6 +114,17 @@
   // Invention (two contrapuntal voices -- a literal pairing).
   mdef({ id: 'gnossienne', name: 'The Gnossienne', maxHp: 53, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }], glyph: '🎹', piece: window.Wordbound.Pieces.gnossienne1, pushesToDefeat: 1 });
   mdef({ id: 'invention', name: 'The Invention', maxHp: 55, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], glyph: '🎼', piece: window.Wordbound.Pieces.invention4, pushesToDefeat: 1 });
+  // REGULAR ENEMIES ticket (real remaining scope (2), mid-tier roster
+  // complete): the 3rd and final mid-tier regular, completing normal tier's
+  // 100% duel-mode cutover (all 5 old generic normal defs -- serpent/
+  // golempup/raven/bindingstrap/appendix -- now retiredFromPool, see below).
+  // Same cutover shape as gnossienne/invention above. HP/attack/gold match
+  // this file's own normal-tier band. `traitId: 'plain'` picked for loose
+  // thematic fit (a metronome has no real "weakness," so the flattest trait
+  // in the pool fits its own "no surprises, ever" gimmick better than a
+  // pointed one) -- duel damage math never reads it, same as every other
+  // duel-mode regular's traitId.
+  mdef({ id: 'metronome', name: 'The Metronome', maxHp: 54, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }], glyph: '⏰', piece: window.Wordbound.Pieces.czerny299, pushesToDefeat: 1 });
   // attack 4 -> 3 -> 4 on serpent/raven/bindingstrap/appendix (2026-08-20
   // Jaxon-authorized difficulty rebalance): round 1 cut these from 4 to 3
   // when floor-1-regular deaths were ~38% of all deaths (target <=10%).
@@ -131,7 +142,14 @@
   // being approached), so restoring the original attack value here is the
   // most targeted way to pull the pooled win rate down without touching
   // floor 2's already-scrutinized strong-tier numbers again.
-  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 56, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }] });
+  // retiredFromPool (REGULAR ENEMIES ticket, mid-tier roster now complete):
+  // same "kept intact for direct construction, no longer drawn by a fresh
+  // floor" reasoning as golempup/raven above -- with The Metronome landing
+  // above, all 3 named mid-tier regulars are real, so this is the LAST of
+  // the 5 old generic normal-tier defs retiring. normal tier is now 100%
+  // duel-mode. All balance-tuning history in the comments above stays
+  // valid/readable, just no longer reachable from a fresh floor draw.
+  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 56, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }], retiredFromPool: true });
   // maxHp 58 -> 50 (2026-08-20 rebalance ROUND 7): floor1-regular deaths
   // have held stable at ~15-16% across THREE consecutive large samples
   // (rounds 4/5/6, n=40-50 each) -- unlike the noisier floor-share metrics,
@@ -208,8 +226,10 @@
   // were NOT flagged as outliers at attack 4, so only these two get
   // dialed back -- a smaller, more surgical correction than reverting all
   // four again.
-  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  // retiredFromPool: same reasoning as serpent above -- the last 2 of the 5
+  // old generic normal-tier defs, completing normal tier's 100% cutover.
+  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], retiredFromPool: true });
+  mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }], retiredFromPool: true });
   // maxHp 85 -> 68 (2026-08-20 orchestrator gate-#2 outlier pass): this def
   // alone accounted for 3/14 regular deaths PLUS all 3/3 regular-tier
   // stalls at the OLD number -- the single worst outlier in the gate-#2

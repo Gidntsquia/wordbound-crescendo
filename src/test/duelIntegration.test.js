@@ -523,21 +523,45 @@ describe('startCombat -- automatic duel-mode detection off a monster def\'s .pie
     // controls directly, so search a bounded range of seeds rather than
     // assert against whichever def a fixed seed happens to roll (which
     // could silently pass a broken wiring vacuously if it never rolled it).
+    //
+    // REGULAR ENEMIES ticket (normal tier's 100% cutover, this run): with
+    // BOTH weak and normal tier now fully real/duel-mode (no poolable
+    // non-`.piece` def left in either), firstPoolableNonDuelDefId() above
+    // can only ever return a 'strong'-tier def (sentinel/warden/
+    // spinesplinter) -- and floor.js's getAllowedTiers(1) is ['weak',
+    // 'normal'] only, so a 'strong' def can NEVER appear on floor 1's own
+    // start nodes, confirmed directly (a floor-1-only version of this same
+    // search, run against this exact tree, found it in 0 of 40 seeds).
+    // Floor 2 (getAllowedTiers -> +'strong') is the first floor that can
+    // actually draw it, so search floor 1 first (covers the case where a
+    // future run duel-ifies more of normal/weak's siblings and this picks
+    // one of those instead) and fall back to a real Game._advanceFloor()
+    // call to floor 2 for the same seed before giving up on it -- same
+    // exposed, test-only `_advanceFloor` RunScreen.test.jsx already drives
+    // directly for an identical "jump past floor 1" need.
     let state = null;
     for (let seed = 0; seed < 40; seed++) {
       const candidate = freshRun('duel-startcombat-seed-' + seed);
-      const available = Game._availableNodeIds();
-      const targetNodeId = available.find((id) => {
-        const node = candidate.floor.nodes.find((n) => n.id === id);
-        return node && node.type === 'combat' && node.defId === targetDefId;
-      });
+      const findTargetNode = () => {
+        const available = Game._availableNodeIds();
+        const id = available.find((nodeId) => {
+          const node = candidate.floor.nodes.find((n) => n.id === nodeId);
+          return node && node.type === 'combat' && node.defId === targetDefId;
+        });
+        return id || null;
+      };
+      let targetNodeId = findTargetNode();
+      if (!targetNodeId) {
+        Game._advanceFloor();
+        targetNodeId = findTargetNode();
+      }
       if (targetNodeId) {
         Game.enterCurrentNode(targetNodeId);
         state = candidate;
         break;
       }
     }
-    if (!state) throw new Error('no seed in the first 40 rolled an available ' + targetDefId + ' combat node -- widen the search range');
+    if (!state) throw new Error('no seed in the first 40 rolled an available ' + targetDefId + ' combat node on floor 1 or 2 -- widen the search range');
 
     expect(state.monster.defId).toBe(targetDefId);
     expect(state.monster.duel).toBe(true);

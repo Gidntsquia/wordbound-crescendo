@@ -3,9 +3,9 @@
 //
 // REGULAR ENEMIES ticket (GOALS.md) -- the ticket's own VERIFY line asks for
 // "Playwright duel smoke per tier win + loss paths." Closes that bar for the
-// early tier (gymnopediste/gstring/morningmood) and, as of this run, the
-// first 2 of the mid tier's 3 named regulars (gnossienne/invention) --
-// js/wordbound/monsters.js. Every prior real-browser check in this suite
+// early tier (gymnopediste/gstring/morningmood) and all 3 of the mid tier's
+// named regulars (gnossienne/invention/metronome, the last added when
+// normal tier's cutover completed) -- js/wordbound/monsters.js. Every prior real-browser check in this suite
 // (verify-react-qa-boss-reward.js, verify-react-duel-loss.js) only ever
 // exercised a BOSS's `.piece` auto-detection -- this is the first real,
 // live-browser proof that a plain REGULAR carrying `.piece` also routes
@@ -315,6 +315,40 @@ async function main() {
     });
     await page.waitForFunction(() => window.Wordbound.Game._state.screen === 'GAME_OVER', { timeout: 5000 });
     check('a real tick-loop Verse loss against a mid-tier regular ends the run for real', await page.evaluate(() => window.Wordbound.Game._state.screen === 'GAME_OVER'));
+
+    // ---- PART 3 (this run, REGULAR ENEMIES normal-tier 100% cutover): a
+    // third fresh run for The Metronome -- the mid tier's 3rd and final
+    // regular, wired alongside retiring the last 3 old generic normal-tier
+    // defs. A third fresh run rather than piling onto the second run's own
+    // floor because the invention loss above already ended that run at
+    // GAME_OVER (same reasoning PART 2's own comment gives for starting
+    // fresh after PART 1's loss); uses the simple row-0
+    // enterForcedRegularDuel (not the "anywhere on floor" variant) since
+    // it's this run's first fight, matching PART 1/2's own first-fight
+    // convention.
+    await page.click('button:has-text("Main Menu")');
+    await page.waitForSelector('#screen-main-menu');
+    await page.click('button:has-text("New Run")');
+    await page.waitForSelector('#screen-character-select');
+    await page.fill('#run-seed-input', SEED + '-mid2');
+    await page.click(`.character-option:has-text("${CHARACTER_NAME}")`);
+    await page.waitForSelector('.node-map');
+
+    // ---- WIN: metronome (mid tier, 3rd and final mid-tier regular) ----
+    await enterForcedRegularDuel(page, 'metronome');
+    check('third mid-tier regular fight also starts in duel mode', await page.evaluate(() => window.Wordbound.Game._state.monster.duel === true));
+    check('the real metronome def (name/glyph/tier) reaches the live monster instance', await page.evaluate(() => {
+      const m = window.Wordbound.Game._state.monster;
+      const def = window.Wordbound.Monsters.MONSTER_DEFS.metronome;
+      return m.name === def.name && m.glyph === def.glyph && m.tier === 'normal';
+    }));
+    check('the duel piece is the real vetted mid-tier piece (stageTier + PD vetting)', await page.evaluate(() => {
+      const piece = window.Wordbound.Game._state.duelPiece;
+      return piece && piece.stageTier === 'mid' && piece.vetting && piece.vetting.publicDomain === true;
+    }));
+    const metronomeWord = await winDuelViaRealWord(page);
+    check(`mid-tier regular #3 (The Metronome) killed via a real submitted word (${metronomeWord})`, !!metronomeWord);
+    check('tile-reward panel visible after The Metronome kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
 
     check('zero failed requests / 404s across the whole run', failedRequests.length === 0);
     failedRequests.forEach((f) => console.log('  BAD REQUEST:', f));

@@ -135,8 +135,39 @@ async function main() {
     await page.waitForSelector('.node-map');
     await checkNoOverflow(page, 'run map');
 
-    // Click a real available "Foe" node (deterministic for this seed: the
-    // same one src/test/gameHelpers.js's findAvailableCombatNodeId picks).
+    // REGULAR ENEMIES ticket (normal tier's 100% cutover, this run): a real,
+    // demonstrated bug found while running this ticket's own full VERIFY bar
+    // -- confirmed via `git stash` that this SAME seed already rolled a
+    // duel-mode monster on the unmodified base tree too (weak tier was
+    // already 100% duel-mode from an earlier run), so this is a pre-existing
+    // gap this script never accounted for, not a regression from this run's
+    // own change. Below, the check that plays a word and asserts
+    // `monster.hp` actually drops assumes a TURN-BASED fight specifically
+    // (duel mode never touches `monster.hp` at all -- it pushes
+    // `state.duel.gauge` instead -- so a duel-mode draw here would hang the
+    // `waitForFunction` below forever). Pin the available combat node away
+    // from duel mode first, mirroring test/dom-check.js's own
+    // firstSafeDefId/pinNodeAwayFromDuelMode convention (same idea, inlined
+    // here since this script drives a real browser via page.evaluate rather
+    // than importing the vanilla suite's helper directly) -- this is the
+    // fix the stale comment below already assumed existed but never actually
+    // ran.
+    await page.evaluate(() => {
+      const Game = window.Wordbound.Game;
+      const Monsters = window.Wordbound.Monsters;
+      const state = Game._state;
+      const available = Game._availableNodeIds();
+      const node = state.floor.nodes.find((n) => available.indexOf(n.id) !== -1 && n.type === 'combat');
+      const def = node && Monsters.MONSTER_DEFS[node.defId];
+      if (node && def && def.piece) {
+        const safeId = Object.keys(Monsters.MONSTER_DEFS).find((id) => !Monsters.MONSTER_DEFS[id].piece && Monsters.MONSTER_DEFS[id].tier === def.tier);
+        if (safeId) node.defId = safeId;
+      }
+    });
+
+    // Click a real available "Foe" node (deterministic for this seed and,
+    // as of the pin above, guaranteed turn-based -- the fight this script's
+    // own downstream `monster.hp` check needs).
     const clicked = await page.evaluate(() => {
       const pill = Array.from(document.querySelectorAll('.node-pill.node-combat.node-current'))[0];
       if (!pill) return false;

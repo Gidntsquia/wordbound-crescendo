@@ -5315,3 +5315,136 @@ Rules for the routine:
       Once that lands, normal tier is 100% duel-mode and only strong tier
       (0 of 3 late-tier pieces composed) remains before PLAYTEST FINDINGS
       item 2's own closing bar is met.
+      ORCHESTRATOR NOTE 2026-08-22T19:07Z (normal tier's 100% cutover done --
+      The Metronome wired in, the last 3 old generic normal defs retired):
+      `js/wordbound/monsters.js` gets a new `metronome` (The Metronome)
+      entry, `tier: 'normal'`, `pushesToDefeat: 1` explicit, HP/attack/gold
+      matching this file's own normal-tier band, `piece:
+      window.Wordbound.Pieces.czerny299` (composed + PD-vetted in the prior
+      run), `traitId: 'plain'` (a metronome has no thematic "weakness," so
+      the flattest trait fit better than a pointed one -- duel damage math
+      never reads it either way, same as every other duel regular's
+      traitId), glyph '⏰'. `serpent`/`bindingstrap`/`appendix` -- the last 3
+      of the 5 old generic normal-tier defs -- get `retiredFromPool: true`
+      (same "kept intact for direct construction, no longer drawn by a
+      fresh floor" treatment as every prior retirement in this ticket).
+      normal tier is now 100% duel-mode: every real floor-1/2/3 'normal'
+      draw is one of gnossienne/invention/metronome. No floor.js change was
+      needed -- `pickCombatDefId`'s `retiredFromPool` filter already
+      generalizes across tiers, confirmed by reading it directly before
+      assuming so.
+      **Two real, pre-existing test-suite bugs found and fixed while
+      running this ticket's own full VERIFY bar, both the same hazard
+      class this ticket's own dom-check.js audit already established a fix
+      pattern for -- neither is new; both were demonstrated (via `git
+      stash` isolation against the unmodified base tree) to already be
+      broken before this run's own change, just not yet exposed because
+      normal tier still had a poolable non-duel fallback until now:**
+      1. `src/test/duelIntegration.test.js`'s "a monster def with .piece
+         starts a real duel fight" test picks a target def via its own
+         `firstPoolableNonDuelDefId()` helper (first def that's both
+         un-`.piece`d and not `retiredFromPool`) and then searches 40
+         `freshRun` seeds' floor-1 start nodes for it. With BOTH weak and
+         normal tier now fully real/duel-mode, that helper can only ever
+         return a 'strong'-tier def (sentinel/warden/spinesplinter) --
+         and floor.js's `getAllowedTiers(1)` is `['weak','normal']` only,
+         so a 'strong' def can never appear on floor 1 at all, confirmed
+         directly (a floor-1-only version of this exact search, run
+         against this run's own tree, found it in 0/40 seeds). Fixed by
+         falling back to a real `Game._advanceFloor()` call (the same
+         test-only hook `RunScreen.test.jsx` already drives directly) to
+         floor 2 -- which `getAllowedTiers` adds 'strong' to -- before
+         giving up on a seed, rather than widening the seed count (which
+         would never have helped, since the def is categorically
+         unreachable on floor 1 regardless of sample size). Verified: the
+         fixed test passes 4/4 repeat runs against this run's own tree
+         (was 0/1 before the fix, reproduced directly).
+      2. `test/verify-react-build.js`'s real-browser playthrough clicks
+         whichever combat node its fixed seed (`vitest-fixed-seed-1`)
+         happens to roll on floor 1, with no duel-mode awareness at all
+         (unlike every other real-browser QA script in this suite), then
+         asserts a submitted word drops `monster.hp` -- which duel mode
+         never touches (it pushes `state.duel.gauge` instead), so a
+         duel-mode draw hangs that assertion's `waitForFunction` for the
+         full 3s timeout and fails the whole run. Confirmed via `git
+         stash` that this exact seed already rolled a duel-mode monster on
+         the unmodified base tree too (weak tier alone was already enough
+         to trigger it) -- a real, pre-existing gap this run's own change
+         didn't introduce but did make impossible to miss (both trees
+         fail identically). Fixed by pinning the available combat node
+         away from duel mode via `page.evaluate` right before the click,
+         mirroring `test/dom-check.js`'s own `firstSafeDefId`/
+         `pinNodeAwayFromDuelMode` convention inline (this script drives a
+         real browser rather than importing the vanilla suite's helper
+         directly). Verified: 2/2 clean runs after the fix (was a
+         reproducible 100% failure before, both before and after this
+         run's own monsters.js change).
+      Extended `test/verify-regular-duel-smoke.js` with a WIN via The
+      Metronome (originally attempted as a 3rd forced fight stacked on the
+      existing mid-tier floor via `enterForcedRegularDuelAnywhereOnFloor`,
+      which crashed with "no uncleared combat node left on the floor to
+      force" -- that helper force-clears every OTHER node each time it's
+      called, so it only tolerates one fight per floor after the first;
+      fixed by giving Metronome its own third fresh run instead, using the
+      simpler row-0 `enterForcedRegularDuel` since it's that run's first
+      fight, same convention PART 1/2 already use for their own first
+      fights).
+      **Verified this run (this ticket's own full VERIFY bar, against the
+      final merged tree):** `npm test` (dom-check.js): 2 clean runs.
+      `npm run test:react` (Vitest): 183/183, stable across 12 of 13 total
+      repeat runs this session (1 run hit a failure not captured before it
+      scrolled past -- almost certainly the already-documented
+      `duelIntegration.test.js` "flat 260ms wait on a razor-thin margin"
+      timing flake this file's own PLAYTEST FINDINGS entry already named,
+      not a new issue: every other run, including several run back-to-back
+      immediately after, was clean). `npm run build`: clean, 57 modules
+      (unchanged -- no new file, just edits to existing ones + the version
+      bump). `npm run test:mobile`/`test:qa`/`test:react-qa`: ALL CHECKS
+      PASSED. `npm run test:branching-map`: ALL CHECKS PASSED, 180
+      floors/seeds, no orphan/reachability regressions. `npm run
+      test:duel-balance`: no crash, no new sanity flags, numbers unchanged
+      from before (the sim reads Gnossienne's piece data directly for
+      'mid', not `MONSTER_DEFS` -- per the "Next" note above, did NOT wire
+      Metronome in as a third representative, since Gnossienne/Invention
+      already establish the sim's own "one representative per tier"
+      convention and neither piece's own curve differs meaningfully from
+      Metronome's for this purpose). `npm run test:regular-duel-smoke`
+      (extended, this run's own real content): ALL CHECKS PASSED, 2 runs
+      clean, including the new Metronome WIN pass. `npm run build:itch` +
+      `npm run test:itch-build`: ALL CHECKS PASSED (confirmed via the real
+      zip listing that no new piece file was needed -- `czerny-299.js` was
+      already shipped by the prior run). `npm run test:music-engine`/
+      `test:audio`/`test:drag-interrupt`/`test:run-header`/
+      `test:react-duel-loss`: ALL CHECKS PASSED, unaffected. `npm run
+      test:react-build`: ALL CHECKS PASSED, 2 clean runs (after the fix
+      above -- was a reproducible failure before it).
+      Version bumped v0.10 -> v0.11 (`MainMenu.jsx`/`wordbound.html`/
+      `MainMenu.test.jsx`) -- real gameplay content shipped (normal tier's
+      3rd duel regular, completing that tier's cutover).
+      **Genuinely-Jaxon-only:** none this run (composition/balance/test-
+      harness judgment calls only, all flagged above).
+      **Not done, honest gaps:** late tier (Swarm/Sabbath/Organist) remains
+      completely untouched -- 0 of 3 composed, all 3 old strong-tier defs
+      (sentinel/warden/spinesplinter) still reachable and still turn-based/
+      silent. PLAYTEST FINDINGS item 2 ("no def without `.piece` remains
+      reachable") is therefore still open -- weak and normal tiers are now
+      both 100% converted, strong tier is the entire remaining gap. This
+      ticket stays open (box not checked).
+      **Next:** start the late tier -- The Swarm (or whichever of
+      Swarm/Sabbath/Organist THEME.md pairs with the strongest gimmick to
+      compose first), same "proof piece, verified standalone before
+      wiring" precedent as every mid-tier piece before it. Once all 3 late
+      pieces are composed and wired (retiring sentinel/warden/spinesplinter
+      via `retiredFromPool`), PLAYTEST FINDINGS item 2's own closing bar is
+      finally reachable, and this ticket's VERIFY line's remaining pieces
+      (virtual-clock sim confirming the FULL tier curve end to end) become
+      meaningful to run for the first time. A future run picking that up
+      should also decide whether `pickEliteDefId` (floor.js, unaffected by
+      any of this ticket's work so far -- elites still draw from the same
+      3 strong-tier defs regardless of `.piece`) needs its own duel
+      treatment, or is deliberately out of this ticket's scope (elites
+      already carry a labeled resistance-trait warning per FUN OVERHAUL
+      6/8 -- a separate, already-telegraphed difficulty spike, not
+      obviously the same "silent turn-based fight" problem PLAYTEST
+      FINDINGS item 2 is about) -- not decided either way yet, flagging
+      for whoever picks this up next.
