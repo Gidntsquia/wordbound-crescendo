@@ -6273,3 +6273,161 @@ coordination note; the exclusives pool can reasonably draw from items that
 exist today even before the full batch lands, a call for whoever picks
 that up next). REGULAR ENEMIES remains the queue's next fully independent
 item after both.
+
+## 2026-08-22T12:27Z -- ITEMS ticket: AMENDED batch (health items + duel-gauge items) -- ticket CLOSED
+
+Picked up ITEMS at exactly the point the prior run's own "Next" note left
+it: all 4 of Jaxon's signature items existed, and the only open scope was
+the AMENDED batch (health items + 4-8 duel-gauge-space items). Landed 2
+health items + 4 duel-gauge items (the ticket's own stated floor of the
+4-8 range) -- 10 new items total for this ticket -- and checked the box.
+Full reasoning, including the floor-vs-ceiling judgment call, is in
+GOALS.md's own ORCHESTRATOR NOTE under the ITEMS ticket; this summarizes.
+
+**What landed** (`js/wordbound/items.js`, `js/wordbound/duel.js`,
+`js/wordbound/game.js` -- no new file):
+- **Extra Verse** (rare, 50g): +1 max AND current health block, the moment
+  it's acquired. Needed a new mechanism -- `Items.applyOnAcquire(player,
+  itemId)`, calling the item def's own `onAcquire(player)` if present. This
+  is deliberately NOT another entry in the existing `hooks` object: every
+  hook there is either per-word/per-damage-event, or (onRunStart, despite
+  its name) fires at the start of every FIGHT, not once ever -- none of
+  them fit "grant a permanent stat gain right now, exactly once." Wired
+  into all 3 real item-acquisition call sites (`Game.pickTreasureItem`,
+  `Game.buyItem`, `Game.pickBossItemReward`), each now calling this right
+  after their own `player.items.push`.
+- **Mended Verse** (rare, 45g): heals 1 lost health block on
+  `onFloorAdvance` -- reused the existing hook (Acquisitions Budget is the
+  only other item that uses it) rather than per-fight healing, specifically
+  so a health item can't trivialize the block system the ticket's own
+  "sim-check that health items don't trivialize late tiers" line warns
+  against. Never overheals.
+- **Sordino / Fermata / Rubato** (gauge push-resistance / longer i-frames /
+  wider parry window): each is a new per-INSTANCE `Duel.create()` opt
+  (`pushResistance`, `iframeBonusSec`, `parryWindowBonusSec`) rather than a
+  global `Duel.*` constant -- this keeps `duel.js` itself still fully
+  Items-agnostic, matching its own header's "pure, framework-agnostic, no
+  Items dependency" decision. `Items.getDuelPushResistance`/
+  `getDuelIframeBonus`/`getDuelParryWindowBonus` sum the matching statMod
+  across owned items (additive, not multiplicative like
+  getTempoScale/getScoreMultiplier -- "resistance" composes the way players
+  intuitively expect, two 20% items feeling like 40% not 36%); push
+  resistance is clamped to [0, 0.9] so a fight can never become fully
+  un-losable. `Game.startDuelFight` reads all 3 once at fight start (same
+  timing Ritardando/Largo already use for tempo scale) and passes them into
+  `Duel.create`. `duel.js` itself just multiplies push by
+  `(1 - pushResistance)`, adds `iframeBonusSec` onto `IFRAME_DURATION_SEC`
+  in `loseBlock`, and adds `parryWindowBonusSec` onto `PARRY_WINDOW_SEC` in
+  `attemptParry` -- three small, isolated reads, no engine restructuring.
+- **Encore** (rare, 45g), the "crescendo-payback" item: an `onWordPlayed`
+  hook reading `ctx.result.parried` -- the field `DuelCombat.submitWord`
+  already attaches when a word lands in the parry window (no new plumbing
+  needed) -- and applying +8 bonus damage via the existing
+  `Items.applyBonusDamage`. A turn-based fight's result simply never has
+  this field, so the hook is naturally inert there without an explicit
+  `isDuelFight` check.
+- All 6 use the signature items' own Italian-musical-term naming voice
+  (Sordino/Fermata/Rubato) or a clear English name (Extra Verse/Mended
+  Verse/Encore).
+
+**A real judgment call, documented rather than silently resolved:** landed
+exactly 4 duel-gauge items -- the ticket's own stated FLOOR of its "4-8
+more" range, not the ceiling. For a single bounded run, chose depth over
+count: 4 genuinely distinct mechanics (push-resistance, i-frame extension,
+parry-window widening, a parry-triggered payback strike), each with its
+own real engine change plus real-browser proof via `test:react-duel-loss`,
+felt like more real content than stretching to 8 with thinner variations
+on the same handful of levers. This is a completable, additive gap (more
+duel-gauge items could still land later), not a broken promise -- flagged
+for Jaxon in case the fuller 8 is wanted, but not treated as blocking the
+ticket's own completion.
+
+**Verified:**
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED, +26 new checks -- Extra
+  Verse's onAcquire (fresh player, and a mid-run-damaged player: both
+  current+max +1 in both cases; a no-op called against an unrelated item);
+  Mended Verse heals exactly 1 on floor advance and is a true no-op at full
+  health; all 3 duel getters (0 with nothing owned, correct alone,
+  unaffected by an unrelated item) plus the 0.9 push-resistance clamp via a
+  deliberately extreme fake item (same convention Fortissimo's own
+  MIN_RACK_CAPACITY test already established); Encore applies +8 only when
+  `ctx.result.parried` is `true`, and stays inert both when it's `false`
+  and when the field is entirely absent (the turn-based case). Plus a
+  seeded 300-sample shop-appearance check confirming all 6 new ids are
+  real, shop-eligible pool members.
+- `npx vitest run`: 181/181 (up from 174) -- 7 new tests in
+  `src/test/duel.test.js`'s own new describe block, exercising
+  `Duel.create`'s 3 new opts directly against the real pure engine
+  (mocked-clock, no AudioContext): defaults to 0 for all 3; pushResistance
+  reduces a tick's push by exactly that fraction and composes
+  multiplicatively with parry damping; the 0.9 clamp holds in both
+  directions (an extreme value clamps down, a negative clamps to 0);
+  iframeBonusSec genuinely extends how long i-frames suppress push past
+  the unmodified duration; parryWindowBonusSec both accepts a word just
+  past the DEFAULT window and still correctly rejects one past the
+  widened edge.
+- `npm run test:react-duel-loss` (real browser, built output): extended
+  with a new section between the pre-existing Ritardando check and Phase
+  0 -- grants Sordino+Fermata+Rubato via the same `page.evaluate`
+  convention Second Wind/Ritardando's own sections already use, re-enters
+  the same real boss fight (these opts only apply at fight start, so a
+  freshly-started fight is the only way to observe them, same reasoning
+  Ritardando's section already established), and reads
+  `duel.pushResistance`/`iframeBonusSec`/`parryWindowBonusSec` straight off
+  the live `Duel` instance -- confirming `Game.startDuelFight` genuinely
+  calls the 3 new `Items.getDuelX` getters when building a REAL fight, not
+  just that the pure getters multiply/sum correctly in isolation. This is
+  the one behavior no jsdom test can reach (it needs a real
+  AudioContext-backed sequencer). Items stripped and the fight re-entered
+  once more afterward so every later phase in the file runs against the
+  plain-Duel numbers it was originally written against -- all of them
+  still passed unchanged. Full script: ALL CHECKS PASSED, 39 checks, zero
+  console errors, zero failed requests.
+- `npm run build`: clean, 51 modules (unchanged -- no new file).
+- `npm run test:mobile`, `test:qa`, `test:react-qa`, `test:react-build`,
+  `test:music-engine`, `test:branching-map`, `test:run-header`,
+  `test:audio`, `test:drag-interrupt`: ALL CHECKS PASSED, unaffected -- none
+  of the 6 new items touch UI/CSS (all passive statMods or hooks, same
+  shape as most of this ticket's earlier items).
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED, no
+  manifest change needed (no new file, only edits to already-listed
+  modules -- confirmed directly, not assumed, per this file's own long-
+  standing "the itch-build-manifest surprise" lesson).
+- `npm run test:duel-balance`: same pre-existing early/regular/weak
+  stalemate flag every prior run's own note documents, exit code 0,
+  unrelated (this sim doesn't model items at all).
+
+Version bumped v0.5 -> v0.6: `wordbound.html`'s and React's
+`MainMenu.jsx`'s `.version-info` text (plus the matching Vitest
+expectation in `MainMenu.test.jsx`) -- ITEMS is now a genuinely finished,
+checked-off ticket, per this file's own "bump minor per completed feature"
+convention. Re-ran `npm test`/`npx vitest run`/`npm run build`/
+`npm run build:itch` after the bump to confirm nothing else referenced the
+old string -- all clean.
+
+**Genuinely-Jaxon-only, flagged rather than blocking:** every new numeric
+value this run introduced -- Sordino's 20% push resistance, Fermata's
++1.5s i-frame bonus, Rubato's +0.1s parry-window bonus, Encore's +8 flat
+bonus, Extra Verse/Mended Verse's +1 block -- is this run's own tuning
+call, NOT balance-sim-verified. Same pre-existing `test/balance-
+simulation.js` AudioContext-crash gap every prior ITEMS update in this
+file already flags, still blocking a full statistical item-economy check
+today. Also flagged: whether 4 (the floor) or 8 (the ceiling) duel-gauge
+items is the right final count for this pool (see the judgment-call note
+above).
+
+**Not done, honest gaps:** none within ITEMS's own stated scope --
+everything the ticket text and its AMENDED note ask for now exists and is
+checked off. The item pool sits at 30 total defs after this run. The only
+adjacent open thread is SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS's own
+still-open exclusive-items half of step 2, which explicitly names this
+ticket as its coordination dependency and can now proceed for real.
+
+**Next:** SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS's exclusive items (each
+author's 1-2 concepts are already spec'd in THEME.md's own table) is the
+natural next queue item -- the full 30-item pool built across this ticket
+is available to draw from, whether by reusing existing items as
+author-exclusive unlocks or authoring a handful of new ones per author,
+whichever a future run judges fits THEME.md's concepts better once it
+re-reads them. REGULAR ENEMIES remains the queue's next fully independent
+item after that.
