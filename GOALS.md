@@ -2084,6 +2084,96 @@ Rules for the routine:
       retarget is the smaller, independent piece after that. COMBAT
       JUICE's damage-landed hook remains available as a separate,
       lower-priority pickup whenever this queue is otherwise empty.
+      ORCHESTRATOR NOTE 2026-08-22 (update 9): picked up update-8's own
+      "Next" note -- the virtual-clock balance sim, the ticket's own last
+      unbuilt VERIFY-line requirement besides real per-tier pieces
+      ("virtual-clock duel simulation: deterministic intensity schedule +
+      bot with configurable word-rate/reaction profiles; confirm each tier
+      is winnable/losable as intended").
+      **Built:** `test/duel-balance-simulation.js`, a new committed (not
+      throwaway) Node script, pure -- no jsdom/Playwright, since `duel.js`/
+      `music.js` are both framework-agnostic with zero DOM/WebAudio calls on
+      the code paths exercised here (`Duel.create/tick/applyPlayerPush/
+      registerCrescendoPeak/attemptParry`, `Music.intensityAt`), so a
+      trivial `window = global` shim is enough to load and drive the REAL
+      engine modules, same "don't reimplement the thing you're testing"
+      principle `test/balance-simulation.js`'s own header states. New
+      `"test:duel-balance"` npm script.
+      **Scope call, flagged plainly:** only ONE real sequenced piece exists
+      (Mountain King, 'mid' tier) -- 'early'/'late'/'final' have no real
+      piece yet (Valkyrie Marshal + the final Beethoven's-5th boss are both
+      still unbuilt), so those three tiers run against SYNTHETIC
+      deterministic intensity schedules (periodic base level + triangular
+      crescendo pulses) hand-tuned to match the header COMBAT MODEL's own
+      curve language, NOT a substitute for simulating each tier's eventual
+      real piece -- documented at length in the script's own header so this
+      isn't mistaken for final tuning data. 'mid' tier runs against the
+      REAL Mountain King piece's actual `dynamics.keyframes`/tempo/crescendo
+      data (beat<->time conversion reimplemented locally, mirroring
+      `music.js`'s own private `unscaledTimeAtBeat`/`beatAtUnscaledTime`,
+      since that conversion isn't part of `Music`'s public API) -- this is
+      the one tier's numbers below that validate the actual shipped boss,
+      not a proxy.
+      Three bot profiles (weak/average/skilled: word interval, score
+      distribution, parry-timing skill -- a skilled/average bot can snap its
+      next word toward a known upcoming crescendo peak, simulating a player
+      reading the TELEGRAPH bullet's UI) x 4 tiers x 2 encounter kinds
+      (regular pushesToDefeat:1, boss pushesToDefeat:3 -- both exactly
+      game.js's own `monster.isBoss ? 3 : 1` default) = 24 combos, seeded
+      deterministically (mulberry32) so a rerun reproduces identical numbers
+      -- confirmed directly: ran twice, `diff`'d the full output, byte-
+      identical. Each simulated duel starts fresh at
+      `Duel.DEFAULT_HEALTH_BLOCKS` -- cross-fight attrition across a whole
+      run is explicitly out of scope (documented in the script), this
+      confirms a SINGLE duel per tier is winnable/losable as intended, which
+      is what the VERIFY line actually asks for.
+      **Findings (40 trials/combo, this run's actual numbers -- see
+      `test/duel-balance-simulation-results.json` for the full table):**
+      early tier is genuinely safe -- 0% loss rate across ALL three bot
+      profiles (even 'weak'), confirming "nearly-safe learning space" holds.
+      mid (the REAL Mountain King boss) / late / final all show the intended
+      escalating curve: weak play loses ~100% of the time, skilled play wins
+      but at real cost (final-tier boss: 100% win for the skilled bot, but
+      an avg 3.1/5 Verses lost getting there) -- "only the strongest
+      survive" reads as true on the numbers, not just trivial with skilled
+      play. Two things flagged, not fixed this run (see the script's own
+      printed "sanity flags" section): (1) INFO, not a bug -- final-tier
+      boss's 100%-skilled-win-rate-but-high-cost result is exactly what
+      "brutal but survivable for the best" should look like on paper, but
+      flagged for Jaxon's real playtest since paper-brutal and felt-brutal
+      aren't the same thing; (2) PACING -- early/regular/weak has a real
+      right-skewed tail (~20% of trials take past this script's own 300s
+      horizon to resolve, chosen by first observing this exact tail at a
+      shorter 240s and raising it, not guessed upfront) since a
+      disengaged/weak player's net gauge drift there is small-but-positive
+      (0% loss confirms zero danger, just slow) -- not a bug, but worth
+      knowing a maximally passive early fight can run long in real time.
+      Deliberately did NOT retune `duel.js`'s `STAGE_TIER_BASE_PUSH`/
+      `INTENSITY_PUSH_SCALE`/`WORD_PUSH_SCALE` off these numbers this run --
+      3 of 4 tiers are still synthetic proxies of this run's own invention
+      (not calibrated against a real piece or a real player), and the one
+      real-piece tier (mid) already lands inside the intended curve, so
+      there's no confirmed problem to fix, only a documented tuning trail
+      for whoever picks this up once more real per-tier pieces exist.
+      **Verified:** ran the script itself 2x consecutively for determinism
+      (byte-identical `diff`). `npm test` (jsdom dom-check): ALL CHECKS
+      PASSED, unaffected (no `game.js`/`wordbound.html` change this run --
+      purely a new standalone script + one new `package.json` script entry).
+      `npx vitest run`: 131/131, unaffected (no `src/` change). `npm run
+      build`: clean, 44 modules, unchanged, confirming the new script is a
+      true no-op for the shipped app (it's never imported by anything).
+      **Not done:** Second Wind's retarget at `healthBlocks` and Valkyrie
+      Marshal's/the final boss's own real sequenced pieces remain open,
+      unchanged. Ticket stays unchecked -- balance-sim infrastructure is
+      built and gives clean results, but it's still a proxy for 3 of 4
+      tiers. **Next:** Second Wind's retarget is the smaller, independent
+      remaining piece (per update-8's note); once Valkyrie Marshal/the
+      final boss get real pieces, rerun `npm run test:duel-balance` (or
+      wire their real piece into a new `TIER_CONFIGS` entry the way 'mid'
+      already uses Mountain King) to replace their synthetic proxy numbers
+      with real ones. COMBAT JUICE's damage-landed hook remains available
+      as a separate, lower-priority pickup whenever this queue is otherwise
+      empty.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

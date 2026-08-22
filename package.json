@@ -33,7 +33,8 @@
     "pretest:react-duel-loss": "node tools/ensure-deps.js @playwright/test",
     "test:react-duel-loss": "node test/verify-react-duel-loss.js",
     "pretest:music-engine": "node tools/ensure-deps.js @playwright/test",
-    "test:music-engine": "node test/verify-music-engine.js"
+    "test:music-engine": "node test/verify-music-engine.js",
+    "test:duel-balance": "node test/duel-balance-simulation.js"
   },
   "dependencies": {
     "react": "^19.2.8",
