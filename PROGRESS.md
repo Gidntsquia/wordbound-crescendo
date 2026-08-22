@@ -2798,3 +2798,186 @@ unaffected. **Next:** DUEL-GAUGE COMBAT is the first unchecked GOALS.md item
 as of this commit -- the signature mechanic this engine's event/intensity
 API was built for, and now genuinely unblocked. COMBAT JUICE remains
 available as lower-priority, opportunistic pickup.
+
+## 2026-08-22T00:21Z — DUEL-GAUGE COMBAT: core gauge engine + mocked-clock tests (orchestrator)
+
+Repo state note before starting: local checkout was already on a clean, up-to-date
+`main` matching `origin/main` (the prior run's closing commit) -- no stale-branch
+fixup needed this time.
+
+**Scope decision:** GOALS.md's first unchecked item was COMBAT JUICE (cosmetic hit/
+drag animation polish), but that ticket explicitly self-deprioritizes ("Low urgency
+relative to MUSIC ENGINE / DUEL-GAUGE COMBAT... pick up opportunistically or whenever
+the queue is otherwise empty") and the prior run's own closing note named DUEL-GAUGE
+COMBAT as the real next priority, now genuinely unblocked since MUSIC ENGINE closed.
+Followed that established precedent (same one the MUSIC ENGINE run itself followed
+over COMBAT JUICE) rather than the raw top-to-bottom default.
+
+**Why this run didn't attempt the whole ticket:** DUEL-GAUGE COMBAT is enormous --
+replacing the entire turn-based Combat.playWord/monsterAttack flow with a continuous
+gauge, replacing player.ink-as-HP with discrete Verses (health blocks) game-wide
+(touching every ink-spend item: Overcharge, Rewrite, and whatever else reads
+player.ink), building the telegraph UI, the Largo accessibility control, and a
+virtual-clock balance sim across all four stage tiers -- a multi-run push by any
+reasonable estimate, same shape as STRUCTURAL's 12-update arc. Scoped this run to the
+one piece that's genuinely self-contained and independently valuable: **the gauge
+engine itself**, built and verified against the ticket's own VERIFY line first clause
+("mocked-clock unit tests: gauge integration math, block loss at the end-state only,
+i-frame suppression, parry window, tier multipliers") before any of it touches
+game.js/CombatScreen.jsx. Same pattern MUSIC ENGINE used (build+verify the engine
+module first, wire it in as a later, separately-scoped step) -- deliberately followed,
+not improvised.
+
+**What I built:**
+- `js/wordbound/duel.js` (new) -- a pure, framework-agnostic state machine, no DOM/
+  WebAudio/game.js dependency (same convention as music.js). Full design rationale is
+  in the file's own header comment; summary:
+  - **The gauge**: a single number in [0, 100], GAUGE_MIN=0 (player-damaging end),
+    GAUGE_MAX=100 (enemy-damaging end), starting at GAUGE_CENTER=50. This 0=player-
+    loses/100=enemy-loses orientation is an implementation choice (the ticket doesn't
+    specify a sign), documented plainly so it's easy to flip if UI wants the opposite.
+  - **Music push** (`tick(now, dt, intensity)`): per the header COMBAT MODEL, push =
+    `(STAGE_TIER_BASE_PUSH[tier] + intensity * INTENSITY_PUSH_SCALE) * dt`, subtracted
+    from the gauge. `STAGE_TIER_BASE_PUSH = {early:1, mid:3, late:6, final:9}` is the
+    "later-stage enemies push a base amount more" additive term; `INTENSITY_PUSH_SCALE
+    = 16` is intensity's own weight (a crescendo IS a spike in music.js's intensity
+    curve, so "crescendos push much harder" falls out of that curve's own shape times
+    this one scale knob). Intensity is clamped to [0,1] defensively. All four tuning
+    numbers, `WORD_PUSH_SCALE=1`, `IFRAME_DURATION_SEC=3`, `PARRY_WINDOW_SEC=0.2`,
+    `PARRY_DAMPING_DURATION_SEC=1.5`, `PARRY_MITIGATION=0.5` are named GOALS.md-cited
+    starting points, explicitly flagged as retunable -- none of this is claimed as
+    final balance, just a working, testable baseline within each ticket-stated range
+    (i-frames "2-4s, tune" -> 3s; parry "~±200ms, tune" -> 0.2s).
+  - **Losing a push**: gauge reaching GAUGE_MIN costs exactly one health block
+    (`healthBlocks`, default `DEFAULT_HEALTH_BLOCKS=5`, the bible's ~5 Verses),
+    recenters the gauge (not left pinned at the edge), and starts i-frames
+    (`iframeUntil = now + IFRAME_DURATION_SEC`) during which `tick()` is a complete
+    no-op -- chose FULL suspension over "heavily damped" as the strongest, simplest-
+    to-verify reading of "a brutal passage can never instantly chain away all health."
+    `healthBlocks` reaching 0 emits `'player-defeated'` and the duel goes terminal
+    (`isTerminal()`); further `tick()`/`applyPlayerPush()` calls are no-ops on a
+    terminal duel, confirmed by a dedicated test.
+  - **Winning a push**: `applyPlayerPush(now, wordScore)` adds `wordScore *
+    WORD_PUSH_SCALE` toward GAUGE_MAX; reaching it recenters the gauge, increments
+    `pushesWon`, emits `'push-won'`, and -- once `pushesWon >= pushesToDefeat`
+    (creation option, default 1) -- emits `'defeated'` and goes terminal. This is the
+    "implementing run's call on exact structure — document it" the ticket asks for:
+    `pushesToDefeat: 1` for a regular (dies in one won push, per the ticket's own
+    example), a caller-chosen N for a boss (e.g. 4 for Beethoven's 5th, one per
+    movement per the bible) -- the phase-shift/movement-swap behavior itself is NOT
+    built here (that's a caller concern reading `pushesWon` when it changes the
+    active piece/trait phase), just the counting primitive it needs.
+  - **Parry**: `registerCrescendoPeak(now)` is the hook a caller wires to music.js's
+    `'crescendo-peak'` event (passing the same clock, e.g. a real/virtual
+    `ctx.currentTime`). `attemptParry(now)`, called when a word is submitted, succeeds
+    if `now` is within `PARRY_WINDOW_SEC` of the most recent NOT-YET-CONSUMED peak
+    (consumed on success -- no double-parrying one crescendo), and activates a
+    `PARRY_DAMPING_DURATION_SEC` window where `tick()`'s push is multiplied by
+    `(1 - PARRY_MITIGATION)`. This models "blunts that crescendo's push by a
+    meaningful percent" as post-peak damping rather than a single instantaneous hit-
+    reduction, since this gauge model has no discrete "hit" to blunt -- documented as
+    a deliberate interpretation, not a literal ticket quote. `attemptParry` does NOT
+    itself apply the parrying word's own push -- caller still calls
+    `applyPlayerPush` separately; parry and push are two independent effects of one
+    submitted word, matching how a real crescendo-timed play should feel (you still
+    get credit for the word, plus the parry bonus).
+  - Event API (`on`/`off`, same shape as music.js's sequencer): `'block-lost'`
+    `{healthBlocks}`, `'player-defeated'`, `'push-won'` `{pushesWon, pushesToDefeat}`,
+    `'defeated'`, `'parried'` (payload: the peak time that was parried).
+- Wired into `src/main.jsx`, `src/test/setup.js`, `wordbound.html` (same
+  script-tag/import convention every other engine module uses, added right after
+  `pieces/mountain-king.js` and before `game.js`) and `tools/build-itch.js`'s
+  `DEPENDENCIES` list -- caught the exact class of bug the MUSIC ENGINE run's own
+  note flagged (new engine file forgotten in the itch zip's explicit list) BEFORE it
+  happened this time, by adding it proactively and confirming with a real
+  `test:itch-build` run rather than discovering it after the fact.
+- `src/test/duel.test.js` (new, 25 tests) -- the mocked-clock unit tests the ticket's
+  VERIFY line asks for, covering exactly its four named areas: gauge integration math
+  (constant-intensity push rate, dt=0 no-op, intensity ordering, intensity clamping),
+  tier multipliers (strictly monotonic across all four tiers at equal intensity,
+  unknown-tier defaults to zero base push rather than crashing), i-frame suppression
+  (loses exactly one block even from a massive overshoot tick, recenters, suspends
+  push completely during the window, resumes correctly once it expires, terminal
+  state on zero health blocks with further calls confirmed as true no-ops), and the
+  parry window (inside/outside/no-peak/already-consumed/emits-with-payload/damping-
+  active/damping-expired/parry-still-works-during-i-frames). One real bug caught in
+  my OWN test during authoring, not duel.js: the "loses exactly one block" test
+  originally also asserted `gauge === GAUGE_MIN` right after the loss, contradicting
+  the very next test's (correct) assertion that the loss recenters the gauge --
+  caught by actually running the suite (it failed with `50 !== 0`, not a false
+  green), fixed by removing the wrong assertion rather than loosening duel.js's
+  actual, correct behavior.
+
+**Deliberately NOT done this run (real, open scope, not hidden):**
+- No integration into `js/wordbound/game.js`/`combat.js`/`CombatScreen.jsx` -- the
+  turn-based `Combat.playWord`/`monsterAttack` flow, `player.ink`-as-HP, and the
+  existing damage-dealing combat screen are all completely unchanged and unaffected.
+  Nothing calls `Duel.create`/`tick`/`applyPlayerPush` from game code yet.
+- No decision yet on ink's fate post-Verses ("if ink survives at all it's only as a
+  spend resource... don't keep two life systems" -- the ticket's own open call). This
+  run touched nothing ink-related, so Overcharge/Rewrite's ink costs are completely
+  unaffected for now; whoever does the integration run has to make this call for
+  real, auditing every `player.ink` read/write across game.js/items.js/consumables.js.
+  first.
+- No telegraph UI (swelling meter / dynamics ribbon), no Largo control surface (the
+  tempo-scale HOOK already exists in music.js, built by that ticket -- just no UI
+  wired to it yet), no boss phase-shift wiring (the `pushesToDefeat`-crossing
+  counting primitive exists; nothing yet swaps a boss's active piece/trait phase when
+  it fires), no i-frame visual treatment.
+- No Playwright real-browser duel win/loss verification, no virtual-clock balance
+  sim across the four tiers -- both explicitly require the game-integration piece to
+  exist first (there's no real combat screen driving a `Duel` instance yet to smoke-
+  test against).
+- No monster actually has a `stageTier`/piece assigned yet (`monsters.js` is still
+  entirely the sibling repo's un-migrated roster -- that's REGULAR ENEMIES' job,
+  further down the queue, and this ticket's own boss-wiring piece for the three floor
+  bosses + final boss). This run's engine is fully generic over stage tier and takes
+  it as a plain creation option, so it's ready for whichever run wires real monsters
+  to it.
+
+**Verified:**
+- `npx vitest run src/test/duel.test.js`: 25/25 (after fixing the one test-authoring
+  mistake described above).
+- Full `npx vitest run`, 2 consecutive clean runs: **94/94 both times, zero flakes**
+  (up from 69 pre-existing -- 25 new, all in duel.test.js; the STRUCTURAL-14/15/16/N
+  flake class stays fixed).
+- `npm test` (jsdom dom-check, `wordbound.html`): ALL CHECKS PASSED -- confirms the
+  new `<script>` tag is a true no-op there (nothing calls into Duel from vanilla
+  code).
+- `npm run build`: clean, 42 modules (up from 41), same pre-existing chunk-size
+  notice.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED, `duel.js`
+  correctly present in the zip and the unzipped build's real-browser load (zero
+  404s).
+- `npm run test:react-build` (real browser, built React output, not dev server):
+  ALL CHECKS PASSED, unaffected -- confirms adding a new unused-by-React-yet engine
+  module doesn't regress anything already ported.
+- `npm run test:react-qa`, `npm run test:mobile`, `npm run test:qa`, `npm run
+  test:music-engine`: ALL CHECKS PASSED, unaffected.
+
+**Not verified / explicitly out of scope:** any real-browser/Playwright duel
+behavior (nothing renders or drives a `Duel` instance yet); balance/tuning numbers
+against real playtest feel (Jaxon's call, as always, once there's something playable
+to feel); the exact boss phase-shift structure (documented as this ticket's own open
+design call, left for the integration run to decide alongside the ink/Verses
+question).
+
+**Current state:** `window.Wordbound.Duel` exists, is fully unit-tested against a
+mocked clock covering every VERIFY-line requirement for the engine itself, and is a
+true no-op everywhere in the existing game (vanilla and React) since nothing calls
+it yet. `wordbound.html` and the React app both remain fully intact and unaffected.
+Ticket stays unchecked -- this is the engine-first slice of a multi-run ticket, same
+shape as MUSIC ENGINE before it. **Next:** the real remaining scope is the
+integration run(s): (1) decide and implement ink's post-Verses fate (audit every
+`player.ink` read/write, likely keep it as Overcharge/Rewrite's spend resource only,
+per the ticket's own leaning), (2) wire `Duel` into game.js's combat flow --
+`CombatScreen.jsx`'s word-submit path calls `Duel.applyPlayerPush` instead of
+directly damaging `monster.hp`, a per-frame tick loop calls `Duel.tick` off the
+active `Music` sequencer's `getIntensity()`, `'crescendo-peak'` wires to
+`registerCrescendoPeak`, word-submit also calls `attemptParry`, (3) build the
+telegraph UI + Largo control surface + i-frame visual treatment, (4) assign real
+`stageTier`s and pieces to the three floor bosses (Mountain King already has one;
+Valkyrie Marshal and the final Beethoven's-5th boss still need theirs, per THEME.md's
+own roster), (5) the virtual-clock balance sim and real Playwright duel win/loss
+checks, both blocked on (2) existing first. COMBAT JUICE remains available as
+lower-priority, opportunistic pickup, unchanged.
