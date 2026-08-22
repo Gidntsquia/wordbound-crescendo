@@ -1216,6 +1216,130 @@ Rules for the routine:
       `Duel.tick` loop off `Music.getIntensity()`, retire the turn-based
       counterattack/ink-death path per the decision above, and resolve the
       Intents-repurposing design call before or during that work.
+      ORCHESTRATOR NOTE 2026-08-22 (update 4): picked up the next unbuilt piece
+      of the "Next" list -- the scoring/gauge bridge itself, plus the one open
+      design call blocking it (Intents). Deliberately did NOT attempt the full
+      `CombatScreen.jsx`/`Game.submitWord` cutover this run: `Game.submitWord`
+      (read in full before starting) is a single ~250-line function entangled
+      with ink-spend (Overcharge), a dozen+ item `onWordPlayed` hooks, combo/
+      rack-cycling, and the Intents telegraph system -- it is currently the
+      ONLY complete way to play the game, and no monster in `monsters.js` has a
+      `stageTier`/piece yet (that's REGULAR ENEMIES' + boss-piece-assignment's
+      job, both still open queue items below this one). Swapping its damage
+      resolution for the gauge is a real, atomic cutover -- retiring the
+      ink-death path, deciding what happens to Intents, and having somewhere
+      real for a gauge fight to get its music from all have to land together,
+      not as a partial mid-run state that could leave the shipped game broken.
+      Continued this ticket's own established engine-first precedent (duel.js
+      and VolumeGauge.jsx before it) one piece further instead.
+      **Intents decision (documented, not deferred a second time):** the
+      continuous duel model has no discrete "monster's turn" for a telegraphed
+      per-turn action to attach to -- `Intents.rollIntent`/`executeIntent` are
+      built entirely around one action resolving once per turn, mutating
+      `monster.attack`/`player.rack` in a single beat. Repurposing them as
+      "periodic disruptive effects layered on the continuous push" (the
+      ticket's other named option) is itself a real feature -- it needs its own
+      trigger cadence, its own telegraph distinct from the crescendo telegraph,
+      and playtest feel Jaxon should weigh in on, not something to improvise as
+      a side effect of this bridge. Decision: Intents is RETIRED for duel-gauge
+      fights (an interim simplification, not a final call) -- a gauge fight
+      runs on pure music-driven push + word-score push-back only, per the
+      header COMBAT MODEL's own base description, which never mentions Intents
+      at all (Intents was a turn-based-game addition, "FUN OVERHAUL 2/8",
+      layered on well after the sibling engine was forked). Flagging for Jaxon:
+      if periodic gauge-fight disruptions turn out to be wanted for feel once a
+      duel is actually playable, that's a new, explicitly-scoped ticket, not a
+      retrofit of the turn-based system. The regular (non-elite/boss) turn-based
+      path, which never rolls Intents beyond plain Attack/Heavy Blow anyway
+      (`Intents.rollIntent`'s own gating), is completely unaffected either way.
+      **Built:** `js/wordbound/duelCombat.js` (new, framework-agnostic, no
+      game.js/React dependency) -- the ONLY place that knows about both
+      `combat.js` (scoring) and `duel.js` (the gauge), so the eventual
+      `CombatScreen.jsx` wiring has one small surface to call instead of
+      re-deriving this logic. `Combat.playWord` gained one small additive
+      option, `{ skipDamage: true }` (`js/wordbound/combat.js`): runs the exact
+      same scoring/rack-mutation/combo-tracking as always, but skips the direct
+      `monster.hp -= damage` line -- omitted/false (every existing turn-based
+      call site, unchanged) behaves exactly as before, confirmed by the full
+      existing suite staying green. `DuelCombat.submitWord(player, monster,
+      duel, word, comboState, now, options)` calls `Combat.playWord` with that
+      flag forced on (so the "word score = full scrabble system" bullet is
+      genuinely satisfied -- tiles, length, weaknesses, combo, overcharge, all
+      computed once in combat.js, never duplicated), then
+      `duel.attemptParry(now)` and `duel.applyPlayerPush(now, result.damage)`.
+      **WINNING A PUSH structure (this ticket's own "implementing run's call on
+      exact structure, document it"):** a won push deals
+      `ceil(monster.maxHp / duel.pushesToDefeat)` damage -- `pushesToDefeat: 1`
+      (a regular, `Duel.create`'s own default) means that IS `maxHp`, "regulars
+      die in one won push" (ticket text) exactly; `pushesToDefeat: N>1` (a boss)
+      ceil-rounds so N pushes are always lethal even against a non-divisible
+      `maxHp` while N-1 never quite are -- "bosses take several" satisfied, and
+      phase-shifting (trait-phase changes keyed on hp ratio) falls out for free
+      since the next word played reads the monster's now-lower hp, the same
+      mechanism the turn-based game's boss phases already use today.
+      `DuelCombat.syncHealthBlocks(player, duel)` wires `player.healthBlocks`
+      to the duel's `'block-lost'` event so it stays live-synced (not just read
+      once at fight end), per the ink-audit decision's own persistence plan.
+      **Registered as a true no-op** (same verification bar `duel.js`/
+      `VolumeGauge.jsx` were held to): added to `src/main.jsx`, `src/test/
+      setup.js`, `wordbound.html`'s script list, and `tools/build-itch.js`'s
+      dependency list, alongside `duel.js` -- loaded everywhere, called by
+      nothing in the live app.
+      **Verified:** 9 new mocked-clock Vitest tests
+      (`src/test/duelCombat.test.js`, driving the REAL `Combat.playWord` +
+      `Duel.create` + real `Tiles`/`Lexicon` word formation, no mocks of either
+      engine module) cover: an unformable word returns null without mutating
+      anything; a valid word's push exactly equals its real computed score
+      (not a duplicated formula); a 1-push regular dies outright on a won push
+      (`ceil(maxHp/1)`); a 3-push boss survives two won pushes and dies on the
+      third, hp matching the `ceil(maxHp/3)` math exactly; a word inside vs.
+      outside the parry window reports `parried` correctly and the push itself
+      is unaffected either way (parry damping only ever throttles the MUSIC's
+      tick-push in duel.js, never `applyPlayerPush` -- confirmed by reading
+      `duel.tick` again before writing the assertion); comboState updates
+      exactly as `Combat.playWord` alone already does; `syncHealthBlocks` keeps
+      `player.healthBlocks` live-synced on a real forced block loss and leaves
+      it untouched before one. `npx vitest run`, 3 consecutive runs: **108/108
+      every time, zero flakes** (up from 99 -- 9 new, all in this run's new
+      file). `npm test` (jsdom dom-check): ALL CHECKS PASSED -- confirms
+      `combat.js`'s new `skipDamage` option is a true no-op for
+      `wordbound.html`'s own turn-based fights. `npm run build`: clean, 43
+      modules (up from 42, the one genuinely new module). `npm run
+      test:react-build`, `npm run test:react-qa`, `npm run test:mobile`, `npm
+      run test:qa`, `npm run test:music-engine`: ALL CHECKS PASSED, unaffected.
+      `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED --
+      confirmed `duelCombat.js` is now genuinely present in the zip (`unzip -l`
+      checked directly, not assumed).
+      **Not done:** no change to `CombatScreen.jsx`, `Game.submitWord`, or
+      `Intents.js` itself (the Intents decision is documented policy for the
+      integration run to implement, not code landed here) -- the bridge exists
+      and is fully tested but genuinely unreferenced by the live app, same
+      "true no-op" bar as every prior slice. No telegraph-UI mounting, no Largo
+      control surface, no monster `stageTier`/piece assignment, no balance sim,
+      no real-browser duel win/loss check. Ticket stays unchecked. **Next:** the
+      actual cutover, now with every piece it needs already built and tested --
+      (1) wire `Game.submitWord`'s word-submit branch to detect a duel-mode
+      fight (e.g. `state.monster.duel` truthy) and call
+      `DuelCombat.submitWord` instead of `Combat.playWord` directly, retiring
+      the two `ink <= 0` checks + `Combat.monsterAttack` call for that branch
+      (turn-based fights, still the only kind that exist until a monster gets a
+      piece, are completely unaffected -- this must stay branch-gated, not a
+      blanket replacement); (2) skip Intents entirely on that branch per the
+      decision above; (3) build the actual `requestAnimationFrame` loop in
+      `CombatScreen.jsx` reading a live `Music` sequencer's `getIntensity()`
+      into `duel.tick`, and wire `'crescendo-peak'` to
+      `duel.registerCrescendoPeak`; (4) mount `VolumeGauge` (already built and
+      tested, GOALS.md's own update-2 note) into that loop; (5) retarget the
+      near-death-save item and `trackBossDefeatedWithoutDamage` at
+      `healthBlocks` (flagged by name/location in the ink-audit note above);
+      (6) assign Mountain King's piece (currently unassigned to any real
+      monster) to an actual boss so there's something real to test a full duel
+      against, or build a minimal synthetic test piece if that assignment
+      belongs to the THEME BIBLE/boss-roster work instead -- worth a quick
+      read of THEME.md's boss roster before deciding which; (7) only after a
+      real duel is reachable: the Largo control surface, the virtual-clock
+      balance sim, and real Playwright duel win/loss checks. COMBAT JUICE
+      remains available as lower-priority, opportunistic pickup, unchanged.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

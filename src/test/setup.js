@@ -28,6 +28,7 @@ import '../../js/wordbound/floor.js';
 import '../../js/wordbound/music.js';
 import '../../js/wordbound/pieces/mountain-king.js';
 import '../../js/wordbound/duel.js';
+import '../../js/wordbound/duelCombat.js';
 import '../../js/wordbound/game.js';
 
 // Mirrors main.jsx: wires Game's internal module references without running

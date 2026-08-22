@@ -43,6 +43,18 @@
 // played. Baseline word play is entirely unaffected when the flag is
 // omitted/false, matching the ticket's "baseline word play stays FREE"
 // requirement.
+//
+// DUEL-GAUGE COMBAT (GOALS.md, integration bridge run, js/wordbound/
+// duelCombat.js): pass { skipDamage: true } as playWord's 5th arg to get the
+// exact same scoring/rack-mutation/combo-tracking as always, WITHOUT the
+// direct `monster.hp -= damage` line below -- gauge combat resolves damage
+// only when a duel PUSH is won (js/wordbound/duel.js), not per word, so the
+// caller (duelCombat.js) needs the score number without this file also
+// mutating hp on its own. `result.damage` is unaffected either way -- it's
+// still the full scrabble-system number (tiles, length, weaknesses, combo,
+// overcharge), the exact "word score" the duel-gauge ticket's push-force
+// conversion is built on. Omitted/false (every turn-based call site,
+// unchanged) behaves exactly as before.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -112,7 +124,7 @@
     var overcharged = !!options.overcharge;
     if (overcharged) damage = Math.round(damage * Combat.OVERCHARGE_DAMAGE_MULTIPLIER);
 
-    monster.hp = Math.max(0, monster.hp - damage);
+    if (!options.skipDamage) monster.hp = Math.max(0, monster.hp - damage);
 
     if (comboState) {
       if (isRepeat) {
