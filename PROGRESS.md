@@ -8970,3 +8970,124 @@ runs have already repeatedly documented -- a `403` on the CONNECT tunnel
 to `gidntsquia.github.io` specifically. The push itself is the actual
 deploy action and it succeeded; this is a known, recurring sandbox
 limitation, not a new one introduced by this run.
+
+---
+
+## 2026-08-22T21:27Z -- PLAYTEST FINDINGS 3, item 1 (remove consumables)
+
+Started at the top of the queue (this ticket, first unchecked). NOTE ON A
+RACE: this run's first attempt at item 6 (combo removal) discovered mid-way
+that a CONCURRENT run had already landed the exact same ticket item and
+pushed it (`ba8a94e`/`a6defef` -- see that commit/PROGRESS entry) -- reset
+this session's own duplicate work with `git reset --hard origin/main` rather
+than fight a push conflict, then picked up the next real open item instead:
+item 1+2 (consumables + deck), the prior run's own documented "Next."
+
+Scoped both before touching code: an Explore agent confirmed `consumables.js`
+(one-time-use potions: Errata Slip, Index Card Shard, Page Turn, The
+Wine-Dark Litany) is a completely separate system from `items.js`'s
+permanent roster -- item 1 doesn't touch items.js's own mechanics. Item 2
+(deck view + tile-reward re-point) turned out much bigger than expected --
+the per-fight TILE_REWARD screen fires after EVERY kill, not just bosses, so
+removing it ripples through ~8 test files' reward-flow assertions. Split the
+pairing rather than rush a wide, under-verified change across all of them in
+one run: did item 1 completely, left item 2 fully scoped (concrete plan in
+GOALS.md's own note) for a dedicated follow-up.
+
+**Item 1, what came out:** `consumables.js` deleted outright; the shop's
+pinned consumable slot + `'c:'`-prefixed id branching (`rollShopOptions`/
+`effectiveShopPrice`/`Game.buyItem`); the kill-drop roll;
+`Game.open/closeConsumablesPanel`/`useConsumable` + vanilla render/wiring;
+React's `ConsumablesPanel` + its header button; `ShopChoices`' consumable
+branch; Page Turn's rack-cycling branch in `cycleRackAfterWord` (100% dead
+once Page Turn is gone, simplified back to a plain discard-and-refill); the
+script/import everywhere (`wordbound.html`, `main.jsx`, `src/test/setup.js`,
+`tools/build-itch.js`); two orphaned standalone Playwright scripts (neither
+wired to an npm script).
+
+**Judgment calls, documented not Jaxon-only:** Interlibrary Loan (+3 dmg
+holding 2+ consumables) and Withdrawal Slip (+6 dmg holding 0) were an
+opposed build-around pair keyed entirely on the now-gone
+`player.consumables.length` -- one would never fire again, the other would
+fire on EVERY word (a de-facto unconditional +6). Deleted both rather than
+invent a new trigger condition under a removal ticket. Homer's Bard's
+Largesse (guaranteed 2 consumable slots) and Wilde's discount quirk both
+targeted the gone mechanic -- flagged `quirkInert: true`, same treatment
+this file already gives Cervantes's reroll-discount quirk (no reroll
+mechanic exists). **Real flagged gap, not fixed here:** Homer's ONLY
+exclusive item was the now-deleted Wine-Dark Litany -- he currently has NO
+exclusive at all, unlike the other 5 authors. Documented directly in
+items.js's and shopkeepers.js's own comments, not left for a future run to
+rediscover.
+
+**Verified, real not assumed:**
+- `npm test` (dom-check.js): ALL CHECKS PASSED across several clean runs.
+  Rewrote every consumable-dependent block rather than delete coverage
+  wholesale where a real replacement existed (shop-odds block now tests the
+  simpler plain-shuffle contract; Homer/Wilde blocks assert `quirkInert`;
+  panel-stacking mid-combat check re-pointed from the consumables panel to
+  the item inspector, same `sidePanelOpen` code path). Hit ONE flake on an
+  immediate re-run after the version bump -- `waitForScreen(state,
+  'TILE_REWARD')` timed out with `state.screen` stuck at `GAME_OVER` in the
+  stolen-letters boss-hostage block (a turn-based fight where ambient
+  `state.player.ink` carried over from an earlier block, unrelated to this
+  run's changes) -- 3 immediate clean re-runs confirmed it's not a
+  regression, same "pre-existing shared-state-order flake" pattern this
+  file's own header already documents for a different assertion.
+- `npx vitest run`: 185/185 clean. Deleted `RunSidePanels.test.jsx`'s
+  "consumables panel" describe block outright (nothing left to test) and
+  simplified `RewardScreens.test.jsx`'s buy-item test.
+- `npm run build`: clean, 57 modules (down from 58 -- `consumables.js` gone).
+- `npm run test:mobile`: ALL CHECKS PASSED (real browser, 375/414px) -- the
+  run header lost a button, confirmed no new overflow.
+- `npm run test:run-header`: ALL CHECKS PASSED across 375-1280px, directly
+  relevant given the header change.
+- `npm run test:react-build`, `npm run test:react-qa` (exercises the shop's
+  real purchase path along a full 4-floor victory), `npm run
+  test:react-duel-loss`, `npm run test:regular-duel-smoke`, `npm run test:qa`
+  (vanilla wordbound.html path, exercises the shop button removal directly):
+  ALL CHECKS PASSED across every one.
+- `npm run test:itch-build`: ALL CHECKS PASSED (16/16 + zero-404 real-browser
+  load) -- confirms the itch bundle's dependency-list change didn't break
+  the standalone build.
+- `npm run test:branching-map`: ALL CHECKS PASSED, unaffected as expected.
+- `npm run test:duel-balance`: byte-identical numbers to the pre-existing
+  baseline, zero new sanity flags -- expected, per-word scoring is untouched.
+- `npm run test:audio`, `npm run test:drag-interrupt`, `npm run
+  test:music-engine`: ALL CHECKS PASSED, unaffected as expected.
+
+Version bumped v0.14 -> v0.15 (`MainMenu.jsx`/`wordbound.html`/
+`MainMenu.test.jsx`) -- a real, player-facing removal (no more Consumables
+button/panel, no more consumable shop slots or kill drops).
+
+**Genuinely-Jaxon-only:** none this run -- every choice above (delete vs.
+redesign the two coupled items, inert vs. invented-replacement quirks) is a
+documented implementation/design judgment call the ticket's own header text
+delegates to the orchestrator.
+
+**Not done, honest gaps -- GOALS.md's box stays unchecked:** item 2 (deck
+view + tile-reward re-point) is fully scoped (see GOALS.md's own note for
+the concrete plan: fold `resolveTileReward`'s boss-branch into
+`onMonsterDefeated`'s tail, drop the tile-pick step since gold is already
+granted unconditionally on every kill, update ~8 affected test files, decide
+the Premium Tile shop-purchase judgment call) but NOT implemented this run.
+Item 7 (ink) remains untouched. Homer's missing exclusive item is a real,
+undecided content gap.
+
+**Next:** item 2, exactly as scoped in GOALS.md's own note. Then item 7
+(ink). Homer's exclusive-item gap and PLAYTEST FINDINGS 2's Mountain King
+boss-duel retune remain the other live open threads above this ticket.
+
+**Live deploy refresh, actually executed:** built `dist/app/` fresh off
+this run's own commit (`177822f`, main pushed) in a disposable `git
+worktree`, published its contents + an empty `.nojekyll` as the new root
+of the `gh-pages` branch via a scratch orphan branch, `git push -f origin
+gh-pages-refresh:gh-pages` -- succeeded, confirmed by git's own ref-update
+output (`c60445c...4fc8bf0 gh-pages-refresh -> gh-pages (forced update)`).
+Worktree removed after. **Could NOT curl-verify, honestly flagged rather
+than assumed:** `curl -sv https://gidntsquia.github.io/wordbound-crescendo/`
+hit the same pre-existing domain-specific proxy block this repo's prior
+runs have already repeatedly documented -- a `403` on the CONNECT tunnel
+to `gidntsquia.github.io` specifically. The push itself is the actual
+deploy action and it succeeded; this is a known, recurring sandbox
+limitation, not a new one introduced by this run.
