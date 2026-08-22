@@ -1056,7 +1056,90 @@ Rules for the routine:
       checks (blocked on the integration piece existing first). Next run should
       pick up the ink/Verses audit + CombatScreen wiring — the concrete first
       step PROGRESS.md's "Next" note lays out.
-      ORCHESTRATOR NOTE 2026-08-22 (update 2): picked up the prior run's own "Next"
+      ORCHESTRATOR NOTE 2026-08-22 (update 2): scoped this run to the
+      TELEGRAPH bullet, taken as its own isolated, testable slice —
+      "the player must SEE the music coming" — rather than attempting the
+      ink/Verses audit + full game.js/CombatScreen.jsx combat-loop rewrite
+      update-1's "Next" note named, which on inspection (read combat.js's
+      Combat.submitWord flow in full first) is genuinely a from-scratch
+      real-time-loop rebuild of the entire turn-based system (no
+      requestAnimationFrame-style loop exists anywhere in game.js today;
+      every "turn" is one synchronous submitWord call) — too large to land
+      safely and completely in one hourly run, and update-1 already
+      correctly named it a multi-run push. Followed this ticket's own
+      established precedent (build+verify an isolated piece before the risky
+      integration, same shape as MUSIC ENGINE -> DUEL-GAUGE COMBAT's own
+      engine-first slice) one level further: new
+      `src/components/VolumeGauge.jsx`, a pure presentational component
+      (never reads window.Wordbound.Duel/Music itself, takes a duel-shaped
+      object + a clock reading as props) rendering THEME.md's actual named
+      pieces — "The Volume" gauge bar (tug-of-war fill, leaning red toward
+      the player's danger end / gold toward the enemy's end), "Verses" as a
+      row of health-block pips, the i-frame grace-period state (distinct
+      track glow + a label), an in-progress parry-damping indicator, an
+      upcoming-crescendo warning (secondsAway prop, meant to be derived from
+      music.js's 'crescendo-approaching' event), and a boss multi-push
+      counter (hidden for a regular's default pushesToDefeat:1). New CSS
+      section in `css/wordbound.css` (right after `.monster-intent`, same
+      color family as `.ink-display`/`.monster-hp-fill`: gold #f0d789 safe,
+      red #a03c3c/#e08a8a danger), reduced-motion gated per the repo's
+      existing convention. 5 new Vitest/RTL tests
+      (`src/components/__tests__/VolumeGauge.test.jsx`) drive a REAL
+      `Duel.create()` instance through real `.tick()`/`.applyPlayerPush()`/
+      `.registerCrescendoPeak()`/`.attemptParry()` calls (no mocked
+      duel-shaped fixture) and assert on the real resulting DOM — same "no
+      mocks, drive the real engine" convention every other component test in
+      this repo already follows. Caught and fixed one real test-authoring
+      mistake before landing (not a duel.js bug): a first draft's "danger
+      lean" test picked a dt/intensity pair that drove the gauge to exactly
+      GAUGE_MIN, which duel.js correctly treats as a block loss (recenters
+      the gauge) rather than a "leaning" state — fixed by picking numbers
+      that land strictly between center and the edge, with the math
+      commented inline so the next reader doesn't repeat it.
+      Deliberately NOT wired into CombatScreen.jsx or anywhere else in the
+      live app this run — confirmed by `npm run build` staying at 42 modules
+      (unchanged), i.e. a true no-op, same verification bar music.js/duel.js
+      themselves were held to before their own integration runs.
+      **Verified:** `npx vitest run src/components/__tests__/VolumeGauge.test.jsx`:
+      5/5. Full `npx vitest run`, 3 consecutive runs: **99/99 every time,
+      zero flakes** (up from 94 -- 5 new, all in VolumeGauge.test.jsx).
+      `npm test` (jsdom dom-check): ALL CHECKS PASSED, unaffected (no
+      game.js/wordbound.html change this run). `npm run build`: clean, 42
+      modules (unchanged from the prior run, confirming VolumeGauge.jsx is
+      genuinely unreferenced anywhere yet). `npm run test:react-build` (real
+      browser, built output): ALL CHECKS PASSED, unaffected. `npm run
+      test:react-qa`, `npm run test:mobile`, `npm run test:qa`, `npm run
+      test:music-engine`, `npm run build:itch` + `npm run test:itch-build`:
+      ALL CHECKS PASSED, unaffected.
+      **Not done, real remaining scope, unchanged from update-1 plus this
+      run's own finding:** the ink/Verses audit + decision (still open —
+      this run touched nothing ink-related), the actual game.js/
+      CombatScreen.jsx real-time integration (now more precisely scoped:
+      requires building an actual tick loop, since none exists today — likely
+      `requestAnimationFrame` in CombatScreen.jsx feeding `Duel.tick`/
+      `Music.getIntensity()` each frame, replacing `Combat.playWord`'s direct
+      `monster.hp` mutation with `Duel.applyPlayerPush` + a caller-side
+      damage-on-push-won mapping), wiring `VolumeGauge` into that loop once it
+      exists (styling/props are now done, so that wiring step is now smaller
+      than it would have been), the Largo control surface, boss
+      `stageTier`/piece assignment (Valkyrie Marshal + the final Beethoven's-
+      5th boss still need real sequenced pieces — a substantial task of its
+      own, comparable to MUSIC ENGINE's "sequence at least one piece" bar),
+      and the virtual-clock balance sim + real Playwright duel win/loss
+      checks (both still blocked on the integration loop existing). Ticket
+      stays unchecked. COMBAT JUICE remains available as lower-priority,
+      opportunistic pickup, unchanged.
+      ORCHESTRATOR NOTE 2026-08-22 (update 3, concurrent-run merge): this run's
+      own work (below) was authored concurrently with update-2 above by a
+      separate hourly instance — a container-level overlap, not a coordination
+      failure on either side (same pattern this repo has hit before on
+      STRUCTURAL). Reconciled via a real git merge (not a force-push) once
+      discovered: update-2's telegraph UI and this run's ink audit touch
+      disjoint files (`VolumeGauge.jsx`/CSS vs. `game.js`) and are fully
+      independent, so both stand as-is, renumbered in sequence. Originally
+      authored as this run's own "update 2" before the collision was found;
+      renumbered to update 3 here, no content changes.
+      ORCHESTRATOR NOTE 2026-08-22 (update 3): picked up update-1's own "Next"
       note's first item -- the ink audit + post-Verses decision, before touching any
       combat-flow integration code. Read every `player.ink`/`maxInk` reference across
       `game.js`, `combat.js`, `consumables.js`, `events.js`, `intents.js`, `items.js`,
