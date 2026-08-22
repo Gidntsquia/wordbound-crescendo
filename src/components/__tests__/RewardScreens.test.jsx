@@ -107,6 +107,20 @@ describe('TreasureOrShopScreen -- SHOP', () => {
     expect(screen.getByText(state.shopkeeperLine, { exact: false })).toBeInTheDocument();
   });
 
+  // PORTRAITS (step 3): the banner also shows the keeper's portrait glyph
+  // (the framed-glyph placeholder convention BossEntranceOverlay's
+  // portraitGlyph prop already established for bosses/Shakespeare, per
+  // THEME.md's own Portraits note -- not a blocked ticket).
+  it('shows the shopkeeper portrait glyph in the banner', () => {
+    const state = freshRun(SEED);
+    window.Wordbound.Game.enterCurrentNode(findNodeIdByType(state, 'shop'));
+    window.Wordbound.Game._setShopkeeperForTesting('poe');
+    render(<Harness Screen={TreasureOrShopScreen} />);
+
+    const glyph = window.Wordbound.Shopkeepers.AUTHOR_DEFS.poe.glyph;
+    expect(screen.getByText(glyph)).toBeInTheDocument();
+  });
+
   // Poe's Nevermore discounts rare/legendary items 25% -- the button shows
   // both the struck-through original price and the real discounted one.
   it('shows a struck-through original price alongside the discounted one', () => {

@@ -2244,6 +2244,10 @@ async function main() {
   {
     const Shopkeepers = window.Wordbound.Shopkeepers;
     check('shopkeepers: the module loaded with all 6 authors', !!Shopkeepers && Shopkeepers.AUTHOR_IDS.length === 6);
+    // PORTRAITS (step 3): every author needs the same framed-glyph
+    // placeholder convention bosses/Shakespeare already use, per THEME.md's
+    // own Portraits note -- not a blocked ticket waiting on real art.
+    check('shopkeepers: every author has a non-empty portrait glyph', !!Shopkeepers && Shopkeepers.AUTHOR_IDS.every((id) => typeof Shopkeepers.AUTHOR_DEFS[id].glyph === 'string' && Shopkeepers.AUTHOR_DEFS[id].glyph.length > 0));
 
     const savedRng = state.rng;
     const savedShopkeeperId = state.shopkeeperId;
@@ -2346,6 +2350,7 @@ async function main() {
     check('shopkeepers: the shop banner names the keeper', !!bannerEl && bannerEl.textContent.indexOf('Oscar Wilde') !== -1);
     check('shopkeepers: the shop banner shows the keeper\'s quirk name', !!bannerEl && bannerEl.textContent.indexOf('The Importance of Being Earnest') !== -1);
     check('shopkeepers: the shop banner shows a sampled line', !!bannerEl && bannerEl.textContent.indexOf(state.shopkeeperLine) !== -1);
+    check('shopkeepers: the shop banner shows the keeper\'s portrait glyph', !!bannerEl && bannerEl.textContent.indexOf(Shopkeepers.AUTHOR_DEFS.wilde.glyph) !== -1);
 
     // A TREASURE screen (same #treasure-panel, different node type) must
     // never leak a stale shopkeeper banner from a prior shop visit.

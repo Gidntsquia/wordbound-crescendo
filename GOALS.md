@@ -3358,6 +3358,63 @@ Rules for the routine:
       coordination instruction, is the natural next chunk) -- portraits
       likely wait for a shared art-pipeline decision across all three
       tickets that need one (bosses, Shakespeare, this roster).
+      ORCHESTRATOR NOTE 2026-08-22 (update, portraits): **concurrent-run
+      collision, resolved per this ticket's own established precedent
+      (STRUCTURAL 17/N and this ticket's own earlier update):** this run
+      independently built the SAME quirk-half feature (own
+      `shopkeepers.js`, own game.js wiring, own dom-check/Vitest tests) in
+      parallel with the run whose commit landed first on `origin/main`
+      (the "update" note directly above this one). Lost the push race;
+      confirmed by diffing that the two implementations converged on
+      genuinely the same scope (THEME.md's table gives concrete enough
+      hints that this is expected, not a coordination failure). Did NOT
+      force-push a redundant duplicate: `git reset --hard origin/main` to
+      take the landed commit as-is, then picked up its OWN "Next" note's
+      second, deferred piece instead -- portraits (step 3), which that run
+      had explicitly left "blocked on the same missing woodcut/
+      illustration pipeline already flagged for bosses and Shakespeare."
+      That framing turned out to be the one real correction worth making:
+      THEME.md's own Portraits section (written by an even earlier run,
+      same ticket) does NOT say portraits are blocked -- it explicitly
+      says to "reuse whatever placeholder convention BOSS ENTRANCE
+      CUTSCENES already established... a framed glyph, not a blocked
+      ticket" until real art exists, and that exact convention already
+      shipped twice in this repo (bossEntrances.js's per-boss glyph via
+      `BossEntranceOverlay.jsx`'s `portraitGlyph` prop; shakespeareGuide.js
+      reusing the same component/prop for Shakespeare). Landed it for
+      real: each of the 6 `AUTHOR_DEFS` entries in `js/wordbound/
+      shopkeepers.js` gained a `glyph` field (🏺⚔️🎀🕊️🐦‍⬛🌹), rendered in
+      both apps' shop banner (`renderShop()`'s `#shop-keeper-banner` and
+      `RewardScreens.jsx`'s `TreasureOrShopScreen`) via a new
+      `.shop-keeper-glyph`/`.shop-keeper-text` flex layout in
+      `css/wordbound.css` (banner was a plain block before; now glyph +
+      text sit side by side, same pattern `.boss-entrance-portrait` uses).
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED,
+      including 2 new checks (every author has a non-empty glyph; the real
+      shop banner's DOM text contains the forced keeper's glyph, not just
+      asserted on the data). `npx vitest run`: 172/172 (up from 171 -- 1
+      new `RewardScreens.test.jsx` test asserting the glyph renders in the
+      real banner), 2 consecutive clean full-suite runs, no flake this
+      time. `npm run build`: clean, 51 modules (unchanged count -- no new
+      file, just new fields/markup on the existing one). `npm run
+      test:mobile`: ALL CHECKS PASSED, including the pre-existing shop-
+      banner section (already forces Homer and checks 375/414px overflow)
+      -- confirms the added glyph doesn't push the banner past either
+      width. `npm run test:qa`, `test:react-build`, `test:react-qa`,
+      `test:branching-map`, `test:run-header`, `test:audio`,
+      `test:drag-interrupt`, `test:music-engine`, `test:react-duel-loss`:
+      ALL CHECKS PASSED, unaffected (none touch shop code). `npm run
+      build:itch` + `test:itch-build`: ALL CHECKS PASSED (no manifest
+      change needed -- `shopkeepers.js` was already listed by the prior
+      run's fix).
+      Step 3 (portraits) is now genuinely done, not deferred -- this
+      ticket's ONLY remaining real scope is exclusive items (the other
+      half of step 2), still correctly waiting on the ITEMS ticket per
+      this ticket's own coordination instruction. Version NOT bumped --
+      the "bump minor" convention applies once exclusives land and the
+      box is checked for real. **Next:** the ITEMS ticket itself is the
+      natural next queue item (large, self-contained); once it exists,
+      return here to wire the six author exclusives on top of it.
 
 - [ ] ITEMS, Jaxon's four + batch: implement Jaxon's four exactly, then round out
       to 8-12 with music-space designs. His four (names are placeholders, use the

@@ -1199,10 +1199,14 @@ h2 {
 
 .treasure-panel { margin-top: 16px; text-align: center; }
 
-/* SHOPKEEPERS ticket (GOALS.md): the current shop's author -- name/epithet,
-   a sampled line, and their named quirk. Portrait is step 3's own separate
-   scope (no woodcut pipeline exists yet). */
+/* SHOPKEEPERS ticket (GOALS.md): the current shop's author -- portrait glyph
+   (step 3: the framed-glyph placeholder convention BOSS ENTRANCE CUTSCENES/
+   Shakespeare's guide intro already established, per THEME.md's own
+   Portraits note), name/epithet, a sampled line, and their named quirk. */
 .shop-keeper-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-top: 10px;
   padding: 10px 14px;
   background: linear-gradient(to bottom, #201b12 0%, #191510 100%);
@@ -1211,6 +1215,8 @@ h2 {
   color: #e8dfc8;
   text-align: left;
 }
+.shop-keeper-glyph { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+.shop-keeper-text { flex: 1; min-width: 0; }
 .shop-keeper-banner strong { color: #f0d789; }
 .shop-keeper-banner em { color: #c9bd9e; }
 .shop-keeper-quirk { display: inline-block; margin-top: 4px; color: #9a8b6f; font-size: 0.85rem; }

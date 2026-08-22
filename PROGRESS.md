@@ -5811,3 +5811,68 @@ likely wait for a shared art-pipeline decision across all three tickets that nee
 (bosses, Shakespeare, this roster). If SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS is
 skipped for a fresher item, the queue's other unchecked tickets remain ITEMS (Jaxon's
 four + batch) and REGULAR ENEMIES.
+
+---
+
+## 2026-08-22T10:10Z
+
+Picked up the same ticket again (SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS, still the
+queue's first unchecked item). **Concurrent-run collision, hit for real:** this run
+had independently built the same quirk-half feature in parallel with whichever run's
+commit landed first on `origin/main` (own `shopkeepers.js`, own game.js wiring, own
+tests -- diffed and confirmed genuinely convergent scope, not a coordination
+failure; THEME.md's own table gives concrete enough hooks that two independent runs
+landing on the same design is expected). Followed this ticket's own established
+precedent rather than force-pushing a duplicate: `git reset --hard origin/main` to
+take the landed commit as-is, then read its own "Next" note, which listed portraits
+as "blocked on the same missing woodcut/illustration pipeline already flagged for
+bosses and Shakespeare."
+
+**That framing was the one real thing worth correcting.** THEME.md's own Portraits
+section (written even earlier in this ticket's history) doesn't say portraits are
+blocked -- it explicitly says to reuse the framed-glyph placeholder convention BOSS
+ENTRANCE CUTSCENES already established ("a framed glyph, not a blocked ticket") until
+real art exists, and that convention has already shipped twice in this repo
+(`BossEntranceOverlay.jsx`'s `portraitGlyph` prop, reused as-is for both bosses and
+Shakespeare's guide intro). Landed it for real this run: each of the 6 authors in
+`js/wordbound/shopkeepers.js` got a `glyph` field (🏺 Homer, ⚔️ Cervantes, 🎀 Austen,
+🕊️ Dickinson, 🐦‍⬛ Poe, 🌹 Wilde), rendered in both apps' shop banner via a new
+flex layout (`.shop-keeper-glyph` + `.shop-keeper-text` in `css/wordbound.css`,
+mirroring `.boss-entrance-portrait`'s pattern).
+
+**Verified:**
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED, +2 new checks (every author has a
+  non-empty glyph; the real shop banner's DOM text contains the forced keeper's
+  glyph).
+- `npx vitest run`: **172/172, 2 consecutive clean full-suite runs** (up from 171 --
+  1 new test asserting the glyph renders in the real banner). No flake this run
+  (unlike the prior run's one-off `duelIntegration.test.js` flake, which didn't
+  recur).
+- `npm run build`: clean, 51 modules (unchanged count -- new fields/markup on an
+  existing module, not a new file).
+- `npm run test:mobile`: ALL CHECKS PASSED, including the pre-existing shop-banner
+  section (forces Homer, checks 375px/414px overflow) -- confirms the glyph doesn't
+  push the banner past either width.
+- `npm run test:qa`, `test:react-build`, `test:react-qa`, `test:branching-map`,
+  `test:run-header`, `test:audio`, `test:drag-interrupt`, `test:music-engine`,
+  `test:react-duel-loss`: ALL CHECKS PASSED, unaffected.
+- `npm run build:itch` + `test:itch-build`: ALL CHECKS PASSED (no manifest change
+  needed -- `shopkeepers.js` was already listed from the prior run's fix).
+
+Step 3 (portraits) is now genuinely done, not deferred. This ticket's ONLY remaining
+real scope is exclusive items (step 2's other half), still correctly waiting on the
+ITEMS ticket per this ticket's own coordination instruction -- not something this run
+should build around. Version NOT bumped -- stays at v0.5 until exclusives land and
+the box is checked for real.
+
+**Next:** the ITEMS ticket is the natural next queue item (large and self-contained
+on its own); once it lands, return to SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS to wire
+the six author exclusives on top of it, and the ticket's box can finally be checked.
+
+**Repo-hygiene note, unrelated to this feature:** this run's container started with
+local `main`/`origin/main` remote-tracking refs stale and `HEAD` detached ~50 commits
+ahead of them (the real GitHub remote was never behind -- confirmed via `git
+ls-remote origin` -- purely a stale local-ref artifact of container provisioning).
+Fixed with `git fetch origin main && git checkout -B main origin/main` before
+starting any work. Worth that same sanity check at the start of a run if `git
+status` ever reports a detached HEAD.

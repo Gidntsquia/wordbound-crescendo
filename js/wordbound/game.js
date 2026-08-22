@@ -3581,17 +3581,21 @@
   function renderShop() {
     $('treasure-panel-heading').textContent = 'Shop — Gold: ' + state.player.gold + ' 🪙';
 
-    // SHOPKEEPERS ticket: the author running this visit, their line, and
-    // their named quirk -- portrait is step 3's own separate scope (no
-    // woodcut/illustration pipeline exists yet, per THEME.md's own note).
+    // SHOPKEEPERS ticket: the author running this visit, their portrait
+    // glyph (step 3 -- the framed-glyph placeholder convention BOSS ENTRANCE
+    // CUTSCENES/Shakespeare's guide intro already established, per THEME.md's
+    // own Portraits note), their line, and their named quirk.
     var bannerEl = $('shop-keeper-banner');
     var Shopkeepers = Wordbound.Shopkeepers;
     var shopAuthorDef = (Shopkeepers && state.shopkeeperId) ? Shopkeepers.AUTHOR_DEFS[state.shopkeeperId] : null;
     if (shopAuthorDef) {
       bannerEl.classList.remove('hidden');
-      bannerEl.innerHTML = '<strong>' + escapeHtml(shopAuthorDef.name) + '</strong>, ' + escapeHtml(shopAuthorDef.epithet) +
+      bannerEl.innerHTML = '<span class="shop-keeper-glyph">' + shopAuthorDef.glyph + '</span>' +
+        '<span class="shop-keeper-text">' +
+        '<strong>' + escapeHtml(shopAuthorDef.name) + '</strong>, ' + escapeHtml(shopAuthorDef.epithet) +
         '<br><em>"' + escapeHtml(state.shopkeeperLine || '') + '"</em>' +
-        '<br><span class="shop-keeper-quirk">' + escapeHtml(shopAuthorDef.quirkName) + ': ' + escapeHtml(shopAuthorDef.quirkDescription) + '</span>';
+        '<br><span class="shop-keeper-quirk">' + escapeHtml(shopAuthorDef.quirkName) + ': ' + escapeHtml(shopAuthorDef.quirkDescription) + '</span>' +
+        '</span>';
     } else {
       bannerEl.classList.add('hidden');
       bannerEl.innerHTML = '';

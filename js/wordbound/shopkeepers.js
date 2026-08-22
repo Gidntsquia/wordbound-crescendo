@@ -49,6 +49,19 @@
 // this file's creation), and several of THEME.md's own concept cells
 // literally say "see the ITEMS ticket for the real numbers." Landing them
 // here first would mean inventing item-tier numbers twice.
+//
+// `glyph` (step 3, PORTRAITS, added after this file's initial landing):
+// THEME.md's own "Portraits" note is explicit that until a real woodcut/
+// illustration pipeline exists, an implementation should "reuse whatever
+// placeholder convention BOSS ENTRANCE CUTSCENES already established -- a
+// framed glyph, not a blocked ticket." That convention already shipped
+// twice in this repo (bossEntrances.js's per-boss glyph via
+// BossEntranceOverlay.jsx's `portraitGlyph` prop, and shakespeareGuide.js
+// reusing the exact same component/prop for Shakespeare's guide intro) --
+// each author here gets one too, rendered in both apps' shop banner. This
+// satisfies step 3 for real (not a stand-in awaiting a future pipeline);
+// swapping these for bespoke illustrations later is a separate, purely
+// additive art pass, same as it would be for bosses/Shakespeare.
 (function () {
   window.Wordbound = window.Wordbound || {};
   var Shopkeepers = (window.Wordbound.Shopkeepers = {});
@@ -61,6 +74,7 @@
       id: 'homer',
       name: 'Homer',
       epithet: 'the blind rhapsode',
+      glyph: '🏺', // amphora -- portrait placeholder, see file header note below AUTHOR_DEFS
       lines: [
         'Come near, O sacker of sour chords, and behold what the ships of commerce have borne to this stall.',
         'Three coins only, for a trinket wrought by no god -- a bargain such as heroes sing of for generations.',
@@ -74,6 +88,7 @@
       id: 'cervantes',
       name: 'Miguel de Cervantes',
       epithet: 'knight of the woeful countenance',
+      glyph: '⚔️',
       lines: [
         "Behold, sir Lyricist -- a relic worthy of any errant knight, or possibly a very ordinary trinket. I leave the judging to you, as any honest narrator must.",
         "Buy it, and you ride forth ingenious and undaunted. Do not, and you ride forth prudent and unencumbered. I have written both endings and liked them equally.",
@@ -87,6 +102,7 @@
       id: 'austen',
       name: 'Jane Austen',
       epithet: 'a most attentive observer',
+      glyph: '🎀',
       lines: [
         "A very reasonable price, all things considered -- though I concede 'considered' is doing rather a lot of work in that sentence.",
         "I shan't tell you which of my wares I'd choose. A lady never reveals her preferences before the purchase is made.",
@@ -100,6 +116,7 @@
       id: 'dickinson',
       name: 'Emily Dickinson',
       epithet: 'the recluse of Amherst',
+      glyph: '🕊️',
       lines: [
         'A word -- for a word -- is a fair exchange --',
         'I do not haggle -- I do not need to --',
@@ -113,6 +130,7 @@
       id: 'poe',
       name: 'Edgar Allan Poe',
       epithet: 'teller of tales macabre',
+      glyph: '🐦‍⬛',
       lines: [
         'This one was not cheap to acquire -- the previous owner insisted otherwise, right up until he stopped insisting anything at all.',
         'Buy it. I promise nothing follows you home. I promise this the way a raven promises silence.',
@@ -126,6 +144,7 @@
       id: 'wilde',
       name: 'Oscar Wilde',
       epithet: 'a wit beyond his means',
+      glyph: '🌹',
       lines: [
         'I can resist anything except a good discount.',
         'To sell is human; to sell well, divine; to sell at a markup, merely American.',

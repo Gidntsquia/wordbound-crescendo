@@ -25,9 +25,12 @@ export function TreasureOrShopScreen({ state, Game, act }) {
       <h2>{isShop ? `Shop — Gold: ${state.player.gold} 🪙` : 'Choose an item'}</h2>
       {shopAuthorDef && (
         <div className="shop-keeper-banner">
-          <strong>{shopAuthorDef.name}</strong>, {shopAuthorDef.epithet}
-          <br /><em>&quot;{state.shopkeeperLine}&quot;</em>
-          <br /><span className="shop-keeper-quirk">{shopAuthorDef.quirkName}: {shopAuthorDef.quirkDescription}</span>
+          <span className="shop-keeper-glyph">{shopAuthorDef.glyph}</span>
+          <span className="shop-keeper-text">
+            <strong>{shopAuthorDef.name}</strong>, {shopAuthorDef.epithet}
+            <br /><em>&quot;{state.shopkeeperLine}&quot;</em>
+            <br /><span className="shop-keeper-quirk">{shopAuthorDef.quirkName}: {shopAuthorDef.quirkDescription}</span>
+          </span>
         </div>
       )}
       <div className="treasure-choices">
