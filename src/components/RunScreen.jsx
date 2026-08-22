@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import CombatScreen from './CombatScreen.jsx';
 import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen, EventScreen, ShredderScreen } from './RewardScreens.jsx';
-import { ItemsOwnedStrip, DeckViewerPanel, ItemInspectorPanel, ConsumablesPanel, RunHeaderActions, SettingsCorner } from './RunSidePanels.jsx';
+import { ItemsOwnedStrip, DeckViewerPanel, ItemInspectorPanel, RunHeaderActions, SettingsCorner } from './RunSidePanels.jsx';
 import { BossEntranceOverlay } from './BossEntranceOverlay.jsx';
 
 // Real port of #screen-run's node map (STRUCTURAL ticket, next sub-step after
@@ -105,12 +105,12 @@ export default function RunScreen({ onBackToMenu }) {
   const otherUnportedNode = !state.combatActive && !rewardOrShopScreen
     && state.screen !== 'RUN' && state.screen !== 'MAIN_MENU';
   // Direct port of renderRun()'s `sidePanelOpen`: the deck viewer/item
-  // inspector/consumables panel are opened from the always-visible
-  // run-header (RunHeaderActions/ItemsOwnedStrip below), independent of
-  // state.screen and even mid-combat, and replace whatever would otherwise
-  // be showing -- same "one side panel wins over everything else" rule
-  // game.js enforces via that shared boolean.
-  const sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen || state.consumablesPanelOpen;
+  // inspector are opened from the always-visible run-header
+  // (RunHeaderActions/ItemsOwnedStrip below), independent of state.screen
+  // and even mid-combat, and replace whatever would otherwise be showing --
+  // same "one side panel wins over everything else" rule game.js enforces
+  // via that shared boolean.
+  const sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen;
 
   // PLAYTEST FINDINGS (GOALS.md, item 3): Jaxon's report singled out ink
   // reading as HP. Ink genuinely IS still HP in a turn-based fight (a
@@ -154,10 +154,8 @@ export default function RunScreen({ onBackToMenu }) {
       {sidePanelOpen ? (
         state.deckViewerOpen ? (
           <DeckViewerPanel state={state} Game={Game} act={act} />
-        ) : state.itemInspectorOpen ? (
-          <ItemInspectorPanel state={state} Game={Game} act={act} />
         ) : (
-          <ConsumablesPanel state={state} Game={Game} act={act} />
+          <ItemInspectorPanel state={state} Game={Game} act={act} />
         )
       ) : state.combatActive ? (
         <>

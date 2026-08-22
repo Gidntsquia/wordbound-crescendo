@@ -15,7 +15,6 @@
 export function TreasureOrShopScreen({ state, Game, act }) {
   const Items = window.Wordbound.Items;
   const Tiles = window.Wordbound.Tiles;
-  const Consumables = window.Wordbound.Consumables;
   const Shopkeepers = window.Wordbound.Shopkeepers;
   const isShop = state.screen === 'SHOP';
   const shopAuthorDef = (isShop && Shopkeepers && state.shopkeeperId) ? Shopkeepers.AUTHOR_DEFS[state.shopkeeperId] : null;
@@ -35,7 +34,7 @@ export function TreasureOrShopScreen({ state, Game, act }) {
       )}
       <div className="treasure-choices">
         {isShop ? (
-          <ShopChoices state={state} Game={Game} act={act} Items={Items} Consumables={Consumables} />
+          <ShopChoices state={state} Game={Game} act={act} Items={Items} />
         ) : (
           state.treasureOptions.map((itemId) => {
             const def = Items.ITEM_DEFS[itemId];
@@ -63,14 +62,12 @@ export function TreasureOrShopScreen({ state, Game, act }) {
 
 const VARIANT_TILE_SHOP_PRICE = 45; // mirrors game.js's own constant of the same name
 
-function ShopChoices({ state, Game, act, Items, Consumables }) {
+function ShopChoices({ state, Game, act, Items }) {
   if (!state.shopOptions || state.shopOptions.length === 0) {
     return <p style={{ textAlign: 'center' }}>No items available in shop</p>;
   }
   return state.shopOptions.map((itemId) => {
-    const isConsumable = itemId.indexOf('c:') === 0;
-    const actualId = isConsumable ? itemId.substring(2) : itemId;
-    const def = isConsumable ? Consumables?.CONSUMABLE_DEFS[actualId] : Items.ITEM_DEFS[actualId];
+    const def = Items.ITEM_DEFS[itemId];
     if (!def) return null;
     const price = Game.getShopItemPrice(itemId);
     const discounted = price < (def.shopPrice || 0);
@@ -80,8 +77,7 @@ function ShopChoices({ state, Game, act, Items, Consumables }) {
       <button key={itemId} className={'treasure-choice' + (canAfford ? '' : ' shop-unavailable')}
         style={{ opacity: canAfford ? 1 : 0.6 }} disabled={!canAfford}
         onClick={() => act(() => Game.buyItem(itemId))}>
-        <strong>{def.name}</strong>
-        <span style={{ fontSize: '0.8rem', color: '#9a8b6f' }}>{isConsumable ? ' [Consumable]' : ''}</span><br />
+        <strong>{def.name}</strong><br />
         {def.hint}<br />
         <span style={{ color: priceColor }}>Cost: {discounted ? <><s>{def.shopPrice}</s> {price}</> : price} 🪙</span>
       </button>

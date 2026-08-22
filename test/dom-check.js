@@ -374,8 +374,10 @@ async function main() {
   }
 
   // CONTENT ticket (GOALS.md, 2026-08-21): 9 new items filling the onDraw/
-  // onRunStart/onPlayerDamaged/gold-economy/consumable-synergy/floor-
-  // transition gaps. Same isolated Combat.playWord + Items.runHook pattern
+  // onRunStart/onPlayerDamaged/gold-economy/floor-transition gaps (two of
+  // the nine, Interlibrary Loan/Withdrawal Slip, were originally
+  // consumable-synergy items -- deleted by PLAYTEST FINDINGS 3 item 1,
+  // see below). Same isolated Combat.playWord + Items.runHook pattern
   // as the blocks above, plus direct ctx construction for the hooks that
   // don't run through Combat.playWord at all (onDraw, onRunStart,
   // onPlayerDamaged, onFloorAdvance).
@@ -434,43 +436,12 @@ async function main() {
       check('Late Fee: does not alter the damage itself', ctx.damage === 7);
     }
 
-    // 5. Interlibrary Loan: +3 flat damage while holding 2+ consumables.
-    {
-      const player = { rack: freshRack(), items: ['interlibrary_loan'], ink: 20, maxInk: 20, consumables: ['errata_slip', 'page_turn'] };
-      const result = Combat.playWord(player, monster, 'CAT');
-      const before = result.damage;
-      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
-      Items.runHook('onWordPlayed', ctx, player);
-      check('Interlibrary Loan: +3 while holding 2+ consumables', result.damage === before + 3);
-      check('Interlibrary Loan: logs a proc message', ctx.messages.indexOf('Interlibrary Loan: +3!') !== -1);
-    }
-    {
-      const player = { rack: freshRack(), items: ['interlibrary_loan'], ink: 20, maxInk: 20, consumables: ['errata_slip'] };
-      const result = Combat.playWord(player, monster, 'CAT');
-      const before = result.damage;
-      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
-      Items.runHook('onWordPlayed', ctx, player);
-      check('Interlibrary Loan: no bonus holding fewer than 2 consumables', result.damage === before);
-    }
-
-    // 6. Withdrawal Slip: +6 flat damage while holding ZERO consumables
-    // (the mirror-image build to Interlibrary Loan above).
-    {
-      const player = { rack: freshRack(), items: ['withdrawal_slip'], ink: 20, maxInk: 20, consumables: [] };
-      const result = Combat.playWord(player, monster, 'CAT');
-      const before = result.damage;
-      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
-      Items.runHook('onWordPlayed', ctx, player);
-      check('Withdrawal Slip: +6 while holding zero consumables', result.damage === before + 6);
-    }
-    {
-      const player = { rack: freshRack(), items: ['withdrawal_slip'], ink: 20, maxInk: 20, consumables: ['errata_slip'] };
-      const result = Combat.playWord(player, monster, 'CAT');
-      const before = result.damage;
-      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
-      Items.runHook('onWordPlayed', ctx, player);
-      check('Withdrawal Slip: no bonus while holding any consumable', result.damage === before);
-    }
+    // 5, 6 (Interlibrary Loan, Withdrawal Slip) -- PLAYTEST FINDINGS 3 item 1
+    // (GOALS.md, 2026-08-22) deleted both items along with the consumable
+    // mechanic their trigger conditions were keyed on; see items.js's own
+    // comment on that def block for the full reasoning. Their checks are
+    // deleted here too, not weakened -- there is no surviving behavior to
+    // assert on.
 
     // 7. Colophon: +2 damage per DISTINCT letter in the word (not per
     // length -- a rack with duplicate tiles proves the distinction).
@@ -2506,121 +2477,64 @@ async function main() {
     window.Wordbound.Game.closeDeckViewer();
   }
 
-  // Cleanup ticket (GOALS.md review B6, item 2): Game.useConsumable now
-  // checks whether the monster died from a consumable's effect and routes
-  // through the same onMonsterDefeated path submitWord uses, instead of
-  // just re-rendering onto an already-dead monster. No shipped consumable
-  // deals direct monster damage today, so this force-registers a
-  // throwaway test-only consumable that does, to actually exercise the
-  // guard rather than leave it unverified.
-  {
-    const Consumables = window.Wordbound.Consumables;
-    const savedCombatActive = state.combatActive;
-    const savedMonsterHp = state.monster.hp;
-    const savedScreen2 = state.screen;
-    const savedConsumables = state.player.consumables.slice();
-    // BRANCHING MAP (GOALS.md, run 2/N): the previous combat's tile-reward
-    // pick already resolved the map back to state.currentNodeId === null
-    // (see advanceMapPosition in game.js) -- this block forces combatActive
-    // directly rather than going through a real enterCurrentNode, so it
-    // needs its own "current node" for onMonsterDefeated's currentNode()
-    // lookup to have something to mark cleared, same pattern every other
-    // synthetic-node block in this file uses.
-    const lethalStrikeNode = { id: '_test-lethal-strike-node', type: 'combat', defId: state.monster.defId, cleared: false };
-    state.floor.nodes.push(lethalStrikeNode);
-    const savedCurrentNodeId2 = state.currentNodeId;
-    state.currentNodeId = lethalStrikeNode.id;
+  // The "useConsumable death guard" check that used to live here (GOALS.md
+  // review B6, item 2 -- Game.useConsumable routing a consumable-kill through
+  // the same onMonsterDefeated path submitWord uses) is gone along with
+  // Game.useConsumable itself: PLAYTEST FINDINGS 3 item 1 (2026-08-22)
+  // removed the whole consumable mechanic, and there is no other
+  // player-triggered mid-fight action that can zero monster.hp outside of a
+  // played word, which the many real-word-kill checks elsewhere in this
+  // file already exercise.
 
-    Consumables.CONSUMABLE_DEFS['_test_lethal_strike'] = {
-      id: '_test_lethal_strike',
-      name: 'Test Lethal Strike',
-      hint: 'test-only, not a real consumable',
-      rarity: 'common',
-      effect: function (ctx) {
-        ctx.monster.hp = 0;
-        return { message: 'Test Lethal Strike used.' };
-      }
-    };
-
-    state.combatActive = true;
-    state.monster.hp = 1;
-    state.screen = 'RUN';
-    state.player.consumables.push('_test_lethal_strike');
-
-    window.Wordbound.Game.useConsumable('_test_lethal_strike');
-
-    check('useConsumable death guard: killing the monster via a consumable routes to TILE_REWARD (not left rendering a dead monster)', state.screen === 'TILE_REWARD');
-    check('useConsumable death guard: combat is no longer active', state.combatActive === false);
-
-    delete Consumables.CONSUMABLE_DEFS['_test_lethal_strike'];
-    state.combatActive = savedCombatActive;
-    state.monster.hp = savedMonsterHp;
-    state.screen = savedScreen2;
-    state.player.consumables = savedConsumables;
-    state.currentNodeId = savedCurrentNodeId2;
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
-  }
-
-  // BALANCE (shop consumable odds): FUN OVERHAUL 4/8's eight new items grew the
-  // item pool from 15 to 23 against a fixed 3 consumables, so a uniform
-  // 4-of-26 draw left most shops with no consumable at all. rollShopOptions now
-  // pins one slot to the consumable pool. 50 seeded rolls, each must contain
-  // >= 1 consumable ('c:'-prefixed id), and the result must still be 4 distinct
-  // string ids (the flat-string-array contract every consumer relies on).
+  // BALANCE (shop odds): PLAYTEST FINDINGS 3 item 1 (GOALS.md, 2026-08-22)
+  // removed the consumable pool this block used to check the guaranteed-slot
+  // odds of ("shop consumable odds") -- rollShopOptions is now a plain
+  // shuffle-and-take-4 over the item pool, so what's left worth asserting is
+  // its basic contract: 50 seeded rolls, each must still be 4 distinct
+  // string ids (the flat-string-array contract every consumer relies on),
+  // and the same seed must reproduce the same shop.
   {
     const savedRng = state.rng;
     const savedItems = state.player.items;
-    let allHaveConsumable = true;
     let allFourDistinctStrings = true;
-    let sawANonConsumable = false;
-    const firstSlotConsumableCount = [];
 
     state.player.items = [];
     for (let i = 0; i < 50; i++) {
       state.rng = window.Game.RNG.create('shop-odds-' + i);
       const opts = window.Wordbound.Game._rollShopOptions();
-      const consumables = opts.filter((id) => typeof id === 'string' && id.indexOf('c:') === 0);
-      if (consumables.length < 1) allHaveConsumable = false;
       if (opts.length !== 4 || !opts.every((id) => typeof id === 'string') || new Set(opts).size !== opts.length) {
         allFourDistinctStrings = false;
       }
-      if (opts.some((id) => id.indexOf('c:') !== 0)) sawANonConsumable = true;
-      firstSlotConsumableCount.push(opts[0].indexOf('c:') === 0 ? 1 : 0);
     }
 
-    check('shop consumable odds: all 50 seeded shop rolls contain at least one consumable', allHaveConsumable);
-    check('shop consumable odds: every roll is still 4 distinct string ids', allFourDistinctStrings);
-    check('shop consumable odds: rolls still offer non-consumable items too', sawANonConsumable);
-    // The pinned consumable must not always land in slot 0 -- the final shuffle
-    // exists so the guaranteed slot isn't a visually predictable first row.
-    const pinnedFirstCount = firstSlotConsumableCount.reduce((a, b) => a + b, 0);
-    check('shop consumable odds: the guaranteed consumable is not always the first row (final shuffle applied)', pinnedFirstCount > 0 && pinnedFirstCount < 50);
+    check('shop odds: every roll is 4 distinct string ids', allFourDistinctStrings);
 
     // Determinism: the same seed must produce the same shop, seeded runs depend on it.
     state.rng = window.Game.RNG.create('shop-odds-determinism');
     const rollA = window.Wordbound.Game._rollShopOptions();
     state.rng = window.Game.RNG.create('shop-odds-determinism');
     const rollB = window.Wordbound.Game._rollShopOptions();
-    check('shop consumable odds: the same seed produces an identical shop roll', rollA.join(',') === rollB.join(','));
+    check('shop odds: the same seed produces an identical shop roll', rollA.join(',') === rollB.join(','));
 
     state.rng = savedRng;
     state.player.items = savedItems;
   }
 
-  // CONTENT ticket (GOALS.md, 2026-08-21): confirm all 9 new items actually
-  // surface in shop rolls (they're drawn automatically from
+  // CONTENT ticket (GOALS.md, 2026-08-21): confirm the surviving new items
+  // actually surface in shop rolls (they're drawn automatically from
   // Items.ITEM_DEFS, no separate pool-registration step -- this is the
-  // check that proves that's really true rather than assumed). 300 seeded
-  // rolls with an empty owned-items list is comfortably enough samples for
-  // even the rarest (single-legendary) new item to appear at least once.
+  // check that proves that's really true rather than assumed). Originally 9
+  // items; interlibrary_loan/withdrawal_slip were deleted by PLAYTEST
+  // FINDINGS 3 item 1 (2026-08-22, see items.js's own comment), leaving 7.
+  // 300 seeded rolls with an empty owned-items list is comfortably enough
+  // samples for even the rarest (single-legendary) new item to appear at
+  // least once.
   {
     const savedRng = state.rng;
     const savedItems = state.player.items;
     const NEW_ITEM_IDS = [
       'card_catalog_key', 'bookplate', 'ex_libris', 'late_fee',
-      'interlibrary_loan', 'withdrawal_slip', 'colophon', 'bound_volume',
-      'acquisitions_budget'
+      'colophon', 'bound_volume', 'acquisitions_budget'
     ];
     const seen = new Set();
 
@@ -2807,13 +2721,17 @@ async function main() {
     }
     check('shopkeepers: 60 seeded rolls cover all 6 authors', seenAuthors.size === 6);
 
-    // Homer's Bard's Largesse: guarantees 2 consumable slots, not 1.
+    // Homer's Bard's Largesse: originally guaranteed 2 consumable slots, not
+    // 1 -- PLAYTEST FINDINGS 3 item 1 (GOALS.md, 2026-08-22) removed the
+    // consumable mechanic that quirk targeted, leaving it flagged inert
+    // (same treatment as Cervantes below). Confirms the flag and that his
+    // shop still rolls a normal, undisturbed 4-item set.
     const savedItems = state.player.items;
     state.player.items = [];
     window.Wordbound.Game._setShopkeeperForTesting('homer');
+    check('shopkeepers: Homer is flagged inert', Shopkeepers.AUTHOR_DEFS.homer.quirkInert === true);
     const homerOpts = window.Wordbound.Game._rollShopOptions();
-    const homerConsumables = homerOpts.filter((id) => id.indexOf('c:') === 0);
-    check('shopkeepers: Homer\'s shop guarantees 2 consumable slots', homerConsumables.length === 2);
+    check('shopkeepers: Homer\'s shop still rolls 4 distinct items despite the inert quirk', homerOpts.length === 4 && new Set(homerOpts).size === 4);
 
     // Dickinson's Circumference: the premium tile offer always appears
     // (normally a SHOP_VARIANT_TILE_CHANCE coin-flip).
@@ -2838,17 +2756,19 @@ async function main() {
     check('shopkeepers: Austen discounts her focused rarity tier 20%', window.Wordbound.Game.getShopItemPrice('spare_satchel') === Math.round(commonDef.shopPrice * 0.8));
     check('shopkeepers: Austen leaves an off-focus rarity tier at full price', window.Wordbound.Game.getShopItemPrice('vowel_leech') === rareDef.shopPrice);
 
-    // Wilde's Importance of Being Earnest: every consumable 20% off; items untouched.
+    // Wilde's Importance of Being Earnest: originally discounted every
+    // consumable 20% -- same PLAYTEST FINDINGS 3 item 1 removal as Homer
+    // above, also left flagged inert. Confirms the flag and that items are
+    // untouched (there's nothing left for the quirk to discount).
     window.Wordbound.Game._setShopkeeperForTesting('wilde');
-    const consumableDef = window.Wordbound.Consumables.CONSUMABLE_DEFS.errata_slip;
-    check('shopkeepers: Wilde discounts a consumable 20%', window.Wordbound.Game.getShopItemPrice('c:errata_slip') === Math.round(consumableDef.shopPrice * 0.8));
+    check('shopkeepers: Wilde is flagged inert', Shopkeepers.AUTHOR_DEFS.wilde.quirkInert === true);
     check('shopkeepers: Wilde leaves an item at full price', window.Wordbound.Game.getShopItemPrice('spare_satchel') === commonDef.shopPrice);
 
     // Cervantes's Tilt at Windmills: flagged inert (no reroll mechanic
     // exists in this game yet) -- confirms it changes no price, on purpose.
     window.Wordbound.Game._setShopkeeperForTesting('cervantes');
     check('shopkeepers: Cervantes is flagged inert', Shopkeepers.AUTHOR_DEFS.cervantes.quirkInert === true);
-    check('shopkeepers: Cervantes\'s inert quirk changes no price', window.Wordbound.Game.getShopItemPrice('vowel_leech') === rareDef.shopPrice && window.Wordbound.Game.getShopItemPrice('c:errata_slip') === consumableDef.shopPrice);
+    check('shopkeepers: Cervantes\'s inert quirk changes no price', window.Wordbound.Game.getShopItemPrice('vowel_leech') === rareDef.shopPrice);
 
     // Game.buyItem actually charges the discounted price, not the raw one --
     // the real end-to-end path, not just the pricing helper in isolation.
@@ -2903,12 +2823,15 @@ async function main() {
   }
 
   // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), step 2's
-  // exclusive-items half: one exclusive per author (five items in
-  // items.js + Homer's own consumable in consumables.js), each gated to
-  // appear ONLY in that author's shop via the new `exclusiveTo` field.
+  // exclusive-items half: one exclusive per author, gated to appear ONLY in
+  // that author's shop via the `exclusiveTo` field. Originally six (five
+  // items in items.js + Homer's own consumable, Wine-Dark Litany, in
+  // consumables.js) -- PLAYTEST FINDINGS 3 item 1 (GOALS.md, 2026-08-22)
+  // deleted consumables.js and the whole mechanic along with it, so Homer
+  // currently has NO exclusive at all (real, flagged gap -- see items.js's
+  // own comment and PROGRESS.md). Five remain, tested below.
   {
     const Items = window.Wordbound.Items;
-    const Consumables = window.Wordbound.Consumables;
     const Combat = window.Wordbound.Combat;
     const savedItemsX = state.player.items;
     const savedRngX = state.rng;
@@ -2920,8 +2843,7 @@ async function main() {
       { authorId: 'wilde', id: 'an_ideal_word' },
       { authorId: 'austen', id: 'truth_universally_acknowledged' },
       { authorId: 'poe', id: 'tell_tale_meter' },
-      { authorId: 'dickinson', id: 'certain_slant_of_ink' },
-      { authorId: 'homer', id: 'c:wine_dark_litany' }
+      { authorId: 'dickinson', id: 'certain_slant_of_ink' }
     ];
 
     // Austen's quirk needs a rarity focus roll off state.rng if none is
@@ -2969,9 +2891,8 @@ async function main() {
     check('exclusive items: none appear when no shopkeeper is set (100 seeded samples)', !leakedWithNoKeeper);
 
     // Treasure/boss-reward pools have no shopkeeper context at all -- every
-    // exclusive ITEM (not Homer's consumable, which was never in this pool
-    // to begin with) must be excluded unconditionally, across many seeds.
-    const exclusiveItemIds = EXCLUSIVES.filter(({ id }) => id.indexOf('c:') !== 0).map(({ id }) => id);
+    // exclusive item must be excluded unconditionally, across many seeds.
+    const exclusiveItemIds = EXCLUSIVES.map(({ id }) => id);
     let leakedToTreasure = false, leakedToBossReward = false;
     for (let i = 0; i < 100; i++) {
       state.rng = window.Game.RNG.create('exclusive-treasure-' + i);
@@ -3085,24 +3006,9 @@ async function main() {
       delete window.Wordbound.Items.ITEM_DEFS['_test_extreme_ink_discount'];
     }
 
-    // The Wine-Dark Litany (Homer, consumable): same bonusDamageUntilEndOfTurn
-    // mechanism Index Card Shard already established, plus confirming it can
-    // never leak out through the random enemy-drop path (which has no
-    // shopkeeper context to gate against).
-    {
-      const player = { bonusDamageUntilEndOfTurn: 0, maxInk: 20, ink: 20 };
-      const result = Consumables.useConsumable('wine_dark_litany', { player });
-      check('The Wine-Dark Litany: grants +10 bonusDamageUntilEndOfTurn', player.bonusDamageUntilEndOfTurn === 10);
-      check('The Wine-Dark Litany: returns a real message', !!result.message && result.message.indexOf('muse') !== -1);
-    }
-    {
-      let leakedIntoDrops = false;
-      for (let i = 0; i < 200; i++) {
-        const rng = window.Game.RNG.create('wine-dark-drop-' + i);
-        if (Consumables.rollConsumableDrop(rng) === 'wine_dark_litany') leakedIntoDrops = true;
-      }
-      check('The Wine-Dark Litany: never rolls as a random enemy drop (200 seeded samples)', !leakedIntoDrops);
-    }
+    // The Wine-Dark Litany (Homer's exclusive, a consumable) and its checks
+    // are gone along with consumables.js -- PLAYTEST FINDINGS 3 item 1
+    // (GOALS.md, 2026-08-22), see this block's own header comment above.
   }
 
   // FUN OVERHAUL 5/8, second half of the Volatile contract: a cracked tile is
@@ -3685,8 +3591,8 @@ async function main() {
   }
 
   // AUDIO ticket (GOALS.md, 2026-08-21): interaction SFX for previously-silent
-  // events (tile stage/unstage, invalid word, gold, purchase, consumable use,
-  // heal, floor transition, boss entrance, victory/defeat). jsdom has no real
+  // events (tile stage/unstage, invalid word, gold, purchase, heal, floor
+  // transition, boss entrance, victory/defeat). jsdom has no real
   // Web Audio API, so these can't confirm audibility -- they assert the
   // TRIGGER wiring via Game._sfxCallLog() (see game.js): which sound fired,
   // for which event, whether mute suppressed it, and whether the tile-tap
@@ -3806,31 +3712,9 @@ async function main() {
     check('audio: a shop purchase logs a played purchase call',
       Game._sfxCallLog().some((e) => e.name === 'purchase' && e.played === true));
 
-    // -- consumable use (test-only no-op def, same pattern as the useConsumable
-    // death-guard check above) --
-    {
-      const Consumables = window.Wordbound.Consumables;
-      const savedCombatActive = state.combatActive;
-      const savedScreen = state.screen;
-      const savedConsumables = state.player.consumables.slice();
-      Consumables.CONSUMABLE_DEFS['_test_audio_consumable'] = {
-        id: '_test_audio_consumable', name: 'Test Audio Consumable', hint: 'test-only, not a real consumable',
-        rarity: 'common', effect: function () { return { message: 'Test Audio Consumable used.' }; }
-      };
-      state.combatActive = true;
-      state.screen = 'RUN';
-      if (!state.monster) state.monster = Monsters.createMonster(regDefId);
-      state.monster.hp = Math.max(state.monster.hp, 1);
-      state.player.consumables.push('_test_audio_consumable');
-      Game._clearSfxCallLog();
-      Game.useConsumable('_test_audio_consumable');
-      check('audio: using a consumable logs a played consumable call',
-        Game._sfxCallLog().some((e) => e.name === 'consumable' && e.played === true));
-      delete Consumables.CONSUMABLE_DEFS['_test_audio_consumable'];
-      state.combatActive = savedCombatActive;
-      state.screen = savedScreen;
-      state.player.consumables = savedConsumables;
-    }
+    // -- consumable use -- the check that used to live here (Game.useConsumable
+    // logging a played 'consumable' sfx call) is gone along with the whole
+    // consumable mechanic, PLAYTEST FINDINGS 3 item 1 (GOALS.md, 2026-08-22).
 
     // -- rest-node heal --
     state.screen = 'RUN';
@@ -4047,17 +3931,20 @@ async function main() {
   }
 
   // BUG (QA polish pass, GOALS.md 2026-08-21): render()'s deck-viewer-panel/
-  // item-inspector-panel/consumables-panel toggles used to early-return
-  // BEFORE the node-map/combat-panel/overlay-panel toggles below them ever
-  // ran, so whichever screen was visible on the PREVIOUS render (the node
-  // map, or a live fight) stayed visible and stacked behind the newly
-  // opened side panel -- a real-browser screenshot pass caught the node map
-  // pills bleeding in above the deck viewer's tile list. Fixed by folding a
-  // single sidePanelOpen flag into every other panel's hidden toggle so it
-  // applies regardless of open order. Real Game.openDeckViewer()/
-  // openConsumablesPanel() calls, not synthetic class edits, and checked
-  // against BOTH contexts the bug reproduced in (idle on the node map, and
-  // mid-combat).
+  // item-inspector-panel toggles used to early-return BEFORE the node-map/
+  // combat-panel/overlay-panel toggles below them ever ran, so whichever
+  // screen was visible on the PREVIOUS render (the node map, or a live
+  // fight) stayed visible and stacked behind the newly opened side panel --
+  // a real-browser screenshot pass caught the node map pills bleeding in
+  // above the deck viewer's tile list. Fixed by folding a single
+  // sidePanelOpen flag into every other panel's hidden toggle so it applies
+  // regardless of open order. Real Game.openDeckViewer()/openItemInspector()
+  // calls, not synthetic class edits, and checked against BOTH contexts the
+  // bug reproduced in (idle on the node map, and mid-combat). A third panel,
+  // #consumables-panel, used to share this same fix -- removed along with
+  // the whole consumable mechanic by PLAYTEST FINDINGS 3 item 1
+  // (2026-08-22); the mid-combat case below now exercises the item
+  // inspector instead, which still shares the identical sidePanelOpen path.
   {
     const Game = window.Wordbound.Game;
     const Monsters = window.Wordbound.Monsters;
@@ -4082,12 +3969,12 @@ async function main() {
     Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 60));
     check('panel-stacking setup: fresh combat is active', state.combatActive === true);
-    Game.openConsumablesPanel();
-    check('panel-stacking: opening consumables mid-combat hides combat-panel',
+    Game.openItemInspector('spare_satchel');
+    check('panel-stacking: opening the item inspector mid-combat hides combat-panel',
       document.getElementById('combat-panel').classList.contains('hidden') === true &&
-      document.getElementById('consumables-panel').classList.contains('hidden') === false);
-    Game.closeConsumablesPanel();
-    check('panel-stacking: closing consumables restores combat-panel',
+      document.getElementById('item-inspector-panel').classList.contains('hidden') === false);
+    Game.closeItemInspector();
+    check('panel-stacking: closing the item inspector restores combat-panel',
       document.getElementById('combat-panel').classList.contains('hidden') === false);
     check('panel-stacking block: produced zero errors', errors.length === 0);
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));

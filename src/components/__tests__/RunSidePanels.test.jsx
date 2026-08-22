@@ -2,15 +2,17 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import RunScreen from '../RunScreen.jsx';
-import { freshRun, findAvailableCombatNodeId } from '../../test/gameHelpers.js';
+import { freshRun } from '../../test/gameHelpers.js';
 
 // STRUCTURAL ticket, parity gap found 2026-08-21: nothing in the React tree
-// ever rendered state.player.items, state.deck, state.player.consumables, or
-// exposed the music toggle/volume -- see RunSidePanels.jsx's header comment.
-// These tests render the REAL RunScreen (not a harness) so the run-header's
-// always-visible Deck/Consumables buttons and the items-owned strip are
-// exercised exactly as a player would reach them, same style as
-// RunScreen.test.jsx's own node-map tests.
+// ever rendered state.player.items, state.deck, or exposed the music toggle/
+// volume -- see RunSidePanels.jsx's header comment. These tests render the
+// REAL RunScreen (not a harness) so the run-header's always-visible Deck
+// button and the items-owned strip are exercised exactly as a player would
+// reach them, same style as RunScreen.test.jsx's own node-map tests. (A
+// "consumables panel" describe block used to live here too, testing the
+// Consumables run-header button -- removed along with the whole consumable
+// mechanic by PLAYTEST FINDINGS 3 item 1, GOALS.md, 2026-08-22.)
 const SEED = 'vitest-fixed-seed-1';
 
 describe('items-owned strip', () => {
@@ -75,38 +77,6 @@ describe('deck viewer', () => {
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(state.deckViewerOpen).toBe(false);
     expect(document.querySelector('.node-map')).toBeInTheDocument();
-  });
-});
-
-describe('consumables panel', () => {
-  it('disables a real consumable outside combat and lets it be used mid-combat', async () => {
-    const state = freshRun(SEED);
-    state.player.consumables.push('errata_slip');
-    const user = userEvent.setup();
-    render(<RunScreen onBackToMenu={() => {}} />);
-
-    await user.click(screen.getByRole('button', { name: 'Consumables' }));
-    expect(state.consumablesPanelOpen).toBe(true);
-    const Consumables = window.Wordbound.Consumables;
-    const btn = screen.getByRole('button', { name: new RegExp(Consumables.CONSUMABLE_DEFS.errata_slip.name) });
-    expect(btn).toBeDisabled();
-
-    await user.click(screen.getByRole('button', { name: 'Close' }));
-
-    // REGULAR ENEMIES ticket (real remaining scope (2), 2026-08-22): weak
-    // tier can now roll a real duel-mode regular, which crashes on
-    // AudioContext under jsdom -- findAvailableCombatNodeId (already the
-    // safe convention every other test in this suite uses) picks a real
-    // non-duel node instead of `findNodeIdByType`'s blind "first combat
-    // node of any kind" pick this used to be.
-    window.Wordbound.Game.enterCurrentNode(findAvailableCombatNodeId(state));
-    state.player.ink = 0; // errata_slip heals ink -- make the effect observable
-    await user.click(screen.getByRole('button', { name: 'Consumables' }));
-    const liveBtn = screen.getByRole('button', { name: new RegExp(Consumables.CONSUMABLE_DEFS.errata_slip.name) });
-    expect(liveBtn).not.toBeDisabled();
-    await user.click(liveBtn);
-    expect(state.player.consumables).not.toContain('errata_slip');
-    expect(state.player.ink).toBeGreaterThan(0);
   });
 });
 

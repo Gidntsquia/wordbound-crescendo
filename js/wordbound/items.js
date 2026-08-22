@@ -650,36 +650,19 @@
     }
   });
 
-  def({
-    id: 'interlibrary_loan',
-    name: 'Interlibrary Loan',
-    hint: 'A well-stocked shelf lends its weight to every word -- hold onto what you\'ve borrowed.',
-    rarity: 'uncommon',
-    shopPrice: 35,
-    hooks: {
-      onWordPlayed: function (ctx) {
-        if ((ctx.player.consumables || []).length < 2) return;
-        Items.applyBonusDamage(ctx, 3);
-        ctx.messages.push('Interlibrary Loan: +3!');
-      }
-    }
-  });
-
-  def({
-    id: 'withdrawal_slip',
-    name: 'Withdrawal Slip',
-    hint: 'Nothing left to check out -- travel light and strike harder.',
-    rarity: 'rare',
-    shopPrice: 45,
-    hooks: {
-      onWordPlayed: function (ctx) {
-        if ((ctx.player.consumables || []).length > 0) return;
-        Items.applyBonusDamage(ctx, 6);
-        ctx.messages.push('Withdrawal Slip: +6!');
-      }
-    }
-  });
-
+  // PLAYTEST FINDINGS 3 item 1 (GOALS.md, 2026-08-22) removed the consumables
+  // mechanic these two items were built around -- Interlibrary Loan ('A
+  // well-stocked shelf lends its weight to every word -- hold onto what
+  // you've borrowed', +3 while holding 2+ consumables) and Withdrawal Slip
+  // ('Nothing left to check out -- travel light and strike harder', +6 while
+  // holding zero) formed an opposed build-around pair keyed entirely on
+  // player.consumables.length. With consumables gone, Interlibrary Loan's
+  // trigger could never fire again (permanently dead) and Withdrawal Slip's
+  // would fire on every single word (a de-facto unconditional +6, its
+  // "travel light" flavor now meaningless) -- deleted both rather than leave
+  // either as broken/misleading content or invent a new trigger condition,
+  // which would be an uncoordinated balance change, not a removal. Documented
+  // judgment call, not Jaxon-only.
   def({
     id: 'colophon',
     name: 'Colophon',
@@ -982,16 +965,19 @@
   // "1-2" per author, floor of the range -- see this ticket's own
   // ORCHESTRATOR NOTE for why), gated to appear ONLY in that author's shop
   // via the new `exclusiveTo` field, read by game.js's rollShopOptions
-  // (filters both the item pool and the consumable pool before any random
-  // slot is picked -- a deterministic gate, not a probability weight, so an
-  // exclusive can NEVER surface from the wrong keeper's shop). Homer's own
-  // exclusive (The Wine-Dark Litany, a consumable) lives in consumables.js
-  // instead -- see that file for why. Each of these five draws directly on
-  // THEME.md's own "Exclusive item concept(s)" cell for its author, picking
-  // whichever of that author's 1-2 concepts maps onto an EXISTING engine
-  // mechanic most directly (same "small, well-verified chunk over a bigger
-  // speculative one" judgment call this ticket's own quirk-half update
-  // already made) rather than inventing new engine surface for every one.
+  // (a deterministic gate, not a probability weight, so an exclusive can
+  // NEVER surface from the wrong keeper's shop). Homer's own exclusive (The
+  // Wine-Dark Litany) was a CONSUMABLE, in consumables.js -- PLAYTEST
+  // FINDINGS 3 item 1 (2026-08-22) deleted that whole file along with the
+  // consumable mechanic, so Homer currently has NO exclusive at all. Real,
+  // flagged gap (not fixed here -- inventing his permanent-item replacement
+  // is a content-design call, not part of a removal ticket): see
+  // PROGRESS.md. Each of the five below draws directly on THEME.md's own
+  // "Exclusive item concept(s)" cell for its author, picking whichever of
+  // that author's 1-2 concepts maps onto an EXISTING engine mechanic most
+  // directly (same "small, well-verified chunk over a bigger speculative
+  // one" judgment call this ticket's own quirk-half update already made)
+  // rather than inventing new engine surface for every one.
 
   def({
     id: 'ingenious_gentlemans_ledger',

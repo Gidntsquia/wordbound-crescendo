@@ -27,7 +27,7 @@
   <div id="screen-main-menu" class="screen">
     <div class="panel main-menu-panel">
       <h1 class="game-title">WORDBOUND: CRESCENDO</h1>
-      <p class="version-info">v0.14</p>
+      <p class="version-info">v0.15</p>
       <div id="dictionary-loading-indicator" class="dictionary-loading-indicator">
         <div class="loading-spinner"></div>
         <p>Loading dictionary...</p>
@@ -61,7 +61,6 @@
       <div id="floor-label" class="floor-label"></div>
       <div class="run-header-actions" style="display: flex; gap: 8px; align-items: center;">
         <button id="btn-view-deck" class="btn btn-secondary run-header-btn">Deck</button>
-        <button id="btn-view-consumables" class="btn btn-secondary run-header-btn" title="View consumable items">Consumables</button>
         <div style="display: flex; align-items: center; gap: 6px;">
           <button id="btn-toggle-music" class="btn btn-secondary music-toggle-btn">🔊</button>
           <input id="music-volume" type="range" min="0" max="100" value="10" style="width: 80px; cursor: pointer;">
@@ -118,12 +117,6 @@
       <h2 id="inspector-item-name"></h2>
       <p id="inspector-item-hint" style="text-align: left; color: #b8ac8a;"></p>
       <button id="btn-close-item-inspector" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
-    </div>
-
-    <div id="consumables-panel" class="treasure-panel hidden">
-      <h2>Consumables</h2>
-      <div id="consumables-list" class="treasure-choices"></div>
-      <button id="btn-close-consumables" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
     </div>
 
     <div id="event-panel" class="treasure-panel hidden">
@@ -239,7 +232,6 @@
 <script src="js/wordbound/items.js"></script>
 <script src="js/wordbound/achievements.js"></script>
 <script src="js/wordbound/stolenLetters.js"></script>
-<script src="js/wordbound/consumables.js"></script>
 <script src="js/wordbound/shopkeepers.js"></script>
 <script src="js/wordbound/events.js"></script>
 <script src="js/wordbound/characters.js"></script>

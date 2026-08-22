@@ -4380,6 +4380,171 @@ Rules for the routine:
       `test/balance-simulation.js` surface). Item 7 (ink) still likely
       follows 1+2. PLAYTEST FINDINGS 2's Mountain King boss-duel retune
       remains the other live open thread above this ticket in the queue.
+      ORCHESTRATOR NOTE 2026-08-22T21:27Z (item 1 — consumables — done;
+      item 2 — deck view + tile-reward re-point — scoped but NOT done this
+      run; box stays unchecked, items 2/7 still open): started the item 1+2
+      pairing the prior run flagged as next. Scoped both fully before
+      touching code (an Explore agent's report + direct reading confirmed:
+      consumables.js is a SEPARATE one-time-use-potion system from
+      items.js's permanent roster — items.js is untouched, unaffected by
+      this run) — item 2 turned out much larger than item 1: the per-fight
+      TILE_REWARD screen fires after EVERY kill (not just bosses), so
+      removing it ripples through ~8 test files' own "kill → reward flow"
+      assertions across dom-check.js, every real-browser Playwright script,
+      and RunScreen/RewardScreens' own reward-sequencing logic — a genuinely
+      separate, wide-blast-radius change from item 1's shop/panel/kill-drop
+      surface. Split the pairing rather than risk a rushed, under-verified
+      wide change: did item 1 completely this run, left item 2 fully scoped
+      (see below) for a dedicated follow-up.
+      **Item 1 (consumables), what was removed:** the whole mechanic —
+      `js/wordbound/consumables.js` deleted outright (4 defs: Errata Slip,
+      Index Card Shard, Page Turn, The Wine-Dark Litany); the shop's pinned
+      consumable slot / `'c:'`-prefixed id branching in `rollShopOptions`/
+      `effectiveShopPrice`/`Game.buyItem` (`game.js`); the kill-drop roll;
+      `Game.openConsumablesPanel`/`closeConsumablesPanel`/`useConsumable` +
+      vanilla `renderConsumablesPanel`/wiring; React's `ConsumablesPanel`
+      component + its `RunHeaderActions` button (`RunSidePanels.jsx`,
+      `RunScreen.jsx`); `ShopChoices`' consumable branch (`RewardScreens.jsx`);
+      Page Turn's `skipDiscardNextTurn`/`bonusTilesToDraw` rack-cycling
+      branch in `cycleRackAfterWord` (100% dead once Page Turn is gone —
+      simplified back to the unconditional discard-and-refill path); the
+      `consumables.js` `<script>`/import in `wordbound.html`/`main.jsx`/
+      `src/test/setup.js`/`tools/build-itch.js`; two now-orphaned standalone
+      Playwright scripts (`test/verify-consumables-fix.js`,
+      `verify-consumables-gameplay.js`, neither wired to an npm script);
+      dead `.combo`-era CSS references were NOT touched here (that's item
+      6's own prior run) but the shared `comboPop`→`popIn` rename from that
+      run was left alone.
+      **Two coupled items redesigned/removed — documented judgment calls,
+      not Jaxon-only:** Interlibrary Loan (+3 dmg holding 2+ consumables)
+      and Withdrawal Slip (+6 dmg holding 0) formed an opposed build-around
+      pair keyed entirely on `player.consumables.length` — with consumables
+      gone, Interlibrary Loan's trigger could never fire again and
+      Withdrawal Slip's would fire on EVERY word (a de-facto unconditional
+      +6, its "travel light" flavor meaningless). Deleted both rather than
+      invent a new trigger condition under a removal ticket (that would be
+      an uncoordinated balance change) or leave broken/misleading content.
+      **Two shopkeeper quirks left inert — same judgment call, same
+      precedent already established in this file for Cervantes's Tilt at
+      Windmills (no reroll mechanic exists):** Homer's Bard's Largesse
+      (guaranteed 2 consumable slots) and Wilde's The Importance of Being
+      Earnest (20% consumable discount) both targeted the now-gone
+      mechanic — `shopkeepers.js`'s `AUTHOR_DEFS.homer`/`.wilde` now carry
+      `quirkInert: true` and an honest quirkDescription, `effectivePrice`'s
+      `isConsumable` param removed entirely (3-arg signature now).
+      **Real, flagged gap — not fixed here, a content-design call:** Homer's
+      ONLY exclusive item was Wine-Dark Litany, a consumable — he now has
+      NO exclusive at all (every other of the 6 authors keeps theirs, all
+      permanent items in `items.js`). Flagged directly in both
+      `items.js`'s own comment on the exclusive-items block and
+      `shopkeepers.js`'s Homer entry, not silently left for a future run to
+      rediscover.
+      **Item 2, scoped for the next run (not started):** `onMonsterDefeated`
+      (`game.js`) currently sets `state.tileRewardOptions`/
+      `screen='TILE_REWARD'` after EVERY kill; `Game.pickTileReward`/
+      `skipTileReward`/`resolveTileReward` handle the pick-a-tile-or-skip
+      step, then (for a boss) chain into `BOSS_ITEM_REWARD` or (regular)
+      straight to `advanceMapPosition()`. Recommended re-point, NOT
+      implemented: since every kill already grants gold unconditionally
+      (goldDrop range per monster, already resolved earlier in
+      `onMonsterDefeated`), the tile-pick step can simply be DROPPED — no
+      new gold bonus needed, no new balance number to simulate-verify. Fold
+      `resolveTileReward`'s boss-branch logic directly into
+      `onMonsterDefeated`'s tail (skip the pick step, go straight to the
+      boss-item-reward roll or `advanceMapPosition()`). This ripples into:
+      `RewardScreens.jsx`'s `TileRewardScreen`/deck-viewer button,
+      `RunSidePanels.jsx`'s `DeckViewerPanel`/Deck header button, AND —
+      confirmed by direct grep, not assumed — every one of
+      `test/dom-check.js` (11 `TILE_REWARD` references across several
+      independent blocks, including a `waitForScreen(state, 'TILE_REWARD')`
+      call in the stolen-letters boss-hostage test that would need to wait
+      on `'BOSS_ITEM_REWARD'`/`'RUN'` instead), `test/verify-react-qa-boss-
+      reward.js`, `test/verify-regular-duel-smoke.js`, `test/verify-react-
+      build.js`, `test/orchestrator-qa-boss-reward.js` (every one currently
+      asserts "tile-reward panel visible after kill" as a real passing
+      check today). Also a real, undecided judgment call for whoever picks
+      this up: the shop's separate Premium Tile purchase (`ShopTileOffer`/
+      `Game.buyShopTile`, a paid tile-deck-add, not a free reward) is
+      arguably also "deck-shaped UI" under the ticket's "nothing deck-
+      shaped in the UI" bar even though it's a purchase not a reward step —
+      left untouched and undecided this run, flag it explicitly rather than
+      silently assume either way.
+      **Verified, real not assumed:** `npm test` (dom-check.js): ALL CHECKS
+      PASSED — rewrote every consumable-dependent block (the item-1/2 combo
+      block's own "5/6" items, the "useConsumable death guard" block
+      deleted outright — no consumable-mechanism equivalent survives to
+      test, the "shop consumable odds" block rewritten to test the now-
+      simpler plain-shuffle contract, the CONTENT-ticket 9→7-item shop-
+      roll-membership check, the shopkeepers Homer/Wilde blocks rewritten
+      to assert `quirkInert` instead of a discount/slot-count, the
+      exclusive-items `EXCLUSIVES` array with Homer's `'c:wine_dark_litany'`
+      entry removed, the Wine-Dark Litany mechanical-hook block deleted
+      outright, the audio-SFX "consumable use" sub-block deleted outright,
+      the panel-stacking mid-combat check re-pointed from the consumables
+      panel to the item inspector — same `sidePanelOpen` code path, still
+      real coverage). Hit ONE unrelated flake on an immediate re-run after
+      the version bump — `waitForScreen(state, 'TILE_REWARD')` timed out at
+      "state.screen is still GAME_OVER" in the stolen-letters boss-hostage
+      block (turn-based `boss_unabridged` fight, ambient `state.player.ink`
+      carried over from an earlier block apparently left low enough for a
+      counterattack to end the run before the kill registered) — 3
+      immediate clean re-runs afterward confirmed it's not a regression
+      (same "pre-existing, order/RNG-state-sensitive flake in this shared-
+      state script" pattern this file's own header already documents
+      elsewhere, not touched by this run's actual changes: ink/
+      counterattack math is untouched by consumables removal). `npx vitest
+      run`: 185/185 clean — deleted `RunSidePanels.test.jsx`'s "consumables
+      panel" describe block outright (the Consumables button/panel it
+      tested no longer exists) and its now-unused
+      `findAvailableCombatNodeId` import; simplified `RewardScreens.test.jsx`'s
+      buy-item test to drop the isConsumable branch. `npm run build`:
+      clean, 57 modules (down from 58 — `consumables.js` gone). `npm run
+      test:mobile`: ALL CHECKS PASSED (real browser, 375/414px) — the run
+      header lost a button (Consumables), confirmed no new overflow.
+      `npm run test:run-header`: ALL CHECKS PASSED across 375-1280px —
+      directly relevant given the header button removal, not just the
+      standard CSS-change gate. `npm run test:react-build` (full drag/
+      touch/FLIP playthrough incl. damage-number/crushing/MAGNIFICENT
+      juice), `npm run test:react-qa` (real browser, full 4-floor victory,
+      all 4 bosses, exercises the shop's real purchase path along the way),
+      `npm run test:react-duel-loss`, `npm run test:regular-duel-smoke`,
+      `npm run test:qa` (vanilla wordbound.html path, exercises the shop
+      button removal directly): ALL CHECKS PASSED across every one. `npm
+      run test:itch-build`: ALL CHECKS PASSED (16/16 dom-check against the
+      unzipped build + zero-404 real-browser load) — confirms
+      `consumables.js`'s removal from the itch bundle list didn't break the
+      standalone build. `npm run test:branching-map`: ALL CHECKS PASSED
+      (180 floors/seeds), unaffected as expected. `npm run test:duel-
+      balance` (virtual-clock gauge sim, all 5 tiers × 3 bot skill levels):
+      byte-identical numbers to the pre-existing documented baseline, zero
+      new sanity flags — expected, since per-word scoring math is untouched
+      by this removal. `npm run test:audio`: ALL CHECKS PASSED, confirming
+      `playCombatSound`/oscillator scheduling still works with the shop/
+      panel surface changed. `npm run test:drag-interrupt`: ALL CHECKS
+      PASSED, unaffected as expected (no drag-system code touched). `npm
+      run test:music-engine`: ALL CHECKS PASSED, unaffected.
+      Version bumped v0.14 → v0.15 (`MainMenu.jsx`/`wordbound.html`/
+      `MainMenu.test.jsx`) — a real, player-facing removal (no more
+      Consumables button/panel, no more consumable shop slots or kill
+      drops).
+      **Not done, honest gaps — box stays unchecked:** item 2 (deck view +
+      tile-reward re-point) is fully scoped above but NOT implemented —
+      Deck button/deck-viewer/TILE_REWARD screen all still present and
+      unchanged. Item 7 (ink) remains untouched, still likely follows item
+      2 per the ticket's own text. Homer's missing exclusive item (see
+      above) is a real, undecided content gap.
+      **Genuinely-Jaxon-only:** none this run — every choice above (delete
+      vs. redesign the two coupled items, inert vs. invented-replacement
+      quirks, dropping the tile-reward step vs. re-pointing it to a new
+      gold bonus) is a documented implementation/design judgment call the
+      ticket's own header text delegates to the orchestrator, not a
+      naming/feel/launch call.
+      **Next:** item 2, exactly as scoped above — fold `resolveTileReward`'s
+      boss-branch into `onMonsterDefeated`'s tail, drop the tile-pick step,
+      update the ~8 affected test files' TILE_REWARD expectations, and make
+      (and document) the Premium Tile shop-purchase judgment call. Then item
+      7 (ink). Homer's exclusive-item gap and PLAYTEST FINDINGS 2's Mountain
+      King boss-duel retune remain the other live open threads.
 
 - [ ] PLAYTEST FINDINGS 2 — JAXON, 2026-08-22 (~19:25 UTC), SECOND PLAYTEST.
       His feedback, near-verbatim: enemies shouldn't have an HP number — HP

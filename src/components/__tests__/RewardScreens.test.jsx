@@ -67,28 +67,21 @@ describe('TreasureOrShopScreen -- SHOP', () => {
     window.Wordbound.Game.enterCurrentNode(findNodeIdByType(state, 'shop'));
     state.player.gold = 9999;
     const Items = window.Wordbound.Items;
-    const Consumables = window.Wordbound.Consumables;
     const user = userEvent.setup();
     render(<Harness Screen={TreasureOrShopScreen} />);
 
     const itemId = state.shopOptions[0];
-    const isConsumable = itemId.indexOf('c:') === 0;
-    const actualId = isConsumable ? itemId.substring(2) : itemId;
-    const def = isConsumable ? Consumables.CONSUMABLE_DEFS[actualId] : Items.ITEM_DEFS[actualId];
+    const def = Items.ITEM_DEFS[itemId];
     const goldBefore = state.player.gold;
     // Uses the real effective price, not def.shopPrice raw -- SHOPKEEPERS
     // ticket (GOALS.md): whichever author this seeded visit rolled may be
-    // discounting this exact item (Austen/Poe/Wilde all apply a price cut
-    // under some condition), and Game.buyItem charges that real price.
+    // discounting this exact item (Austen/Poe both apply a price cut under
+    // some condition), and Game.buyItem charges that real price.
     const expectedPrice = window.Wordbound.Game.getShopItemPrice(itemId);
 
     await user.click(screen.getByText(def.name));
     expect(state.player.gold).toBe(goldBefore - expectedPrice);
-    if (isConsumable) {
-      expect(state.player.consumables).toContain(actualId);
-    } else {
-      expect(state.player.items).toContain(actualId);
-    }
+    expect(state.player.items).toContain(itemId);
   });
 
   // SHOPKEEPERS ticket (GOALS.md, step 2): the shop banner names the

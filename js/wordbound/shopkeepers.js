@@ -17,7 +17,14 @@
 // (bossEntrances.js, shakespeareGuide.js).
 //
 // Quirk mechanics, matched against THEME.md's table cell-by-cell:
-//   Homer      -- Bard's Largesse: shop guarantees 2 consumable slots, not 1.
+//   Homer      -- Bard's Largesse: originally "shop guarantees 2 consumable
+//                 slots, not 1." PLAYTEST FINDINGS 3 item 1 (GOALS.md,
+//                 2026-08-22) removed the consumable mechanic this quirk
+//                 guaranteed slots OF -- left deliberately INERT
+//                 (quirkInert: true, no numeric hook), same treatment as
+//                 Cervantes below, rather than invented a replacement
+//                 mechanic under a removal ticket. Real, flagged gap: see
+//                 PROGRESS.md. Revisit with a real content pass.
 //   Cervantes  -- Tilt at Windmills: a reroll discount. THEME.md's own cell
 //                 already hedges this on "if/when a shop reroll mechanic
 //                 exists" -- no reroll mechanic exists anywhere in this repo
@@ -40,8 +47,10 @@
 //                 (normally a SHOP_VARIANT_TILE_CHANCE coin-flip) always
 //                 appears in her shop.
 //   Poe        -- Nevermore: rare-and-legendary items discounted.
-//   Wilde      -- The Importance of Being Earnest: every consumable in his
-//                 shop discounted.
+//   Wilde      -- The Importance of Being Earnest: originally "every
+//                 consumable in his shop discounted." Same PLAYTEST FINDINGS
+//                 3 item 1 removal as Homer above -- left INERT
+//                 (quirkInert: true), same flagged gap.
 //
 // Exclusive items (THEME.md's 1-2-per-author concepts) are explicitly OUT
 // of this file's scope -- the ticket's own step 2 instruction says to
@@ -81,8 +90,8 @@
         'Hear now the catalogue of my wares, swift-fingered speller, as once I sang the ships.'
       ],
       quirkName: "Bard's Largesse",
-      quirkDescription: 'His shop always stocks two consumables, not the usual one.',
-      guaranteesSecondConsumable: true
+      quirkDescription: 'Generous to a fault -- for now, that generosity has nowhere to land.',
+      quirkInert: true
     },
     cervantes: {
       id: 'cervantes',
@@ -151,8 +160,8 @@
         "I am, as ever, above the transaction -- until it's completed, at which point I find I was quite looking forward to it."
       ],
       quirkName: 'The Importance of Being Earnest',
-      quirkDescription: 'Every consumable in his shop is discounted 20%.',
-      consumableDiscountPct: 0.2
+      quirkDescription: 'A wit in search of a discount to attach itself to.',
+      quirkInert: true
     }
   };
   Shopkeepers.AUTHOR_DEFS = AUTHOR_DEFS;
@@ -179,24 +188,24 @@
     return rng.choice(def.lines);
   };
 
-  // def: an Items.ITEM_DEFS[x] or Consumables.CONSUMABLE_DEFS[x] entry.
-  // isConsumable: whether def came from the consumable pool.
+  // def: an Items.ITEM_DEFS[x] entry.
   // shopkeeperId: state.shopkeeperId (may be null -- no discount).
   // rarityFocus: state.shopkeeperRarityFocus, only meaningful for Austen.
   // Centralized here so game.js's real gold charge and both UIs' displayed
   // price can never drift apart -- both call this, never def.shopPrice raw.
-  Shopkeepers.effectivePrice = function (def, isConsumable, shopkeeperId, rarityFocus) {
+  // PLAYTEST FINDINGS 3 item 1 (2026-08-22) removed the isConsumable param
+  // (and the consumableDiscountPct branch it gated -- Wilde's quirk, now
+  // inert, see AUTHOR_DEFS above) along with the whole consumable mechanic.
+  Shopkeepers.effectivePrice = function (def, shopkeeperId, rarityFocus) {
     var price = (def && def.shopPrice) || 0;
     var authorDef = shopkeeperId ? AUTHOR_DEFS[shopkeeperId] : null;
     if (!authorDef || !price) return price;
 
     var pct = 0;
-    if (!isConsumable && authorDef.rareDiscountPct && (def.rarity === 'rare' || def.rarity === 'legendary')) {
+    if (authorDef.rareDiscountPct && (def.rarity === 'rare' || def.rarity === 'legendary')) {
       pct = authorDef.rareDiscountPct;
-    } else if (!isConsumable && authorDef.rarityDiscountPct && def.rarity === rarityFocus) {
+    } else if (authorDef.rarityDiscountPct && def.rarity === rarityFocus) {
       pct = authorDef.rarityDiscountPct;
-    } else if (isConsumable && authorDef.consumableDiscountPct) {
-      pct = authorDef.consumableDiscountPct;
     }
     if (!pct) return price;
     return Math.max(1, Math.round(price * (1 - pct)));

@@ -25,9 +25,10 @@
 //     once the balance pass made fights take multiple turns; see
 //     findPlayableWords). A rack needing 2+ blanks in the same word (e.g.
 //     from the Second Draft item, which adds blanks) still won't be found.
-//   - The bot never uses consumables or the rack-reorder UI, and always
-//     takes shop/treasure/event option ordering greedily. So these win
-//     rates are a floor, not a ceiling, on human performance.
+//   - The bot never uses the rack-reorder UI, and always takes shop/
+//     treasure/event option ordering greedily. So these win rates are a
+//     floor, not a ceiling, on human performance. (Consumables no longer
+//     exist -- PLAYTEST FINDINGS 3 item 1, GOALS.md, 2026-08-22.)
 //   - jsdom has no Web Audio API; audio paths are inert here (already true of
 //     npm test). Nothing in this script depends on them.
 //   - (Fixed 2026-08-20, see the combat-loop's effectiveRack filter) the bot

@@ -1320,9 +1320,9 @@ h2 {
 .tile-reward-skip { margin-top: 10px; }
 
 /* Tile-reward choices (GOALS.md POLISH review F4.5): the shared
-   .treasure-choice is a full-width text bar, right for items/consumables;
-   tile rewards get a modifier so each choice reads as a letter tile
-   (like the rack above it) instead of a bar with one small letter in it. */
+   .treasure-choice is a full-width text bar, right for items; tile rewards
+   get a modifier so each choice reads as a letter tile (like the rack
+   above it) instead of a bar with one small letter in it. */
 .treasure-choices-tiles {
   flex-direction: row;
   flex-wrap: wrap;

@@ -174,7 +174,7 @@
     combatActive: false,
     messages: [],
     treasureOptions: null,
-    shopOptions: null, // array of string ids ('itemId' or 'c:consumableId') -- deliberately kept a flat string array, see shopTileOffer
+    shopOptions: null, // array of item-id strings -- deliberately kept a flat string array, see shopTileOffer
     shopTileOffer: null, // FUN OVERHAUL 5/8: the shop's premium variant tile, a Tile OBJECT. Held separately rather than mixed into shopOptions so every consumer of that array (renderShop, test/balance-simulation.js's shopping bot, anything future) can keep assuming it's all string ids
     shopkeeperId: null, // SHOPKEEPERS ticket (GOALS.md): the author (shopkeepers.js AUTHOR_DEFS key) running the current shop, rolled fresh from state.rng per visit; null outside a shop
     shopkeeperRarityFocus: null, // only meaningful when shopkeeperId is 'austen' -- the rarity tier her quirk discounts this visit
@@ -190,7 +190,6 @@
     deckViewerOpen: false,
     itemInspectorOpen: false,
     itemInspectorId: null,
-    consumablesPanelOpen: false,
     howToPlayOpen: false,
     lastRackTileIds: [], // track tile IDs from previous render to detect new tiles
     rackJustRefilled: false, // true right after a full discard+redraw -- animate the whole rack,
@@ -373,7 +372,7 @@
   Game._showGuideIntro = function () { return showGuideIntro(); }; // SHAKESPEARE GUIDE ticket: same test-isolation reasoning as _showBossEntrance above, though this one has no AudioContext hazard to dodge -- exposed anyway for a deterministic, dependency-free test of the overlay mechanism itself
   Game._hideGuideIntro = function () { return hideGuideIntro(); };
   Game._emitPlayerDamaged = function (payload) { return emitPlayerDamaged(payload); }; // COMBAT JUICE ticket: same reasoning, for the ink-flash counterpart
-  Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
+  Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert shop-roll odds without needing a real shop node
   Game._rollTreasureOptions = function () { return rollTreasureOptions(); }; // SHOPKEEPERS ticket (exclusive items): exposed so tests can assert exclusiveTo items never leak into a Treasure roll, without needing a real Treasure node
   Game._rollBossRewardOptions = function () { return rollBossRewardOptions(); }; // same reasoning as _rollTreasureOptions above, for the boss-reward pool
   Game._rollShopTileOffer = function () { return rollShopTileOffer(); }; // SHOPKEEPERS ticket: exposed so tests can assert Dickinson's guaranteed-appearance quirk directly, same reasoning as _rollShopOptions above
@@ -420,8 +419,8 @@
   // difficulty onto any single floor.
   function newPlayer(characterDef) {
     var player = {
-      ink: 22, maxInk: 22, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
-      bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0,
+      ink: 22, maxInk: 22, gold: 0, rack: [], items: [], usedSecondWind: false,
+      bonusDamageUntilEndOfTurn: 0,
       // DUEL-GAUGE COMBAT prep (GOALS.md, ink-audit run): persisted across fights within
       // a run, same as ink -- the caller creating a Duel instance per fight is meant to
       // pass this in as Duel.create({healthBlocks: player.healthBlocks}) and read the
@@ -729,45 +728,19 @@
 
   function rollShopOptions() {
     var owned = state.player.items;
-    // SHOPKEEPERS ticket, exclusive items: an `exclusiveTo` item/consumable
-    // is filtered out UNLESS it matches this visit's own state.shopkeeperId
-    // (already rolled by rollShopkeeper() before this runs -- see that
-    // function's own header comment) -- deterministic exclusion, not a
-    // probability weight, so an exclusive can never surface from the wrong
-    // keeper's shop, or (with no keeper rolled at all) from any shop.
+    // SHOPKEEPERS ticket, exclusive items: an `exclusiveTo` item is filtered
+    // out UNLESS it matches this visit's own state.shopkeeperId (already
+    // rolled by rollShopkeeper() before this runs -- see that function's own
+    // header comment) -- deterministic exclusion, not a probability weight,
+    // so an exclusive can never surface from the wrong keeper's shop, or
+    // (with no keeper rolled at all) from any shop.
     var itemPool = Object.keys(Items.ITEM_DEFS).filter(function (id) {
       var def = Items.ITEM_DEFS[id];
       if (def.exclusiveTo && def.exclusiveTo !== state.shopkeeperId) return false;
       return owned.indexOf(id) === -1;
     });
-    var consumablePool = Wordbound.Consumables ? Object.keys(Wordbound.Consumables.CONSUMABLE_DEFS).filter(function (id) {
-      var def = Wordbound.Consumables.CONSUMABLE_DEFS[id];
-      return !def.exclusiveTo || def.exclusiveTo === state.shopkeeperId;
-    }).map(function (id) { return 'c:' + id; }) : [];
-    var combined = itemPool.concat(consumablePool);
-
-    // Pin one slot to the consumable pool: FUN OVERHAUL 4/8's eight new items
-    // diluted the item:consumable ratio from 15:3 to 23:3, which without this
-    // left ~59% of shop rolls with zero consumables (see GOALS.md balance
-    // ticket). Guaranteeing one restores the pre-4/8 "shops usually have a
-    // consumable" feel without touching the pool size. SHOPKEEPERS ticket:
-    // Homer's Bard's Largesse guarantees a SECOND slot instead of the usual
-    // one -- same mechanism, just a bigger guaranteed count.
-    var Shopkeepers = Wordbound.Shopkeepers;
-    var shopAuthorDef = (Shopkeepers && state.shopkeeperId) ? Shopkeepers.AUTHOR_DEFS[state.shopkeeperId] : null;
-    var guaranteedConsumableSlots = (shopAuthorDef && shopAuthorDef.guaranteesSecondConsumable) ? 2 : 1;
-
-    var options = [];
-    if (consumablePool.length > 0) {
-      var slotsToFill = Math.min(guaranteedConsumableSlots, consumablePool.length, 4);
-      options = options.concat(state.rng.shuffle(consumablePool).slice(0, slotsToFill));
-    }
-    var remainingPool = combined.filter(function (id) {
-      return options.indexOf(id) === -1;
-    });
-    var shuffledRemaining = state.rng.shuffle(remainingPool);
-    options = options.concat(shuffledRemaining.slice(0, 4 - options.length));
-    return state.rng.shuffle(options);
+    var shuffled = state.rng.shuffle(itemPool);
+    return state.rng.shuffle(shuffled.slice(0, 4));
   }
 
   // Rolled ONCE when the shop is entered and stored on state, not derived at
@@ -783,28 +756,23 @@
     return state.rng.chance(SHOP_VARIANT_TILE_CHANCE) ? Tiles.rollVariantTile(state.rng) : null;
   }
 
-  // SHOPKEEPERS ticket: the single source of truth for a shop item/
-  // consumable's price after the current shopkeeper's pricing quirk
-  // (Austen/Poe/Wilde) -- both game.js's real gold charge (Game.buyItem
-  // below) and both UIs' displayed price (renderShop here, RewardScreens.jsx)
-  // call this rather than reading def.shopPrice raw, so they can never drift
-  // apart. Returns 0 for an unknown id (mirrors buyItem's own pre-existing
-  // !def guard).
+  // SHOPKEEPERS ticket: the single source of truth for a shop item's price
+  // after the current shopkeeper's pricing quirk (Austen/Poe) -- both
+  // game.js's real gold charge (Game.buyItem below) and both UIs' displayed
+  // price (renderShop here, RewardScreens.jsx) call this rather than reading
+  // def.shopPrice raw, so they can never drift apart. Returns 0 for an
+  // unknown id (mirrors buyItem's own pre-existing !def guard).
   function effectiveShopPrice(itemId) {
-    var isConsumable = itemId.indexOf('c:') === 0;
-    var actualId = isConsumable ? itemId.substring(2) : itemId;
-    var def = isConsumable ? (Wordbound.Consumables ? Wordbound.Consumables.CONSUMABLE_DEFS[actualId] : null) : Items.ITEM_DEFS[actualId];
+    var def = Items.ITEM_DEFS[itemId];
     if (!def) return 0;
     var Shopkeepers = Wordbound.Shopkeepers;
     if (!Shopkeepers || !state.shopkeeperId) return def.shopPrice || 0;
-    return Shopkeepers.effectivePrice(def, isConsumable, state.shopkeeperId, state.shopkeeperRarityFocus);
+    return Shopkeepers.effectivePrice(def, state.shopkeeperId, state.shopkeeperRarityFocus);
   }
   Game.getShopItemPrice = effectiveShopPrice; // exposed so React's ShopChoices can display the same price it will actually be charged
 
   Game.buyItem = function (itemId) {
-    var isConsumable = itemId.indexOf('c:') === 0;
-    var actualId = isConsumable ? itemId.substring(2) : itemId;
-    var def = isConsumable ? (Wordbound.Consumables ? Wordbound.Consumables.CONSUMABLE_DEFS[actualId] : null) : Items.ITEM_DEFS[actualId];
+    var def = Items.ITEM_DEFS[itemId];
 
     if (!def || !def.shopPrice) {
       log('ERROR: Item not purchasable');
@@ -815,19 +783,15 @@
       log('Not enough gold! Need ' + price + ', have ' + state.player.gold + '.');
       return;
     }
-    if (!isConsumable && state.player.items.indexOf(actualId) !== -1) {
+    if (state.player.items.indexOf(itemId) !== -1) {
       log('You already own ' + def.name + '!');
       return;
     }
     state.player.gold -= price;
-    if (isConsumable) {
-      state.player.consumables.push(actualId);
-    } else {
-      state.player.items.push(actualId);
-      Items.applyOnAcquire(state.player, actualId);
-      // Re-roll shop options so the bought item is replaced with a new option
-      state.shopOptions = rollShopOptions();
-    }
+    state.player.items.push(itemId);
+    Items.applyOnAcquire(state.player, itemId);
+    // Re-roll shop options so the bought item is replaced with a new option
+    state.shopOptions = rollShopOptions();
     log('You bought ' + def.name + ' for ' + price + ' gold.');
     playSfx('purchase', null, playPurchaseSound);
     render();
@@ -1104,15 +1068,9 @@
   // played (used AND unused tiles) goes to the discard pile, then the rack
   // is fully redrawn. Tiles.draw reshuffles the discard pile back in when
   // the draw pile runs dry, so this never stalls mid-fight.
-  // Page Turn consumable can change this: if active, unused tiles stay in hand
-  // instead of being discarded.
   function cycleRackAfterWord(tilesUsed) {
     var unusedTiles = state.player.rack;
-
-    // If Page Turn is active, keep unused tiles; otherwise discard them
-    if (!state.player.skipDiscardNextTurn) {
-      state.pile.discardPile = state.pile.discardPile.concat(unusedTiles);
-    }
+    state.pile.discardPile = state.pile.discardPile.concat(unusedTiles);
 
     // Always discard the used tiles -- EXCEPT a Volatile tile that just
     // cracked (FUN OVERHAUL 5/8, flagged by submitWord right after playWord
@@ -1124,31 +1082,9 @@
     var stillActive = tilesUsed.filter(function (t) { return !t.crackedThisFight; });
     state.pile.discardPile = state.pile.discardPile.concat(stillActive);
 
-    // Clear the rack
-    if (state.player.skipDiscardNextTurn) {
-      // Page Turn: keep unused tiles, refill to full capacity, then draw bonus
-      var bonusCount = state.player.bonusTilesToDraw || 0;
-      var targetRackSize = Items.getRackCapacity(state.player) + bonusCount;
-      var tilesToDraw = targetRackSize - unusedTiles.length;
-
-      if (tilesToDraw > 0) {
-        var drawn = Tiles.draw(state.pile, tilesToDraw, state.rng);
-        var ctx = { player: state.player, drawnTiles: drawn, pileState: state.pile, rng: state.rng };
-        Items.runHook('onDraw', ctx, state.player);
-        state.player.rack = unusedTiles.concat(ctx.drawnTiles);
-      }
-      // Note: deliberately NOT setting rackJustRefilled here -- Page Turn keeps some
-      // tiles in place (they shouldn't re-animate), only the newly drawn bonus tiles
-      // should slide in, which the normal per-tile-id diff below already handles correctly.
-
-      // Reset Page Turn flags
-      state.player.skipDiscardNextTurn = false;
-      state.player.bonusTilesToDraw = 0;
-    } else {
-      // Normal path: clear and refill
-      state.player.rack = [];
-      refillRack();
-    }
+    // Clear and refill the rack
+    state.player.rack = [];
+    refillRack();
 
     ensureRackIsPlayable();
   }
@@ -1801,16 +1737,6 @@
       }
     }
 
-    // Small chance to drop a consumable item
-    if (Wordbound.Consumables && state.rng.next() < Wordbound.Consumables.getConsumableDropChance()) {
-      var droppedConsumable = Wordbound.Consumables.rollConsumableDrop(state.rng);
-      if (droppedConsumable) {
-        state.player.consumables.push(droppedConsumable);
-        var consumableName = Wordbound.Consumables.CONSUMABLE_DEFS[droppedConsumable].name;
-        log('You found an ' + consumableName + '!');
-      }
-    }
-
     state.combatActive = false;
     currentNode().cleared = true;
     var wasBoss = currentNode().type === 'boss';
@@ -1922,7 +1848,6 @@
     state.deckViewerOpen = false;
     state.itemInspectorOpen = false;
     state.itemInspectorId = null;
-    state.consumablesPanelOpen = false;
   }
 
   Game.openDeckViewer = function () {
@@ -1949,17 +1874,6 @@
     render();
   };
 
-  Game.openConsumablesPanel = function () {
-    closeAllSidePanels();
-    state.consumablesPanelOpen = true;
-    render();
-  };
-
-  Game.closeConsumablesPanel = function () {
-    state.consumablesPanelOpen = false;
-    render();
-  };
-
   // ---- how to play ---------------------------------------------------------
 
   // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md): public so
@@ -1977,36 +1891,6 @@
   Game.closeHowToPlay = function () {
     state.howToPlayOpen = false;
     markHowToPlaySeen();
-    render();
-  };
-
-  Game.useConsumable = function (consumableId) {
-    if (!state.combatActive || !state.monster) {
-      log('ERROR: Can only use consumables during combat');
-      return;
-    }
-    var def = Wordbound.Consumables.CONSUMABLE_DEFS[consumableId];
-    if (!def) {
-      log('ERROR: Consumable not found');
-      return;
-    }
-    var idx = state.player.consumables.indexOf(consumableId);
-    if (idx === -1) {
-      log('ERROR: You don\'t have this consumable');
-      return;
-    }
-    state.player.consumables.splice(idx, 1);
-    var monsterHpBefore = state.monster.hp;
-    var result = Wordbound.Consumables.useConsumable(consumableId, { player: state.player, monster: state.monster });
-    if (result.message) log(result.message);
-    playSfx('consumable', null, playConsumableSound);
-    // No shipped consumable deals direct damage today, but a future one
-    // might (via ctx.monster.hp) -- route through the same defeat path
-    // submitWord uses instead of re-rendering onto an already-dead monster.
-    if (state.monster.hp <= 0) {
-      onMonsterDefeated(monsterHpBefore - state.monster.hp, monsterHpBefore);
-      return;
-    }
     render();
   };
 
@@ -2401,8 +2285,8 @@
 
   // ---- interaction SFX (AUDIO ticket, GOALS.md, 2026-08-21) -----------------
   // Short, quiet synthesized blips for interactions that were previously
-  // silent (tile stage/unstage, invalid word, gold, purchase, consumable use,
-  // heal, floor transition, boss entrance, victory/defeat). All route through
+  // silent (tile stage/unstage, invalid word, gold, purchase, heal, floor
+  // transition, boss entrance, victory/defeat). All route through
   // sfxGainNode (created lazily, same lazy pattern as musicGainNode) so mute
   // and the volume slider affect them automatically -- no per-sound guard
   // needed. Deliberately quieter than playCombatSound/playCounterattackSound
@@ -2496,10 +2380,6 @@
   function playPurchaseSound(ctx, now, master) {
     playTone(ctx, master, { type: 'square', freq: 500, duration: 0.07, gain: 0.07, start: now });
     playTone(ctx, master, { type: 'square', freq: 750, duration: 0.1, gain: 0.08, start: now + 0.05 });
-  }
-
-  function playConsumableSound(ctx, now, master) {
-    playTone(ctx, master, { type: 'sine', freq: 900, endFreq: 1400, duration: 0.15, gain: 0.08, start: now });
   }
 
   function playHealSound(ctx, now, master) {
@@ -3440,16 +3320,16 @@
       : '<div class="message-log-placeholder">The Stacks are quiet.</div>';
     log_.scrollTop = log_.scrollHeight;
 
-    // BUG (QA polish pass, 2026-08-21): deck-viewer-panel/item-inspector-panel/
-    // consumables-panel used to be toggled and early-returned on BEFORE the
-    // node-map/combat-panel/overlay-panel toggles below ever ran -- so
-    // whichever screen was visible on the PREVIOUS render (node map, a
-    // fight, even a treasure/shop screen) stayed visible and stacked behind
-    // the newly-opened side panel instead of being replaced by it. Folding
+    // BUG (QA polish pass, 2026-08-21): deck-viewer-panel/item-inspector-panel
+    // used to be toggled and early-returned on BEFORE the node-map/
+    // combat-panel/overlay-panel toggles below ever ran -- so whichever
+    // screen was visible on the PREVIOUS render (node map, a fight, even a
+    // treasure/shop screen) stayed visible and stacked behind the
+    // newly-opened side panel instead of being replaced by it. Folding
     // sidePanelOpen into every other panel's hidden toggle (computed first,
     // used everywhere below) closes that regardless of which panel opened
     // first, without touching any of the existing per-screen logic.
-    var sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen || state.consumablesPanelOpen;
+    var sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen;
     var overlayScreen = state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD' || state.screen === 'EVENT' || state.screen === 'SHREDDER';
     $('node-map').classList.toggle('hidden', sidePanelOpen || state.combatActive || overlayScreen);
     $('combat-panel').classList.toggle('hidden', sidePanelOpen || !state.combatActive);
@@ -3462,17 +3342,12 @@
 
     $('deck-viewer-panel').classList.toggle('hidden', !state.deckViewerOpen);
     $('item-inspector-panel').classList.toggle('hidden', !state.itemInspectorOpen);
-    $('consumables-panel').classList.toggle('hidden', !state.consumablesPanelOpen);
     if (state.deckViewerOpen) {
       renderDeckViewer();
       return;
     }
     if (state.itemInspectorOpen) {
       renderItemInspector();
-      return;
-    }
-    if (state.consumablesPanelOpen) {
-      renderConsumablesPanel();
       return;
     }
 
@@ -3694,9 +3569,7 @@
       return;
     }
     state.shopOptions.forEach(function (itemId) {
-      var isConsumable = itemId.indexOf('c:') === 0;
-      var actualId = isConsumable ? itemId.substring(2) : itemId;
-      var def = isConsumable ? (Wordbound.Consumables ? Wordbound.Consumables.CONSUMABLE_DEFS[actualId] : null) : Items.ITEM_DEFS[actualId];
+      var def = Items.ITEM_DEFS[itemId];
       if (!def) return;
       var price = effectiveShopPrice(itemId);
       var discounted = price < (def.shopPrice || 0);
@@ -3706,9 +3579,8 @@
       btn.style.opacity = canAfford ? '1' : '0.6';
       btn.disabled = !canAfford;
       var priceColor = canAfford ? '#f0d789' : '#8b7355';
-      var typeLabel = isConsumable ? ' [Consumable]' : '';
       var priceLabel = discounted ? ('<s>' + def.shopPrice + '</s> ' + price) : String(price);
-      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;">' + typeLabel + '</span><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + priceLabel + ' 🪙</span>';
+      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + priceLabel + ' 🪙</span>';
       if (canAfford) {
         btn.addEventListener('click', function () { Game.buyItem(itemId); });
       }
@@ -3717,7 +3589,7 @@
 
     // FUN OVERHAUL 5/8: the premium variant-tile offer (a Tile object on
     // state, not a string id in shopOptions) renders as its own row below the
-    // item/consumable list.
+    // item list.
     if (state.shopTileOffer) {
       var tile = state.shopTileOffer;
       var tileCanAfford = state.player.gold >= VARIANT_TILE_SHOP_PRICE;
@@ -3803,30 +3675,6 @@
       div.style.cursor = 'default';
       el.appendChild(div);
     });
-  }
-
-  function renderConsumablesPanel() {
-    var el = $('consumables-list');
-    el.innerHTML = '';
-    if (!state.player.consumables || state.player.consumables.length === 0) {
-      el.innerHTML = '<p style="text-align: center;">You have no consumables</p>';
-    } else {
-      state.player.consumables.forEach(function (consumableId) {
-        var def = Wordbound.Consumables.CONSUMABLE_DEFS[consumableId];
-        if (!def) return;
-        var btn = document.createElement('button');
-        btn.className = 'treasure-choice';
-        btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><br>' + escapeHtml(def.hint);
-        if (state.combatActive) {
-          btn.addEventListener('click', function () { Game.useConsumable(consumableId); });
-        } else {
-          btn.disabled = true;
-          btn.style.opacity = '0.5';
-          btn.style.cursor = 'not-allowed';
-        }
-        el.appendChild(btn);
-      });
-    }
   }
 
   function renderEvent() {
@@ -4238,8 +4086,6 @@
     $('btn-view-deck').addEventListener('click', Game.openDeckViewer);
     $('btn-close-deck-viewer').addEventListener('click', Game.closeDeckViewer);
     $('btn-close-item-inspector').addEventListener('click', Game.closeItemInspector);
-    $('btn-view-consumables').addEventListener('click', Game.openConsumablesPanel);
-    $('btn-close-consumables').addEventListener('click', Game.closeConsumablesPanel);
     $('btn-confirm-shredder').addEventListener('click', Game.confirmShredder);
     $('btn-back-to-menu').addEventListener('click', Game.returnToMainMenu);
     $('btn-how-to-play').addEventListener('click', Game.openHowToPlay);
