@@ -27,7 +27,7 @@
   <div id="screen-main-menu" class="screen">
     <div class="panel main-menu-panel">
       <h1 class="game-title">WORDBOUND: CRESCENDO</h1>
-      <p class="version-info">v0.3</p>
+      <p class="version-info">v0.4</p>
       <div id="dictionary-loading-indicator" class="dictionary-loading-indicator">
         <div class="loading-spinner"></div>
         <p>Loading dictionary...</p>
@@ -167,6 +167,15 @@
     </div>
   </div>
 
+  <div id="boss-entrance-overlay" class="boss-entrance-overlay hidden">
+    <div class="boss-entrance-plate panel">
+      <div class="boss-entrance-portrait">👑</div>
+      <h2 id="boss-entrance-title" class="boss-entrance-title"></h2>
+      <p id="boss-entrance-taunt" class="boss-entrance-taunt"></p>
+      <button id="btn-skip-boss-entrance" class="btn btn-secondary boss-entrance-skip">Skip &#9656;</button>
+    </div>
+  </div>
+
   <div id="howto-overlay" class="howto-overlay hidden">
     <div class="howto-panel panel">
       <h2>How to Play</h2>
@@ -197,6 +206,7 @@
 <script src="js/wordbound/pieces/valkyrie-marshal.js"></script>
 <script src="js/wordbound/pieces/beethoven-5th.js"></script>
 <script src="js/wordbound/monsters.js"></script>
+<script src="js/wordbound/bossEntrances.js"></script>
 <script src="js/wordbound/intents.js"></script>
 <script src="js/wordbound/combat.js"></script>
 <script src="js/wordbound/items.js"></script>

@@ -343,6 +343,17 @@
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
   Game._celebrateHit = function (damage, magnificent) { return celebrateHit(damage, magnificent); }; // FUN OVERHAUL 8/8: exposed so tests can assert the CRUSHING/MAGNIFICENT DOM appends (jsdom can't verify the animation timing)
   Game._emitDamageLanded = function (payload) { return emitDamageLanded(payload); }; // COMBAT JUICE ticket: same "test doesn't depend on landing an exact big hit" reasoning as Game._celebrateHit above -- lets a React test assert CRUSHING/MAGNIFICENT wiring with an arbitrary payload instead of needing a real word that happens to score >=25 or run 7+ letters against whatever rack a fixed seed produces
+  // BOSS ENTRANCE CUTSCENES ticket: exposed so a test can drive the real
+  // overlay/skip/Game.submitWord-guard mechanism WITHOUT going through
+  // startCombat -- every def with real entrance content also carries a
+  // `.piece`, which routes through Game.startDuelFight -> initAudioContext(),
+  // a hard crash in jsdom (no window.AudioContext there, confirmed directly)
+  // -- same reasoning dom-check.js's own enterAndKillBoss helper already
+  // documents for why it only ever fights boss_unabridged (no piece, no
+  // entrance content either). This lets the CUTSCENE mechanism itself still
+  // get real jsdom coverage despite that constraint.
+  Game._showBossEntrance = function (entrance) { return showBossEntrance(entrance); };
+  Game._hideBossEntrance = function () { return hideBossEntrance(); };
   Game._emitPlayerDamaged = function (payload) { return emitPlayerDamaged(payload); }; // COMBAT JUICE ticket: same reasoning, for the ink-flash counterpart
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
@@ -877,6 +888,21 @@
     }
     if (isBoss) playSfx('bossEntrance', null, playBossEntranceSound);
     log(state.monster.name + ' appears!');
+    // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): shown AFTER combat/duel
+    // state is already fully live (state.combatActive/state.duel/the
+    // sequencer above), never before -- the cutscene is a skippable overlay
+    // ON TOP of an already-real fight, not a gate the fight waits behind.
+    // A true no-op for a non-boss node, a boss whose defId has no entrance
+    // content yet (bossEntrances.js), or the React tree (its own
+    // BossEntranceOverlay.jsx component handles this independently).
+    state.monster._entranceSeen = false;
+    if (isBoss) {
+      var entrance = window.Wordbound.BossEntrances.getEntrance(state.monster.defId, state.monster.name);
+      if (entrance) showBossEntrance(entrance);
+      else state.monster._entranceSeen = true;
+    } else {
+      state.monster._entranceSeen = true;
+    }
     // Telegraphed monster actions (GOALS.md "FUN OVERHAUL 2/8"): pre-roll
     // what the monster does on ITS first turn before the player acts --
     // skipped for a duel fight, which has no discrete "monster's turn"
@@ -1140,6 +1166,10 @@
   // (turn-based) call site omits it and is completely unaffected.
   Game.submitWord = function (rawWord, duelNow) {
     if (!state.combatActive) return;
+    // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): see bossEntranceActive's
+    // own declaration comment for why this is needed even though the
+    // overlay already visually covers the fight.
+    if (bossEntranceActive) return;
     // The killing blow holds combatActive true through its death beat (so
     // the combat panel stays visible while monster-info fades) -- block
     // further submissions in that window instead, or a fast second word
@@ -1854,6 +1884,98 @@
     void inkDisplay.offsetWidth; // trigger reflow to restart animation
     inkDisplay.classList.add('take-damage');
     setTimeout(function () { inkDisplay.classList.remove('take-damage'); }, 400);
+  }
+
+  // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): a short, skippable sequence
+  // (title card -> each taunt line -> the fight) shown once per boss fight,
+  // vanilla-only DOM manipulation the same shape as this file's other
+  // reactTreeActive()-guarded animation helpers above -- React's
+  // BossEntranceOverlay.jsx component reads window.Wordbound.BossEntrances
+  // directly and renders its own equivalent, it does not call these.
+  // TAUNT_STEP_MS/TITLE_STEP_MS are how long each step shows before
+  // auto-advancing if the player never skips -- "skippable with one tap/
+  // keypress" (the ticket's own words) means skip jumps straight to the end
+  // of the WHOLE sequence, not a step-by-step advance.
+  var TITLE_STEP_MS = 1800;
+  var TAUNT_STEP_MS = 1600;
+  var bossEntranceTimer = null;
+  var bossEntranceSkipHandler = null;
+  // Read by Game.submitWord (defined earlier in this file, but var hoisting
+  // means it's already assigned by the time submitWord actually runs, same
+  // as every other module-level constant it reads) -- belt-and-suspenders
+  // against a real keyboard edge case: the overlay's position:fixed already
+  // blocks mouse clicks on the fight underneath, but a focused #word-input
+  // still receives real keydown events regardless of what's drawn on top of
+  // it, so an Enter press mid-cutscene could otherwise submit a word the
+  // player can't even see land. React's own equivalent guard lives in
+  // CombatScreen.jsx's local submit() wrapper (its entrance state never
+  // touches this vanilla-only flag).
+  var bossEntranceActive = false;
+
+  function renderBossEntranceStep(entrance, stepIndex) {
+    var titleEl = $('boss-entrance-title');
+    var tauntEl = $('boss-entrance-taunt');
+    if (stepIndex === 0) {
+      // Title card: "NAME -- epithet", matching the ticket's own example
+      // format ("THE QUEEN OF NIGHT -- she of the burning coloratura").
+      titleEl.textContent = entrance.name.toUpperCase() + ' -- ' + entrance.epithet;
+      tauntEl.textContent = '';
+    } else {
+      titleEl.textContent = entrance.name.toUpperCase();
+      tauntEl.textContent = '"' + entrance.taunts[stepIndex - 1] + '"';
+    }
+  }
+
+  // Called once per boss fight, right after startCombat's own "X appears!"
+  // log line -- a true no-op if this defId has no entrance content (see
+  // bossEntrances.js's own header comment on why some bosses genuinely have
+  // none yet) or if the React tree is active. Never blocks combat state
+  // itself: state.combatActive is already true and the fight (including a
+  // duel's music) has already started underneath by the time this shows --
+  // only the visible overlay + a document-level Escape/Enter/Space listener
+  // stand between the player and the fight, so "block input" here really
+  // means "cover the screen," not "pause the engine."
+  function showBossEntrance(entrance) {
+    if (reactTreeActive()) return;
+    var overlay = $('boss-entrance-overlay');
+    if (!overlay) return;
+    var steps = 1 + entrance.taunts.length; // title card + each taunt line
+    var stepIndex = 0;
+    bossEntranceActive = true;
+    renderBossEntranceStep(entrance, stepIndex);
+    overlay.classList.remove('hidden');
+
+    function advance() {
+      stepIndex += 1;
+      if (stepIndex >= steps) {
+        hideBossEntrance();
+        return;
+      }
+      renderBossEntranceStep(entrance, stepIndex);
+      bossEntranceTimer = setTimeout(advance, TAUNT_STEP_MS);
+    }
+    bossEntranceTimer = setTimeout(advance, TITLE_STEP_MS);
+
+    bossEntranceSkipHandler = function (e) {
+      if (e.key !== 'Escape' && e.key !== 'Enter' && e.key !== ' ') return;
+      hideBossEntrance();
+    };
+    document.addEventListener('keydown', bossEntranceSkipHandler);
+  }
+
+  function hideBossEntrance() {
+    var overlay = $('boss-entrance-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    if (bossEntranceTimer) {
+      clearTimeout(bossEntranceTimer);
+      bossEntranceTimer = null;
+    }
+    if (bossEntranceSkipHandler) {
+      document.removeEventListener('keydown', bossEntranceSkipHandler);
+      bossEntranceSkipHandler = null;
+    }
+    bossEntranceActive = false;
+    if (state.monster) state.monster._entranceSeen = true;
   }
 
   // ---- sound effects --------------------------------------------------------
@@ -3863,6 +3985,14 @@
     // (its A-Z grid buttons are wired per-render in renderBlankPicker).
     var blankCancelBtn = $('btn-cancel-blank-picker');
     if (blankCancelBtn) blankCancelBtn.addEventListener('click', closeBlankPicker);
+
+    // BOSS ENTRANCE CUTSCENES ticket: the one-tap skip button. The
+    // Escape/Enter/Space keydown listener is added/removed per-entrance
+    // inside showBossEntrance/hideBossEntrance itself (it must not fire
+    // outside an active entrance), but this button always exists in the DOM,
+    // so it's bound once here, same as every other static button.
+    var skipEntranceBtn = $('btn-skip-boss-entrance');
+    if (skipEntranceBtn) skipEntranceBtn.addEventListener('click', hideBossEntrance);
 
     // MOBILE INPUT 1/3: detect coarse-pointer (touch) devices and switch to
     // tap-only input. Feature-checked so environments without matchMedia

@@ -5230,3 +5230,116 @@ SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS, ITEMS, and REGULAR ENEMIES. No
 strong ordering signal between them beyond file order; a future run should
 just pick the first one top-to-bottom unless something makes a different
 one clearly higher-value.
+
+## 2026-08-22T07:46Z -- BOSS ENTRANCE CUTSCENES: title card + taunts, both apps -- TICKET CHECKED OFF
+
+**Concurrent-run collision, resolved per established precedent first:** this run's own
+independent COMBAT JUICE implementation (the damage-landed hook) lost a push race to
+another hourly instance that had already landed and pushed an equivalent, independently-
+built version (`Game.onDamageLanded`/`onPlayerDamaged` pub/sub vs. this run's
+`lastMonsterHitEvent`/`lastPlayerHitEvent` polling -- different shape, same real fix,
+same two bugs found: the duel-mode survive-branch gap and the killing-blow timing race).
+Did NOT force-push a redundant duplicate, per this repo's own established precedent
+(STRUCTURAL 17/N, DUEL-GAUGE update-11): `git reset --hard origin/main` to take their
+already-pushed, verified-clean commit as-is, then picked up the next unchecked queue item
+instead of re-doing the same ticket.
+
+Picked up BOSS ENTRANCE CUTSCENES, the queue's next item after COMBAT JUICE. Built
+end-to-end in both apps -- see this ticket's own closing note in GOALS.md for the full
+design/verification account. Summary:
+
+- `js/wordbound/bossEntrances.js` (new): taunt content sourced directly from THEME.md's
+  own "personality (for the entrance-cutscene ticket)" paragraphs, for the three real
+  bosses that currently have BOTH a THEME.md personality AND a real `.piece` (Mountain
+  King, Valkyrie Marshal, the Maestro). Floor 2's boss (`boss_unabridged`) deliberately
+  gets none -- still the original engine-fork's generic placeholder, never reskinned to
+  THEME.md's own proposed "Death, the Fiddler," so inventing cutscene content for it
+  would be writing lore, not implementing it. `getEntrance` returns null for it and any
+  other unlisted defId; both apps treat null as "no cutscene, straight to the fight."
+- Vanilla (`js/wordbound/game.js`/`wordbound.html`): `showBossEntrance`/
+  `hideBossEntrance`, a new `#boss-entrance-overlay` (same overlay/z-index convention as
+  the existing `.blank-picker-overlay`) -- title card ("NAME -- epithet," the ticket's
+  own example format) then each taunt line, auto-advancing or skippable instantly via
+  the Skip button or Escape/Enter/Space.
+- React (`src/components/BossEntranceOverlay.jsx`, new): a native reimplementation
+  (its own step-timer effect, not a call into the vanilla DOM functions), mounted from
+  `CombatScreen.jsx` whenever a boss has real entrance content and hasn't seen it yet
+  this fight (`monster._entranceSeen`, a plain field on the monster instance itself --
+  no new shared `state` field needed).
+- Portrait: a large crown glyph in a framed, inked-texture circle (reusing `.panel`'s
+  own turbulence-noise SVG background) -- not bespoke per-boss illustration. This repo
+  has no woodcut SVG asset pipeline at all yet, confirmed by grep before writing this;
+  real per-boss portraits are a future art pass, not this ticket's own budget.
+
+**Fight state is genuinely unaffected, not just visually covered:** `Game.submitWord`
+is a real no-op while a vanilla entrance is active (a new `bossEntranceActive` module
+flag), and React's `submit()`/Overcharge/Rewrite check the same `showEntrance` local
+state -- belt-and-suspenders against a real edge case the overlay's own
+`position:fixed` doesn't cover alone: a focused `#word-input` still receives real
+keydown events regardless of what's drawn on top of it.
+
+**Three real bugs found and fixed while wiring this, not shipped blind:**
+1. A duel fight's continuous gauge push (`Game.tickDuel`, driven by `CombatScreen.jsx`'s
+   own rAF loop) needed pausing while the entrance shows, or the player would take real
+   push damage during a cutscene they can't respond to. Fixed by gating the `tickDuel`
+   call on `!showEntrance` (frame-delta ref still updates every frame, so no catch-up
+   push banks once the entrance ends).
+2. The first cut of that fix ALSO skipped the loop's `setDuelTick()` re-render bump
+   while showing, which stopped `CombatScreen` from re-rendering at all during the
+   cutscene -- `VolumeGauge`'s live crescendo-approaching countdown (driven by the
+   sequencer's own still-running `setInterval`, independent of `tickDuel`) kept
+   updating in `state` but never got read into a fresh render, so the warning banner
+   silently never showed during an entrance. Caught by `test:react-duel-loss` failing
+   ("VolumeGauge shows the live 'Crescendo in...' warning banner"), not assumed
+   correct -- root-caused by re-reading that test's own comment on what it expects.
+   Fixed by always bumping `setDuelTick()`, gating only the `tickDuel()` call itself.
+3. `npm run test:itch-build` 404'd on the new `bossEntrances.js` -- `tools/build-itch.js`
+   carries its own hand-maintained file manifest (NOT auto-derived from
+   `wordbound.html`'s `<script>` tags), and the new file was never added. Fixed by
+   adding it in alphabetical order, matching the list's own convention. This is exactly
+   the class of bug GOALS.md's own mandatory-verification-list rule exists to catch --
+   would have shipped silently broken on the itch build if only the "obviously
+   relevant" gates had been run.
+
+**Verified:**
+- 11 new `test/dom-check.js` checks drive the real overlay/skip/`Game.submitWord`-guard
+  mechanism directly via two new test-only exposures, `Game._showBossEntrance`/
+  `_hideBossEntrance` (same pattern as the pre-existing `Game._celebrateHit`) --
+  necessary because every def with real entrance content also carries a `.piece`,
+  which routes through `Game.startDuelFight` -> `initAudioContext()`, a hard jsdom
+  crash (no `window.AudioContext` there), the exact hazard `enterAndKillBoss`'s own
+  header comment already documents at length.
+- 4 new Vitest/RTL tests (`CombatScreen.test.jsx`): title card renders + blocks a real
+  word play until skipped, Escape dismisses, a regular fight or a boss with no entrance
+  content never shows one, and an already-seen fight doesn't replay it.
+- `npx vitest run`: 5 consecutive full-suite runs, **162/162 in 4 of them, 1
+  pre-existing flake** in a different, unrelated test (this repo's own long-documented
+  cross-file Vitest/jsdom timing flake -- not reproduced a second time, ruled out as
+  this run's own code by elimination).
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED. `npm run build`: clean, 48 modules
+  (up from 46). `npm run test:mobile`: ALL CHECKS PASSED (mandatory -- new CSS).
+- Real-browser Playwright, the VERIFY line's own "click-through" bar, against all
+  three real bosses in BOTH apps: `npm run test:qa` (new checks confirm the overlay is
+  up right after entering floor 1's real duel fight, names the real boss, and a real
+  Skip click hides it before the fight proceeds -- floor 3/4's own entrances pass
+  through via genuine unassisted auto-dismiss, a real bonus proof the timer chain
+  works unattended) and `npm run test:react-qa` (`killBossViaRealWord`'s shared helper
+  now dismisses whichever entrance is up before every boss kill; new checks confirm
+  floor 1's overlay + title specifically). Both ran clean 2x. `npm run test:react-build`,
+  `npm run test:react-duel-loss` (the script that caught bug #2), `npm run
+  test:music-engine`: ALL CHECKS PASSED. `npm run build:itch` + `npm run
+  test:itch-build`: ALL CHECKS PASSED after bug #3's fix.
+- Version bumped v0.3 -> v0.4 (a second completed feature this session), all three
+  version-string locations updated together.
+
+**Not done, honest gaps (none block this ticket's own VERIFY line, which is fully met
+for every boss that currently has real entrance content):** floor 2's boss has no
+entrance content (a content gap -- needs a reskin + real piece assignment first, not
+this ticket's own scope); portraits are a placeholder glyph, not bespoke woodcut
+illustration (no asset pipeline exists yet for that); copy tone (mocking-then-menacing /
+terse-and-martial / calm-and-absolute, per THEME.md's own descriptions) is a first pass
+worth Jaxon's read, same flag THEME.md itself got when written.
+
+**Next:** the queue's next unchecked item top-to-bottom is STOLEN LETTERS
+META-PROGRESSION, followed by SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS, ITEMS (Jaxon's
+four + batch), and REGULAR ENEMIES.

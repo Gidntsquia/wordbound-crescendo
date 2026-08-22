@@ -31,6 +31,7 @@ import '../js/wordbound/pieces/valkyrie-marshal.js';
 // for the same "every piece module loads consistently" reason.
 import '../js/wordbound/pieces/beethoven-5th.js';
 import '../js/wordbound/monsters.js';
+import '../js/wordbound/bossEntrances.js';
 import '../js/wordbound/intents.js';
 import '../js/wordbound/combat.js';
 import '../js/wordbound/items.js';

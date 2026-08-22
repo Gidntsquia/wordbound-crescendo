@@ -174,6 +174,17 @@ async function neutralizeDuelPush(page) {
 }
 
 async function killBossViaRealWord(page) {
+  // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): every boss this script
+  // fights (Mountain King, Valkyrie Marshal, the Maestro) now has real
+  // entrance content -- CombatScreen.jsx's own BossEntranceOverlay blocks
+  // Game.submitWord while it's showing (see that component's own comment),
+  // so dismissing it here isn't optional scaffolding, it's a genuine
+  // prerequisite for the rest of this function to work at all. A real
+  // click on the actual Skip button, same as a player would use -- a
+  // harmless no-op if this fight's entrance was already dismissed by an
+  // earlier call (React only renders .boss-entrance-overlay while showing).
+  const hasEntrance = await page.evaluate(() => !!document.querySelector('.boss-entrance-overlay'));
+  if (hasEntrance) await page.click('.boss-entrance-skip');
   await page.evaluate(() => {
     const state = window.Wordbound.Game._state;
     if (state.monster.duel && state.duel) {
@@ -284,6 +295,16 @@ async function main() {
       'boss combat starts via real click',
       await page.evaluate(() => window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true),
     );
+    // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): floor 1's boss (the
+    // Mountain King) has real entrance content -- a real Chromium render of
+    // CombatScreen.jsx's BossEntranceOverlay, the VERIFY line's own
+    // "Playwright click-through" bar for the React app specifically (the
+    // vanilla equivalent is orchestrator-qa-boss-reward.js's own check).
+    // killBossViaRealWord (below) is what actually clicks Skip.
+    check('boss entrance overlay renders for a real boss with entrance content',
+      await page.isVisible('.boss-entrance-overlay'));
+    check('the title card names the real boss',
+      /MOUNTAIN KING/.test(await page.evaluate(() => document.querySelector('.boss-entrance-title')?.textContent || '')));
     // Was Game._getMusicMode() === 'boss' -- the floor-1 boss now fights as
     // a real duel (GOALS.md DUEL-GAUGE COMBAT ORCHESTRATOR DECISION
     // 2026-08-22), and Game.startDuelFight bypasses the placeholder

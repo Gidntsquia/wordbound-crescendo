@@ -3248,6 +3248,70 @@ async function main() {
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
   }
 
+  {
+    // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): drives the real overlay/
+    // skip/Game.submitWord-guard mechanism directly via
+    // Game._showBossEntrance/_hideBossEntrance (test-only exposure, same
+    // pattern as Game._celebrateHit) rather than through a real startCombat
+    // -- every def with real entrance content also carries a `.piece`,
+    // which routes through Game.startDuelFight -> initAudioContext(), a
+    // hard jsdom crash (no window.AudioContext here), the exact hazard the
+    // boss-skip block above already documents at length for the same
+    // reason. This covers the VERIFY line's "cutscene elements render, skip
+    // works, fight state unaffected" bar; the real timed auto-advance
+    // sequence and visual appearance are Playwright's job (test:qa), a real
+    // browser with a real AudioContext.
+    const entrance = { name: 'Test Boss', epithet: 'a test epithet', taunts: ['First taunt.', 'Second taunt.'] };
+    const overlay = document.getElementById('boss-entrance-overlay');
+    check('boss-entrance: overlay starts hidden', overlay.classList.contains('hidden'));
+
+    window.Wordbound.Game._showBossEntrance(entrance);
+    check('boss-entrance: overlay becomes visible once shown', !overlay.classList.contains('hidden'));
+    check('boss-entrance: title card shows "NAME -- epithet"',
+      document.getElementById('boss-entrance-title').textContent === 'TEST BOSS -- a test epithet');
+    check('boss-entrance: no taunt line yet on the title-card step',
+      document.getElementById('boss-entrance-taunt').textContent === '');
+
+    // Fight state is unaffected while showing -- Game.submitWord is a
+    // documented no-op the whole time the entrance is active (belt-and-
+    // suspenders against the focused-#word-input keyboard edge case its own
+    // comment explains), confirmed here with a real monster/rack/word.
+    state.combatActive = true;
+    state.monster = {
+      // maxHp deliberately high -- a single CAT play must NOT be able to
+      // kill this monster, or onMonsterDefeated's own deferred setTimeout
+      // chain (reward screens etc.) would fire after this block finishes,
+      // outside anything this test waits for or asserts on.
+      hp: 200, maxHp: 200, isBoss: true, name: 'Test Boss', duel: false,
+      traitPhases: [{ hpThreshold: 1, traitId: 'plain' }], intent: { type: 'attack', value: 0 },
+    };
+    state.hexedTileId = null;
+    state.player.ink = state.player.maxInk;
+    const Tiles = window.Wordbound.Tiles;
+    state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+    const hpBeforeEntranceBlock = state.monster.hp;
+    window.Wordbound.Game.submitWord('CAT');
+    check('boss-entrance: Game.submitWord is a real no-op while the entrance is active',
+      state.monster.hp === hpBeforeEntranceBlock);
+
+    window.Wordbound.Game._hideBossEntrance();
+    check('boss-entrance: overlay hides again on dismiss', overlay.classList.contains('hidden'));
+    check('boss-entrance: dismissing marks the fight\'s monster as having seen it',
+      state.monster._entranceSeen === true);
+    window.Wordbound.Game.submitWord('CAT');
+    check('boss-entrance: Game.submitWord works again once dismissed', state.monster.hp < hpBeforeEntranceBlock);
+
+    // Skippable "with one tap/keypress" (the ticket's own words) -- Escape
+    // dismisses immediately, without waiting out the auto-advance timers.
+    window.Wordbound.Game._showBossEntrance(entrance);
+    check('boss-entrance: re-showing for a second fight is visible again', !overlay.classList.contains('hidden'));
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    check('boss-entrance: Escape key skips the whole sequence immediately', overlay.classList.contains('hidden'));
+
+    check('boss-entrance: produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+  }
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 }

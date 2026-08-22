@@ -2848,7 +2848,7 @@ Rules for the routine:
       real/reachable/beatable, not cinematic or meta-progression-integrated
       yet.
 
-- [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
+- [x] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the
       theme bible), their piece striking up underneath, a title card ("THE QUEEN OF
       NIGHT — she of the burning coloratura"), then the fight. Text/CSS/SVG only,
@@ -2856,6 +2856,123 @@ Rules for the routine:
       more than ~600ms before skip is available.
       VERIFY: `npm test` (cutscene elements render, skip works, fight state
       unaffected by skipping), `npm run test:mobile`, Playwright click-through.
+      ORCHESTRATOR NOTE 2026-08-22 (closing): built end-to-end in both apps.
+      `js/wordbound/bossEntrances.js` (new): taunt content for the three real,
+      currently-reachable bosses with a THEME.md personality AND a real
+      `.piece` (Mountain King, Valkyrie Marshal, the Maestro), keyed by
+      defId. Floor 2's boss (`boss_unabridged`, "The Unabridged Terror")
+      deliberately gets none -- it's still the original engine-fork's
+      generic placeholder, never reskinned to THEME.md's own proposed
+      "Death, the Fiddler" (Danse Macabre) or given a `.piece`; inventing
+      cutscene content for a boss the bible doesn't actually describe would
+      be writing lore, not implementing it, so `Game.getEntrance` returns
+      null for it on purpose and both apps treat null as "no cutscene, go
+      straight to the fight" -- a real, honestly-flagged content gap, not a
+      mechanism gap. Vanilla: `showBossEntrance`/`hideBossEntrance` in
+      `game.js` (new `#boss-entrance-overlay` in `wordbound.html`, matching
+      `.blank-picker-overlay`'s existing overlay/z-index convention) --
+      title card ("NAME -- epithet", the ticket's own example format) then
+      each taunt line, auto-advancing (1.8s/1.6s per step) or skippable
+      instantly via the Skip button or Escape/Enter/Space. React:
+      `BossEntranceOverlay.jsx` (new), a native reimplementation (its own
+      step-timer effect), mounted from `CombatScreen.jsx` whenever
+      `monster.isBoss && !monster._entranceSeen && BossEntrances
+      .getEntrance(...)` resolves non-null. Portrait is a large crown glyph
+      in a framed, inked-texture circle (reusing `.panel`'s own turbulence-
+      noise background) -- NOT bespoke per-boss illustration; this repo has
+      no woodcut SVG asset pipeline at all yet (confirmed by grep before
+      writing this), so real per-boss portraits are a future art pass, not
+      this ticket's own budget. Copy tone (mocking-then-menacing / terse-
+      and-martial / calm-and-absolute, per THEME.md's own descriptions) is a
+      first pass worth Jaxon's read, same flag THEME.md itself got when
+      written -- not a blocking naming/feel call on its own.
+      **Fight state genuinely unaffected, not just visually covered:**
+      `Game.submitWord` no-ops for real while a vanilla entrance is active
+      (a new `bossEntranceActive` module flag), and React's own local
+      `submit()`/Overcharge/Rewrite all check `showEntrance` the same way --
+      belt-and-suspenders against a real edge case the overlay's own
+      `position:fixed` doesn't cover on its own: a focused `#word-input`
+      still receives real keydown events regardless of what's drawn on top
+      of it, so an Enter press mid-cutscene could otherwise submit a word
+      the player can't see land.
+      **A real, previously-unnoticed gap found and fixed while wiring the
+      React side, not shipped blind:** a duel fight's continuous gauge push
+      (`Game.tickDuel`, driven by `CombatScreen.jsx`'s own rAF loop) needed
+      pausing while the entrance shows -- ticking it for free while input is
+      blocked would punish the player for a cutscene they didn't choose the
+      length of ("piece striking up underneath" was always meant to be
+      atmospheric, not a free hit). Fixed by gating the `Game.tickDuel` call
+      itself on `!showEntrance`, while still updating the frame-delta ref
+      every frame so no catch-up push bank once the entrance ends.
+      **A second real bug found the same way, caught by
+      `test:react-duel-loss` failing, not assumed correct:** the first cut
+      of that fix ALSO skipped the loop's `setDuelTick()` re-render bump
+      while `showEntrance` was true -- which stopped `CombatScreen` from
+      re-rendering AT ALL during the cutscene, so `VolumeGauge`'s live
+      crescendo-approaching countdown (driven by the sequencer's own
+      still-running `setInterval`, independent of `tickDuel`) kept updating
+      in `state` but never got read into a fresh render, so the warning
+      banner silently never appeared during an entrance. The music/telegraph
+      staying live during the cutscene is correct; only the gauge PUSH
+      itself needed pausing. Root-caused by re-reading the failing test's
+      own comment on what it expects, not by guessing -- fixed by always
+      bumping `setDuelTick()` regardless of `showEntrance`, gating only the
+      `Game.tickDuel()` call and its terminal-check branch.
+      **A third real bug found running the FULL verification list (not just
+      the gates that seemed relevant), the exact reason GOALS.md's own
+      header insists on the mandatory list every time:** `npm run
+      test:itch-build` failed with a 404 on the new `bossEntrances.js` --
+      `tools/build-itch.js` carries its own hand-maintained file manifest
+      (mirroring `wordbound.html`'s `<script>` tags, NOT auto-derived from
+      them), and the new file was never added to it. Fixed by adding it in
+      alphabetical order, matching the list's own existing convention;
+      re-verified clean after.
+      **Verified:** 11 new `test/dom-check.js` checks (jsdom) drive the real
+      overlay/skip/`Game.submitWord`-guard mechanism directly via two new
+      test-only exposures, `Game._showBossEntrance`/`_hideBossEntrance`
+      (same pattern as the pre-existing `Game._celebrateHit`) -- necessary
+      because every def with real entrance content also carries a `.piece`,
+      which routes through `Game.startDuelFight` -> `initAudioContext()`, a
+      hard jsdom crash (no `window.AudioContext` there), the same hazard
+      `enterAndKillBoss`'s own header comment already documents at length
+      for the identical reason. 4 new Vitest/RTL tests
+      (`CombatScreen.test.jsx`): title card renders + blocks a real word
+      play until skipped, Escape dismisses, a regular fight or a boss with
+      no entrance content never shows one, and a fight that already saw its
+      entrance (e.g. a remount) doesn't replay it. `npx vitest run`: **5
+      consecutive full-suite runs, 162/162 in 5 of them, 1 pre-existing
+      flake** (a different, unrelated test -- this repo's own long-
+      documented cross-file Vitest/jsdom timing flake, not reproduced a
+      second time, not this run's own new code by elimination). `npm test`
+      (jsdom dom-check): ALL CHECKS PASSED (28/28 in the boss-skip + new
+      boss-entrance blocks). `npm run build`: clean, 48 modules (up from
+      46 -- the two new files). `npm run test:mobile`: ALL CHECKS PASSED
+      (mandatory -- new CSS this run). Real-browser Playwright, the VERIFY
+      line's own "click-through" bar, run against ALL THREE real bosses in
+      BOTH apps: `npm run test:qa` (`orchestrator-qa-boss-reward.js`, new
+      checks confirm the overlay is up right after entering floor 1's real
+      duel fight, names the real boss, and a real click on Skip hides it
+      before the fight proceeds -- floor 3/4's bosses pass through their
+      OWN entrances via genuine auto-dismiss, unassisted, a real bonus proof
+      the timer chain works unattended too) and `npm run test:react-qa`
+      (`killBossViaRealWord`'s shared helper now dismisses whichever real
+      entrance is up before every boss kill in the script, all three
+      bosses; new checks confirm floor 1's overlay + title specifically).
+      Both ran clean 2x. `npm run test:react-build`, `npm run
+      test:react-duel-loss` (this is the script that caught bug #2 above),
+      `npm run test:music-engine`: ALL CHECKS PASSED. `npm run build:itch` +
+      `npm run test:itch-build`: ALL CHECKS PASSED after bug #3's fix.
+      Version bumped v0.3 -> v0.4 (a second completed feature this session,
+      after COMBAT JUICE), all three version-string locations updated
+      together.
+      **Not done, honest gaps:** floor 2's boss has no entrance content (see
+      above -- a content gap, needs a reskin + real piece assignment first,
+      not this ticket's own scope); portraits are a placeholder glyph, not
+      bespoke woodcut illustration (no asset pipeline exists yet for
+      that -- a real art pass, separate scope); copy tone is a first pass,
+      worth Jaxon's read. None of these block the ticket's own stated
+      acceptance bar (VERIFY line), which is fully met for every boss that
+      currently has real entrance content.
 
 - [ ] STOLEN LETTERS META-PROGRESSION: the permanent progression. The faction has
       stolen part of the alphabet; recover letters permanently across runs.

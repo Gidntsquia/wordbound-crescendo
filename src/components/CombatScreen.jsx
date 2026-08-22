@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { VolumeGauge } from './VolumeGauge.jsx';
+import { BossEntranceOverlay } from './BossEntranceOverlay.jsx';
 
 // FLIP position-slide (COMBAT JUICE ticket, GOALS.md) -- the counterpart to
 // CombatScreen's own tile-settle CSS flash below: a tile that just staged or
@@ -212,6 +213,8 @@ export default function CombatScreen({ state, Game, act }) {
   const Lexicon = window.Wordbound.Lexicon;
   const Tiles = window.Wordbound.Tiles;
 
+  const BossEntrances = window.Wordbound.BossEntrances;
+
   const [word, setWord] = useState('');
   const inputRef = useRef(null);
   const pendingResolveRef = useRef(null);
@@ -219,6 +222,25 @@ export default function CombatScreen({ state, Game, act }) {
   useEffect(() => () => clearTimeout(pendingResolveRef.current), []);
 
   const monster = state.monster;
+
+  // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): the entrance for THIS fight,
+  // computed once per monster instance (a fresh object every startCombat, so
+  // `useMemo`'s `[monster]` dependency naturally resets per fight without
+  // needing its own reset call) -- null for a non-boss, a boss whose defId
+  // has no entrance content yet (bossEntrances.js's own header comment), or
+  // once already dismissed this fight (`entranceDismissed` below, since
+  // `monster._entranceSeen` is a plain mutable field this component itself
+  // sets on dismiss, not something a dependency array would react to).
+  const entrance = useMemo(() => {
+    if (!monster.isBoss || monster._entranceSeen) return null;
+    return BossEntrances.getEntrance(monster.defId, monster.name);
+  }, [monster, BossEntrances]);
+  const [entranceDismissed, setEntranceDismissed] = useState(false);
+  const showEntrance = !!entrance && !entranceDismissed;
+  function dismissEntrance() {
+    monster._entranceSeen = true;
+    setEntranceDismissed(true);
+  }
 
   // DUEL-GAUGE COMBAT ticket (GOALS.md, integration run): the real-time
   // loop a duel-mode fight runs on. Deliberately bypasses act()/bump on
@@ -248,14 +270,36 @@ export default function CombatScreen({ state, Game, act }) {
       const now = Game.getDuelClockNow();
       const prev = duelLastNowRef.current != null ? duelLastNowRef.current : now;
       duelLastNowRef.current = now;
-      Game.tickDuel(now, Math.max(0, now - prev));
-      if (state.duel && state.duel.isTerminal()) {
-        // The duel just resolved (e.g. a lost push emptied healthBlocks,
-        // synchronously calling endRun(false) inside Game.startDuelFight's
-        // own 'player-defeated' handler) -- flush a REAL re-render so React
-        // notices state.screen changed underneath it, then stop the loop.
-        act(() => {});
-        return;
+      // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): while the entrance
+      // overlay is up, the fight has already started underneath
+      // (state.duel/the sequencer exist -- the piece is "striking up
+      // underneath" per the ticket's own framing) but the player can't act,
+      // so the GAUGE PUSH itself is paused here -- ticking it for free while
+      // input is blocked would punish the player for a cutscene they didn't
+      // choose the length of. duelLastNowRef.current is still updated every
+      // frame above regardless, so no catch-up delta banks once the entrance
+      // ends and ticking resumes.
+      // A real bug caught by test:react-duel-loss, not assumed away: this
+      // used to also skip setDuelTick() while showEntrance was true, which
+      // stopped this component from RE-RENDERING at all during the
+      // cutscene -- VolumeGauge's crescendo-approaching countdown (driven by
+      // the sequencer's own still-running setInterval, independent of
+      // tickDuel) kept updating in `state`, but nothing ever re-read it into
+      // a fresh render, so the live warning banner never showed up until
+      // some UNRELATED re-render happened to occur. The music/telegraph
+      // staying live during the entrance is correct (per the ticket's own
+      // framing); only the gauge PUSH needed pausing. Fixed by always
+      // bumping setDuelTick, independent of the showEntrance guard below.
+      if (!showEntrance) {
+        Game.tickDuel(now, Math.max(0, now - prev));
+        if (state.duel && state.duel.isTerminal()) {
+          // The duel just resolved (e.g. a lost push emptied healthBlocks,
+          // synchronously calling endRun(false) inside Game.startDuelFight's
+          // own 'player-defeated' handler) -- flush a REAL re-render so React
+          // notices state.screen changed underneath it, then stop the loop.
+          act(() => {});
+          return;
+        }
       }
       setDuelTick((n) => n + 1);
       rafId = requestAnimationFrame(frame);
@@ -263,7 +307,7 @@ export default function CombatScreen({ state, Game, act }) {
     rafId = requestAnimationFrame(frame);
     return () => { if (rafId != null) cancelAnimationFrame(rafId); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monster.duel, state.duel]);
+  }, [monster.duel, state.duel, showEntrance]);
 
   // Combat.playWord mutates state.monster.hp synchronously (confirmed by
   // reading combat.js), so `act()`'s single bump already shows the new HP.
@@ -275,6 +319,15 @@ export default function CombatScreen({ state, Game, act }) {
   // once it actually lands. Only one pending bump is kept (cleared/replaced
   // each submit) since only the latest word's resolution matters.
   function submit(rawWord) {
+    // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): the overlay's own
+    // position:fixed covers the fight visually and its click handlers stop
+    // stray taps on the buttons underneath, but a focused text input still
+    // receives real keyboard events regardless of what's drawn on top of it
+    // -- an Enter press while typing could otherwise submit a word the
+    // player can't even see land. Belt-and-suspenders block at the actual
+    // action, matching the ticket's own "blocks input" language literally,
+    // not just visually.
+    if (showEntrance) return;
     if (!state.combatActive || !monster || monster.hp <= 0) return;
     const trimmed = (rawWord || '').trim();
     if (!trimmed) return;
@@ -616,6 +669,7 @@ export default function CombatScreen({ state, Game, act }) {
 
   return (
     <div className={'combat-panel' + (monster.isBoss ? ' boss-combat' : '')} ref={combatPanelRef}>
+      {showEntrance && <BossEntranceOverlay entrance={entrance} onDismiss={dismissEntrance} />}
       <div className="monster-info">
         <div className={'monster-name ' + tierClass}>{tierGlyph(monster.isBoss, monster.tier)} {monster.name}</div>
         <div className="monster-hp-bar">
@@ -845,7 +899,7 @@ export default function CombatScreen({ state, Game, act }) {
         <button
           type="button"
           className={'btn btn-secondary btn-overcharge' + (state.overchargeArmed ? ' armed' : '')}
-          disabled={dead || (!state.overchargeArmed && !canOvercharge)}
+          disabled={dead || showEntrance || (!state.overchargeArmed && !canOvercharge)}
           title="Spend ink to amplify your next word's damage"
           onClick={() => act(Game.toggleOvercharge)}
         >
@@ -856,7 +910,7 @@ export default function CombatScreen({ state, Game, act }) {
         <button
           type="button"
           className="btn btn-secondary"
-          disabled={dead || !canRewrite}
+          disabled={dead || showEntrance || !canRewrite}
           title="Spend ink to discard your rack and draw a fresh one"
           onClick={() => act(Game.rewriteRack)}
         >

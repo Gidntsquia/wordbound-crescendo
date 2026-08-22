@@ -261,6 +261,25 @@ async function main() {
   // fightUntilOver below still resolving it, organically, in real turns.
   check('boss fight starts in duel mode (real .piece auto-detection)', await page.evaluate('window.Wordbound.Game._state.monster.duel === true'));
 
+  // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): floor 1's boss (the Mountain
+  // King) has real entrance content (js/wordbound/bossEntrances.js), so
+  // startCombat's own showBossEntrance call should already have the overlay
+  // up right now -- a real Chromium click-through, the VERIFY line's own
+  // "Playwright click-through" bar, and the only place this repo can
+  // exercise the FULL real path (a real boss with a real `.piece`) at
+  // all -- dom-check.js's own equivalent test drives Game._showBossEntrance
+  // directly instead, since jsdom has no AudioContext for
+  // Game.startDuelFight to reach (see that test's own comment).
+  check('boss entrance overlay is up right after entering the fight',
+    await page.isVisible('#boss-entrance-overlay'));
+  const entranceTitle = await page.evaluate('document.getElementById("boss-entrance-title").textContent');
+  check('boss entrance title card names the real boss ("' + entranceTitle + '")',
+    /MOUNTAIN KING/.test(entranceTitle));
+  await page.click('#btn-skip-boss-entrance');
+  check('skipping the entrance hides it immediately', await page.isHidden('#boss-entrance-overlay'));
+  check('the fight itself is unaffected by the cutscene (still the same live duel)',
+    await page.evaluate('window.Wordbound.Game._state.monster.duel === true && window.Wordbound.Game._state.combatActive === true'));
+
   const floorBefore = await page.evaluate('window.Wordbound.Game._state.floorNumber');
   const bossOutcome = await fightUntilOver(page, 40);
   check('boss fight ends at the tile-reward screen (outcome: ' + bossOutcome + ')', bossOutcome === 'TILE_REWARD');

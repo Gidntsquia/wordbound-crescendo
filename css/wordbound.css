@@ -1443,6 +1443,88 @@ h2 {
   transform: scale(0.94);
 }
 
+/* BOSS ENTRANCE CUTSCENES ticket (GOALS.md): a short, skippable overlay
+   shown once per boss fight (js/wordbound/bossEntrances.js has the taunt
+   content). Same fixed/inset overlay pattern and z-index tier as
+   .blank-picker-overlay/the how-to-play overlay above -- they never show at
+   the same time as this one, so sharing the tier is safe. */
+.boss-entrance-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 5, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 110;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .boss-entrance-overlay {
+    animation: bossEntranceOverlayFade 0.3s ease-out;
+  }
+}
+@keyframes bossEntranceOverlayFade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.boss-entrance-plate {
+  max-width: 420px;
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .boss-entrance-plate {
+    animation: bossEntrancePlateRise 0.4s ease-out;
+  }
+}
+@keyframes bossEntrancePlateRise {
+  0% { transform: translateY(14px) scale(0.97); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Portrait placeholder: a large tier-glyph inside a framed, inked-texture
+   circle -- not bespoke per-boss illustration (this repo has no woodcut SVG
+   asset pipeline yet, confirmed by grep before writing this), but a real
+   framed "plate" per the ticket's own language, reusing .panel's own
+   turbulence-noise background for the inked-woodcut feel the art-direction
+   standing decision calls for. Worth a real illustration pass later; not
+   this ticket's own art budget. */
+.boss-entrance-portrait {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 3px solid #e08a8a;
+  box-shadow: 0 0 16px rgba(224, 138, 138, 0.4), inset 0 0 12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.6rem;
+}
+
+.boss-entrance-title {
+  font-size: 1.15rem;
+  color: #f0d789;
+  margin: 0 0 18px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+.boss-entrance-taunt {
+  color: #e8dfc8;
+  font-size: 1.05rem;
+  min-height: 2.6em;
+  margin: 0 0 20px;
+}
+
+.boss-entrance-skip {
+  opacity: 0.85;
+}
+.boss-entrance-skip:hover {
+  opacity: 1;
+}
+
 /* Narrow-viewport (phone) layout fixes -- keep desktop widths untouched. */
 @media (max-width: 480px) {
   #wb-root {

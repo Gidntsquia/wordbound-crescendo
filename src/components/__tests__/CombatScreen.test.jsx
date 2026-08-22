@@ -161,6 +161,86 @@ describe('CombatScreen', () => {
     expect(screen.getByPlaceholderText('Type or click letters...')).toHaveValue('');
   });
 
+  // BOSS ENTRANCE CUTSCENES ticket (GOALS.md): React's own equivalent of
+  // dom-check.js's boss-entrance block. `startFight()`'s fixed seed enters
+  // an ordinary (non-boss) combat node, so these mutate the live monster
+  // directly to a real entrance-having defId ('boss_vowelmaw', per
+  // js/wordbound/bossEntrances.js) AFTER combat has already started --
+  // safe because duel-mode detection only ever runs once, inside
+  // startCombat itself; retroactively flipping isBoss/defId here can't
+  // accidentally trigger Game.startDuelFight (which would need jsdom to
+  // have a real AudioContext, per this ticket's own dom-check.js comment).
+  describe('boss entrance overlay', () => {
+    function startBossFight() {
+      const state = startFight();
+      state.monster.isBoss = true;
+      state.monster.defId = 'boss_vowelmaw';
+      // startFight() enters an ordinary combat node, so the live monster's
+      // .name is whatever regular monster this fixed seed happened to roll
+      // (e.g. "Quoth") -- overwritten here to the REAL Mountain King boss
+      // name so the entrance's rendered title card is actually meaningful,
+      // not just coincidentally non-empty.
+      state.monster.name = 'The Mountain King';
+      state.monster._entranceSeen = false;
+      return state;
+    }
+
+    it('shows the title card for a boss with real entrance content, and blocks a real word play until skipped', async () => {
+      const state = startBossFight();
+      render(<Harness />);
+      expect(screen.getByText(/MOUNTAIN KING/)).toBeInTheDocument();
+      expect(screen.getByText(/impish, mocking/)).toBeInTheDocument();
+
+      // Fight state is genuinely unaffected while showing: typing still
+      // works locally (it's just React state), but Play Word must not
+      // actually submit through the real engine.
+      const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
+      const hpBefore = state.monster.hp;
+      fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: word } });
+      fireEvent.click(screen.getByRole('button', { name: 'Play Word' }));
+      expect(state.monster.hp).toBe(hpBefore);
+
+      fireEvent.click(screen.getByRole('button', { name: /Skip/ }));
+      expect(screen.queryByText(/impish, mocking/)).not.toBeInTheDocument();
+      expect(state.monster._entranceSeen).toBe(true);
+
+      // The fight is fully playable once dismissed.
+      fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: word } });
+      fireEvent.click(screen.getByRole('button', { name: 'Play Word' }));
+      expect(state.monster.hp).toBeLessThan(hpBefore);
+    });
+
+    it('Escape/Enter/Space also skip the entrance', () => {
+      startBossFight();
+      render(<Harness />);
+      expect(screen.getByText(/MOUNTAIN KING/)).toBeInTheDocument();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByText(/impish, mocking/)).not.toBeInTheDocument();
+    });
+
+    it('does not show for a regular (non-boss) fight, or a boss whose defId has no entrance content', () => {
+      const state = startFight();
+      render(<Harness />);
+      expect(document.querySelector('.boss-entrance-overlay')).toBeNull();
+
+      // boss_unabridged carries no entrance content (bossEntrances.js's own
+      // header comment on why) -- confirms the null-safe path, not just the
+      // non-boss one.
+      state.monster.isBoss = true;
+      state.monster.defId = 'boss_unabridged';
+      state.monster._entranceSeen = false;
+      fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: 'Z' } }); // force a re-render
+      expect(document.querySelector('.boss-entrance-overlay')).toBeNull();
+    });
+
+    it('does not replay once already seen this fight (e.g. after a remount)', () => {
+      const state = startBossFight();
+      state.monster._entranceSeen = true; // as if already dismissed earlier this same fight
+      render(<Harness />);
+      expect(document.querySelector('.boss-entrance-overlay')).toBeNull();
+    });
+  });
+
   it('Overcharge arms and shows the real multiplier from combat.js', async () => {
     const state = startFight();
     const Combat = window.Wordbound.Combat;

@@ -37,6 +37,7 @@ const DEPENDENCIES = [
   'js/core/namespace.js',
   'js/core/rng.js',
   'js/wordbound/achievements.js',
+  'js/wordbound/bossEntrances.js',
   'js/wordbound/characters.js',
   'js/wordbound/combat.js',
   'js/wordbound/consumables.js',
