@@ -56,8 +56,14 @@
   function pickCombatDefId(floorNumber, rng) {
     var Monsters = window.Wordbound.Monsters;
     var allowed = getAllowedTiers(floorNumber);
+    // `retiredFromPool` (REGULAR ENEMIES ticket, monsters.js): excludes
+    // defs superseded by a real duel-mode regular (e.g. slime/gremlin/
+    // wisp/glossary, replaced by the Gymnopédiste/G String/Morning Mood)
+    // from a fresh floor's real RNG draw, without touching the defs
+    // themselves -- direct construction/tests still work unchanged.
     var pool = Object.keys(Monsters.MONSTER_DEFS).filter(function (id) {
-      return allowed.indexOf(Monsters.MONSTER_DEFS[id].tier) !== -1;
+      var def = Monsters.MONSTER_DEFS[id];
+      return allowed.indexOf(def.tier) !== -1 && !def.retiredFromPool;
     });
     return rng.choice(pool);
   }

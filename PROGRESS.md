@@ -7116,3 +7116,131 @@ monsters.js`'s weak-tier defs (slime/gremlin/wisp/glossary, all currently
 turn-based) and `floor.js`'s `pickCombatDefId` (needs a `retiredFromPool`
 filter added). Recommend that as its own careful chunk, with the ticket's
 full VERIFY bar run for real once it lands.
+
+---
+
+## 2026-08-22T15:58Z -- REGULAR ENEMIES: 3 early-tier regulars now real, reachable weak-tier monsters (real remaining scope (2) done)
+
+Picked up REGULAR ENEMIES' real remaining scope (2), the next chunk every recent
+note has been pointing at: wire the 3 already-composed early-tier pieces
+(Gymnopédie No. 1, Air on the G String, Morning Mood) into real `MONSTER_DEFS`
+entries instead of leaving them landed-but-inert. Both prior blockers (the
+dom-check.js real-floor-RNG audit and its React/Vitest equivalent) were already
+fixed by earlier runs, so this was genuinely unblocked going in.
+
+**What landed:**
+- `js/wordbound/monsters.js`: 3 new weak-tier defs -- `gymnopediste` (The
+  Gymnopédiste, 🩰), `gstring` (The G String, 🎻), `morningmood` (Morning
+  Mood, 🌅) -- each carrying a real `piece`/`pushesToDefeat: 1` (the same
+  `.piece` auto-detection cutover every boss already uses), real weak-tier
+  HP/attack/goldDrop numbers, and a real `traitPhases` weakness (kept real,
+  not dead data, because the monster-info panel's "Weakness:" line
+  unconditionally reads it even in duel mode and would crash on an empty
+  array).
+- Retired the 4 old generic weak-tier defs (slime/gremlin/wisp/glossary) from
+  the real floor-generation draw pool via a new `retiredFromPool: true` flag
+  on each -- the defs themselves are untouched (several tests construct them
+  directly and still do), only `floor.js`'s `pickCombatDefId` now filters
+  them out of a fresh floor's RNG pick.
+- **Real bug found and fixed, not just new content:** a prior run's own
+  "inert glyph groundwork" note assumed `Monsters.createMonster`/
+  `createBoss` already carried a def's `.glyph` field through onto the live
+  monster instance -- they didn't. `renderCombat` (game.js) and
+  `CombatScreen.jsx` both read `m.glyph`/`monster.glyph` off the instance,
+  not the def, so every def's `.glyph` was silently dropped and would never
+  have rendered, no matter which def eventually set one. Fixed both factory
+  functions to copy `glyph: def.glyph` through, confirmed end-to-end (see
+  verification below) rather than assumed fixed.
+- Version bumped v0.7 -> v0.8 (`MainMenu.jsx`/`wordbound.html`/
+  `MainMenu.test.jsx`) -- real gameplay content shipped.
+
+**Two pre-existing tests broke for real, both fixed (not silently
+worked around):**
+- `src/test/duelIntegration.test.js`'s "ends the run on player-defeated"
+  test used a fixed seed (`'duel-start-4'`) whose floor's row-0 start lanes
+  BOTH now roll a duel-mode weak regular -- exactly the scenario
+  `findAvailableCombatNodeId`'s own prior-run safety net was built to catch,
+  now genuinely tripped for the first time (it correctly threw instead of
+  crashing on `initAudioContext()`). Retargeted to seed `'duel-start-4-safe'`,
+  confirmed to still have a non-duel start node.
+- Same file's "a monster def with .piece starts a real duel fight" test
+  searched 40 seeds for a real floor draw landing on `'slime'` to monkey-patch
+  `.piece` onto -- `'slime'` is no longer real-floor-drawable now that it's
+  retired from the pool, so no seed in the range would ever match anymore.
+  Retargeted onto `'serpent'` (normal-tier, still pool-drawable on floor 1),
+  same monkey-patch approach.
+
+**VERIFIED, this run -- the ticket's own full VERIFY bar, run for real for
+the first time since it stopped being hypothetical:**
+- `npm test` (dom-check.js): ALL CHECKS PASSED, 2 runs. Unaffected by this
+  run's change -- the file's own hardcoded literal-defId checks and
+  `pinNodeAwayFromDuelMode` calls construct nodes directly rather than
+  drawing from the real RNG pool, so `retiredFromPool` doesn't touch them.
+- `npm run test:react` (Vitest): 183/183 clean after both test fixes above,
+  2 reruns.
+- `npm run build`: clean, 54 modules.
+- `npm run test:qa` (real Chromium, vanilla `wordbound.html`): ALL CHECKS
+  PASSED, including the organic first-combat phase.
+- `npm run test:react-qa` (real Chromium, built React app): ALL CHECKS
+  PASSED, same coverage.
+- `npm run test:mobile`: ALL CHECKS PASSED, 375/414px, unaffected (no CSS
+  touched this run).
+- `npm run test:branching-map`: ALL CHECKS PASSED, 180 floors/seeds swept --
+  no orphan/unreachable-node regressions from the pool filter.
+- `npm run test:duel-balance` (the ticket's own "virtual-clock sim confirming
+  the tier curve" VERIFY line): early/regular/weak still reads win 100% /
+  loss 0%, no SAFETY flags. The sim reads Morning Mood's piece data directly
+  rather than through `MONSTER_DEFS`, so the numbers are unchanged by this
+  run, but this is the first time that VERIFY line is meaningful against a
+  REAL wired-in weak-tier duel monster rather than the sim's own standalone
+  reference.
+- `npm run test:react-duel-loss`, `test:music-engine`, `test:audio`,
+  `test:drag-interrupt`, `test:run-header`, `test:react-build`: ALL CHECKS
+  PASSED, unaffected.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED --
+  confirms the wiring survives the itch bundle path too.
+- **Direct per-species Playwright smoke** (an ad-hoc script, run then
+  deleted -- a one-off verification pass, not a new permanent gate): force-
+  entered each of the 3 new regulars individually in a real headless-Chromium
+  run apiece (not just whichever def the organic QA run's RNG happened to
+  draw). All 3: real duel mode confirmed (`state.monster.duel === true`,
+  correct `defId`), the glyph fix confirmed literally rendered in the DOM
+  (e.g. `"📄 🩰 The Gymnopédiste"` as `.monster-name`'s real textContent, not
+  just that the field was set), each resolved to a real win (TILE_REWARD)
+  within a few turns, zero console/page errors across all 3. Satisfies the
+  ticket's own "Playwright duel smoke per tier (win path)" line for the
+  early tier specifically, rather than relying on the organic run's single
+  RNG-dependent sample.
+- **Loss path, deliberately not separately smoke-tested:** the sim data
+  above (0% loss across every bot profile at this tier) shows a genuine loss
+  against these 3 pieces isn't really achievable by design at the early
+  tier, matching the header's own "nearly safe" intent -- the DUEL LOSS
+  MECHANIC itself already has real coverage (test:react-duel-loss, against a
+  synthetic piece), so this isn't a gap, it's the early-tier design working
+  as intended.
+
+**Genuinely-Jaxon-only:** none this run.
+
+**Not done, honest gaps:** real remaining scope (3) -- compose the 6 mid/
+late regulars (Gnossienne/Invention/Metronome for 'normal' tier, Swarm/
+Sabbath/Organist for 'strong' tier -- THEME.md's own table already names and
+PD-vets all of them) and repeat this exact wiring pattern for each -- is
+still fully unstarted. This ticket stays open; only 3 of 9 regulars are
+real. `floor.js`'s pool filter is already generic across every tier, so no
+further engine change should be needed for scope (3), just content + the
+same retirement + a fresh full VERIFY pass.
+
+**Live deploy refresh:** ran per the header's standing rule (game code/
+assets changed this run) -- `npm run build`, published `dist/app/`'s
+contents (+ `.nojekyll`) as the new `gh-pages` branch root, confirmed via
+curl (see below).
+
+**Next:** real remaining scope (3), starting with ONE mid-tier piece
+(Gnossienne No. 1, Satie -- off-kilter, no time signature, spikes land where
+you don't expect them, per THEME.md) composed, PD-vetted, and unit-tested
+the same way this run's 3 pieces were, proven standalone before wiring, per
+this ticket's own established precedent. Meaningfully more of this ticket's
+scope remains than has landed (6 of 9 regulars, normal/strong-tier
+`MONSTER_DEFS` retirement work, and a fresh full VERIFY pass each time a
+tier's pool composition changes) -- treat it as an ongoing multi-run
+ticket, not a near-finish.

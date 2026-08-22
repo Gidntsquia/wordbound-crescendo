@@ -297,7 +297,15 @@ describe('Game.startDuelFight', () => {
   });
 
   it('ends the run on player-defeated and stops the sequencer, without touching ink', () => {
-    const state = freshCombat('duel-start-4');
+    // Seed renamed from 'duel-start-4' (REGULAR ENEMIES ticket, real
+    // remaining scope (2)): that seed's floor now rolls duel-mode weak
+    // regulars on BOTH of its row-0 start lanes, so findAvailableCombatNodeId
+    // correctly throws "no available non-duel-mode combat start node" --
+    // exactly the safety net a prior run built for this exact scenario,
+    // now genuinely tripped for the first time. This test wants a plain
+    // manually-.duel-flipped fight, not a real one, so it just needs any
+    // seed whose row-0 has a non-duel start node -- confirmed this one does.
+    const state = freshCombat('duel-start-4-safe');
     const ctx = new FakeAudioContext();
     const dest = new FakeGain();
     state.player.healthBlocks = 1;
@@ -450,46 +458,52 @@ describe('Game.getLargoEnabled / setLargoEnabled -- the Largo accessibility assi
 
 describe('startCombat -- automatic duel-mode detection off a monster def\'s .piece', () => {
   let realAudioContext;
-  let slimeDef;
+  let targetDef;
   let originalPiece;
 
   beforeEach(() => {
     realAudioContext = window.AudioContext;
     window.AudioContext = FakeAudioContext;
-    slimeDef = Monsters.MONSTER_DEFS.slime;
-    originalPiece = slimeDef.piece;
+    // 'serpent' (normal-tier, floor-1-drawable) rather than 'slime': the
+    // REGULAR ENEMIES ticket's real remaining scope (2) retired slime (and
+    // the other 3 generic weak defs) from floor.js's real RNG pool in favor
+    // of the real early-tier duel-mode regulars, so a fresh floor draw can
+    // no longer land on 'slime' -- this test needs a def that's still
+    // actually reachable via real floor generation to monkey-patch.
+    targetDef = Monsters.MONSTER_DEFS.serpent;
+    originalPiece = targetDef.piece;
   });
 
   afterEach(() => {
     window.AudioContext = realAudioContext;
-    slimeDef.piece = originalPiece;
+    targetDef.piece = originalPiece;
   });
 
   it('a monster def with .piece starts a real duel fight instead of the turn-based loop', () => {
-    slimeDef.piece = testPiece();
+    targetDef.piece = testPiece();
 
-    // Find a seed whose first available combat node is actually a slime --
+    // Find a seed whose first available combat node is actually a serpent --
     // floor.js's monster-picking RNG isn't something this test controls
     // directly, so search a bounded range of seeds rather than assert
     // against whichever def a fixed seed happens to roll (which could
-    // silently pass a broken wiring vacuously if it never rolled slime).
+    // silently pass a broken wiring vacuously if it never rolled serpent).
     let state = null;
     for (let seed = 0; seed < 40; seed++) {
       const candidate = freshRun('duel-startcombat-seed-' + seed);
       const available = Game._availableNodeIds();
-      const slimeNodeId = available.find((id) => {
+      const targetNodeId = available.find((id) => {
         const node = candidate.floor.nodes.find((n) => n.id === id);
-        return node && node.type === 'combat' && node.defId === 'slime';
+        return node && node.type === 'combat' && node.defId === 'serpent';
       });
-      if (slimeNodeId) {
-        Game.enterCurrentNode(slimeNodeId);
+      if (targetNodeId) {
+        Game.enterCurrentNode(targetNodeId);
         state = candidate;
         break;
       }
     }
-    if (!state) throw new Error('no seed in the first 40 rolled an available slime combat node -- widen the search range');
+    if (!state) throw new Error('no seed in the first 40 rolled an available serpent combat node -- widen the search range');
 
-    expect(state.monster.defId).toBe('slime');
+    expect(state.monster.defId).toBe('serpent');
     expect(state.monster.duel).toBe(true);
     expect(state.duel).toBeTruthy();
     expect(state.duelSequencer.isPlaying).toBe(true);

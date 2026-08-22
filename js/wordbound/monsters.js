@@ -9,7 +9,14 @@
 // from bosses deliberately in the 2026-08-19/20 balance pass).
 //
 // PUBLIC API (window.Wordbound.Monsters):
-//   MONSTER_DEFS[id] = { id, name, maxHp, attack, traitPhases, tier, goldDrop:[min,max], intents? }
+//   MONSTER_DEFS[id] = { id, name, maxHp, attack, traitPhases, tier, goldDrop:[min,max], intents?,
+//                         piece?, pushesToDefeat?, retiredFromPool? }
+//   `piece`/`pushesToDefeat` (REGULAR ENEMIES/DUEL-GAUGE COMBAT tickets): a def carrying `piece`
+//   (a js/wordbound/pieces/*.js sequenced-music object) fights a real-time duel-gauge fight
+//   instead of the turn-based loop -- see game.js's startCombat.
+//   `retiredFromPool` (REGULAR ENEMIES ticket): true on a def that floor.js's pickCombatDefId
+//   should no longer hand out to a fresh floor draw (its content was superseded by a real
+//   duel-mode regular) -- the def itself stays fully valid for direct construction/tests.
 //   BOSS_DEFS[id]     = { id, name, maxHp, attack, traitPhases, floor, intents? }
 //   createMonster(defId) -> fresh instance { defId, name, hp, maxHp, attack, traitPhases, intents, mendUsed, enrageStacks, devourUsed }
 //   createBoss(defId)    -> same shape, isBoss:true
@@ -47,9 +54,44 @@
   // rolls). Attack values, tiers, gold drops and traits are untouched --
   // this is an HP-only pass, per the ticket's own scope note (tuning, not a
   // mechanics rework).
-  mdef({ id: 'slime', name: 'The Vowel Slurper', maxHp: 20, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
-  mdef({ id: 'gremlin', name: 'The Fidget', maxHp: 18, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'wisp', name: 'Filler Word', maxHp: 17, attack: 2, tier: 'weak', goldDrop: [1, 2], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] });
+  // `retiredFromPool: true` (REGULAR ENEMIES ticket, real remaining scope
+  // (2)): these 4 generic weak-tier defs are no longer drawn by
+  // floor.js's real RNG pool (pickCombatDefId filters them out) now that
+  // THEME.md's real early-tier regulars (below) are wired in as their
+  // duel-mode replacements. The defs themselves are left fully intact,
+  // NOT deleted -- direct construction (`Monsters.createMonster('slime')`
+  // etc.) still works unchanged, which several existing tests rely on
+  // (test/dom-check.js's pinNodeAwayFromDuelMode literal-defId checks,
+  // test/verify-boss-item-reward.js's 'gremlin' setup) -- only the "does a
+  // fresh floor draw one of these" behavior changed.
+  mdef({ id: 'slime', name: 'The Vowel Slurper', maxHp: 20, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }], retiredFromPool: true });
+  mdef({ id: 'gremlin', name: 'The Fidget', maxHp: 18, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], retiredFromPool: true });
+  mdef({ id: 'wisp', name: 'Filler Word', maxHp: 17, attack: 2, tier: 'weak', goldDrop: [1, 2], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }], retiredFromPool: true });
+  // REGULAR ENEMIES ticket (GOALS.md, real remaining scope (2)): the 3
+  // early-tier regulars THEME.md's own table names, now real, reachable
+  // duel-mode fights -- same `.piece`/`pushesToDefeat` cutover shape the
+  // bosses already established (game.js's startCombat auto-detects
+  // `.piece` and routes into Game.startDuelFight instead of the turn-based
+  // loop; `pushesToDefeat: 1` matches game.js's own `monster.isBoss ? 3 : 1`
+  // default for a regular, made explicit here rather than left implicit,
+  // same convention as every boss def below). `attack`/`traitPhases` stay
+  // real, sensible weak-tier values (not dead data like the bosses' -- the
+  // monster-info panel's own renderCombat/CombatScreen unconditionally
+  // reads `m.traitPhases` for its "Weakness:" line even in duel mode, so an
+  // absent traitPhases would crash it) even though duel mode's own damage
+  // math (Game.submitWord's duel branch) never reads `attack`/`intents` --
+  // matching the exact "left in place, unchanged" reasoning boss_vowelmaw's
+  // own comment gives for its own dead-in-duel fields. HP bands/gold drop
+  // match this file's own weak-tier band (~17-22, 1-3 gold) above; tier:
+  // 'weak' keeps them in floor.js's floor-1/2 weak pool exactly like the
+  // defs they replace. `glyph` fills the portrait-placeholder groundwork a
+  // prior run left inert (game.js renderCombat / CombatScreen.jsx), one
+  // emoji per piece's own character (dance flat for the Gymnopédiste's
+  // warm-up stretch, violin for "Air on the G String," sunrise for Morning
+  // Mood's slow wake).
+  mdef({ id: 'gymnopediste', name: 'The Gymnopédiste', maxHp: 18, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }], glyph: '🩰', piece: window.Wordbound.Pieces.gymnopedie1, pushesToDefeat: 1 });
+  mdef({ id: 'gstring', name: 'The G String', maxHp: 19, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }], glyph: '🎻', piece: window.Wordbound.Pieces.airGString, pushesToDefeat: 1 });
+  mdef({ id: 'morningmood', name: 'Morning Mood', maxHp: 20, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }], glyph: '🌅', piece: window.Wordbound.Pieces.morningMood, pushesToDefeat: 1 });
   // attack 4 -> 3 -> 4 on serpent/raven/bindingstrap/appendix (2026-08-20
   // Jaxon-authorized difficulty rebalance): round 1 cut these from 4 to 3
   // when floor-1-regular deaths were ~38% of all deaths (target <=10%).
@@ -126,7 +168,9 @@
   // this floor-2 cut doesn't have to do that job alone.
   mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 54, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
   mdef({ id: 'warden', name: 'The Hoarder', maxHp: 63, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
-  mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
+  // retiredFromPool: same reasoning as slime/gremlin/wisp above -- kept
+  // intact for direct construction, no longer drawn by a fresh floor.
+  mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }], retiredFromPool: true });
   // attack 4 -> 3 on JUST these two (2026-08-20 rebalance ROUND 5): round
   // 4's n=40 sim (the largest, most trustworthy sample this ticket has
   // run) put win rate at a clean 50% -- in band -- but flagged Binding
@@ -353,11 +397,17 @@
       // DUEL-GAUGE COMBAT ticket (GOALS.md, integration run): carried
       // through from the def so game.js's startCombat can detect a
       // duel-mode monster and start a real-time gauge fight
-      // (Game.startDuelFight) instead of the turn-based loop. TRUE NO-OP
-      // today -- no def in this file sets `.piece` yet (that's REGULAR
-      // ENEMIES' job); `undefined` here is the same as the field never
-      // having existed.
-      piece: def.piece, pushesToDefeat: def.pushesToDefeat
+      // (Game.startDuelFight) instead of the turn-based loop.
+      piece: def.piece, pushesToDefeat: def.pushesToDefeat,
+      // REGULAR ENEMIES ticket (real remaining scope (2)): a real bugfix,
+      // not new groundwork -- a prior run's own "inert glyph groundwork"
+      // note assumed this field carried through already, but it never did;
+      // renderCombat/CombatScreen.jsx both read `m.glyph`/`monster.glyph`
+      // off the INSTANCE, not the def, so every def's `.glyph` was silently
+      // dropped here and never once rendered. Found while wiring the first
+      // 3 defs that actually set `.glyph` (below) and confirming the
+      // portrait placeholder actually shows up.
+      glyph: def.glyph
     };
   };
 
@@ -368,8 +418,10 @@
       defId: defId, name: def.name, hp: def.maxHp, maxHp: def.maxHp,
       attack: def.attack, traitPhases: def.traitPhases, isBoss: true,
       intents: def.intents || [], mendUsed: false, enrageStacks: 0,
-      // See createMonster's own comment above -- same true-no-op wiring.
-      piece: def.piece, pushesToDefeat: def.pushesToDefeat
+      piece: def.piece, pushesToDefeat: def.pushesToDefeat,
+      // Same createMonster fix above, applied here too so a future boss
+      // def that sets `.glyph` doesn't hit the identical latent bug.
+      glyph: def.glyph
     };
   };
 })();
