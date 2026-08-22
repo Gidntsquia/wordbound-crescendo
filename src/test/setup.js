@@ -34,6 +34,7 @@ import '../../js/wordbound/items.js';
 import '../../js/wordbound/achievements.js';
 import '../../js/wordbound/stolenLetters.js';
 import '../../js/wordbound/consumables.js';
+import '../../js/wordbound/shopkeepers.js';
 import '../../js/wordbound/events.js';
 import '../../js/wordbound/characters.js';
 import '../../js/wordbound/floor.js';

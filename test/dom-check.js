@@ -2237,6 +2237,136 @@ async function main() {
     window.Wordbound.Game.closeDeckViewer();
   }
 
+  // SHOPKEEPERS ticket (GOALS.md, SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS
+  // step 2): the six-author roster, per-shop seeded pick, and each quirk's
+  // real mechanical hook (Cervantes stays inert -- no reroll mechanic
+  // exists, see shopkeepers.js's own header note).
+  {
+    const Shopkeepers = window.Wordbound.Shopkeepers;
+    check('shopkeepers: the module loaded with all 6 authors', !!Shopkeepers && Shopkeepers.AUTHOR_IDS.length === 6);
+
+    const savedRng = state.rng;
+    const savedShopkeeperId = state.shopkeeperId;
+    const savedShopkeeperRarityFocus = state.shopkeeperRarityFocus;
+    const savedShopkeeperLine = state.shopkeeperLine;
+
+    // Determinism: same seed produces the same keeper, rarity focus (when
+    // applicable), and line -- the same reproducibility bar the shop-odds
+    // determinism check above already holds rollShopOptions to.
+    state.rng = window.Game.RNG.create('shopkeeper-determinism');
+    window.Wordbound.Game._rollShopkeeper();
+    const rollA = { id: state.shopkeeperId, focus: state.shopkeeperRarityFocus, line: state.shopkeeperLine };
+    state.rng = window.Game.RNG.create('shopkeeper-determinism');
+    window.Wordbound.Game._rollShopkeeper();
+    const rollB = { id: state.shopkeeperId, focus: state.shopkeeperRarityFocus, line: state.shopkeeperLine };
+    check('shopkeepers: the same seed produces the same keeper', rollA.id === rollB.id);
+    check('shopkeepers: the same seed produces the same rarity focus', rollA.focus === rollB.focus);
+    check('shopkeepers: the same seed produces the same line', rollA.line === rollB.line);
+
+    // Across many seeded rolls, every author eventually shows up (the pick
+    // is a plain rng.choice over all 6, not weighted toward a subset).
+    const seenAuthors = new Set();
+    for (let i = 0; i < 60; i++) {
+      state.rng = window.Game.RNG.create('shopkeeper-spread-' + i);
+      window.Wordbound.Game._rollShopkeeper();
+      seenAuthors.add(state.shopkeeperId);
+    }
+    check('shopkeepers: 60 seeded rolls cover all 6 authors', seenAuthors.size === 6);
+
+    // Homer's Bard's Largesse: guarantees 2 consumable slots, not 1.
+    const savedItems = state.player.items;
+    state.player.items = [];
+    window.Wordbound.Game._setShopkeeperForTesting('homer');
+    const homerOpts = window.Wordbound.Game._rollShopOptions();
+    const homerConsumables = homerOpts.filter((id) => id.indexOf('c:') === 0);
+    check('shopkeepers: Homer\'s shop guarantees 2 consumable slots', homerConsumables.length === 2);
+
+    // Dickinson's Circumference: the premium tile offer always appears
+    // (normally a SHOP_VARIANT_TILE_CHANCE coin-flip).
+    window.Wordbound.Game._setShopkeeperForTesting('dickinson');
+    let allDickinsonOffersPresent = true;
+    for (let i = 0; i < 15; i++) {
+      state.rng = window.Game.RNG.create('dickinson-tile-' + i);
+      if (!window.Wordbound.Game._rollShopTileOffer()) allDickinsonOffersPresent = false;
+    }
+    check('shopkeepers: Dickinson\'s shop always offers the premium tile (15/15 seeded rolls)', allDickinsonOffersPresent);
+
+    // Poe's Nevermore: rare/legendary items 25% off; common items untouched.
+    window.Wordbound.Game._setShopkeeperForTesting('poe');
+    const rareDef = window.Wordbound.Items.ITEM_DEFS.vowel_leech; // rarity: 'rare', shopPrice: 35
+    const commonDef = window.Wordbound.Items.ITEM_DEFS.spare_satchel; // rarity: 'common', shopPrice: 25
+    check('shopkeepers: Poe discounts a rare item 25%', window.Wordbound.Game.getShopItemPrice('vowel_leech') === Math.round(rareDef.shopPrice * 0.75));
+    check('shopkeepers: Poe leaves a common item at full price', window.Wordbound.Game.getShopItemPrice('spare_satchel') === commonDef.shopPrice);
+
+    // Austen's Sense and Sensibility: the per-visit rarity focus is
+    // discounted 20%, other tiers untouched.
+    window.Wordbound.Game._setShopkeeperForTesting('austen', 'common');
+    check('shopkeepers: Austen discounts her focused rarity tier 20%', window.Wordbound.Game.getShopItemPrice('spare_satchel') === Math.round(commonDef.shopPrice * 0.8));
+    check('shopkeepers: Austen leaves an off-focus rarity tier at full price', window.Wordbound.Game.getShopItemPrice('vowel_leech') === rareDef.shopPrice);
+
+    // Wilde's Importance of Being Earnest: every consumable 20% off; items untouched.
+    window.Wordbound.Game._setShopkeeperForTesting('wilde');
+    const consumableDef = window.Wordbound.Consumables.CONSUMABLE_DEFS.errata_slip;
+    check('shopkeepers: Wilde discounts a consumable 20%', window.Wordbound.Game.getShopItemPrice('c:errata_slip') === Math.round(consumableDef.shopPrice * 0.8));
+    check('shopkeepers: Wilde leaves an item at full price', window.Wordbound.Game.getShopItemPrice('spare_satchel') === commonDef.shopPrice);
+
+    // Cervantes's Tilt at Windmills: flagged inert (no reroll mechanic
+    // exists in this game yet) -- confirms it changes no price, on purpose.
+    window.Wordbound.Game._setShopkeeperForTesting('cervantes');
+    check('shopkeepers: Cervantes is flagged inert', Shopkeepers.AUTHOR_DEFS.cervantes.quirkInert === true);
+    check('shopkeepers: Cervantes\'s inert quirk changes no price', window.Wordbound.Game.getShopItemPrice('vowel_leech') === rareDef.shopPrice && window.Wordbound.Game.getShopItemPrice('c:errata_slip') === consumableDef.shopPrice);
+
+    // Game.buyItem actually charges the discounted price, not the raw one --
+    // the real end-to-end path, not just the pricing helper in isolation.
+    window.Wordbound.Game._setShopkeeperForTesting('poe');
+    const savedGoldForBuy = state.player.gold;
+    const savedOwnedItems = state.player.items.slice();
+    state.player.gold = 1000;
+    state.player.items = state.player.items.filter((id) => id !== 'vowel_leech');
+    const discountedPrice = window.Wordbound.Game.getShopItemPrice('vowel_leech');
+    window.Wordbound.Game.buyItem('vowel_leech');
+    check('shopkeepers: buying a rare item under Poe charges the discounted price, not the raw one', state.player.gold === 1000 - discountedPrice && discountedPrice < rareDef.shopPrice);
+    state.player.gold = savedGoldForBuy;
+    state.player.items = savedOwnedItems;
+
+    // The shop banner renders the keeper's name/line/quirk (real DOM, real
+    // shop node -- not just state fields).
+    const savedScreenForBanner = state.screen;
+    const savedShopOptionsForBanner = state.shopOptions;
+    const savedShopTileOfferForBanner = state.shopTileOffer;
+    state.player.items = [];
+    window.Wordbound.Game._setShopkeeperForTesting('wilde');
+    state.screen = 'SHOP';
+    state.shopOptions = window.Wordbound.Game._rollShopOptions();
+    state.shopTileOffer = null;
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    const bannerEl = document.getElementById('shop-keeper-banner');
+    check('shopkeepers: the shop banner is visible for a real shop screen', bannerEl && !bannerEl.classList.contains('hidden'));
+    check('shopkeepers: the shop banner names the keeper', !!bannerEl && bannerEl.textContent.indexOf('Oscar Wilde') !== -1);
+    check('shopkeepers: the shop banner shows the keeper\'s quirk name', !!bannerEl && bannerEl.textContent.indexOf('The Importance of Being Earnest') !== -1);
+    check('shopkeepers: the shop banner shows a sampled line', !!bannerEl && bannerEl.textContent.indexOf(state.shopkeeperLine) !== -1);
+
+    // A TREASURE screen (same #treasure-panel, different node type) must
+    // never leak a stale shopkeeper banner from a prior shop visit.
+    state.screen = 'TREASURE';
+    state.treasureOptions = window.Wordbound.Items ? Object.keys(window.Wordbound.Items.ITEM_DEFS).slice(0, 3) : [];
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    check('shopkeepers: a TREASURE screen hides the shop keeper banner', bannerEl.classList.contains('hidden'));
+
+    state.screen = savedScreenForBanner;
+    state.shopOptions = savedShopOptionsForBanner;
+    state.shopTileOffer = savedShopTileOfferForBanner;
+    state.player.items = savedItems;
+    state.rng = savedRng;
+    state.shopkeeperId = savedShopkeeperId;
+    state.shopkeeperRarityFocus = savedShopkeeperRarityFocus;
+    state.shopkeeperLine = savedShopkeeperLine;
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+  }
+
   // FUN OVERHAUL 5/8, second half of the Volatile contract: a cracked tile is
   // gone for the rest of THAT fight only, and comes back for the next one.
   // Driven through a real second combat (Game.enterCurrentNode on the next

@@ -3216,6 +3216,148 @@ Rules for the routine:
       completion of a multi-run ticket, not a finished feature; the "bump
       minor per completed feature" convention applies once steps 2-3 land
       and the ticket's box is actually checked.
+      ORCHESTRATOR NOTE 2026-08-22 (update): landed step 2's QUIRK half --
+      the six-author per-shop seeded pick and 5 of 6 real mechanical
+      quirks. Exclusive items (step 2's other half) deliberately NOT landed
+      this run -- still coordinate with the ITEMS ticket, per this ticket's
+      own instruction and several of THEME.md's own concept cells literally
+      saying "see the ITEMS ticket for the real numbers." Step 3
+      (portraits) also untouched, unchanged blocker (no woodcut pipeline).
+      New `js/wordbound/shopkeepers.js`: the 6-author `AUTHOR_DEFS` roster
+      (name/epithet/lines sourced from THEME.md's "Voice" column -- THEME.md
+      itself only wrote full sample dialogue for Shakespeare, not the six,
+      so this file's `lines` arrays are this run's own first-pass copy, same
+      "worth Jaxon's read for tone" flag as every other cutscene-copy module
+      in this repo), `pickShopkeeper`/`pickRarityFocus`/`pickLine` (all
+      `state.rng`-driven, same per-visit-reroll mechanism
+      rollShopOptions/rollShopTileOffer already use -- THEME.md's own "per-
+      shop, seeded off (runSeed, shop node id)" recommendation, implemented
+      as "rolled from the run's live RNG stream at shop entry" rather than a
+      separate node-id hash, which is what makes it reproducible per seed
+      without extra machinery), and `effectivePrice` (single source of
+      truth both the real gold charge and both UIs' displayed price read,
+      so they can't drift apart).
+      Quirks landed, matched against THEME.md's table cell-by-cell:
+      Homer's Bard's Largesse (shop guarantees 2 consumable slots, not 1 --
+      `rollShopOptions` now takes a per-author guaranteed-slot count),
+      Dickinson's Circumference (the premium variant-tile offer always
+      appears instead of the usual `SHOP_VARIANT_TILE_CHANCE` coin-flip),
+      Poe's Nevermore (rare/legendary items 25% off), Austen's Sense and
+      Sensibility (one rarity tier, re-picked each shop visit, 20% off),
+      Wilde's Importance of Being Earnest (every consumable 20% off).
+      **A real judgment call, documented rather than silently resolved:**
+      THEME.md's own cells for Austen ("category discount") and Cervantes
+      ("reroll discount, if/when a shop reroll mechanic exists") both name
+      substrates that don't exist in this codebase -- grepped before
+      writing anything: items carry no `category` field anywhere (rarity is
+      the only classification axis), and no shop-reroll mechanic exists at
+      all (the earlier grep hit that looked like one was a false-positive
+      substring match inside wordlist.js's dictionary, re-confirmed by a
+      clean file-scoped grep). Resolved by reading "category" as rarity
+      TIER for Austen (the one axis THEME.md's own "which category
+      discounts is picked per-shop" line implies varies per visit, and
+      distinct from Poe's fixed rare-only discount since hers rotates and
+      can land on any tier) -- a defensible, documented interpretation, not
+      a locked call. Cervantes's quirk was NOT given a substitute mechanic:
+      inventing one would mean re-deciding his concept rather than
+      implementing the bible's, and THEME.md's own phrasing already hedges
+      this exact gap ("if/when"). Landed `quirkInert: true` on his def
+      instead and wired zero price logic to it -- building a discount
+      against a purchase path that doesn't exist would be dead code with
+      nothing to attach to, the same reasoning STRUCTURAL's blank-picker
+      note (update-6) already established for this repo. Revisit when a
+      reroll mechanic lands (ITEMS ticket or later).
+      UI: `renderShop()` (vanilla) and `TreasureOrShopScreen`/`ShopChoices`
+      (`RewardScreens.jsx`) both gained a `.shop-keeper-banner` above the
+      item grid (name/epithet, a sampled line, the quirk name+description)
+      and both switched their price display from raw `def.shopPrice` to
+      `Game.getShopItemPrice(itemId)`, showing a struck-through original
+      price alongside the discounted one when a quirk applies.
+      `renderTreasure()` explicitly hides the banner too, since TREASURE and
+      SHOP share the same `#treasure-panel`/`#treasure-choices` DOM (a
+      lingering shop banner on a treasure node was a real bug caught before
+      it shipped, not a hypothetical -- confirmed by writing the "TREASURE
+      screen hides the banner" test and watching it fail against a first
+      draft that only ever set the banner, never cleared it).
+      **A real gap caught by the mandatory `test:itch-build` gate, not
+      shipped:** the itch build's `tools/build-itch.js` keeps an explicit
+      per-file manifest (deliberately not a glob, per its own header
+      comment) -- `shopkeepers.js` was missing from it on the first pass,
+      which `npm run test:itch-build` caught for real (404 loading the
+      unzipped build in a real browser, then a `Shopkeepers` undefined
+      crash in dom-check run against that same unzipped copy) rather than
+      being noticed by inspection. Same class of gap a much earlier run's
+      PROGRESS.md entry already flagged learning to check directly instead
+      of assuming ("the itch-build-manifest surprise") -- this run hit it
+      again for real, which is exactly why the gate is mandatory. Fixed by
+      adding the one line; reran clean.
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED,
+      including 21 new checks (module load, seeded determinism of
+      keeper/rarity-focus/line, all 6 authors reachable across 60 seeded
+      rolls, each of the 5 real quirks' mechanical effect in isolation,
+      Cervantes's inertness, `Game.buyItem` charging the real discounted
+      price end-to-end not just the pricing helper, the banner rendering
+      real DOM text for a real shop screen, and the TREASURE-hides-banner
+      regression test above) -- pre-existing shop-odds/variant-tile checks
+      unchanged and still passing (confirms the Homer guaranteed-slot
+      rewrite is byte-for-byte equivalent to the old logic when no
+      shopkeeper quirk applies). `npx vitest run`: 171/171 (up from 169 --
+      2 new `RewardScreens.test.jsx` tests: the banner rendering a forced
+      keeper's name/quirk/line, and a forced Poe discount showing both the
+      struck-through original and the real discounted price on a real shop
+      button) -- also fixed `src/test/setup.js`, which mirrors
+      `main.jsx`'s import list but had NOT been updated with the new
+      `shopkeepers.js` import, causing both new tests to fail on first run
+      (`Shopkeepers` undefined) despite the identical dom-check-side checks
+      passing -- a real, caught-before-commit gap in keeping the two import
+      lists in sync, not a flake. Also updated the pre-existing "buying an
+      affordable item" test to assert against `Game.getShopItemPrice`
+      rather than raw `def.shopPrice`, since a seeded shop visit can now
+      legitimately roll a keeper who discounts that exact item. **5
+      consecutive full-suite runs, `npx vitest run`: 1 failure in 2 of
+      them**, both times the SAME pre-existing, already-characterized
+      `duelIntegration.test.js` timing flake (COMBAT JUICE's own note,
+      re-confirmed unrelated by reproducing it on the unmodified base
+      commit too: 5/5 clean there in isolation, meaning it's genuinely
+      intermittent cross-file timing noise, not something this run's
+      changes make more likely -- this file touches shop code only, never
+      duel.js/duelCombat.js). `npm run build`: clean, 51 modules (up from
+      50 -- the new module). `npm run test:mobile`: ALL CHECKS PASSED,
+      including a NEW shop-screen section (forces Homer, the longest quirk
+      description of the six, via a new `Game._setShopkeeperForTesting`
+      test-only hook, and confirms the banner doesn't overflow/clip at
+      375/414px) -- this ticket's own "shop layout with portrait +
+      dialogue" mobile bar (portrait itself still step 3's separate scope).
+      `npm run test:qa`, `npm run test:react-qa`, `npm run test:react-build`,
+      `npm run test:react-duel-loss`, `npm run test:music-engine`, `npm run
+      test:branching-map`, `npm run test:run-header`, `npm run test:audio`,
+      `npm run test:drag-interrupt`: ALL CHECKS PASSED, all unaffected --
+      none of these flows touch a shop node. `npm run test:duel-balance`:
+      same pre-existing early/regular/weak stalemate flag as every prior
+      run, exit code 0, unrelated (this sim never enters a shop). `npm run
+      build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED after the
+      manifest fix above (confirmed `shopkeepers.js` present in the zip
+      listing directly, not assumed).
+      **Not done, honest gaps:** exclusive items (1-2 per author, step 2's
+      other half -- needs ITEMS ticket coordination, unstarted as of this
+      note) and author portraits (step 3, blocked on the same missing
+      woodcut/illustration pipeline already flagged for bosses and
+      Shakespeare). Cervantes's quirk is real bible content but
+      mechanically inert until a reroll mechanic exists anywhere in this
+      game. Version NOT bumped -- still a partial completion; the "bump
+      minor" convention applies once steps 2 (exclusives) and 3 (portraits)
+      both land and the ticket's box is checked for real.
+      **Genuinely-Jaxon-only, flagged rather than blocking:** each author's
+      `lines` copy (this run's own first-pass dialogue, not bible-sourced
+      verbatim like Shakespeare's) and the specific discount percentages
+      (20%/25%, chosen for round, distinguishable numbers -- not tuned
+      against a balance sim). **Next:** exclusive items are the more
+      self-contained of the two remaining pieces (each author's 1-2
+      concepts are already spec'd in THEME.md's table; landing them
+      alongside or right after the ITEMS ticket, per this ticket's own
+      coordination instruction, is the natural next chunk) -- portraits
+      likely wait for a shared art-pipeline decision across all three
+      tickets that need one (bosses, Shakespeare, this roster).
 
 - [ ] ITEMS, Jaxon's four + batch: implement Jaxon's four exactly, then round out
       to 8-12 with music-space designs. His four (names are placeholders, use the

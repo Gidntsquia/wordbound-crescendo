@@ -16,11 +16,20 @@ export function TreasureOrShopScreen({ state, Game, act }) {
   const Items = window.Wordbound.Items;
   const Tiles = window.Wordbound.Tiles;
   const Consumables = window.Wordbound.Consumables;
+  const Shopkeepers = window.Wordbound.Shopkeepers;
   const isShop = state.screen === 'SHOP';
+  const shopAuthorDef = (isShop && Shopkeepers && state.shopkeeperId) ? Shopkeepers.AUTHOR_DEFS[state.shopkeeperId] : null;
 
   return (
     <div className="treasure-panel">
       <h2>{isShop ? `Shop — Gold: ${state.player.gold} 🪙` : 'Choose an item'}</h2>
+      {shopAuthorDef && (
+        <div className="shop-keeper-banner">
+          <strong>{shopAuthorDef.name}</strong>, {shopAuthorDef.epithet}
+          <br /><em>&quot;{state.shopkeeperLine}&quot;</em>
+          <br /><span className="shop-keeper-quirk">{shopAuthorDef.quirkName}: {shopAuthorDef.quirkDescription}</span>
+        </div>
+      )}
       <div className="treasure-choices">
         {isShop ? (
           <ShopChoices state={state} Game={Game} act={act} Items={Items} Consumables={Consumables} />
@@ -60,7 +69,9 @@ function ShopChoices({ state, Game, act, Items, Consumables }) {
     const actualId = isConsumable ? itemId.substring(2) : itemId;
     const def = isConsumable ? Consumables?.CONSUMABLE_DEFS[actualId] : Items.ITEM_DEFS[actualId];
     if (!def) return null;
-    const canAfford = state.player.gold >= (def.shopPrice || 0);
+    const price = Game.getShopItemPrice(itemId);
+    const discounted = price < (def.shopPrice || 0);
+    const canAfford = state.player.gold >= price;
     const priceColor = canAfford ? '#f0d789' : '#8b7355';
     return (
       <button key={itemId} className={'treasure-choice' + (canAfford ? '' : ' shop-unavailable')}
@@ -69,7 +80,7 @@ function ShopChoices({ state, Game, act, Items, Consumables }) {
         <strong>{def.name}</strong>
         <span style={{ fontSize: '0.8rem', color: '#9a8b6f' }}>{isConsumable ? ' [Consumable]' : ''}</span><br />
         {def.hint}<br />
-        <span style={{ color: priceColor }}>Cost: {def.shopPrice || 0} 🪙</span>
+        <span style={{ color: priceColor }}>Cost: {discounted ? <><s>{def.shopPrice}</s> {price}</> : price} 🪙</span>
       </button>
     );
   });

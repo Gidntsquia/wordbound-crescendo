@@ -76,14 +76,55 @@ describe('TreasureOrShopScreen -- SHOP', () => {
     const actualId = isConsumable ? itemId.substring(2) : itemId;
     const def = isConsumable ? Consumables.CONSUMABLE_DEFS[actualId] : Items.ITEM_DEFS[actualId];
     const goldBefore = state.player.gold;
+    // Uses the real effective price, not def.shopPrice raw -- SHOPKEEPERS
+    // ticket (GOALS.md): whichever author this seeded visit rolled may be
+    // discounting this exact item (Austen/Poe/Wilde all apply a price cut
+    // under some condition), and Game.buyItem charges that real price.
+    const expectedPrice = window.Wordbound.Game.getShopItemPrice(itemId);
 
     await user.click(screen.getByText(def.name));
-    expect(state.player.gold).toBe(goldBefore - def.shopPrice);
+    expect(state.player.gold).toBe(goldBefore - expectedPrice);
     if (isConsumable) {
       expect(state.player.consumables).toContain(actualId);
     } else {
       expect(state.player.items).toContain(actualId);
     }
+  });
+
+  // SHOPKEEPERS ticket (GOALS.md, step 2): the shop banner names the
+  // current author, shows a sampled line, and names their quirk. Real
+  // Game.enterCurrentNode rolls whichever author this seed happens to
+  // land on; _setShopkeeperForTesting overrides it afterward so this test
+  // covers a fixed, known author rather than depending on the seed.
+  it('shows the shopkeeper banner with the current author, a line, and their quirk', () => {
+    const state = freshRun(SEED);
+    window.Wordbound.Game.enterCurrentNode(findNodeIdByType(state, 'shop'));
+    window.Wordbound.Game._setShopkeeperForTesting('poe');
+    render(<Harness Screen={TreasureOrShopScreen} />);
+
+    expect(screen.getByText('Edgar Allan Poe', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Nevermore', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(state.shopkeeperLine, { exact: false })).toBeInTheDocument();
+  });
+
+  // Poe's Nevermore discounts rare/legendary items 25% -- the button shows
+  // both the struck-through original price and the real discounted one.
+  it('shows a struck-through original price alongside the discounted one', () => {
+    const state = freshRun(SEED);
+    window.Wordbound.Game.enterCurrentNode(findNodeIdByType(state, 'shop'));
+    window.Wordbound.Game._setShopkeeperForTesting('poe');
+    const Items = window.Wordbound.Items;
+    const rareDef = Items.ITEM_DEFS.vowel_leech;
+    // Force a known rare item into this visit's shop options so the test
+    // doesn't depend on the seed happening to roll one.
+    state.shopOptions = ['vowel_leech'].concat(state.shopOptions.slice(1));
+    render(<Harness Screen={TreasureOrShopScreen} />);
+
+    const discounted = window.Wordbound.Game.getShopItemPrice('vowel_leech');
+    expect(discounted).toBeLessThan(rareDef.shopPrice);
+    const button = screen.getByText(rareDef.name).closest('button');
+    expect(button.textContent).toContain(String(rareDef.shopPrice));
+    expect(button.textContent).toContain(String(discounted));
   });
 
   it('Leave Shop returns the player to the map', async () => {

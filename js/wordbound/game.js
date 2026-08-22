@@ -176,6 +176,9 @@
     treasureOptions: null,
     shopOptions: null, // array of string ids ('itemId' or 'c:consumableId') -- deliberately kept a flat string array, see shopTileOffer
     shopTileOffer: null, // FUN OVERHAUL 5/8: the shop's premium variant tile, a Tile OBJECT. Held separately rather than mixed into shopOptions so every consumer of that array (renderShop, test/balance-simulation.js's shopping bot, anything future) can keep assuming it's all string ids
+    shopkeeperId: null, // SHOPKEEPERS ticket (GOALS.md): the author (shopkeepers.js AUTHOR_DEFS key) running the current shop, rolled fresh from state.rng per visit; null outside a shop
+    shopkeeperRarityFocus: null, // only meaningful when shopkeeperId is 'austen' -- the rarity tier her quirk discounts this visit
+    shopkeeperLine: '', // a shop line rolled from the current shopkeeper's `lines`, held on state so it doesn't change on every render
     tileRewardOptions: null,
     bossRewardOptions: null, // rare/legendary item choices offered after a boss kill, see rollBossRewardOptions
     pendingAfterTileReward: null, // 'bossItemReward' | 'nextNode'
@@ -358,6 +361,25 @@
   Game._hideGuideIntro = function () { return hideGuideIntro(); };
   Game._emitPlayerDamaged = function (payload) { return emitPlayerDamaged(payload); }; // COMBAT JUICE ticket: same reasoning, for the ink-flash counterpart
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
+  Game._rollShopTileOffer = function () { return rollShopTileOffer(); }; // SHOPKEEPERS ticket: exposed so tests can assert Dickinson's guaranteed-appearance quirk directly, same reasoning as _rollShopOptions above
+  Game._rollShopkeeper = function () { return rollShopkeeper(); }; // SHOPKEEPERS ticket: exposed so tests can assert the seeded pick/rarity-focus/line roll directly
+  // SHOPKEEPERS ticket: forces a specific author for the current shop visit,
+  // bypassing state.rng entirely -- lets a test (or Playwright) exercise
+  // each of the six keeper-specific quirks directly instead of hunting for a
+  // seed that happens to roll them. Real player-facing shops always go
+  // through rollShopkeeper()'s seeded pick; this is test-only.
+  Game._setShopkeeperForTesting = function (authorId, rarityFocusOverride) {
+    var Shopkeepers = Wordbound.Shopkeepers;
+    if (!Shopkeepers || !Shopkeepers.AUTHOR_DEFS[authorId]) return;
+    state.shopkeeperId = authorId;
+    var authorDef = Shopkeepers.AUTHOR_DEFS[authorId];
+    if (authorDef.rarityDiscountPct) {
+      state.shopkeeperRarityFocus = rarityFocusOverride || Shopkeepers.pickRarityFocus(state.rng);
+    } else {
+      state.shopkeeperRarityFocus = null;
+    }
+    state.shopkeeperLine = Shopkeepers.pickLine(state.rng, authorId);
+  };
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
   Game._availableNodeIds = function () { return availableNodeIds(); }; // STRUCTURAL ticket (GOALS.md, React port): exposed so the React map view can compute which node pills are clickable using the exact same logic renderNodeMap() uses, instead of duplicating the traversal in JSX
   Game._sfxCallLog = function () { return sfxCallLog.slice(); }; // AUDIO ticket (GOALS.md, 2026-08-21): exposed so tests can assert which SFX fired, whether mute suppressed them, and whether the tile-tap debounce ate a burst -- jsdom has no real Web Audio to listen to, this is the substitute
@@ -608,6 +630,7 @@
       render();
     } else if (node.type === 'shop') {
       state.screen = 'SHOP';
+      rollShopkeeper();
       state.shopOptions = rollShopOptions();
       state.shopTileOffer = rollShopTileOffer();
       render();
@@ -659,6 +682,26 @@
   var SHOP_VARIANT_TILE_CHANCE = 0.4; // FUN OVERHAUL 5/8: "occasionally sells one at a premium"
   var VARIANT_TILE_SHOP_PRICE = 45; // in line with a rare item's shopPrice (items.js)
 
+  // SHOPKEEPERS ticket (GOALS.md): rolls which author (shopkeepers.js
+  // AUTHOR_DEFS) runs this shop visit, plus Austen's per-visit rarity
+  // focus and a sampled shop line -- all from state.rng, so a given seed +
+  // path through the map always meets the same keeper at the same shop.
+  // Called once at shop entry, BEFORE rollShopOptions/rollShopTileOffer, so
+  // both can read state.shopkeeperId for their own quirk effects.
+  function rollShopkeeper() {
+    var Shopkeepers = Wordbound.Shopkeepers;
+    if (!Shopkeepers) {
+      state.shopkeeperId = null;
+      state.shopkeeperRarityFocus = null;
+      state.shopkeeperLine = '';
+      return;
+    }
+    state.shopkeeperId = Shopkeepers.pickShopkeeper(state.rng);
+    var authorDef = Shopkeepers.AUTHOR_DEFS[state.shopkeeperId];
+    state.shopkeeperRarityFocus = authorDef.rarityDiscountPct ? Shopkeepers.pickRarityFocus(state.rng) : null;
+    state.shopkeeperLine = Shopkeepers.pickLine(state.rng, state.shopkeeperId);
+  }
+
   function rollShopOptions() {
     var owned = state.player.items;
     var itemPool = Object.keys(Items.ITEM_DEFS).filter(function (id) {
@@ -671,10 +714,17 @@
     // diluted the item:consumable ratio from 15:3 to 23:3, which without this
     // left ~59% of shop rolls with zero consumables (see GOALS.md balance
     // ticket). Guaranteeing one restores the pre-4/8 "shops usually have a
-    // consumable" feel without touching the pool size.
+    // consumable" feel without touching the pool size. SHOPKEEPERS ticket:
+    // Homer's Bard's Largesse guarantees a SECOND slot instead of the usual
+    // one -- same mechanism, just a bigger guaranteed count.
+    var Shopkeepers = Wordbound.Shopkeepers;
+    var shopAuthorDef = (Shopkeepers && state.shopkeeperId) ? Shopkeepers.AUTHOR_DEFS[state.shopkeeperId] : null;
+    var guaranteedConsumableSlots = (shopAuthorDef && shopAuthorDef.guaranteesSecondConsumable) ? 2 : 1;
+
     var options = [];
     if (consumablePool.length > 0) {
-      options.push(state.rng.shuffle(consumablePool)[0]);
+      var slotsToFill = Math.min(guaranteedConsumableSlots, consumablePool.length, 4);
+      options = options.concat(state.rng.shuffle(consumablePool).slice(0, slotsToFill));
     }
     var remainingPool = combined.filter(function (id) {
       return options.indexOf(id) === -1;
@@ -688,9 +738,32 @@
   // render time: a tile carries per-instance data (letter + variant) that no
   // static def lookup can reconstruct, so re-rolling it on every render would
   // make the offer change under the player's cursor and break seeded runs.
+  // SHOPKEEPERS ticket: Dickinson's Circumference guarantees this offer
+  // instead of leaving it to the usual coin-flip.
   function rollShopTileOffer() {
+    var Shopkeepers = Wordbound.Shopkeepers;
+    var shopAuthorDef = (Shopkeepers && state.shopkeeperId) ? Shopkeepers.AUTHOR_DEFS[state.shopkeeperId] : null;
+    if (shopAuthorDef && shopAuthorDef.guaranteesVariantTile) return Tiles.rollVariantTile(state.rng);
     return state.rng.chance(SHOP_VARIANT_TILE_CHANCE) ? Tiles.rollVariantTile(state.rng) : null;
   }
+
+  // SHOPKEEPERS ticket: the single source of truth for a shop item/
+  // consumable's price after the current shopkeeper's pricing quirk
+  // (Austen/Poe/Wilde) -- both game.js's real gold charge (Game.buyItem
+  // below) and both UIs' displayed price (renderShop here, RewardScreens.jsx)
+  // call this rather than reading def.shopPrice raw, so they can never drift
+  // apart. Returns 0 for an unknown id (mirrors buyItem's own pre-existing
+  // !def guard).
+  function effectiveShopPrice(itemId) {
+    var isConsumable = itemId.indexOf('c:') === 0;
+    var actualId = isConsumable ? itemId.substring(2) : itemId;
+    var def = isConsumable ? (Wordbound.Consumables ? Wordbound.Consumables.CONSUMABLE_DEFS[actualId] : null) : Items.ITEM_DEFS[actualId];
+    if (!def) return 0;
+    var Shopkeepers = Wordbound.Shopkeepers;
+    if (!Shopkeepers || !state.shopkeeperId) return def.shopPrice || 0;
+    return Shopkeepers.effectivePrice(def, isConsumable, state.shopkeeperId, state.shopkeeperRarityFocus);
+  }
+  Game.getShopItemPrice = effectiveShopPrice; // exposed so React's ShopChoices can display the same price it will actually be charged
 
   Game.buyItem = function (itemId) {
     var isConsumable = itemId.indexOf('c:') === 0;
@@ -701,15 +774,16 @@
       log('ERROR: Item not purchasable');
       return;
     }
-    if (state.player.gold < def.shopPrice) {
-      log('Not enough gold! Need ' + def.shopPrice + ', have ' + state.player.gold + '.');
+    var price = effectiveShopPrice(itemId);
+    if (state.player.gold < price) {
+      log('Not enough gold! Need ' + price + ', have ' + state.player.gold + '.');
       return;
     }
     if (!isConsumable && state.player.items.indexOf(actualId) !== -1) {
       log('You already own ' + def.name + '!');
       return;
     }
-    state.player.gold -= def.shopPrice;
+    state.player.gold -= price;
     if (isConsumable) {
       state.player.consumables.push(actualId);
     } else {
@@ -717,7 +791,7 @@
       // Re-roll shop options so the bought item is replaced with a new option
       state.shopOptions = rollShopOptions();
     }
-    log('You bought ' + def.name + ' for ' + def.shopPrice + ' gold.');
+    log('You bought ' + def.name + ' for ' + price + ' gold.');
     playSfx('purchase', null, playPurchaseSound);
     render();
   };
@@ -748,6 +822,9 @@
     state.screen = 'RUN';
     state.shopOptions = null;
     state.shopTileOffer = null;
+    state.shopkeeperId = null;
+    state.shopkeeperRarityFocus = null;
+    state.shopkeeperLine = '';
     render();
   };
 
@@ -3486,6 +3563,9 @@
 
   function renderTreasure() {
     $('treasure-panel-heading').textContent = 'Choose an item';
+    // Same #treasure-panel is reused for TREASURE and SHOP -- clear the
+    // keeper banner so a treasure node never shows a stale shopkeeper line.
+    $('shop-keeper-banner').classList.add('hidden');
     var el = $('treasure-choices');
     el.innerHTML = '';
     state.treasureOptions.forEach(function (itemId) {
@@ -3500,6 +3580,23 @@
 
   function renderShop() {
     $('treasure-panel-heading').textContent = 'Shop — Gold: ' + state.player.gold + ' 🪙';
+
+    // SHOPKEEPERS ticket: the author running this visit, their line, and
+    // their named quirk -- portrait is step 3's own separate scope (no
+    // woodcut/illustration pipeline exists yet, per THEME.md's own note).
+    var bannerEl = $('shop-keeper-banner');
+    var Shopkeepers = Wordbound.Shopkeepers;
+    var shopAuthorDef = (Shopkeepers && state.shopkeeperId) ? Shopkeepers.AUTHOR_DEFS[state.shopkeeperId] : null;
+    if (shopAuthorDef) {
+      bannerEl.classList.remove('hidden');
+      bannerEl.innerHTML = '<strong>' + escapeHtml(shopAuthorDef.name) + '</strong>, ' + escapeHtml(shopAuthorDef.epithet) +
+        '<br><em>"' + escapeHtml(state.shopkeeperLine || '') + '"</em>' +
+        '<br><span class="shop-keeper-quirk">' + escapeHtml(shopAuthorDef.quirkName) + ': ' + escapeHtml(shopAuthorDef.quirkDescription) + '</span>';
+    } else {
+      bannerEl.classList.add('hidden');
+      bannerEl.innerHTML = '';
+    }
+
     var el = $('treasure-choices');
     el.innerHTML = '';
     if (!state.shopOptions || state.shopOptions.length === 0) {
@@ -3511,14 +3608,17 @@
       var actualId = isConsumable ? itemId.substring(2) : itemId;
       var def = isConsumable ? (Wordbound.Consumables ? Wordbound.Consumables.CONSUMABLE_DEFS[actualId] : null) : Items.ITEM_DEFS[actualId];
       if (!def) return;
-      var canAfford = state.player.gold >= (def.shopPrice || 0);
+      var price = effectiveShopPrice(itemId);
+      var discounted = price < (def.shopPrice || 0);
+      var canAfford = state.player.gold >= price;
       var btn = document.createElement('button');
       btn.className = 'treasure-choice' + (canAfford ? '' : ' shop-unavailable');
       btn.style.opacity = canAfford ? '1' : '0.6';
       btn.disabled = !canAfford;
       var priceColor = canAfford ? '#f0d789' : '#8b7355';
       var typeLabel = isConsumable ? ' [Consumable]' : '';
-      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;">' + typeLabel + '</span><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + (def.shopPrice || 0) + ' 🪙</span>';
+      var priceLabel = discounted ? ('<s>' + def.shopPrice + '</s> ' + price) : String(price);
+      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;">' + typeLabel + '</span><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + priceLabel + ' 🪙</span>';
       if (canAfford) {
         btn.addEventListener('click', function () { Game.buyItem(itemId); });
       }

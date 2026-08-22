@@ -362,6 +362,46 @@ async function main() {
       console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
     }
 
+    // SHOPKEEPERS ticket (GOALS.md, SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS
+    // step 2), this ticket's own "shop layout with portrait + dialogue"
+    // mobile bar: the new #shop-keeper-banner (name/epithet, a sampled
+    // line, the quirk description) sits above the existing item rows --
+    // confirm it doesn't overflow or clip at these widths. Forces Homer
+    // (the longest quirk description of the six) via the test-only
+    // _setShopkeeperForTesting hook rather than hunting a seed.
+    console.log('Testing shop screen (shopkeeper banner):\n');
+
+    const shopForced = await page.evaluate(() => {
+      const Wordbound = window.Wordbound;
+      const Game = Wordbound.Game;
+      const state = Game._state;
+      if (!Wordbound.Shopkeepers) return false;
+      state.screen = 'SHOP';
+      Game._setShopkeeperForTesting('homer');
+      state.shopOptions = Game._rollShopOptions();
+      state.shopTileOffer = Wordbound.Tiles.rollVariantTile(state.rng);
+      Game.openDeckViewer();
+      Game.closeDeckViewer();
+      return true;
+    });
+
+    if (!shopForced) {
+      console.log('  SKIP -- Shopkeepers module not present (not a layout bug)\n');
+    } else {
+      for (const width of widths) {
+        console.log(`${width}px width:`);
+        const result = await checkLayout(page, width);
+        results.push(result);
+
+        const hasIssues = result.checks.overflowX ||
+                         result.checks.elementsClipped.length > 0 ||
+                         !result.checks.buttonSizesOK ||
+                         !result.checks.textReadable;
+
+        console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
+      }
+    }
+
     // MOBILE INPUT 1/3 (GOALS.md, Jaxon 2026-08-20), real-browser touch-mode
     // check: on coarse-pointer devices the typing box must be CSS-hidden (no
     // soft keyboard) and the tap-only blank-letter picker must fit small
