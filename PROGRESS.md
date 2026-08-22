@@ -8091,3 +8091,21 @@ this ticket's own full VERIFY bar against the merged tree, mirroring the
 early-tier wiring run exactly. Once that lands, normal tier is 100%
 duel-mode and only strong tier (0 of 3 late-tier pieces composed)
 remains before PLAYTEST FINDINGS item 2's own closing bar is met.
+
+**Live deploy, actually executed:** built `dist/app/` fresh off this
+run's own commit (57 modules, includes `czerny-299.js`), published its
+contents + an empty `.nojekyll` as the new root of the `gh-pages` branch
+via a scratch `git worktree` + orphan branch, `git push -f origin
+gh-pages-refresh:gh-pages` -- succeeded, confirmed by git's own
+ref-update output (`5b1d298...5af500e gh-pages-refresh -> gh-pages
+(forced update)`). Worktree removed after. **Could NOT curl-verify,
+honestly flagged rather than assumed:** `curl -sv
+https://gidntsquia.github.io/wordbound-crescendo/` hit the SAME
+pre-existing domain-specific proxy block this repo's prior runs have
+already repeatedly documented -- a `403` on the CONNECT tunnel to
+`gidntsquia.github.io` specifically, not a general egress problem (this
+session never tested another domain, but every prior run's own note
+already established `api.github.com` works fine in the same kind of
+session). The push itself is the actual deploy action and it succeeded;
+this is a known, recurring sandbox limitation, not a new one introduced
+by this run.
