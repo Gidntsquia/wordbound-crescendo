@@ -8687,11 +8687,16 @@ word->HP damage path" bullet completely, not just partially -- flagged as
 a belief based on a direct audit, not an exhaustive proof.
 
 **Live deploy refresh, actually executed:** built `dist/app/` fresh off
-this run's own commit (merged tree + this addition) in a disposable `git
-worktree`, published its contents + an empty `.nojekyll` as the new root
-of the `gh-pages` branch via a scratch orphan branch, `git push -f origin
-gh-pages-refresh:gh-pages`. **Could NOT curl-verify, honestly flagged
-rather than assumed:** the same pre-existing domain-specific proxy block
-this repo's prior runs have already repeatedly documented (`403` on the
-CONNECT tunnel to `gidntsquia.github.io` specifically) -- see below for
-the actual push result.
+this run's own commit (`f6c5465`, merged tree + this addition) in a
+disposable `git worktree`, published its contents + an empty
+`.nojekyll` as the new root of the `gh-pages` branch via a scratch
+orphan branch, `git push -f origin gh-pages-refresh:gh-pages` --
+succeeded, confirmed by git's own ref-update output (`3baf7dc...573f92b
+gh-pages-refresh -> gh-pages (forced update)`). Worktree removed after.
+**Could NOT curl-verify, honestly flagged rather than assumed:** `curl
+-sv https://gidntsquia.github.io/wordbound-crescendo/` hit the same
+pre-existing domain-specific proxy block this repo's prior runs have
+already repeatedly documented -- a `403` on the CONNECT tunnel to
+`gidntsquia.github.io` specifically. The push itself is the actual
+deploy action and it succeeded; this is a known, recurring sandbox
+limitation, not a new one introduced by this run.
