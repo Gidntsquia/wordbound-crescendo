@@ -4169,6 +4169,46 @@ Rules for the routine:
       REGULAR ENEMIES remains the queue's next fully independent item after
       that.
 
+- [ ] PLAYTEST FINDINGS 3 — JAXON, 2026-08-22 (~20:00 UTC), DECLUTTER ORDER.
+      His list, near-verbatim, all binding; this EXTENDS Playtest-2's item 5
+      (streamline) and WINS wherever they conflict. "Remove" below means
+      gone from the playable product NOW — prefer clean feature-flag/
+      disable over irreversible deletion where cheap (he said "for now" on
+      several), but the UI must actually be gone, not hidden-but-leaky:
+      1. REMOVE the consumable mechanic in its entirety (no consumable
+         drops, no consumable UI/slots anywhere).
+      2. REMOVE the deck view — Jaxon: "we aren't adding tiles to our deck
+         anymore." Crescendo has no deck-building: no add-tile-to-deck
+         rewards or views. If deck data structures still feed the rack
+         internally, that's implementation detail — nothing deck-shaped in
+         the UI, and no reward step that offers deck tiles (re-point those
+         reward moments to something duel-relevant or drop them; document
+         the call).
+      3. The "Largo" assist: Jaxon doesn't know what Largo means — the
+         label failed. MOVE it into the settings menu as plain English
+         ("Slower music (easier)"), out of the combat screen entirely.
+      4. MOVE mute + volume into a small settings-menu button tucked in a
+         bottom corner, out of the way. Settings holds: volume, mute, the
+         slower-music toggle, and any future options.
+      5. REMOVE the log screen in the middle of combat.
+      6. REMOVE combos totally for now (no combo counter, no combo chip,
+         no combo scoring bonuses in duels).
+      7. REMOVE ink entirely for now — this resolves the orchestrator's
+         earlier flagged question: ink is OUT, not demoted. No ink counter,
+         no ink costs, no ink rewards. Anything currently priced in ink
+         (rewrites, overcharge, shop stock, shopkeeper ink-discount quirks)
+         gets re-pointed to gold or disabled with a documented judgment
+         call per case — nothing may remain that shows or spends ink.
+      Verification: the mandatory suites will have tests asserting on the
+      removed UI — amend those tests DELIBERATELY in the same commits
+      (coverage moves to asserting the clean layout), never leave red.
+      Deploy per the LIVE DEPLOY rule each run so Jaxon can re-test.
+      Check this box only when a live-build seeded playthrough shows a
+      combat screen containing ONLY: Volume gauge, enemy segment bar,
+      Verses pips, tile rack + input, crescendo warning, and the corner
+      settings button — with no ink, combos, consumables, deck, log, or
+      unexplained labels anywhere in the run flow.
+
 - [ ] PLAYTEST FINDINGS 2 — JAXON, 2026-08-22 (~19:25 UTC), SECOND PLAYTEST.
       His feedback, near-verbatim: enemies shouldn't have an HP number — HP
       bar instead; damaging them should ONLY happen by winning the duel push
