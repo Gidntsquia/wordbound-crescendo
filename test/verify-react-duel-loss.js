@@ -139,6 +139,23 @@ async function main() {
     check('no Verse is lost yet', (await page.locator('.verse-pip-lost').count()) === 0);
     check('no crescendo warning yet (early in the piece)', !(await page.isVisible('.volume-crescendo-warning')));
 
+    // ---- Largo accessibility assist: a real click slows the live duel ----
+    // DUEL-GAUGE COMBAT ticket, header Accessibility bullet. The button
+    // lives in the run header (RunSidePanels.jsx's RunHeaderActions), not
+    // combat-specific chrome, but it must affect an ALREADY-RUNNING duel's
+    // sequencer live (Game.setLargoEnabled's whole point) -- proven here via
+    // a real click, not a direct Game.setLargoEnabled() call, so the actual
+    // wired-up button is what's under test.
+    const tempoBeforeLargo = await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale());
+    check(`Largo starts off (tempo scale ${tempoBeforeLargo})`, tempoBeforeLargo === 1);
+    await page.click('.largo-toggle-btn');
+    check('the Largo button shows its "On" state after a real click', await page.isVisible('.largo-toggle-btn.largo-toggle-btn-on'));
+    const tempoAfterLargo = await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale());
+    check(`Largo slows the LIVE duel's sequencer for real (tempo scale ${tempoBeforeLargo} -> ${tempoAfterLargo})`, tempoAfterLargo < 1 && tempoAfterLargo > 0);
+    await page.click('.largo-toggle-btn'); // toggle back off so the phases below run at the normal pace they were written against
+    check('a second real click restores normal tempo', (await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale())) === 1);
+    check('the Largo button shows its "Off" state again', !(await page.isVisible('.largo-toggle-btn.largo-toggle-btn-on')));
+
     // ---- Phase 0: the crescendo-approaching countdown, real sequencer + real wall-clock ----
     // Mountain King's own crescendo peaks at beat 71 (js/wordbound/pieces/
     // mountain-king.js); waiting through the piece's early bars naturally

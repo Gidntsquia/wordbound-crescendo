@@ -49,6 +49,40 @@
     }
   }
 
+  // DUEL-GAUGE COMBAT ticket (GOALS.md, header Accessibility bullet): "Largo"
+  // assist -- a global tempo-scale slowdown for a duel's music, applied via
+  // the engine hook music.js's setTempoScale already provides. "Clearly
+  // labeled, no shame" per the ticket text: a plain persistent on/off toggle
+  // (not a slider -- a duel's difficulty already scales through the MUSIC
+  // itself per the header curve decision, so one flat assist level is
+  // simpler to reason about and label honestly than a dial). Persisted the
+  // same way/for the same reason as audioSettings above -- otherwise it'd
+  // silently reset to off every page load even for a player who explicitly
+  // turned it on.
+  var LARGO_SETTINGS_KEY = 'wordbound_largo_enabled';
+  // Judgment call, not a naming/feel call -- a starting tuning value, same
+  // "explicitly flagged retunable" spirit as duel.js's own push constants.
+  // 0.6 halves-ish the music's pace (and therefore its continuous push, per
+  // duel.tick's own intensity*dt math) without stopping it outright.
+  var LARGO_TEMPO_SCALE = 0.6;
+  var largoEnabled = false;
+  (function loadLargoSetting() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      largoEnabled = localStorage.getItem(LARGO_SETTINGS_KEY) === '1';
+    } catch (e) {
+      // localStorage unavailable or corrupt saved value -- default to off
+    }
+  })();
+  function saveLargoSetting() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(LARGO_SETTINGS_KEY, largoEnabled ? '1' : '0');
+    } catch (e) {
+      // localStorage unavailable (private browsing, storage full, etc.) -- not fatal
+    }
+  }
+
   // How to Play panel: shown on demand from the main menu, and automatically
   // (once ever) the first time a player starts combat.
   var HOWTO_SEEN_KEY = 'wordbound_seen_howto';
@@ -146,6 +180,19 @@
   Game.getAudioSettings = function () { return { volume: audioSettings.volume, muted: audioSettings.muted }; };
   Game.setMusicVolume = function (volume) { setMusicVolume(volume); render(); };
   Game.toggleMusicMute = function () { toggleMusicMute(); render(); };
+  // DUEL-GAUGE COMBAT ticket, Largo accessibility assist (see the setting's
+  // own definition above for why this is a flat on/off toggle, not a
+  // slider). Applies live to an ALREADY-RUNNING duel's sequencer (not just
+  // future fights) via the same public setTempoScale hook
+  // Game.startDuelFight itself uses at fight-start -- a player who turns
+  // Largo on mid-duel doesn't have to lose the fight and restart to feel it.
+  Game.getLargoEnabled = function () { return largoEnabled; };
+  Game.setLargoEnabled = function (enabled) {
+    largoEnabled = !!enabled;
+    saveLargoSetting();
+    if (state.duelSequencer) state.duelSequencer.setTempoScale(largoEnabled ? LARGO_TEMPO_SCALE : 1);
+    render();
+  };
   // STRUCTURAL ticket (GOALS.md, remaining scope (c) step 2, tile-staging
   // rebuild): same "real public API, not test-only" reasoning as the audio
   // wrappers above -- wordbound.html's rack/staging-area click listeners call
@@ -933,6 +980,7 @@
 
     var sequencer = Music.createSequencer(ctx, destination, piece);
     sequencer.play();
+    if (largoEnabled) sequencer.setTempoScale(LARGO_TEMPO_SCALE); // Largo assist: a fight that starts with it already on begins slow, not just toggled-slow mid-fight
 
     var pushesToDefeat = opts.pushesToDefeat != null ? opts.pushesToDefeat
       : (monster.pushesToDefeat != null ? monster.pushesToDefeat : (monster.isBoss ? 3 : 1));

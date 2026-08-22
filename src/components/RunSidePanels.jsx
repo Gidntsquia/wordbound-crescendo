@@ -150,6 +150,7 @@ export function ConsumablesPanel({ state, Game, act }) {
 // as everywhere else in this run's action-then-bump pattern.
 export function RunHeaderActions({ state, Game, act }) {
   const audio = Game.getAudioSettings();
+  const largoEnabled = Game.getLargoEnabled();
   return (
     <div className="run-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <button className="btn btn-secondary run-header-btn" onClick={() => act(Game.openDeckViewer)}>
@@ -161,6 +162,19 @@ export function RunHeaderActions({ state, Game, act }) {
         onClick={() => act(Game.openConsumablesPanel)}
       >
         Consumables
+      </button>
+      {/* DUEL-GAUGE COMBAT ticket, header Accessibility bullet: "Largo"
+          assist -- a global tempo-scale slowdown for a duel's music,
+          "clearly labeled, no shame". A plain persistent toggle (not a
+          combat-only control) so it's visible and available at all times,
+          same header-level placement as the music controls beside it;
+          Game.setLargoEnabled applies live to an in-progress duel too. */}
+      <button
+        className={'btn btn-secondary run-header-btn largo-toggle-btn' + (largoEnabled ? ' largo-toggle-btn-on' : '')}
+        title="Largo: slow a duel's music for an easier pace. An accessibility assist -- no shame in using it."
+        onClick={() => act(() => Game.setLargoEnabled(!largoEnabled))}
+      >
+        🐢 Largo{largoEnabled ? ': On' : ''}
       </button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <button

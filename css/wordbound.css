@@ -301,6 +301,12 @@ h2 {
   width: 32px;
 }
 
+.largo-toggle-btn-on {
+  background: linear-gradient(to bottom, #b8923a 0%, #8f6a1a 100%);
+  color: #fff4d6;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 10px rgba(255, 210, 87, 0.55);
+}
+
 #music-volume {
   accent-color: #f0d789;
 }

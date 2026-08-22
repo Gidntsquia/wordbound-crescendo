@@ -1989,6 +1989,101 @@ Rules for the routine:
       smaller, independent UI/hook pieces. COMBAT JUICE's damage-landed hook
       remains available as a separate, lower-priority pickup whenever this
       queue is otherwise empty.
+      NOTE: a concurrent hourly run landed the crescendo-approaching
+      countdown itself (the note above) independently and pushed first
+      while this session was mid-flight on the identical feature --
+      confirmed genuinely equivalent by diffing before touching anything
+      (same file set, same overall design, same real-browser hazard
+      independently found and fixed by both). Followed this ticket's own
+      established precedent (STRUCTURAL 17/N, this ticket's own update-3/9):
+      did NOT force-push the duplicate. `git reset --hard origin/main` to
+      take the already-pushed commit as-is, then picked up ITS "Next" note
+      (below) for genuinely new value this run.
+      ORCHESTRATOR NOTE 2026-08-22 (update 8): picked up update-7's own
+      "Next" note's smaller of its two remaining independent pieces -- the
+      Largo tempo-scale control surface (header COMBAT MODEL's own
+      Accessibility bullet: "'Largo' assist (global tempo scale via the
+      engine hook, clearly labeled, no shame)"). The engine hook itself
+      (`music.js`'s `setTempoScale`) has existed since the MUSIC ENGINE
+      ticket; nothing called it from anywhere reachable by a player until
+      this run.
+      **Design call, flagged not hidden:** a flat ON/OFF toggle, not a
+      slider -- a duel's difficulty already scales through the MUSIC itself
+      per the header curve decision, so one clearly-labeled assist level is
+      simpler to reason about and honestly label than a dial with no
+      stated range. `LARGO_TEMPO_SCALE = 0.6` is a starting judgment call
+      (documented at its definition), same "explicitly flagged retunable"
+      spirit as `duel.js`'s own push constants -- not balance-tested against
+      a real player.
+      **Built:** `js/wordbound/game.js` -- a persistent, localStorage-backed
+      module-level setting (`wordbound_largo_enabled`), same load/save
+      shape as the pre-existing `audioSettings` (and for the same reason:
+      otherwise it would silently reset to off on every page load even for
+      a player who explicitly turned it on). `Game.getLargoEnabled()`/
+      `Game.setLargoEnabled(enabled)` are real public API (same "React has
+      no closure access" reasoning as the audio/tile-staging wrappers
+      before them) -- the setter applies live to `state.duelSequencer` if
+      one exists (a player toggling Largo mid-duel feels it immediately,
+      not just on their next fight), and `Game.startDuelFight` also applies
+      it at fight-start so a fight that begins with Largo already on starts
+      slow. `src/components/RunSidePanels.jsx`'s `RunHeaderActions` (the
+      same header component hosting Deck/Consumables/music controls) gained
+      a "🐢 Largo" toggle button, deliberately placed at the persistent
+      header level rather than combat-only chrome -- visible and settable
+      at all times, same as the music controls beside it, consistent with
+      it being a standing accessibility preference rather than a
+      per-fight control. `css/wordbound.css` gained one small
+      `.largo-toggle-btn-on` active-state rule (reusing `.btn-overcharge
+      .armed`'s existing gold-glow color values rather than introducing a
+      new palette). `wordbound.html` deliberately gets NO Largo button --
+      per the standing ORCHESTRATOR DECISION that duel fights are
+      React-only, a turn-based-only page has nothing for this control to
+      affect; `Game.getLargoEnabled`/`setLargoEnabled` themselves still
+      live in the shared `game.js` (harmless, unreachable there) rather
+      than being duplicated into a React-only module, matching how every
+      other `Game.*` wrapper in this ticket is shared-but-conditionally-
+      relevant.
+      **Verified:** 3 new mocked-clock Vitest tests
+      (`src/test/duelIntegration.test.js`): defaults off and the setter
+      round-trips; a real `Game.startDuelFight`-created sequencer's
+      `getTempoScale()` changes live when `setLargoEnabled` is called
+      mid-fight (both directions); a fight that starts with Largo already
+      on begins at the slowed scale rather than needing a toggle after the
+      fact. 1 new Vitest/RTL test (`RunSidePanels.test.jsx`): a real click
+      on the button flips `Game.getLargoEnabled()` and the label/class,
+      same "leave settings as found" convention the pre-existing
+      music-mute test already established. `npx vitest run`, 3 consecutive
+      full-suite runs: **131/131 every time, zero flakes** (up from 128 --
+      4 new, all in this run's own files; the pre-existing cross-file
+      timing-race flake this session's earlier attempt at this same ticket
+      already characterized was not observed in any of these 3 runs).
+      `npm test` (jsdom dom-check): ALL CHECKS PASSED (16/16), confirming
+      every `game.js` change is a true no-op for `wordbound.html` (which
+      never calls `Game.setLargoEnabled` and has no Largo button to click).
+      `npm run build`: clean, 44 modules, unchanged (no new import -- this
+      run only added to existing modules). `npm run test:react-duel-loss`
+      (real browser, built output) gained a new phase -- a REAL click on
+      the header's Largo button, not a direct `Game.setLargoEnabled()`
+      call, confirming the wired-up button genuinely slows the live duel's
+      sequencer (`getTempoScale()` 1 -> 0.6) and a second click restores
+      normal pace before the script's own pre-existing phases run (so
+      Largo's own check doesn't skew the timing those phases were written
+      against): **3 consecutive clean runs, zero flakes.** `npm run
+      test:react-build`, `npm run test:react-qa`, `npm run test:mobile`,
+      `npm run test:qa`, `npm run test:music-engine`, `npm run build:itch`
+      + `npm run test:itch-build`: ALL CHECKS PASSED, unaffected.
+      **Not done:** Second Wind's retarget at `healthBlocks`, the
+      virtual-clock balance sim, and Valkyrie Marshal's/the final
+      Beethoven's-5th boss's own real sequenced pieces remain open,
+      unchanged. Ticket stays unchecked -- a sub-step, not full completion,
+      per this repo's own convention (no version bump). **Next:** the
+      virtual-clock balance sim is probably the most valuable remaining
+      pickup -- a duel's win, loss, telegraph, AND its accessibility assist
+      are all now live and provably reachable, so there's a genuinely
+      complete mechanic to balance tuning numbers against; Second Wind's
+      retarget is the smaller, independent piece after that. COMBAT
+      JUICE's damage-landed hook remains available as a separate,
+      lower-priority pickup whenever this queue is otherwise empty.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

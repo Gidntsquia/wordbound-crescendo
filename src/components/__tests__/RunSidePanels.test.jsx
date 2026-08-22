@@ -132,4 +132,22 @@ describe('run-header music controls', () => {
     expect(Game.getAudioSettings().volume).toBeCloseTo(0.75);
     Game.setMusicVolume(before); // restore
   });
+
+  it('clicking the Largo toggle flips Game.getLargoEnabled() and the button label/class', async () => {
+    freshRun(SEED);
+    const Game = window.Wordbound.Game;
+    const startEnabled = Game.getLargoEnabled();
+    const user = userEvent.setup();
+    render(<RunScreen onBackToMenu={() => {}} />);
+
+    const largoBtn = document.querySelector('.largo-toggle-btn');
+    expect(largoBtn.textContent).toBe(startEnabled ? '🐢 Largo: On' : '🐢 Largo');
+    expect(largoBtn.classList.contains('largo-toggle-btn-on')).toBe(startEnabled);
+    await user.click(largoBtn);
+    expect(Game.getLargoEnabled()).toBe(!startEnabled);
+    expect(largoBtn.textContent).toBe(!startEnabled ? '🐢 Largo: On' : '🐢 Largo');
+    expect(largoBtn.classList.contains('largo-toggle-btn-on')).toBe(!startEnabled);
+    // Leave the setting as found (localStorage-persisted), same convention the music-mute test above uses.
+    if (Game.getLargoEnabled() !== startEnabled) Game.setLargoEnabled(startEnabled);
+  });
 });

@@ -282,6 +282,60 @@ describe('Game.startDuelFight', () => {
   });
 });
 
+describe('Game.getLargoEnabled / setLargoEnabled -- the Largo accessibility assist', () => {
+  // Largo is a persistent (localStorage-backed), module-level setting --
+  // same shape as Game.getAudioSettings -- so tests restore it to whatever
+  // they found, same "leave settings as found" convention
+  // RunSidePanels.test.jsx's own music-mute test already established, to
+  // avoid leaking state across test files that share the same jsdom module
+  // instance.
+  it('defaults off, persists across the setter, and can be toggled back off', () => {
+    const original = Game.getLargoEnabled();
+    try {
+      Game.setLargoEnabled(true);
+      expect(Game.getLargoEnabled()).toBe(true);
+      Game.setLargoEnabled(false);
+      expect(Game.getLargoEnabled()).toBe(false);
+    } finally {
+      Game.setLargoEnabled(original);
+    }
+  });
+
+  it('applies live to an in-progress duel\'s sequencer via the real setTempoScale hook', () => {
+    const state = freshCombat('duel-largo-1');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    const original = Game.getLargoEnabled();
+    try {
+      Game.setLargoEnabled(false);
+      Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+      expect(state.duelSequencer.getTempoScale()).toBe(1);
+
+      Game.setLargoEnabled(true);
+      expect(state.duelSequencer.getTempoScale()).toBeLessThan(1); // slowed, not stopped
+
+      Game.setLargoEnabled(false);
+      expect(state.duelSequencer.getTempoScale()).toBe(1); // toggling back off restores normal pace mid-fight
+    } finally {
+      Game.setLargoEnabled(original);
+    }
+  });
+
+  it('a fight that STARTS with Largo already on begins slow, not just toggled-slow mid-fight', () => {
+    const state = freshCombat('duel-largo-2');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    const original = Game.getLargoEnabled();
+    try {
+      Game.setLargoEnabled(true);
+      Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+      expect(state.duelSequencer.getTempoScale()).toBeLessThan(1);
+    } finally {
+      Game.setLargoEnabled(original);
+    }
+  });
+});
+
 describe('startCombat -- automatic duel-mode detection off a monster def\'s .piece', () => {
   let realAudioContext;
   let slimeDef;
