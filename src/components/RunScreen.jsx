@@ -38,6 +38,28 @@ export default function RunScreen({ onBackToMenu }) {
   const Traits = window.Wordbound.Traits;
   const state = Game._state;
 
+  // COMBAT JUICE ticket (GOALS.md): the ink-display take-damage flash
+  // (game.js's animatePlayerDamage) counterpart for the React tree, fired
+  // via Game.onPlayerDamaged whenever a turn-based fight's counterattack
+  // actually lands. Lives here rather than CombatScreen.jsx because
+  // .ink-display is part of the always-visible run header, not the combat
+  // panel -- subscribed once for the whole run screen's lifetime, same
+  // remove/reflow/add technique as vanilla's own animatePlayerDamage (a
+  // plain class toggle wouldn't restart the CSS animation on a second hit
+  // before the first one's timeout clears it).
+  const inkDisplayRef = useRef(null);
+  useEffect(() => {
+    return Game.onPlayerDamaged(() => {
+      const el = inkDisplayRef.current;
+      if (!el) return;
+      el.classList.remove('take-damage');
+      void el.offsetWidth; // reflow so the flash restarts on a repeat hit
+      el.classList.add('take-damage');
+      setTimeout(() => el.classList.remove('take-damage'), 400);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function act(fn) {
     fn();
     bump();
@@ -81,7 +103,7 @@ export default function RunScreen({ onBackToMenu }) {
   return (
     <div className="screen">
       <div className="run-header">
-        <div className="ink-display">Ink {state.player.ink} / {state.player.maxInk}</div>
+        <div className="ink-display" ref={inkDisplayRef}>Ink {state.player.ink} / {state.player.maxInk}</div>
         <div className="gold-display">{state.player.gold} 🪙</div>
         <div className="floor-label">Floor {state.floorNumber} / {Floor.TOTAL_FLOORS}</div>
         <RunHeaderActions state={state} Game={Game} act={act} />

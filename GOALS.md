@@ -898,7 +898,7 @@ Rules for the routine:
       unaffected.
       **Not done, now its own ticket:** see COMBAT JUICE, immediately below.
 
-- [ ] COMBAT JUICE: cosmetic hit/drag feedback split out of the STRUCTURAL
+- [x] COMBAT JUICE: cosmetic hit/drag feedback split out of the STRUCTURAL
       ticket's closing note above -- purely visual polish, zero functional
       gap (every animation below is already gated behind a `reactTreeActive()`
       no-op guard in `js/wordbound/game.js`, so this is pure React-side
@@ -1128,6 +1128,99 @@ Rules for the routine:
       `submitWord`, not just a React-side port. DUEL-GAUGE COMBAT's
       boss-reskin blocker (documented in this ticket's update-1 note above)
       is unrelated and still needs a Jaxon-adjacent design call.
+      ORCHESTRATOR NOTE 2026-08-22 (update 3): picked up update-2's own
+      "Next" note -- the damage-landed `Game.*` hook, the ticket's last
+      remaining piece. **Built:** a new pub/sub hook in `game.js`,
+      `Game.onDamageLanded(callback)` (fires when a word's damage lands on
+      the monster) and `Game.onPlayerDamaged(callback)` (fires when a
+      turn-based counterattack lands on the player), each returning an
+      unsubscribe function. Deliberately a plain event emitter, not routed
+      through `Items.runHook` (that system is for item rule-changer logic
+      with gameplay side effects; this is a pure UI notification). Wired at
+      the exact points vanilla's own `animateDamage`/`celebrateHit`/
+      `animatePlayerDamage` already run from inside `Game.submitWord`'s
+      setTimeout -- the killing-blow branch, the turn-based survive branch,
+      AND (new) the duel-mode survive branch, which was previously a true
+      no-op past `render()` -- a duel word now "hits" every time even when
+      its push doesn't cross the gauge, matching every other combat mode.
+      Also added `Game._emitDamageLanded`/`Game._emitPlayerDamaged` test-only
+      exposures, same "doesn't depend on landing an exact big hit" reasoning
+      as the pre-existing `Game._celebrateHit` (test/dom-check.js) -- this
+      repo's fixed vitest seed's 8-tile rack tops out well under the
+      25-damage CRUSHING threshold or a 7-letter MAGNIFICENT word even with
+      Overcharge, confirmed by direct exploration before reaching for this,
+      not assumed.
+      `src/components/CombatScreen.jsx`: subscribes once on mount; a real
+      hit renders a floating `.damage-number` (React state, self-removing
+      via its own setTimeout, same jitter/scale math as vanilla) and a
+      `.crushing-floater`/`.magnificent-banner` the same way, while the
+      `.monster-hp-fill` flash and `.combat-panel` shake use the SAME
+      remove/reflow/add direct-DOM technique as vanilla's own functions (ref-
+      based, not React state -- a plain class toggle can't restart a CSS
+      animation mid-flight, the same reasoning the FLIP/tile-settle blocks
+      above already established for one-shot browser-timeline choreography).
+      `src/components/RunScreen.jsx`: subscribes to `Game.onPlayerDamaged`
+      and flashes `.ink-display` the same way -- lives here rather than
+      CombatScreen.jsx since the ink display is part of the always-visible
+      run header, not the combat panel.
+      **A real bug found and fixed before it shipped, not by Vitest (which
+      stayed green throughout since these are React-state-driven), but by
+      test:react-build:** the first draft of the CRUSHING/reduced-motion
+      real-browser check was itself flaky -- triggering a second (reduced-
+      motion) crushing hit right after the first (non-reduced) one without
+      waiting let the FIRST hit's still-live `.combat-shake` class (320ms)
+      make the second check trivially pass regardless of what it actually
+      did. Fixed by polling for the first hit's shake/floater to fully clear
+      before emulating reduced motion, not by loosening the assertion.
+      **Separately, a real (harmless) flake observed and honestly logged, not
+      chased further:** one `npx vitest run` (full 14-file suite) out of
+      roughly 7 consecutive runs failed
+      `duelIntegration.test.js`'s pre-existing "surviving a word in duel
+      mode..." test (a flat `await new Promise(r => setTimeout(r, 260))`
+      against a 220ms internal timeout, a razor-thin 40ms margin under
+      full-suite parallel CPU load) -- isolated via `git stash` (4/4 clean on
+      the unmodified base commit) then 5/5 clean on this run's own changes
+      immediately after, so not confidently attributable to this run's
+      change, more likely the same kind of environment-driven timing
+      flakiness this ticket's own history has already characterized
+      elsewhere (STRUCTURAL 14/15/16/N). Not fixed this run (would mean
+      touching a test file unrelated to this ticket's actual scope) --
+      flagged here in case a future run sees it recur. This run's OWN new
+      duel-mode test (`a surviving (non-decisive) duel push still fires
+      Game.onDamageLanded...`) polls instead of sleeping a fixed duration,
+      specifically to not add a second instance of the same fragile pattern.
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED (added a
+      new COMBAT JUICE block driving a real surviving word play + a forced
+      real counterattack through `Game.submitWord`, confirming both hooks
+      fire with the correct payload in the vanilla tree too, not just
+      React). `npx vitest run`, 5 consecutive full-suite runs after the new
+      tests landed: **158/158 every time, zero flakes** (up from 152 -- 6
+      new: 4 in `CombatScreen.test.jsx` covering the real-hit/crushing/
+      magnificent/zero-damage cases, 1 in `duelIntegration.test.js` for the
+      duel-survive case, 1 in `RunScreen.test.jsx` for the ink flash).
+      `npm run build`: clean, 46 modules, unchanged. `npm run test:react-
+      build` (real browser, built output): **2 consecutive clean runs**
+      after the reduced-motion timing fix above, including new checks for
+      the real floating damage number + hp-flash on the existing RADIO
+      playthrough, CRUSHING+shake, MAGNIFICENT banner, and the reduced-
+      motion variant (floater still shows, shake suppressed). `npm run
+      test:mobile`, `npm run test:qa`, `npm run test:react-qa`, `npm run
+      test:react-duel-loss`, `npm run test:music-engine`, `npm run
+      build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED, unaffected.
+      Version bumped v0.2 -> v0.3 per GOALS.md's own "bump minor per
+      completed feature" convention (`MainMenu.jsx`/`wordbound.html`/
+      `MainMenu.test.jsx`).
+      **COMBAT JUICE ticket checked off** -- all three original bullets
+      (tile-settle FLIP-in, haptic feedback, and now the damage/hit
+      animations) are real, wired, and verified.
+      **Not done, correctly out of scope:** the pre-existing
+      `duelIntegration.test.js` flake noted above (unconfirmed as a real
+      recurring problem, not this ticket's scope to chase). **Next:** per
+      this file's own header priority note, DUEL-GAUGE COMBAT and MUSIC
+      ENGINE are both done now -- BOSS ENTRANCE CUTSCENES, STOLEN LETTERS
+      META-PROGRESSION, SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS, ITEMS, and
+      REGULAR ENEMIES are the queue's remaining unchecked items, top to
+      bottom.
 
 - [x] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

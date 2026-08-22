@@ -139,6 +139,38 @@ describe('Game.submitWord -- duel-mode branch', () => {
     expect(state.combatActive).toBe(true);
   });
 
+  // COMBAT JUICE ticket (GOALS.md): before this run, a surviving duel-mode
+  // word was a true no-op past render() -- Game.onDamageLanded now fires
+  // there too (game.js's isDuelFight survive branch), so a duel word "hits"
+  // every time even when its push doesn't cross the gauge, same as every
+  // other combat mode. Polls instead of a flat sleep so this isn't tied to
+  // the exact 220ms TILE_PLAY_ANIM_MS constant (a flat 260ms wait on a
+  // razor-thin margin is exactly what made the test above occasionally flake
+  // under full-suite parallel load -- see this ticket's PROGRESS.md entry).
+  it('a surviving (non-decisive) duel push still fires Game.onDamageLanded, with isDuel true and monsterDied false', async () => {
+    const state = freshCombat(SEED);
+    state.monster.duel = true;
+    state.duel = Duel.create({ stageTier: 'early', healthBlocks: state.player.healthBlocks, pushesToDefeat: 10 });
+    state.duelSequencer = { getIntensity: () => 0, stop: () => {} };
+
+    let received = null;
+    const unsubscribe = Game.onDamageLanded((payload) => { received = payload; });
+    try {
+      const word = pickPlayableWord(state, CANDIDATE_WORDS);
+      Game.submitWord(word, 0);
+      const start = Date.now();
+      while (received === null) {
+        if (Date.now() - start > 2000) throw new Error('timed out waiting for Game.onDamageLanded');
+        await new Promise((r) => setTimeout(r, 20));
+      }
+    } finally {
+      unsubscribe();
+    }
+    expect(received.isDuel).toBe(true);
+    expect(received.monsterDied).toBe(false);
+    expect(received.damage).toBeGreaterThan(0);
+  });
+
   it('a duel fight is never ended by ink hitting 0 (healthBlocks is the real health there)', () => {
     const state = freshCombat(SEED);
     state.monster.duel = true;

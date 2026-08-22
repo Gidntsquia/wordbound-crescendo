@@ -2480,6 +2480,53 @@ async function main() {
       if (combatPanel) combatPanel.querySelectorAll('.magnificent-banner').forEach((n) => n.remove());
     }
 
+    // COMBAT JUICE ticket (GOALS.md): Game.onDamageLanded/Game.onPlayerDamaged
+    // -- the new pub/sub hooks the React-side damage/hit animations subscribe
+    // to (CombatScreen.jsx/RunScreen.jsx). Fired from the SAME setTimeout-
+    // deferred spots vanilla's own animateDamage/celebrateHit/
+    // animatePlayerDamage already run from -- confirmed here via a real
+    // Game.submitWord call (not a mock), same helper shape as killWith()
+    // above but deliberately surviving the hit (a high monster.maxHp) so the
+    // non-lethal branch's new emit call site is exercised too, and forcing a
+    // real counterattack (a fixed {type:'attack', value} intent) so
+    // onPlayerDamaged fires as well.
+    {
+      const Tiles = window.Wordbound.Tiles;
+      state.combatActive = false;
+      state.screen = 'RUN';
+      state.pendingEventSkipNextCombat = false;
+      const node = { id: 'node-damagelanded-combat', type: 'combat', defId: 'slime', cleared: false };
+      state.floor.nodes.push(node);
+      state.currentNodeId = node.id;
+      window.Wordbound.Game.enterCurrentNode();
+      await new Promise((r) => setTimeout(r, 60));
+      state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+      state.monster.hp = 100;
+      state.monster.maxHp = 100;
+      state.monster.intent = { type: 'attack', value: 7 };
+      state.hexedTileId = null;
+      state.player.ink = state.player.maxInk;
+      state.player.rack = 'CAT'.split('').map((l) => Tiles.createTile(l, null));
+
+      let damagePayload = null;
+      let playerPayload = null;
+      const unsubDamage = window.Wordbound.Game.onDamageLanded((p) => { damagePayload = p; });
+      const unsubPlayer = window.Wordbound.Game.onPlayerDamaged((p) => { playerPayload = p; });
+      window.Wordbound.Game.submitWord('CAT');
+      await new Promise((r) => setTimeout(r, 300));
+      unsubDamage();
+      unsubPlayer();
+
+      check('COMBAT JUICE: Game.onDamageLanded fires on a real surviving word play', damagePayload !== null);
+      check('COMBAT JUICE: onDamageLanded payload carries real damage/monsterDied=false/isDuel=false',
+        !!damagePayload && damagePayload.damage > 0 && damagePayload.monsterDied === false && damagePayload.isDuel === false);
+      check('COMBAT JUICE: Game.onPlayerDamaged fires on a real counterattack', playerPayload !== null);
+      check('COMBAT JUICE: onPlayerDamaged payload carries the real counterattack damage',
+        !!playerPayload && playerPayload.damage === 7);
+      check('COMBAT JUICE: onDamageLanded/onPlayerDamaged block produced zero errors', errors.length === 0);
+      if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+    }
+
     // (4) item-chip-proc flash on render: renderItemsOwned reads
     // state.proccedItemIds, flashes exactly those chips for ONE render, then
     // clears the list. Driven through a real re-render (openDeckViewer/close,

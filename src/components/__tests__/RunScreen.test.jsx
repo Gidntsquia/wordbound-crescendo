@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import RunScreen from '../RunScreen.jsx';
@@ -59,6 +59,24 @@ describe('RunScreen -- node map', () => {
     await user.click(screen.getByRole('button', { name: 'Back to Menu (abandon run)' }));
     expect(state.screen).toBe('MAIN_MENU');
     expect(onBackToMenu).toHaveBeenCalledTimes(1);
+  });
+
+  // COMBAT JUICE ticket (GOALS.md): the ink-display take-damage flash lives
+  // here (not CombatScreen.jsx) since .ink-display is part of the
+  // always-visible run header. Game._emitPlayerDamaged is the same
+  // test-only "doesn't depend on landing an exact hit" hook
+  // Game._emitDamageLanded/Game._celebrateHit already establish --
+  // triggering a real turn-based counterattack deterministically would
+  // require depending on this seed's monster rolling a specific intent,
+  // which isn't guaranteed stable.
+  it('a real player-damaged event flashes the ink display', () => {
+    const state = freshRun(SEED);
+    window.Wordbound.Game.enterCurrentNode(findAvailableCombatNodeId(state));
+    render(<RunScreen onBackToMenu={() => {}} />);
+    const inkDisplay = screen.getByText(`Ink ${state.player.ink} / ${state.player.maxInk}`);
+    expect(inkDisplay.classList.contains('take-damage')).toBe(false);
+    act(() => { window.Wordbound.Game._emitPlayerDamaged({ damage: 5 }); });
+    expect(inkDisplay.classList.contains('take-damage')).toBe(true);
   });
 });
 

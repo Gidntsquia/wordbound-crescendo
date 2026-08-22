@@ -5101,3 +5101,132 @@ remaining piece of that ticket's original three bullets), unless a future
 run judges BOSS ENTRANCE CUTSCENES or STOLEN LETTERS META-PROGRESSION higher
 priority now that DUEL-GAUGE COMBAT is done and the header's own stated
 priority order (MUSIC ENGINE / DUEL-GAUGE COMBAT first) no longer applies.
+
+## 2026-08-22T06:58Z -- COMBAT JUICE: damage-landed hook (floating numbers,
+## HP flash, shake, CRUSHING/MAGNIFICENT, ink flash) -- TICKET CHECKED OFF
+
+Repo-health note first (not a code change, but worth recording): this run
+started with a detached HEAD and a stale local `main` whose root commit
+didn't match `origin/main`'s real history at all (`git merge-base` found no
+common ancestor -- "unrelated histories"). `origin/main` (confirmed via
+`git ls-remote`, not just the locally cached ref) is unambiguously the real,
+current, 60+-commit project history matching GOALS.md/PROGRESS.md's own
+content; local `main` was just a stale pointer. Fixed with `git fetch` +
+`git reset --hard origin/main` (a local-only fix, origin untouched) rather
+than force-pushing anything. Flagging in case this recurs -- several earlier
+PROGRESS.md entries mention similar "detached-HEAD fetch fix" housekeeping,
+so this may be a recurring container-startup quirk worth a future run's
+attention if it keeps happening.
+
+Picked up the queue's first unchecked item (GOALS.md's own "Next" note from
+the DUEL-GAUGE COMBAT closing entry): COMBAT JUICE's last remaining piece,
+the damage/hit-animation bullet (floating damage numbers, HP-bar flash,
+screen-shake, CRUSHING!/MAGNIFICENT! banners, ink-display flash) -- the
+tile-settle FLIP and haptic-feedback bullets were already done by earlier
+runs.
+
+**Built:**
+- `js/wordbound/game.js`: two new pub/sub hooks --
+  `Game.onDamageLanded(callback)` (fires when a word's damage lands on the
+  monster) and `Game.onPlayerDamaged(callback)` (fires when a turn-based
+  counterattack lands on the player), each returning an unsubscribe
+  function. Wired at the exact points vanilla's own `animateDamage`/
+  `celebrateHit`/`animatePlayerDamage` already run from inside
+  `Game.submitWord`'s setTimeout: the killing-blow branch, the turn-based
+  survive branch, and (new) the duel-mode survive branch -- previously a
+  true no-op past `render()`, so a duel word now "hits" every time even
+  when its push doesn't cross the gauge, matching every other combat mode.
+  Also `Game._emitDamageLanded`/`Game._emitPlayerDamaged` test-only
+  exposures, same "doesn't depend on landing an exact big hit" reasoning as
+  the pre-existing `Game._celebrateHit` -- confirmed by direct exploration
+  (not assumed) that the fixed vitest seed's 8-tile rack (`ARDONIUE`) can't
+  reach the 25-damage CRUSHING threshold or a 7-letter MAGNIFICENT word even
+  with Overcharge.
+- `src/components/CombatScreen.jsx`: subscribes once on mount. A real hit
+  renders a floating `.damage-number` and a `.crushing-floater`/
+  `.magnificent-banner` as plain React state (self-removing via their own
+  setTimeouts, same jitter/scale math and durations as vanilla), while
+  `.monster-hp-fill`'s flash and `.combat-panel`'s shake use the SAME
+  remove/reflow/add direct-DOM technique as vanilla (ref-based, not React
+  state -- a plain class toggle can't restart a CSS animation mid-flight,
+  same reasoning the pre-existing FLIP/tile-settle code already established
+  for one-shot browser-timeline choreography). The shake also respects
+  `prefers-reduced-motion`, matching vanilla's `celebrateHit`.
+- `src/components/RunScreen.jsx`: subscribes to `Game.onPlayerDamaged`,
+  flashes `.ink-display` the same way -- lives here (not CombatScreen.jsx)
+  since the ink display is part of the always-visible run header.
+
+**A real bug found and fixed before it shipped, by test:react-build (not
+Vitest, which stayed green throughout since these are React-state-driven and
+jsdom doesn't distinguish a genuine bug from a test artifact here):** the
+first draft of the CRUSHING/reduced-motion real-browser check was itself
+flaky -- firing a second (reduced-motion) crushing hit immediately after the
+first (non-reduced) one, with no wait, let the FIRST hit's still-live
+`.combat-shake` class (320ms duration) make the second check trivially pass
+regardless of what it actually did. Fixed by polling for the first hit's
+shake/floater to fully clear before emulating reduced motion, not by
+loosening the assertion -- confirmed by re-running clean twice after.
+
+**A real (harmless) flake observed and honestly logged, not chased
+further:** one `npx vitest run` (full 14-file suite) out of roughly 7
+consecutive runs failed the pre-existing `duelIntegration.test.js`
+"surviving a word in duel mode..." test (a flat `await new Promise(r =>
+setTimeout(r, 260))` against a 220ms internal timeout -- a razor-thin 40ms
+margin under full-suite parallel CPU load). Isolated via `git stash` (4/4
+clean on the unmodified base commit, confirming it predates this run) then
+5/5 clean on this run's own changes immediately after -- not confidently
+attributable to this run's change, more likely the same kind of
+environment-driven timing flakiness this repo's history has already
+characterized elsewhere (STRUCTURAL 14/15/16/N, root-caused there to
+`userEvent`'s async choreography, a different mechanism than this file's
+flat sleep). Not fixed this run (unrelated test file, outside this ticket's
+actual scope) -- flagged here for a future run in case it recurs. This run's
+own new duel-mode test (`a surviving (non-decisive) duel push still fires
+Game.onDamageLanded...`) polls instead of sleeping a fixed duration,
+specifically to avoid adding a second instance of the same fragile pattern.
+
+**Verified:**
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED -- added a new COMBAT
+  JUICE block driving a real surviving word play + a forced real
+  counterattack through `Game.submitWord`, confirming both hooks fire with
+  the correct payload in the vanilla tree too, not just React.
+- `npx vitest run`, 5 consecutive full-suite runs after the new tests
+  landed: **158/158 every time, zero flakes** (up from 152 -- 6 new tests:
+  4 in `CombatScreen.test.jsx` covering the real-hit/crushing/magnificent/
+  zero-damage cases, 1 in `duelIntegration.test.js` for the duel-survive
+  case, 1 in `RunScreen.test.jsx` for the ink flash).
+- `npm run build`: clean, 46 modules, unchanged.
+- `npm run test:react-build` (real browser, built output): **2 consecutive
+  clean runs** after the reduced-motion timing fix, including new checks
+  for the real floating damage number + hp-flash on the existing RADIO
+  playthrough, CRUSHING+shake, the MAGNIFICENT banner, and the
+  reduced-motion variant (floater still shows, shake suppressed).
+- `npm run test:mobile`: ALL CHECKS PASSED (touched CSS-adjacent rendering,
+  so mandatory per GOALS.md's own header rule).
+- `npm run test:qa`, `npm run test:react-qa`, `npm run test:react-duel-loss`,
+  `npm run test:music-engine`, `npm run build:itch` + `npm run
+  test:itch-build`: ALL CHECKS PASSED, unaffected.
+
+Version bumped v0.2 -> v0.3 per GOALS.md's own "bump minor per completed
+feature" convention (`MainMenu.jsx`/`wordbound.html`/`MainMenu.test.jsx`).
+
+**COMBAT JUICE ticket checked off** -- all three original bullets
+(tile-settle FLIP-in land animation, haptic feedback, and now the
+damage/hit animations) are real, wired, and verified.
+
+**Not verified (honest gap):** the actual FEEL/timing/juiciness of these
+animations in real hands is Jaxon's call, same as every other combat-feel
+item in this repo's history -- everything above is DOM-structure/class/
+real-browser-driven verification, not a playtest.
+
+**Genuinely-Jaxon-only, flagged rather than blocking further work:** none
+new this run beyond the pre-existing "real feel" playtest gap already
+flagged for DUEL-GAUGE COMBAT.
+
+**Next:** per GOALS.md's own header priority note, DUEL-GAUGE COMBAT and
+MUSIC ENGINE are both done now -- the queue's remaining unchecked items, top
+to bottom, are BOSS ENTRANCE CUTSCENES, STOLEN LETTERS META-PROGRESSION,
+SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS, ITEMS, and REGULAR ENEMIES. No
+strong ordering signal between them beyond file order; a future run should
+just pick the first one top-to-bottom unless something makes a different
+one clearly higher-value.

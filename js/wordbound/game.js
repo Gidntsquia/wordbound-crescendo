@@ -16,6 +16,54 @@
 
   var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents, Duel, DuelCombat, Music;
 
+  // COMBAT JUICE ticket (GOALS.md): the damage-landed hook. Game.submitWord
+  // resolves a word's damage (and, in a duel fight, the monster's
+  // counterattack) inside its own setTimeout and never returns or exposes
+  // that intermediate result -- animateDamage/celebrateHit/animatePlayerDamage
+  // below are the vanilla-only DOM answer to that, all guarded no-ops in the
+  // React tree (reactTreeActive()). This is the React-side equivalent: a
+  // plain pub/sub list a component can subscribe to (CombatScreen.jsx does)
+  // to drive its own one-shot animations at the exact moment a hit lands,
+  // without reaching into game.js's private setTimeout at all. Deliberately
+  // NOT wired through Items.runHook -- that system is for item rule-changer
+  // logic with gameplay effects; this is a pure UI notification with no
+  // state mutation of its own, closer to an event emitter than a hook.
+  var damageLandedListeners = [];
+  Game.onDamageLanded = function (callback) {
+    damageLandedListeners.push(callback);
+    return function unsubscribe() {
+      var idx = damageLandedListeners.indexOf(callback);
+      if (idx !== -1) damageLandedListeners.splice(idx, 1);
+    };
+  };
+  function emitDamageLanded(payload) {
+    // A listener's own bug must not break combat resolution for every other
+    // listener or (worse) leave submitWord's own setTimeout mid-execution --
+    // same defensive isolation Items.runHook already uses for item hooks.
+    damageLandedListeners.slice().forEach(function (listener) {
+      try { listener(payload); } catch (e) { /* isolate a bad listener */ }
+    });
+  }
+
+  // The player-damaged counterpart -- fired when the monster's counterattack
+  // actually lands (turn-based fights only; a duel fight's player-damage
+  // analogue is losing a health block, a different event entirely --
+  // duel.on('block-lost') already exists for that at the engine level, but
+  // wiring it to a UI flash is separate, still-open scope, not this hook).
+  var playerDamagedListeners = [];
+  Game.onPlayerDamaged = function (callback) {
+    playerDamagedListeners.push(callback);
+    return function unsubscribe() {
+      var idx = playerDamagedListeners.indexOf(callback);
+      if (idx !== -1) playerDamagedListeners.splice(idx, 1);
+    };
+  };
+  function emitPlayerDamaged(payload) {
+    playerDamagedListeners.slice().forEach(function (listener) {
+      try { listener(payload); } catch (e) { /* isolate a bad listener */ }
+    });
+  }
+
   var audioContext = null;
   var musicOscillators = [];
   var musicGainNode = null;
@@ -294,6 +342,8 @@
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
   Game._celebrateHit = function (damage, magnificent) { return celebrateHit(damage, magnificent); }; // FUN OVERHAUL 8/8: exposed so tests can assert the CRUSHING/MAGNIFICENT DOM appends (jsdom can't verify the animation timing)
+  Game._emitDamageLanded = function (payload) { return emitDamageLanded(payload); }; // COMBAT JUICE ticket: same "test doesn't depend on landing an exact big hit" reasoning as Game._celebrateHit above -- lets a React test assert CRUSHING/MAGNIFICENT wiring with an arbitrary payload instead of needing a real word that happens to score >=25 or run 7+ letters against whatever rack a fixed seed produces
+  Game._emitPlayerDamaged = function (payload) { return emitPlayerDamaged(payload); }; // COMBAT JUICE ticket: same reasoning, for the ink-flash counterpart
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
   Game._availableNodeIds = function () { return availableNodeIds(); }; // STRUCTURAL ticket (GOALS.md, React port): exposed so the React map view can compute which node pills are clickable using the exact same logic renderNodeMap() uses, instead of duplicating the traversal in JSX
@@ -1308,6 +1358,14 @@
         render();
         animateDamage(result.damage);
         celebrateHit(result.damage, magnificent);
+        emitDamageLanded({
+          damage: result.damage,
+          magnificent: magnificent,
+          crushing: result.damage >= CRUSHING_DAMAGE_THRESHOLD,
+          monsterDied: true,
+          isDuel: isDuelFight,
+          pushWon: isDuelFight ? !!(result.duelPush && result.duelPush.pushWon) : false
+        });
         if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
         var monsterInfo = $('monster-info');
         if (monsterInfo) monsterInfo.classList.add('monster-defeated');
@@ -1332,6 +1390,17 @@
       // means the rack cycled and the duel carries on.
       if (isDuelFight) {
         render();
+        animateDamage(result.damage);
+        celebrateHit(result.damage, magnificent);
+        emitDamageLanded({
+          damage: result.damage,
+          magnificent: magnificent,
+          crushing: result.damage >= CRUSHING_DAMAGE_THRESHOLD,
+          monsterDied: false,
+          isDuel: true,
+          pushWon: !!(result.duelPush && result.duelPush.pushWon)
+        });
+        if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
         return;
       }
 
@@ -1374,9 +1443,18 @@
       // until their own timeouts clean them up.
       animateDamage(result.damage);
       celebrateHit(result.damage, magnificent);
+      emitDamageLanded({
+        damage: result.damage,
+        magnificent: magnificent,
+        crushing: result.damage >= CRUSHING_DAMAGE_THRESHOLD,
+        monsterDied: false,
+        isDuel: false,
+        pushWon: false
+      });
       if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
       if (dmgCtx.damage > 0) {
         animatePlayerDamage();
+        emitPlayerDamaged({ damage: dmgCtx.damage });
         playCounterattackSound(dmgCtx.damage, state.monster.isBoss);
       }
     }, TILE_PLAY_ANIM_MS);

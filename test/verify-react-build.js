@@ -438,6 +438,66 @@ async function main() {
     check('zero console/page errors across the whole playthrough', consoleErrors.length === 0);
     consoleErrors.forEach((e) => console.log('  CONSOLE ERROR:', e));
 
+    // COMBAT JUICE ticket (GOALS.md): the damage-landed hook's real-browser
+    // proof. The word play above already confirmed monster.hp drops
+    // synchronously; the floating damage number + hp-fill flash fire ~220ms
+    // later (TILE_PLAY_ANIM_MS, inside Game.submitWord's own setTimeout --
+    // the exact deferral vanilla's own animateDamage/celebrateHit already
+    // wait on), so this polls for the real DOM rather than assuming a fixed
+    // delay.
+    if (word) {
+      await page.waitForSelector('.damage-number', { timeout: 3000 });
+      const dmgText = await page.locator('.damage-number').first().textContent();
+      check('a real word play shows a floating damage number', Number(dmgText) > 0);
+      const hpFillFlashing = await page.evaluate(() =>
+        document.querySelector('.monster-hp-fill')?.classList.contains('flash-damage'));
+      check('a real word play flashes the monster HP bar', hpFillFlashing === true);
+    }
+
+    // CRUSHING floater + combat-panel shake, and the MAGNIFICENT banner: both
+    // driven through Game._emitDamageLanded, the same "doesn't depend on
+    // landing an exact big hit" test-only hook Game._celebrateHit already
+    // established (test/dom-check.js) -- this seed's real rack at this point
+    // in the fight isn't guaranteed to support a >=25-damage or 7+-letter
+    // word. Real-browser only: confirms the actual CSS animation classes
+    // apply (and, for the shake specifically, that prefers-reduced-motion
+    // suppresses it while the floater/banner still show) -- Vitest/RTL
+    // already covers the DOM/state wiring itself.
+    await page.evaluate(() => window.Wordbound.Game._emitDamageLanded({
+      damage: 30, magnificent: false, crushing: true, monsterDied: false, isDuel: false, pushWon: false,
+    }));
+    await page.waitForSelector('.crushing-floater', { timeout: 2000 });
+    check('a crushing hit shows the CRUSHING floater', true);
+    const shaking = await page.evaluate(() =>
+      document.querySelector('.combat-panel')?.classList.contains('combat-shake'));
+    check('a crushing hit shakes the combat panel (no prefers-reduced-motion)', shaking === true);
+
+    await page.evaluate(() => window.Wordbound.Game._emitDamageLanded({
+      damage: 10, magnificent: true, crushing: false, monsterDied: false, isDuel: false, pushWon: false,
+    }));
+    await page.waitForSelector('.magnificent-banner', { timeout: 2000 });
+    check('a magnificent play shows the MAGNIFICENT banner', true);
+
+    // Let the first crushing hit's own shake (320ms) and floater (1000ms)
+    // fully clear before the reduced-motion variant -- otherwise the earlier
+    // hit's still-live class/element would make the checks below trivially
+    // pass regardless of what this second event actually does.
+    await page.waitForFunction(
+      () => !document.querySelector('.combat-panel')?.classList.contains('combat-shake')
+        && document.querySelectorAll('.crushing-floater').length === 0,
+      { timeout: 2000 },
+    );
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(() => window.Wordbound.Game._emitDamageLanded({
+      damage: 30, magnificent: false, crushing: true, monsterDied: false, isDuel: false, pushWon: false,
+    }));
+    await page.waitForSelector('.crushing-floater', { timeout: 2000 });
+    check('under prefers-reduced-motion, the CRUSHING floater still shows', true);
+    const shakingReduced = await page.evaluate(() =>
+      document.querySelector('.combat-panel')?.classList.contains('combat-shake'));
+    check('under prefers-reduced-motion, the combat panel does NOT shake', shakingReduced === false);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+
     // MOBILE INPUT 1/3, STRUCTURAL remaining-scope (c) step 1 (GOALS.md):
     // main.jsx now calls Game.applyTouchModeFromMedia() + registers the live
     // matchMedia('(pointer: coarse)') listener at module load, mirroring

@@ -1,5 +1,5 @@
 import { useReducer } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import CombatScreen from '../CombatScreen.jsx';
 import { freshRun, pickPlayableWord, findAvailableCombatNodeId } from '../../test/gameHelpers.js';
@@ -182,6 +182,68 @@ describe('CombatScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Rewrite/ }));
     expect(state.player.ink).toBe(inkBefore - Combat.REWRITE_INK_COST);
     expect(state.player.rack.map((t) => t.id)).not.toEqual(rackBefore);
+  });
+
+  // COMBAT JUICE ticket (GOALS.md), damage-landed hook: a real word play
+  // fires Game.onDamageLanded (game.js) ~220ms later (TILE_PLAY_ANIM_MS,
+  // inside Game.submitWord's own setTimeout -- the same deferral vanilla's
+  // animateDamage/celebrateHit already wait on), which this component
+  // subscribes to and renders as a real .damage-number + a hp-fill
+  // flash-damage class. Polls instead of a flat sleep (same reasoning as
+  // gameHelpers.js's waitForScreen) so this isn't tied to the exact 220ms
+  // constant.
+  async function waitFor(check, timeoutMs = 2000) {
+    const start = Date.now();
+    while (!check()) {
+      if (Date.now() - start > timeoutMs) throw new Error('waitFor timed out');
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }
+
+  it('a real hit shows a floating damage number and flashes the monster HP bar', async () => {
+    const state = startFight();
+    render(<Harness />);
+    const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
+    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: word } });
+    fireEvent.click(screen.getByRole('button', { name: 'Play Word' }));
+    await waitFor(() => document.querySelector('.damage-number') != null);
+    const dmgEl = document.querySelector('.damage-number');
+    expect(Number(dmgEl.textContent)).toBeGreaterThan(0);
+    expect(document.querySelector('.monster-hp-fill').classList.contains('flash-damage')).toBe(true);
+  });
+
+  it('a big hit (Game.onDamageLanded, crushing=true) shows the CRUSHING floater and shakes the combat panel', async () => {
+    startFight();
+    render(<Harness />);
+    const Game = window.Wordbound.Game;
+    // Same "doesn't depend on landing an exact big hit" reasoning as
+    // Game._celebrateHit (test/dom-check.js) -- this seed's fixed 8-tile
+    // rack tops out well under the 25-damage CRUSHING threshold even with
+    // Overcharge, so the payload is emitted directly through the same
+    // test-only hook celebrateHit itself uses.
+    act(() => { Game._emitDamageLanded({ damage: 30, magnificent: false, crushing: true, monsterDied: false, isDuel: false, pushWon: false }); });
+    expect(document.querySelector('.crushing-floater')).not.toBeNull();
+    expect(document.querySelector('.crushing-floater').textContent).toBe('CRUSHING!');
+    expect(document.querySelector('.combat-panel').classList.contains('combat-shake')).toBe(true);
+  });
+
+  it('a magnificent play (Game.onDamageLanded, magnificent=true) shows the MAGNIFICENT banner', async () => {
+    startFight();
+    render(<Harness />);
+    const Game = window.Wordbound.Game;
+    act(() => { Game._emitDamageLanded({ damage: 10, magnificent: true, crushing: false, monsterDied: false, isDuel: false, pushWon: false }); });
+    const banner = document.querySelector('.magnificent-banner');
+    expect(banner).not.toBeNull();
+    expect(banner.textContent).toBe('MAGNIFICENT!');
+  });
+
+  it('zero/negative damage payloads are ignored (no damage number, no flash)', () => {
+    startFight();
+    render(<Harness />);
+    const Game = window.Wordbound.Game;
+    act(() => { Game._emitDamageLanded({ damage: 0, magnificent: false, crushing: false, monsterDied: false, isDuel: false, pushWon: false }); });
+    expect(document.querySelector('.damage-number')).toBeNull();
+    expect(document.querySelector('.monster-hp-fill').classList.contains('flash-damage')).toBe(false);
   });
 
   // STRUCTURAL remaining-scope (c): rack tiles that weren't in the previous

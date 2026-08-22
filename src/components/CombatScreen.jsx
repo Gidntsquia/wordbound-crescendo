@@ -189,13 +189,20 @@ function flipTileTo(fromRect, toEl) {
 // that element.
 //
 // Damage/hit animations (floating numbers, hp-flash, screen-shake,
-// CRUSHING!/MAGNIFICENT! banners): also not ported. Game.submitWord resolves
-// the counterattack inside its own setTimeout and never returns or exposes
-// the intermediate result, so there's nothing for React to hook a one-shot
-// animation off without reaching back into game.js's internals. The HP bar
-// and message log both update for real (state.monster.hp is mutated
-// synchronously by Combat.playWord before submitWord's setTimeout even
-// fires), so the fight is fully legible without the juice -- just quieter.
+// CRUSHING!/MAGNIFICENT! banners) -- COMBAT JUICE ticket, this run: now
+// ported, via a new Game.onDamageLanded(callback) pub/sub hook in game.js
+// (fired at the exact point in Game.submitWord's setTimeout that vanilla's
+// own animateDamage/celebrateHit already run, PLUS a new call site for a
+// duel-mode word that survives -- previously a true no-op there, since the
+// isDuelFight branch just called render() and returned). See the
+// hpFillRef/combatPanelRef/damageNumbers block below for the subscription
+// and rendering. The ink-flash counterpart (game.js's animatePlayerDamage,
+// gated on the monster's TURN-BASED counterattack landing) is wired
+// separately in RunScreen.jsx via the analogous Game.onPlayerDamaged hook,
+// since the ink display lives in the run header, not this component. A duel
+// fight's own player-damage analogue -- losing a health block -- is NOT
+// covered by either hook (a genuinely different event, duel.js's own
+// 'block-lost'); still open, real remaining scope.
 const BLANK_PICKER_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export default function CombatScreen({ state, Game, act }) {
@@ -506,6 +513,78 @@ export default function CombatScreen({ state, Game, act }) {
     });
   });
 
+  // Damage/hit animations (COMBAT JUICE ticket, GOALS.md): the last of the
+  // ticket's three original bullets. Game.onDamageLanded (game.js) fires
+  // synchronously the moment a word's damage actually lands -- both the
+  // turn-based counterattack path AND every duel-mode push (not just a
+  // decisive/lethal one), since a duel word "hits" every time even when it
+  // doesn't cross the gauge. Subscribed once on mount, independent of this
+  // component's own render/act cycle, so a hit lands its animation exactly
+  // when game.js says it did rather than whenever React next happens to
+  // re-render. hpFillRef/combatPanelRef use the SAME remove/reflow/add
+  // technique as game.js's own animateDamage/celebrateHit (a plain class
+  // toggle wouldn't restart the CSS animation on a second hit before the
+  // first one's timeout clears it) -- deliberately direct DOM manipulation
+  // here, not React state, for the identical reason the FLIP/tile-settle
+  // blocks above use refs rather than state: this is transient, one-shot
+  // browser-timeline choreography, not application state. The floating
+  // damage number / CRUSHING floater / MAGNIFICENT banner ARE plain React
+  // state (arrays of small objects, each removing itself via its own
+  // setTimeout) since those are genuinely new elements appearing and
+  // disappearing, exactly the kind of thing React state is for -- unlike a
+  // class restart, mounting a fresh element each time doesn't need a reflow
+  // trick.
+  const hpFillRef = useRef(null);
+  const combatPanelRef = useRef(null);
+  const fxIdRef = useRef(0);
+  const [damageNumbers, setDamageNumbers] = useState([]);
+  const [crushingFloaters, setCrushingFloaters] = useState([]);
+  const [magnificentBanners, setMagnificentBanners] = useState([]);
+
+  useEffect(() => {
+    return Game.onDamageLanded((payload) => {
+      if (!payload || payload.damage <= 0) return;
+      fxIdRef.current += 1;
+      const id = fxIdRef.current;
+      const cls = payload.damage > 30 ? 'critical' : payload.damage < 5 ? 'weak' : 'normal';
+      // Cosmetic-only jitter, same as game.js's own animateDamage -- plain
+      // Math.random() on purpose, must NOT consume state.rng (would break
+      // seeded-run determinism).
+      const offsetX = Math.round((Math.random() - 0.5) * 2 * 25);
+      const offsetY = Math.round((Math.random() - 0.5) * 2 * 25);
+      const scale = Math.min(1.6, 1 + payload.damage / 60);
+      setDamageNumbers((list) => [...list, { id, damage: payload.damage, cls, offsetX, offsetY, scale }]);
+      setTimeout(() => setDamageNumbers((list) => list.filter((d) => d.id !== id)), 1000);
+
+      const hpFill = hpFillRef.current;
+      if (hpFill) {
+        hpFill.classList.remove('flash-damage');
+        void hpFill.offsetWidth; // reflow so the flash restarts on a repeat hit
+        hpFill.classList.add('flash-damage');
+        setTimeout(() => hpFill.classList.remove('flash-damage'), 300);
+      }
+
+      if (payload.crushing) {
+        setCrushingFloaters((list) => [...list, { id }]);
+        setTimeout(() => setCrushingFloaters((list) => list.filter((f) => f.id !== id)), 1000);
+        const panel = combatPanelRef.current;
+        const reduceMotion = typeof window !== 'undefined' && window.matchMedia
+          && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (panel && !reduceMotion) {
+          panel.classList.remove('combat-shake');
+          void panel.offsetWidth; // reflow so the shake restarts on a repeat big hit
+          panel.classList.add('combat-shake');
+          setTimeout(() => panel.classList.remove('combat-shake'), 320);
+        }
+      }
+      if (payload.magnificent) {
+        setMagnificentBanners((list) => [...list, { id }]);
+        setTimeout(() => setMagnificentBanners((list) => list.filter((f) => f.id !== id)), 1700);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!monster) return null;
 
   const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
@@ -536,11 +615,11 @@ export default function CombatScreen({ state, Game, act }) {
   }
 
   return (
-    <div className={'combat-panel' + (monster.isBoss ? ' boss-combat' : '')}>
+    <div className={'combat-panel' + (monster.isBoss ? ' boss-combat' : '')} ref={combatPanelRef}>
       <div className="monster-info">
         <div className={'monster-name ' + tierClass}>{tierGlyph(monster.isBoss, monster.tier)} {monster.name}</div>
         <div className="monster-hp-bar">
-          <div className="monster-hp-fill" style={{ width: Math.max(0, hpRatio * 100) + '%' }} />
+          <div className="monster-hp-fill" ref={hpFillRef} style={{ width: Math.max(0, hpRatio * 100) + '%' }} />
         </div>
         <div className="monster-hp-text">{monster.hp} / {monster.maxHp} HP</div>
         <div className="monster-weakness">Weakness: {trait.hint}</div>
@@ -554,7 +633,17 @@ export default function CombatScreen({ state, Game, act }) {
             Combo x{combo} &middot; +{Math.min(combo, 5) * 12}%
           </div>
         )}
+        {damageNumbers.map((d) => (
+          <div key={d.id} className={'damage-number ' + d.cls} style={{
+            left: 'calc(50% + ' + d.offsetX + 'px)',
+            top: 'calc(50% + ' + d.offsetY + 'px)',
+            fontSize: (1.5 * d.scale) + 'rem',
+            transform: 'translate(-50%, -50%)'
+          }}>{d.damage}</div>
+        ))}
+        {crushingFloaters.map((f) => <div key={f.id} className="crushing-floater">CRUSHING!</div>)}
       </div>
+      {magnificentBanners.map((f) => <div key={f.id} className="magnificent-banner">MAGNIFICENT!</div>)}
 
       {monster.duel && state.duel && (
         // approachingCrescendoSecondsAway is now live: game.js's
