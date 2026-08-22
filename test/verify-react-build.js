@@ -200,6 +200,75 @@ async function main() {
       check('the staging area is empty again after unstaging', await page.evaluate(() =>
         document.querySelectorAll('.staging-area .staged-tile').length === 0,
       ));
+
+      // COMBAT JUICE ticket (GOALS.md), this run: the FLIP position-slide
+      // (flipTileTo, CombatScreen.jsx) -- a staged/unstaged tile should
+      // slide from its old on-screen position to its new one, rather than
+      // popping instantly. jsdom/Vitest can't observe this at all (no real
+      // requestAnimationFrame, no real layout -- see CombatScreen.test.jsx's
+      // own note), so this is the first and only place it's actually
+      // provable. Reading the transient invert-transform style directly
+      // (via a point-in-time evaluate() read) turned out NOT to be a
+      // reliable way to prove this fired: a raw `el.click()` dispatched
+      // from inside page.evaluate() does not reliably get React's
+      // useReducer-driven re-render (bump()) flushed before evaluate()
+      // returns (confirmed directly -- the engine's own state.selectedTileIds
+      // updates synchronously since Game.selectTileForWord mutates it
+      // in-place, but the DOM commit lagged behind in every observed run),
+      // and a separate follow-up evaluate() read races the double-rAF
+      // release the other direction (its own real round-trip latency can
+      // land after the release already fired). Instrumenting
+      // requestAnimationFrame itself sidesteps both races: it counts real
+      // invocations into a page-global as they happen, inside the browser's
+      // own event loop, with no CDP round trip in between -- polling that
+      // counter afterward proves flipTileTo's double-rAF genuinely
+      // scheduled (i.e. its own delta-too-small early-return did NOT
+      // trigger), which only happens if the invert transform was really
+      // set, without needing to catch its exact transient value.
+      await page.evaluate(() => {
+        window.__rafCount = 0;
+        const orig = window.requestAnimationFrame.bind(window);
+        window.__unpatchRaf = () => { window.requestAnimationFrame = orig; };
+        window.requestAnimationFrame = (cb) => orig((t) => { window.__rafCount++; cb(t); });
+      });
+      const rackTileForFlip = page.locator('.rack-display .letter-tile:not([disabled])').first();
+      const flipCandidateCount = await rackTileForFlip.count();
+      if (flipCandidateCount > 0) {
+        await rackTileForFlip.click();
+        const stagedAfterFlipClick = await page.evaluate(() =>
+          document.querySelectorAll('.staging-area .staged-tile').length === 1);
+        check('re-staging a tile for the FLIP check landed it in the staging area', stagedAfterFlipClick);
+        if (stagedAfterFlipClick) {
+          const rafFired = await page.waitForFunction(() => window.__rafCount >= 2, { timeout: 2000 })
+            .then(() => true).catch(() => false);
+          check('staging a tile schedules the real FLIP double-rAF release (the invert transform was genuinely set, not skipped by the too-small-delta guard)', rafFired);
+          const flipSettled = await page.evaluate(() => {
+            const stagedEl = document.querySelector('.staging-area .staged-tile');
+            return stagedEl ? stagedEl.style.transform : null;
+          });
+          check('the FLIP transform clears back to identity once the slide finishes', flipSettled === '');
+        }
+        await page.evaluate(() => window.__unpatchRaf());
+        // Clean up: unstage again so the checks below (typed-word
+        // playthrough, mobile layout) start from a fully-unstaged rack,
+        // matching every other check block's own convention. This unstage
+        // triggers its OWN FLIP slide back into the rack -- waiting past its
+        // 0.2s ease-out (not just confirming state.selectedTileIds is
+        // empty) matters here specifically because the position-sensitive
+        // checks right after this block (staged-tile drag, then native
+        // drag-and-drop) read real getBoundingClientRect() coordinates off
+        // these same rack tiles; a still-mid-transition inline transform
+        // left over from this cleanup click was caught making those
+        // checks intermittently target the wrong on-screen spot.
+        await page.click('.staging-area .staged-tile');
+        await page.waitForTimeout(300);
+        check('staging area is empty again after the FLIP check', await page.evaluate(() =>
+          document.querySelectorAll('.staging-area .staged-tile').length === 0,
+        ));
+      } else {
+        await page.evaluate(() => window.__unpatchRaf());
+        console.log('  (no rack tile available to re-stage for the FLIP check -- skipped)');
+      }
     }
 
     // STRUCTURAL ticket, remaining scope (c) (GOALS.md), this run: the
@@ -240,6 +309,14 @@ async function main() {
     }
     if (stagedForDrag.length === 2) {
       check('two rack tiles were staged for the staged-tile drag check', true);
+      // COMBAT JUICE ticket (GOALS.md), this run: each of the two stage
+      // clicks above now triggers a real FLIP slide (flipTileTo) on the
+      // tile landing in the staging area. boundingBox() below reads real
+      // on-screen coordinates to drive the drag gesture -- wait past the
+      // 0.2s ease-out first so it measures the tiles at rest, not
+      // mid-transition (same hazard as the native rack drag-and-drop check
+      // further down, which this file's own comment there documents).
+      await page.waitForTimeout(300);
       const stagedTiles = page.locator('.staging-area .staged-tile');
       const firstBox = await stagedTiles.first().boundingBox();
       const secondBox = await stagedTiles.last().boundingBox();
@@ -304,6 +381,14 @@ async function main() {
       await page.click('.staging-area .staged-tile');
       check('staging area is fully clean again before the next check',
         await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.length === 0));
+      // COMBAT JUICE ticket (GOALS.md), this run: this unstage now triggers
+      // a real FLIP slide (CombatScreen.jsx's flipTileTo) on the tile that
+      // just landed back in the rack. The very next check below reads real
+      // getBoundingClientRect()-derived coordinates off rack tiles
+      // (dragTo()) -- a still-mid-transition inline transform on that tile
+      // was caught throwing the drag target off. Wait past the 0.2s
+      // ease-out before any further position-sensitive check runs.
+      await page.waitForTimeout(300);
     } else {
       console.log('  (fewer than 2 enabled non-blank rack tiles at this point -- staged-tile drag check skipped)');
     }

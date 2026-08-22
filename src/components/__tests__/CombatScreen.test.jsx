@@ -268,6 +268,41 @@ describe('CombatScreen', () => {
     expect(backInRackAfter.className).not.toContain('tile-settle');
   });
 
+  // COMBAT JUICE ticket (GOALS.md): the FLIP position-slide (flipTileTo,
+  // module-level in CombatScreen.jsx) is guarded on requestAnimationFrame,
+  // which jsdom has none of (confirmed directly, same convention as this
+  // file's own duel-tick loop and the touch-mode matchMedia guard) -- so it
+  // is a TRUE no-op under Vitest/RTL by design, not something these tests
+  // can observe actually animating. What they CAN and DO verify: the
+  // capture/lookup wiring (a stable data-flip-tile-id present on a rack
+  // tile AND its staging-area counterpart, which is what captureFlipFrom/
+  // the useLayoutEffect look tiles up by) survives a real stage/unstage
+  // without throwing or leaving a stray inline transform behind. Uses
+  // data-flip-tile-id specifically, NOT the pre-existing data-tile-id
+  // staged tiles already carry -- see CombatScreen.jsx's own header comment
+  // on why those two must stay separate (giving the rack tile a
+  // data-tile-id too was tried first and accidentally reactivated game.js's
+  // own private, normally-inert flipTile() calls, a real bug caught by
+  // test:react-build, not by this file -- jsdom's fake getBoundingClientRect
+  // can't reproduce it, which is exactly why this test asserts the
+  // attribute wiring rather than trying to). The real visual slide itself
+  // is verified for real in a real browser by test:react-build.
+  it('rack tiles carry a stable data-flip-tile-id the FLIP mechanism can look up by, on both sides of a stage/unstage', async () => {
+    const state = startFight();
+    render(<Harness />);
+    const tile = state.player.rack[0];
+    const tileBtn = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    expect(tileBtn.getAttribute('data-flip-tile-id')).toBe(tile.id);
+    fireEvent.click(tileBtn); // stage
+    const staged = document.querySelector('.staging-area .staged-tile');
+    expect(staged.getAttribute('data-flip-tile-id')).toBe(tile.id);
+    expect(staged.style.transform).toBe('');
+    fireEvent.click(staged); // unstage
+    const backInRack = screen.getAllByRole('button').find((b) => b.textContent.startsWith(tile.letter === '?' ? '★' : tile.letter));
+    expect(backInRack.getAttribute('data-flip-tile-id')).toBe(tile.id);
+    expect(backInRack.style.transform).toBe('');
+  });
+
   // STRUCTURAL remaining-scope (c) step 1 (GOALS.md): now that
   // main.jsx/src/test/setup.js actually call Game.applyTouchModeFromMedia()
   // (previously nothing did, so state.touchMode was always false in the

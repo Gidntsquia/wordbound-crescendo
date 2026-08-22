@@ -1022,6 +1022,112 @@ Rules for the routine:
       landed `Game.*` hook + its animations (bigger, unblocks 4 of the
       bullet's items at once). DUEL-GAUGE COMBAT's boss-reskin blocker
       above is unrelated to this ticket and still needs a design call.
+      ORCHESTRATOR NOTE 2026-08-22 (update 2): picked up update-1's own
+      "Next" note's smaller option -- the FLIP position-slide
+      (`flipTile`/`markSettle`'s transform-based move, the counterpart to
+      last run's `.tile-settle` CSS flash). Built `flipTileTo()` (module-
+      level in `src/components/CombatScreen.jsx`) as a direct, native
+      reimplementation of game.js's private `flipTile(fromRect, toEl)` --
+      same invert-transform-then-double-rAF technique, same
+      reduced-motion/no-rAF guards -- wired via a new `captureFlipFrom`/
+      `pendingFlipFromRef`/`useLayoutEffect` block called from the same two
+      places vanilla's own `selectTileForWord`/`unstageTile` call
+      `flipTile` from (a real non-blank stage, and any unstage regardless
+      of trigger -- confirmed by grep, vanilla itself never flips on a
+      blank-picker stage or a drag/touch reorder either, so this doesn't
+      port that).
+      **A real bug found and fixed mid-run, not by any test suite --
+      caught only by test:react-build failing, the mandatory real-browser
+      gate doing exactly its job:** the first version gave the rack tile
+      button a `data-tile-id` attribute (the obvious choice, matching what
+      staged tiles already carry) so this file's own lookup could find it.
+      That had a side effect nothing here anticipated: game.js's own
+      PRIVATE `selectTileForWord`/`unstageTile` ALREADY call `flipTile`
+      internally, unconditionally, regardless of caller -- previously a
+      guaranteed no-op in the React tree only because `tileElIn`'s
+      `document.querySelector('[data-tile-id="..."]')` lookup inside
+      `#rack-display` found nothing (rack tiles had no such attribute
+      before this run). Adding `data-tile-id` there made THAT call start
+      resolving real elements too -- two independent flip mechanisms (this
+      file's new one, and game.js's own dormant one) fighting over the
+      same element's `transform`/`transition` on every stage/unstage.
+      `npx vitest run` stayed green throughout (jsdom's fake
+      `getBoundingClientRect` and missing `requestAnimationFrame` mean
+      neither mechanism does anything observable there), but
+      `npm run test:react-build` caught a real, reproducible regression:
+      the native-drag-and-drop check (`dragTo()`, sampling a rack tile's
+      real screen position) started failing consistently. Root-caused by
+      bisecting against the pre-change commit (confirmed clean 3/3 there)
+      and reading `tileElIn`'s call sites in `game.js` directly rather than
+      guessing. Fixed by giving the rack tile a namespaced
+      `data-flip-tile-id` attribute instead (added alongside, not
+      replacing, the staging-area tile's pre-existing `data-tile-id`,
+      which stays load-bearing for the staging-drag machinery) -- this
+      keeps game.js's own internal `flipTile` calls exactly as inert as
+      they already were before this run, with this file's mechanism as the
+      only one doing anything. Documented at length in
+      `CombatScreen.jsx`'s own header comment so the next person who
+      reaches for `data-tile-id` on a rack tile doesn't rediscover this.
+      **A second, related timing hazard found and fixed the same way (real
+      browser only, not visible in jsdom):** two PRE-EXISTING checks later
+      in `test/verify-react-build.js` (the staged-tile drag check's own
+      2-tile staging loop, and the staged-tile-drag block's own unstage
+      cleanup before the native rack-drag check) read real
+      `getBoundingClientRect()`/`boundingBox()` coordinates immediately
+      after a stage/unstage click, with no wait -- harmless before this
+      run (nothing animated), but now racing the new 0.2s FLIP transition.
+      Added a `page.waitForTimeout(300)` at both spots (not a broad,
+      blanket wait everywhere -- only where a position-sensitive read
+      immediately follows a stage/unstage) so those checks measure tiles
+      at rest, matching the same settle-wait already needed for this
+      ticket's own new FLIP-specific checks.
+      **Built, this run's own new checks:** `flipTileTo()`/the
+      capture/lookup wiring in `CombatScreen.jsx`; 1 new Vitest/RTL test
+      (`CombatScreen.test.jsx`) confirming `data-flip-tile-id` resolves on
+      both sides of a stage/unstage and that jsdom's no-rAF guard leaves no
+      stray inline transform (jsdom cannot observe the actual animation at
+      all -- no real `requestAnimationFrame`, confirmed directly, matching
+      this file's own established convention for the duel-tick loop and
+      touch-mode detection); a new real-browser block in
+      `test/verify-react-build.js` that does NOT try to catch the transient
+      invert-transform value directly (tried first, found genuinely
+      unreliable -- a raw `el.click()` inside `page.evaluate()` does not
+      reliably get React's re-render flushed before `evaluate()` returns,
+      and a separate follow-up `evaluate()` call can just as easily land
+      AFTER the double-rAF release already fired, so neither a same-call
+      nor a split-call read is trustworthy). Instead it instruments
+      `window.requestAnimationFrame` itself (counts real invocations into a
+      page-global, entirely inside the browser's own event loop, no CDP
+      round trip in between) and polls for the count to reach 2 -- proving
+      `flipTileTo`'s double-rAF genuinely scheduled (i.e. its own
+      delta-too-small early-return did NOT trigger), which only happens if
+      the invert transform was really set, without needing to catch its
+      exact transient value.
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED,
+      unaffected (no `game.js` change this run -- everything is
+      React-side). `npx vitest run`, 3 consecutive full-suite runs after
+      the `data-flip-tile-id` rename: **124/124 every time, zero flakes**
+      (up from 123 -- 1 new). `npm run build`: clean, 44 modules,
+      unchanged. `npm run test:react-build` (real browser, built output):
+      **5 consecutive clean runs** after both fixes above (the
+      `data-flip-tile-id` rename and the two added settle-waits) -- this
+      is the check that actually caught both regressions, so the repeat
+      count here matters more than usual. `npm run test:react-qa`,
+      `npm run test:mobile`, `npm run test:qa`, `npm run test:music-engine`,
+      `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED,
+      unaffected.
+      **Not done:** the damage/hit-animation bullet (floating numbers,
+      HP-bar flash, screen-shake, CRUSHING!/MAGNIFICENT! banners, ink
+      flash) is now the only real open piece of this ticket's original
+      three bullets -- still genuinely needs a new `Game.*` damage-landed
+      hook, per the ticket's own note (haptic feedback and the tile-settle
+      flash were both already done by earlier runs; the FLIP slide is done
+      as of this run). Ticket stays unchecked. **Next:** the damage-landed
+      `Game.*` hook + its animations is the last piece -- likely its own
+      multi-run push given it needs a new hook shape in `game.js`'s
+      `submitWord`, not just a React-side port. DUEL-GAUGE COMBAT's
+      boss-reskin blocker (documented in this ticket's update-1 note above)
+      is unrelated and still needs a Jaxon-adjacent design call.
 
 - [x] MUSIC ENGINE: a WebAudio sequencer the whole game builds on. Requirements:
       - A note-data format for a piece: tracks (melody/bass at minimum), tempo,

@@ -1,5 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { VolumeGauge } from './VolumeGauge.jsx';
+
+// FLIP position-slide (COMBAT JUICE ticket, GOALS.md) -- the counterpart to
+// CombatScreen's own tile-settle CSS flash below: a tile that just staged or
+// unstaged slides from its OLD screen position to its new one instead of
+// popping instantly. Mirrors js/wordbound/game.js's private flipTile(fromRect,
+// toEl) exactly (transform-only invert + double-rAF release into a real
+// transition) -- reimplemented here rather than called through Game.* because
+// it isn't exposed there at all (private, and reactTreeActive() would no-op
+// it even if it were -- it's hard-wired to wordbound.html's own DOM ids).
+// Guarded the same way vanilla's own flipTile is: reduced-motion, a missing
+// requestAnimationFrame (jsdom has none -- confirmed directly, same
+// convention as this file's duel-tick rAF loop and the touch-mode matchMedia
+// guard elsewhere in this codebase), or a sub-pixel move all bail out before
+// touching any style, so this is a true no-op under Vitest/RTL and only
+// verifiable for real in test:react-build (a real browser).
+function flipTileTo(fromRect, toEl) {
+  if (!fromRect || !toEl || typeof toEl.getBoundingClientRect !== 'function') return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (typeof window.requestAnimationFrame !== 'function') return;
+  const toRect = toEl.getBoundingClientRect();
+  const dx = fromRect.left - toRect.left;
+  const dy = fromRect.top - toRect.top;
+  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+  toEl.style.transition = 'none';
+  toEl.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      toEl.style.transition = 'transform 0.2s ease-out';
+      toEl.style.transform = '';
+    });
+  });
+}
 
 // React port of wordbound.html's #combat-panel (STRUCTURAL ticket, next
 // sub-step after the node map). Deliberately does NOT call game.js's
@@ -137,8 +169,18 @@ import { VolumeGauge } from './VolumeGauge.jsx';
 // rather than reading the shared state.settleTileIds array, since nothing
 // in the React tree ever consumed/cleared that array. The FLIP-style
 // position-SLIDE (flipTile, a distinct mechanism from the .tile-settle CSS
-// class -- see css/wordbound.css's own comment) remains genuinely
-// unported -- still open, real remaining COMBAT JUICE scope.
+// class -- see css/wordbound.css's own comment) is ALSO now ported -- see
+// the module-level flipTileTo() helper above and the
+// pendingFlipFromRef/captureFlipFrom block below, which reimplement it
+// natively for the same reason as tile-settle: game.js's own flipTile is a
+// private function, not exposed on Game.*, and is hard-wired to
+// wordbound.html's own DOM ids anyway. Captured at the exact same two call
+// sites vanilla's own selectTileForWord/unstageTile call flipTile from (the
+// real stage branch of a non-blank rack-tile click, and any unstage
+// regardless of trigger) -- NOT from the blank-picker's assignBlankLetter,
+// which game.js itself never flips either (confirmed by grep: only 2
+// flipTile call sites exist in game.js, and assignBlankLetter isn't one of
+// them).
 // game.js itself needed two small additive null-guards to make this safe:
 // syncWordInput()'s and selectTileForWord()'s `$('word-input')` DOM access
 // now checks the element exists first (same "no #word-input in the React
@@ -251,6 +293,10 @@ export default function CombatScreen({ state, Game, act }) {
   }
 
   function stageOrUnstage(tile) {
+    // FLIP capture BEFORE act() mutates state, same "only the real stage
+    // branch flips" condition as the setWord resync just below (a blank
+    // tile never actually moves here -- see this file's header comment).
+    if (tile.letter !== '?') captureFlipFrom(tile.id);
     act(() => Game.selectTileForWord(tile.id));
     // A blank tile is a genuine no-op here on desktop (game.js's
     // selectTileForWord returns immediately without touching
@@ -265,6 +311,11 @@ export default function CombatScreen({ state, Game, act }) {
   }
 
   function unstage(tileId) {
+    // FLIP capture BEFORE act() mutates state -- unconditional, matching
+    // game.js's own unstageTile, which always captures fromRect regardless
+    // of which UI affordance (rack empty-slot vs. staged-tile click)
+    // triggered the unstage.
+    captureFlipFrom(tileId);
     act(() => Game.unstageTile(tileId));
     setWord(Game.stagedWord());
   }
@@ -406,6 +457,55 @@ export default function CombatScreen({ state, Game, act }) {
   const prevSelectedTileIdsRef = useRef([]);
   useEffect(() => { prevSelectedTileIdsRef.current = state.selectedTileIds.slice(); });
 
+  // FLIP position-slide (COMBAT JUICE ticket, GOALS.md) -- see flipTileTo()'s
+  // own header comment above for the full reasoning. captureFlipFrom(tileId)
+  // is called synchronously, BEFORE act() mutates state, from the same two
+  // places game.js's own selectTileForWord/unstageTile capture fromRect: it
+  // reads the tile's CURRENT on-screen element and stashes its rect in a ref
+  // keyed by tile id. Because act()'s bump() schedules the re-render rather
+  // than forcing it synchronously, the DOM is still showing the OLD position
+  // at the moment this runs. useLayoutEffect (not useEffect -- must run and
+  // write styles BEFORE the browser paints the just-committed DOM, exactly
+  // like flipTile's own "set the inverted transform synchronously, then
+  // double-rAF into the real transition" technique) runs after every commit,
+  // consumes any pending capture, re-finds the SAME tile id's element (now on
+  // the other side, post-move) and flips it.
+  // Looked up by `data-flip-tile-id` -- a name deliberately DISTINCT from the
+  // pre-existing `data-tile-id` staged tiles already carry (for the staging-
+  // drag machinery's own `getAttribute('data-tile-id')` reads) -- caught the
+  // hard way, not assumed: giving the rack tile button a `data-tile-id` too
+  // (the obvious-looking choice) made game.js's OWN private, never-exposed
+  // flipTile() calls inside selectTileForWord/unstageTile ALSO start
+  // resolving real elements via their own tileElIn('rack-display', ...)
+  // lookups -- those calls run unconditionally regardless of caller and were
+  // only ever a no-op in the React tree because rack tiles had nothing
+  // matching `[data-tile-id="..."]` for them to find. That produced a real,
+  // reproducible bug: TWO independent flip mechanisms (game.js's own direct-
+  // DOM one, and this file's React-native one) fighting over the same
+  // element's transform/transition on every stage/unstage, confirmed to
+  // break test:react-build's native drag-and-drop check (dragTo() sampling a
+  // rack tile's real screen position mid-fight, while a second, uninvited
+  // animation from game.js's own call was also live on it). Using a private
+  // attribute name keeps game.js's own internal calls exactly as inert as
+  // they already were before this run -- this file's mechanism is the only
+  // one now doing anything.
+  const pendingFlipFromRef = useRef({});
+  function captureFlipFrom(tileId) {
+    if (typeof document === 'undefined') return;
+    const el = document.querySelector('[data-flip-tile-id="' + tileId + '"]');
+    if (el && el.getBoundingClientRect) pendingFlipFromRef.current[tileId] = el.getBoundingClientRect();
+  }
+  useLayoutEffect(() => {
+    const pending = pendingFlipFromRef.current;
+    const ids = Object.keys(pending);
+    if (!ids.length) return;
+    ids.forEach((tileId) => {
+      const fromRect = pending[tileId];
+      delete pending[tileId];
+      flipTileTo(fromRect, document.querySelector('[data-flip-tile-id="' + tileId + '"]'));
+    });
+  });
+
   if (!monster) return null;
 
   const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
@@ -514,6 +614,7 @@ export default function CombatScreen({ state, Game, act }) {
               type="button"
               draggable
               data-tile-index={index}
+              data-flip-tile-id={tile.id}
               className={'letter-tile' + bonusClass + (isHexed ? ' tile-hexed' : '') + (isNewTile ? ' new-tile' : '') + (justUnstaged ? ' tile-settle' : '')}
               disabled={isHexed}
               title={title}
@@ -602,6 +703,7 @@ export default function CombatScreen({ state, Game, act }) {
               key={tileId}
               type="button"
               data-tile-id={tileId}
+              data-flip-tile-id={tileId}
               className={'staged-tile' + bonusClass + (justStaged ? ' tile-settle' : '')}
               title={(variantTip ? variantTip + ' -- ' : '') + 'tap to remove'}
               onClick={() => unstageFromStagingArea(tileId)}
