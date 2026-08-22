@@ -22,7 +22,12 @@
 //      boss-reward panel -- the first mobile-layout check of the React
 //      reward-panel family (RewardScreens.jsx's `.treasure-panel` shape has
 //      never been checked at a mobile width before).
-//   3. Zero console/page errors and zero failed requests throughout.
+//   3. The run's LAST floor boss (floor 3, the Valkyrie Marshal, a SECOND
+//      real duel piece distinct from floor 1/2's Mountain King) -> claiming
+//      its item resolves to VICTORY through the exact same reward-panel
+//      plumbing, not a special-cased path (GOALS.md DUEL-GAUGE COMBAT
+//      ticket's boss-def cutover).
+//   4. Zero console/page errors and zero failed requests throughout.
 //
 // React re-render gotcha (GOALS.md STRUCTURAL update 2's own flagged trap):
 // jumping the run's map position to a boss node goes through
@@ -139,6 +144,32 @@ async function jumpToBossNode(page) {
 // equivalent of forcing hp=1, not a claim about real boss balance. The
 // actual killing blow is still a real word typed and submitted through the
 // real Play Word button either way.
+// Setup-only: neutralize the real-time tick-loop's ongoing enemy push the
+// instant a duel starts. GOALS.md DUEL-GAUGE COMBAT boss-def cutover found
+// this for real: Valkyrie Marshal's dynamics never drop below 0.5 (unlike
+// Mountain King's near-silent opening), so the continuous push at 'late'
+// tier (STAGE_TIER_BASE_PUSH.late=6 + intensity*INTENSITY_PUSH_SCALE=16, up
+// to 22/sec) can erode a real fight's gauge -- and even cost a health block
+// -- during the handful of real Playwright round trips (the two assertions
+// below, then killBossViaRealWord's own word lookup/fill/click) between
+// combat starting and the forced kill actually landing, occasionally
+// leaving the boss alive (and the fight screen gone) when
+// killBossViaRealWord expects a combat UI to still be there. Confirmed by
+// running this script 3x in a row: passed, passed, then hit exactly this
+// hang at the floor-3 (Valkyrie Marshal) phase, never at floor 1/2 (Mountain
+// King's near-zero opening intensity leaves this race harmless there).
+// Zeroing state.duelSequencer.getIntensity leaves only the tier's flat
+// STAGE_TIER_BASE_PUSH term (6/sec for late), safely smaller than any real
+// word's push (WORD_PUSH_SCALE=1 x wordScore, routinely >20) over these
+// same real round trips -- the duel-mode equivalent of freezing hp before a
+// forced kill, not a claim about real boss balance.
+async function neutralizeDuelPush(page) {
+  await page.evaluate(() => {
+    const state = window.Wordbound.Game._state;
+    if (state.duelSequencer) state.duelSequencer.getIntensity = () => 0;
+  });
+}
+
 async function killBossViaRealWord(page) {
   await page.evaluate(() => {
     const state = window.Wordbound.Game._state;
@@ -207,6 +238,7 @@ async function main() {
     // ---- Phase 1: boss kill -> tile reward -> boss item reward (claim path) ----
     await jumpToBossNode(page);
     await page.click('.node-pill.node-boss.node-current');
+    await neutralizeDuelPush(page); // see the function's own header comment -- closes a real race, not a defensive habit
     check(
       'boss combat starts via real click',
       await page.evaluate(() => window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true),
@@ -259,6 +291,7 @@ async function main() {
     await page.waitForTimeout(150);
     await jumpToBossNode(page);
     await page.click('.node-pill.node-boss.node-current');
+    await neutralizeDuelPush(page); // see the function's own header comment -- closes a real race, not a defensive habit
     check('boss #2 combat starts via real click', await page.evaluate(() => window.Wordbound.Game._state.combatActive === true));
 
     const word2 = await killBossViaRealWord(page);
@@ -285,6 +318,41 @@ async function main() {
     await page.waitForFunction((before) => window.Wordbound.Game._state.floorNumber > before, floorBeforeSkip, { timeout: 3000 });
     const floorAfterSkip = await page.evaluate(() => window.Wordbound.Game._state.floorNumber);
     check(`skip path: skipping the boss item still advances the floor (${floorBeforeSkip} -> ${floorAfterSkip})`, floorAfterSkip === floorBeforeSkip + 1);
+
+    // ---- Phase 3: floor-3 boss (the Valkyrie Marshal), a SECOND real duel --
+    // GOALS.md DUEL-GAUGE COMBAT ticket's boss-def cutover: boss_sovereign
+    // now carries a real `.piece` too (Ride of the Valkyries), same as
+    // boss_vowelmaw's Mountain King before it. Phases 1-2 above already
+    // proved the duel-win -> reward-panel flow for floor 1/2; this phase is
+    // new value, not a repeat -- it's the first real-browser proof that (a)
+    // a SECOND, independently-authored piece drives a real duel correctly
+    // through Game.startDuelFight/DuelCombat, not just Mountain King, and
+    // (b) beating the run's LAST floor boss resolves to VICTORY through the
+    // exact same tile-reward -> boss-item-reward plumbing every other boss
+    // kill uses (advanceFloor's own `floorNumber > TOTAL_FLOORS` check, no
+    // special-cased path) -- floorAfterSkip above already put this run on
+    // floor 3, so no floor jump is needed beyond finding its boss node.
+    await jumpToBossNode(page);
+    await page.click('.node-pill.node-boss.node-current');
+    await neutralizeDuelPush(page); // see the function's own header comment -- closes a real race, not a defensive habit
+    check(
+      'floor-3 boss combat starts via real click',
+      await page.evaluate(() => window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true),
+    );
+    check('floor-3 boss (Valkyrie Marshal) fights as a real duel too', await page.evaluate(() => window.Wordbound.Game._state.monster.duel === true));
+
+    const word3 = await killBossViaRealWord(page);
+    check(`floor-3 boss killed via a real submitted word (${word3})`, !!word3);
+    check('duel state is torn down right after the floor-3 kill', await page.evaluate(() => !window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer));
+
+    check('tile-reward panel visible after the floor-3 boss kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
+    await page.click('.treasure-choice-tile'); // real click: take a tile
+    check('after floor-3 tile pick: boss-reward panel visible', await page.isVisible('.treasure-panel:has-text("hoard")'));
+
+    await page.click('.treasure-panel:has-text("hoard") .treasure-choice'); // real click: claim the item
+    await page.waitForFunction(() => window.Wordbound.Game._state.screen === 'VICTORY', { timeout: 3000 });
+    check('claiming the LAST floor boss item triggers VICTORY, not another floor advance', await page.evaluate(() => window.Wordbound.Game._state.screen === 'VICTORY'));
+    check('VICTORY screen actually rendered', await page.isVisible('h1:has-text("Victory!")'));
 
     // ---- Errors across the whole run ----
     check('zero failed requests / 404s across the whole run', failedRequests.length === 0);

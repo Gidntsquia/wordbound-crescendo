@@ -3164,8 +3164,25 @@ async function main() {
     // (b) the FINAL boss (floor 3): the fight happens and beating it still
     // triggers VICTORY (the skipped-boss advanceFloor branch was removed, so
     // this confirms the real kill path still wins the run).
+    // Was boss_sovereign itself -- reskinned to the Valkyrie Marshal (GOALS.md
+    // DUEL-GAUGE COMBAT ticket, update-12's boss-def cutover): it now carries
+    // a real `.piece` and routes through Game.startDuelFight, which calls
+    // initAudioContext() uncaught, a hard jsdom crash (no window.AudioContext
+    // here), same hazard update-5's own note on boss_vowelmaw/boss_unabridged
+    // above already documents. This block's actual subject -- defeating the
+    // boss on the run's LAST floor triggers VICTORY, not floor-advance -- is
+    // boss-identity-agnostic in the real game.js logic (onMonsterDefeated
+    // only reads state.floorNumber vs. Floor.TOTAL_FLOORS, never which
+    // defId), and enterAndKillBoss's floorNumber/bossDefId args are already
+    // fully independent (a synthetic node, not real floor generation, per
+    // this helper's own body above) -- so pointing this at boss_unabridged
+    // (still turn-based) while keeping floorNumber at the real TOTAL_FLOORS
+    // preserves the exact same coverage with zero loss. The Valkyrie
+    // Marshal's own real duel-mode defeat is now real, harness-side
+    // territory (test:react-qa/test:qa's boss-reward flow, extended to a
+    // floor-3 duel by this same run -- see below).
     window.Wordbound.Game._clearSfxCallLog();
-    await enterAndKillBoss(window.Wordbound.Floor.TOTAL_FLOORS, 'boss_sovereign', 'boss-skip/floor3');
+    await enterAndKillBoss(window.Wordbound.Floor.TOTAL_FLOORS, 'boss_unabridged', 'boss-skip/floor3');
     check('boss-skip/floor3: beating the final boss triggers VICTORY', state.screen === 'VICTORY');
     // AUDIO ticket (GOALS.md, 2026-08-21): confirm the victory stinger fires
     // on a REAL end-to-end victory (not just an isolated endRun(true) call).

@@ -17,7 +17,12 @@
 //      floor advances. Panels asserted strictly sequential, never stacked.
 //   3. Skip path on the next floor's boss, at a 375px mobile viewport, with
 //      a horizontal-overflow and tap-target check on the new panel.
-//   4. Zero console errors / page errors across the whole run.
+//   4. The run's LAST floor boss (floor 3, the Valkyrie Marshal, a SECOND
+//      real duel piece distinct from floor 1's Mountain King) -> claiming
+//      its item resolves to VICTORY through the same reward-panel plumbing,
+//      not a special-cased path (GOALS.md DUEL-GAUGE COMBAT ticket's
+//      boss-def cutover).
+//   5. Zero console errors / page errors across the whole run.
 //
 // Test scaffolding notes (setup vs. interaction): jumping the run position
 // to the boss node and topping up player ink go through Game._state -- that's
@@ -323,6 +328,44 @@ async function main() {
   await page.waitForTimeout(100);
   const floorAfterSkip = await page.evaluate('window.Wordbound.Game._state.floorNumber');
   check('skip path: skipping the boss item still advances the floor (' + floorBeforeSkip + ' -> ' + floorAfterSkip + ')', floorAfterSkip === floorBeforeSkip + 1);
+
+  // ---- Phase 4: floor-3 boss (the Valkyrie Marshal) -- a SECOND real duel,
+  // and confirms the LAST floor boss resolves to VICTORY, not a floor
+  // advance (GOALS.md DUEL-GAUGE COMBAT ticket's boss-def cutover:
+  // boss_sovereign now carries a real `.piece` too, same as boss_vowelmaw's
+  // Mountain King before it). floorAfterSkip above already put this run on
+  // floor 3 (TOTAL_FLOORS), so only the boss-node jump is new here.
+  // fightUntilOver needs no duel-specific change (per Phase 2's own
+  // comment): wordbound.html has no rAF tick loop, so a duel-mode boss here
+  // never pushes back -- the same "submit real words until combat ends"
+  // loop that already carried floor 1/2's bosses works unchanged for this
+  // one too, real proof duel mode doesn't crash or hang the legacy page for
+  // a second, independently-authored piece.
+  await page.evaluate(`(function () {
+    var s = window.Wordbound.Game._state;
+    var floor = s.floor;
+    var lastRowNode = floor.nodes.find(function (n) { return n.row === floor.rows - 1; });
+    floor.nodes.forEach(function (n) { if (n.type !== 'boss') n.cleared = true; });
+    s.mapPositionNodeId = lastRowNode.id;
+    s.currentNodeId = null;
+    s.player.ink = 200;
+  })()`);
+  await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();');
+  await page.click('.node-pill.node-current');
+  check('floor-3 boss combat starts via real click', await page.evaluate('window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true'));
+  check('floor-3 boss (Valkyrie Marshal) fights as a real duel too', await page.evaluate('window.Wordbound.Game._state.monster.duel === true'));
+
+  const boss3Outcome = await fightUntilOver(page, 40);
+  check('floor-3 boss fight ends at the tile-reward screen (outcome: ' + boss3Outcome + ')', boss3Outcome === 'TILE_REWARD');
+  check('duel state is torn down right after the floor-3 kill', await page.evaluate('!window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer'));
+
+  await page.click('#tile-reward-choices .treasure-choice'); // real click: take a tile
+  check('after floor-3 tile pick: boss-reward panel visible', await page.isVisible('#boss-reward-panel'));
+
+  await page.click('#boss-reward-choices .treasure-choice'); // real click: claim the item
+  await page.waitForTimeout(150);
+  check('claiming the LAST floor boss item triggers VICTORY, not another floor advance', await page.evaluate('window.Wordbound.Game._state.screen === "VICTORY"'));
+  check('VICTORY screen actually visible', await page.isVisible('#screen-victory'));
 
   // ---- Errors across the whole run ----
   check('zero console/page errors across the whole QA run', errors.length === 0);

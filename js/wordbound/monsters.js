@@ -283,10 +283,22 @@
     // non-resistant target is ~30-36, occasionally 45-74) so the boss gets
     // at least 2 real turns to attack back -- the "escalating stakes
     // finale" target 4 and this def's own design note ask for.
-    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 85, attack: 8, floor: 3, goldDrop: [40, 60],
-    // Final boss: the only def with Enrage, so a run that drags this fight
-    // out gets meaningfully harder over time -- the escalating-stakes finale
-    // this ticket's design note asks for.
+    // DUEL-GAUGE COMBAT ticket (GOALS.md, update-11's "Next" note): reskinned
+    // into the Valkyrie Marshal, THEME.md's floor-3 boss, carrying
+    // Ride of the Valkyries -- same cutover shape as boss_vowelmaw's own
+    // Mountain King reskin above (update-5's playbook: piece +
+    // pushesToDefeat added, attack/intents/traitPhases left alone since
+    // they're still legitimately read by direct Monsters.createBoss unit
+    // coverage that never touches duel routing). pushesToDefeat:3 matches
+    // game.js's own `monster.isBoss ? 3 : 1` default, same as the other two
+    // bosses.
+    id: 'boss_sovereign', name: 'The Valkyrie Marshal', maxHp: 85, attack: 8, floor: 3, goldDrop: [40, 60],
+    piece: window.Wordbound.Pieces.valkyrieMarshal, pushesToDefeat: 3,
+    // Final (non-Podium) floor boss: the only def with Enrage, so a run that
+    // drags this fight out gets meaningfully harder over time -- the
+    // escalating-stakes finale this ticket's design note asks for. (Dead in
+    // duel mode per boss_vowelmaw's own note above -- kept for the
+    // still-valid isolated Intents-module unit coverage.)
     intents: ['enrage', 'hex'],
     // silentE -> lengthy (ticket's own suggested pairing): opens on its
     // named weakness, then broadens to rewarding long words in general once

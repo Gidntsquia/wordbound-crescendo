@@ -2417,6 +2417,108 @@ Rules for the routine:
       it implies. COMBAT JUICE's damage-landed hook remains available as a
       separate, lower-priority pickup whenever this queue is otherwise
       empty.
+      ORCHESTRATOR NOTE 2026-08-22 (update 12): the boss-def cutover itself
+      -- update-11's own "Next" note, following update-5's established
+      playbook for Mountain King exactly.
+      **Built:** `js/wordbound/monsters.js`'s `boss_sovereign` def is now
+      "The Valkyrie Marshal" (THEME.md's floor-3 boss), carrying
+      `piece: window.Wordbound.Pieces.valkyrieMarshal` and
+      `pushesToDefeat: 3` (matches the other two bosses' default);
+      `attack`/`intents`/`traitPhases` left untouched, same "still
+      legitimately read by direct `Monsters.createBoss` unit coverage"
+      reasoning as `boss_vowelmaw`'s own cutover. Load order needed no
+      change -- `valkyrie-marshal.js` was already sequenced ahead of
+      `monsters.js` in all three loaders since update-11 sequenced the
+      piece itself.
+      **Fixed exactly what broke** (update-5's own bar): `test/dom-check.js`'s
+      floor-3 boss-skip scenario (`enterAndKillBoss(TOTAL_FLOORS,
+      'boss_sovereign', 'boss-skip/floor3')`) would now hit the same
+      uncaught-`initAudioContext()`-in-jsdom crash update-5 found for
+      `boss_vowelmaw`, and a duel kill needs a WON PUSH, not the
+      hp=1/maxHp=1 one-word-kill setup that test used. This scenario is
+      genuinely about "the run's LAST floor boss defeat triggers VICTORY,
+      not a floor advance" (boss-identity-agnostic in the real
+      `advanceFloor`/`onMonsterDefeated` logic, confirmed by reading both),
+      and `enterAndKillBoss`'s `floorNumber`/`bossDefId` args are already
+      fully independent (a synthetic node, not real floor generation) --
+      so, same technique as update-5's own floor-1-to-floor-2 relocation,
+      repointed it at `boss_unabridged` (still turn-based) while keeping
+      `floorNumber` at the real `Floor.TOTAL_FLOORS`. Zero coverage loss,
+      confirmed by an identical `ALL CHECKS PASSED` (16/16) before and
+      after. The two isolated `Monsters.createBoss('boss_sovereign')` Enrage
+      unit tests (never touching `startCombat`/duel routing) needed no
+      change, same as update-5's own Mend-intent tests.
+      **Extended both real-browser QA scripts to a genuine SECOND real duel**
+      (update-11's own "Next" note named this explicitly): `test/
+      verify-react-qa-boss-reward.js` gained a Phase 3 and `test/
+      orchestrator-qa-boss-reward.js` a Phase 4 -- after their existing
+      floor-1/floor-2 phases (unchanged), both now reach the floor-3 boss,
+      confirm it fights as a real duel too (`state.monster.duel === true`),
+      kill it for real, and confirm claiming its item resolves to VICTORY
+      (not another floor advance) through the exact same reward-panel
+      plumbing every other boss kill uses -- `advanceFloor`'s own
+      `floorNumber > TOTAL_FLOORS` check, no special-cased path. The vanilla
+      script's `fightUntilOver` needed zero changes (confirmed, not
+      assumed): wordbound.html has no rAF tick loop, so a duel-mode boss
+      there never pushes back regardless of which piece it carries -- the
+      same "submit real words until combat ends" loop that already carried
+      Mountain King works unchanged for Valkyrie Marshal too.
+      **A real bug found and fixed, not shipped as a flake:** the React
+      script's floor-3 Phase 3 failed intermittently (~1/3 of runs, caught by
+      running the script 3x in a row before considering it done, per this
+      ticket's own established discipline) -- `killBossViaRealWord`'s
+      "force the gauge one point from winning" setup raced Valkyrie
+      Marshal's own real-time tick-loop pushback for the first time:
+      Mountain King opens near-silent (intensity ~0.05), so the handful of
+      real Playwright round trips between combat starting and the forced
+      kill landing were always harmless there, but Valkyrie Marshal's
+      dynamics never drop below 0.5 -- enough continuous push (late tier:
+      `STAGE_TIER_BASE_PUSH.late=6 + intensity*INTENSITY_PUSH_SCALE`, up to
+      22/sec) to occasionally erode the gauge (and even cost a health
+      block) during that same setup window, leaving the fight screen gone
+      by the time the script tried to submit its forced killing word --
+      root-caused by reading `Game.tickDuel`/`duel.js`'s push formula
+      directly, not guessed. Fixed with a new `neutralizeDuelPush(page)`
+      helper (zeroes `state.duelSequencer.getIntensity` the instant each
+      boss fight starts, applied to all three boss encounters for
+      consistency though only the floor-3 one needed it) -- leaves only the
+      tier's flat base-push term, safely smaller than any real word's push.
+      Confirmed the fix by running the script 5x consecutively clean after
+      landing it (up from a reproducible ~1/3 failure rate before).
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED (16/16),
+      confirmed identical check count before/after (only the floor-3
+      boss-skip block's def-id/comment changed). `npx vitest run`, 4
+      consecutive full-suite runs: 142/142 three times, one single failure
+      in `duelIntegration.test.js` (a REGULAR-combat test, never touching
+      any boss def) that reproduced in isolation as a pass (22/22) --
+      confirmed as the pre-existing, already-documented cross-file Vitest
+      timing flake (STRUCTURAL 14-16/N), not a regression from this run's
+      changes. `npm run build`: clean, 45 modules, unchanged. `npm run
+      test:react-build`: ALL CHECKS PASSED. `npm run test:react-qa`: **5
+      consecutive clean runs** after the `neutralizeDuelPush` fix (the
+      check that actually caught the race, so repeat count matters here).
+      `npm run test:qa`: 2 consecutive clean runs, including the new
+      floor-3 Phase 4. `npm run test:mobile`, `npm run test:react-duel-loss`,
+      `npm run test:music-engine`: ALL CHECKS PASSED, unaffected. `npm run
+      build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED, zip
+      confirmed to contain both piece files and the updated `monsters.js`.
+      **Not done:** the final Beethoven's-5th boss's piece remains the one
+      entirely unsequenced tier, and (per THEME.md) "the Podium" it belongs
+      to isn't a real floor4 the game generates yet -- both genuinely
+      outside this run's bounded scope. DUEL-GAUGE COMBAT stays unchecked.
+      No version bump, per this ticket's own established convention (a
+      sub-step, not full ticket completion). **Next:** the final boss is the
+      largest remaining piece -- composing Beethoven's 5th as a real,
+      sequenced piece (four movements as fight phases per THEME.md) AND
+      giving it somewhere to be fought (a real 4th-floor/"Podium" boss def
+      and floor-generation support, since `Floor.TOTAL_FLOORS` is 3 today)
+      is comparable to two tickets' worth of work, not a bounded hour --
+      whoever picks it up should scope piece-composition and
+      floor/def-plumbing as separate runs, the same split update-11/update-12
+      used for Valkyrie Marshal. Once that's done, DUEL-GAUGE COMBAT's own
+      four VERIFY-line pieces (real per-tier balance data, win, loss, and
+      now a THIRD real duel) are all complete. COMBAT JUICE's damage-landed
+      hook remains available as a separate, lower-priority pickup.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the
