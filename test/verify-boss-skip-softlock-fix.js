@@ -8,10 +8,12 @@
 // index one past the end of the array -- no current node, no combat, no valid
 // action, run permanently stuck, no error thrown.
 //
-// After the fix, skipping a floor-1/2 boss advances to the next floor (with no
-// tile/item reward -- the boss wasn't actually defeated), and skipping the
-// floor-3 boss ends the run in VICTORY (advanceFloor's existing end-of-game
-// path). Run with `node test/verify-boss-skip-softlock-fix.js`.
+// After the fix, skipping a floor-1/2/3 boss advances to the next floor (with
+// no tile/item reward -- the boss wasn't actually defeated), and skipping the
+// floor-4 boss (the real Floor.TOTAL_FLOORS since DUEL-GAUGE COMBAT's
+// floor/def-plumbing run added the "Podium") ends the run in VICTORY
+// (advanceFloor's existing end-of-game path). Run with
+// `node test/verify-boss-skip-softlock-fix.js`.
 
 const fs = require('fs');
 const path = require('path');
@@ -72,15 +74,22 @@ async function main() {
   await new Promise((r) => setTimeout(r, 50));
   check('skipping the floor-2 boss lands playable on floor 3', s.floorNumber === 3 && s.currentNodeIndex === 0 && s.screen === 'RUN');
 
-  // ---- Floor 3: skipping the final boss ends the run (VICTORY), not a strand ----
+  // ---- Floor 3: same skip, floor 4 ("the Podium") must be reachable ----
+  s.pendingEventSkipNextCombat = true;
+  s.currentNodeIndex = s.floor.nodes.length - 1;
+  Game.enterCurrentNode();
+  await new Promise((r) => setTimeout(r, 50));
+  check('skipping the floor-3 boss lands playable on floor 4', s.floorNumber === 4 && s.currentNodeIndex === 0 && s.screen === 'RUN');
+
+  // ---- Floor 4: skipping the final boss ends the run (VICTORY), not a strand ----
   s.pendingEventSkipNextCombat = true;
   s.currentNodeIndex = s.floor.nodes.length - 1;
   Game.enterCurrentNode();
   await new Promise((r) => setTimeout(r, 50));
   const victoryVisible = !document.getElementById('screen-victory').classList.contains('hidden');
-  check('skipping the floor-3 boss ends the run at the victory screen (no strand)', victoryVisible);
+  check('skipping the floor-4 boss ends the run at the victory screen (no strand)', victoryVisible);
 
-  check('zero uncaught errors across all three skips', errors.length === 0);
+  check('zero uncaught errors across all four skips', errors.length === 0);
   if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
 
   console.log('');

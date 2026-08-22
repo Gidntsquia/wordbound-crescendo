@@ -2809,7 +2809,7 @@
     // by renderRun() below -- only the run screen ever wants a floor class,
     // so every other screen (menu/character-select/game-over/victory) just
     // clears it back to the neutral backdrop.
-    if (document.body) document.body.classList.remove('floor-1', 'floor-2', 'floor-3');
+    if (document.body) document.body.classList.remove('floor-1', 'floor-2', 'floor-3', 'floor-4');
     $('howto-overlay').classList.toggle('hidden', !state.howToPlayOpen);
     renderBlankPicker();
     if (state.screen === 'MAIN_MENU') { show('screen-main-menu'); renderMainMenu(); return; }
@@ -2888,7 +2888,7 @@
   }
 
   function getFloorName(floorNumber) {
-    var names = { 1: 'The Overdue Aisles', 2: 'The Reference Wing', 3: 'The Binding' };
+    var names = { 1: 'The Overdue Aisles', 2: 'The Reference Wing', 3: 'The Binding', 4: 'The Podium' };
     return names[floorNumber] || '';
   }
 

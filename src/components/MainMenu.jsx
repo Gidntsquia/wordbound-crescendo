@@ -33,12 +33,12 @@ export default function MainMenu({ onNewRun, onHowToPlay }) {
     <div id="screen-main-menu" className="screen">
       <div className="panel main-menu-panel">
         <h1 className="game-title">WORDBOUND: CRESCENDO</h1>
-        <p className="version-info">v0.1</p>
+        <p className="version-info">v0.2</p>
         <p className="tagline">
           Spell your way through the Stacks. Every Loose Word has a weakness — find the word that hits it.
         </p>
         <p className="menu-goal">
-          Fight through 3 floors. Defeat each floor&apos;s boss to descend. Beat the floor 3 boss to win the run.
+          Fight through 4 floors. Defeat each floor&apos;s boss to descend. Beat the Maestro on the Podium to win the run.
         </p>
         <button className="btn btn-primary" onClick={onNewRun}>New Run</button>
         <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={onHowToPlay}>How to Play</button>

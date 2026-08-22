@@ -16,7 +16,7 @@ describe('RunScreen -- node map', () => {
     const state = freshRun(SEED);
     render(<RunScreen onBackToMenu={() => {}} />);
     expect(screen.getByText(`Ink ${state.player.ink} / ${state.player.maxInk}`)).toBeInTheDocument();
-    expect(screen.getByText(`Floor ${state.floorNumber} / 3`)).toBeInTheDocument();
+    expect(screen.getByText(`Floor ${state.floorNumber} / 4`)).toBeInTheDocument();
     expect(screen.getByText(`Seed: ${SEED}`)).toBeInTheDocument();
     // Every real combat-type node on the floor renders a "Foe" pill.
     expect(screen.getAllByText('Foe')).toHaveLength(state.floor.nodes.filter((n) => n.type === 'combat').length);
@@ -191,11 +191,13 @@ describe('RunScreen -- GAME_OVER / VICTORY', () => {
   it('clearing every floor resolves to a real VICTORY screen with the run stats', async () => {
     const state = freshRun(SEED);
     const user = userEvent.setup();
-    // Floor.TOTAL_FLOORS is 3; Game._advanceFloor() is exposed specifically
-    // so tests can drive floor transitions without a full floor clear (see
-    // game.js's own comment on the hook) -- the 4th advance takes
-    // floorNumber past TOTAL_FLOORS, which is exactly endRun(true)'s real
-    // victory condition.
+    // Floor.TOTAL_FLOORS is 4 (DUEL-GAUGE COMBAT's floor/def-plumbing run
+    // added the real floor-4 "Podium"); Game._advanceFloor() is exposed
+    // specifically so tests can drive floor transitions without a full
+    // floor clear (see game.js's own comment on the hook) -- the 5th
+    // advance takes floorNumber past TOTAL_FLOORS, which is exactly
+    // endRun(true)'s real victory condition.
+    window.Wordbound.Game._advanceFloor();
     window.Wordbound.Game._advanceFloor();
     window.Wordbound.Game._advanceFloor();
     window.Wordbound.Game._advanceFloor();
@@ -203,7 +205,7 @@ describe('RunScreen -- GAME_OVER / VICTORY', () => {
 
     render(<RunScreen onBackToMenu={() => {}} />);
     expect(screen.getByText('Victory!')).toBeInTheDocument();
-    expect(screen.getByText('You cleared all 3 floors. Wordbound complete.')).toBeInTheDocument();
+    expect(screen.getByText('You cleared all 4 floors. Wordbound complete.')).toBeInTheDocument();
     expect(screen.getByText(`Seed: ${SEED}`)).toBeInTheDocument();
     expect(screen.getByText('Floors Cleared')).toBeInTheDocument();
     expect(screen.queryByText(/^Ink \d+ \/ \d+$/)).not.toBeInTheDocument();

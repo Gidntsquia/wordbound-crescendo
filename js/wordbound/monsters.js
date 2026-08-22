@@ -309,6 +309,39 @@
       { hpThreshold: 0.5, traitId: 'lengthy' }
     ]
   });
+  bdef({
+    // DUEL-GAUGE COMBAT ticket (GOALS.md, floor/def-plumbing half of
+    // update-12/13's split): the real, reachable final boss -- THEME.md's
+    // "The Maestro," Floor 4 ("the Podium"), carrying Beethoven's 5th.
+    // maxHp continues the escalating trend past the floor-3 boss (85) --
+    // the true final fight, one step past "escalating stakes" again.
+    // pushesToDefeat:3 kept at the SAME value as the other two duel-mode
+    // bosses (not bumped to 4 to match the symphony's 4 movements) --
+    // deliberate: test/duel-balance-simulation.js's own 'boss' encounter
+    // kind hardcodes pushesToDefeat:3 for every tier including 'final'
+    // (checked directly before picking this number), so matching it keeps
+    // the boss's real balance consistent with the sim data already
+    // gathered for this piece (see PROGRESS.md's Beethoven's-5th findings).
+    // The "phase per movement" structure the bible asks for is expressed
+    // through the PIECE's own four tempo breakpoints and five crescendo
+    // markers (js/wordbound/pieces/beethoven-5th.js), not a redundant
+    // fifth game-mechanic layer on top.
+    id: 'boss_maestro', name: 'The Maestro', maxHp: 110, attack: 10, floor: 4, goldDrop: [55, 80],
+    piece: window.Wordbound.Pieces.beethoven5th, pushesToDefeat: 3,
+    // Dead in duel mode per boss_vowelmaw's own note above -- kept for the
+    // still-valid isolated Intents-module unit coverage. enrage/devour: the
+    // toughest combo in the roster, fitting the true final boss (enrage
+    // already reserved for boss_sovereign alone until now).
+    intents: ['enrage', 'devour'],
+    // rareSeeker -> doubled (this def's own pairing): opens demanding rare
+    // letters -- "utterly certain of the outcome," precise and unhurried --
+    // then, once wounded, rewards doubled letters, echoing the famous
+    // short-short-short-LONG Fate motif's own repetition.
+    traitPhases: [
+      { hpThreshold: 1.0, traitId: 'rareSeeker' },
+      { hpThreshold: 0.5, traitId: 'doubled' }
+    ]
+  });
 
   Monsters.createMonster = function (defId) {
     var def = MONSTER_DEFS[defId];

@@ -109,9 +109,10 @@ body {
 }
 
 /* Per-floor tint (FLOORS in THEME.md: 1 Overdue Aisles/warm parchment,
-   2 Reference Wing/cooler denser stacks, 3 The Binding/deep vault red) so
-   descending reads as moving somewhere, not just a number changing. Class
-   toggled on <body> by Game.render()/renderRun() (js/wordbound/game.js). */
+   2 Reference Wing/cooler denser stacks, 3 The Binding/deep vault red,
+   4 The Podium/the Maestro's own deep violet-gold) so descending reads as
+   moving somewhere, not just a number changing. Class toggled on <body> by
+   Game.render()/renderRun() (js/wordbound/game.js). */
 .wb-floor-tint {
   position: absolute;
   inset: 0;
@@ -121,6 +122,7 @@ body {
 body.floor-1 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(154, 122, 58, 0.12), transparent 65%); }
 body.floor-2 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(90, 110, 130, 0.11), transparent 65%); }
 body.floor-3 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(140, 60, 50, 0.13), transparent 65%); }
+body.floor-4 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(108, 70, 150, 0.15), transparent 65%); }
 
 /* Screen/panel transitions (GOALS.md FEEL review F3): map -> combat ->
    reward -> map was a hard cut everywhere. These fire once, exactly when an

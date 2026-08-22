@@ -1179,7 +1179,7 @@ Rules for the routine:
       asked for "at least one"); audible musicality is, as ever, Jaxon's
       call to make with real speakers.
 
-- [ ] DUEL-GAUGE COMBAT: the signature mechanic, per the header COMBAT MODEL /
+- [x] DUEL-GAUGE COMBAT: the signature mechanic, per the header COMBAT MODEL /
       HEALTH MODEL decisions (Jaxon, 2026-08-21 — this ticket REPLACES the older
       "boss attacks at crescendos" combat spec). EVERY fight is a real-time
       tug-of-war duel:
@@ -2638,6 +2638,122 @@ Rules for the routine:
       own four VERIFY-line pieces are all complete for real. COMBAT JUICE's
       damage-landed hook remains available as a separate, lower-priority
       pickup whenever this queue is otherwise empty.
+      ORCHESTRATOR NOTE 2026-08-22 (update 14): picked up update-13's own
+      "Next" note exactly as scoped -- the floor/def-plumbing half. This
+      closes the ticket's own stated acceptance bar, so it's checked off.
+      **Built:** `js/wordbound/monsters.js` gained `boss_maestro` ("The
+      Maestro," THEME.md's final boss), floor:4, carrying
+      `Pieces.beethoven5th`, `pushesToDefeat:3` (deliberately matched to the
+      other three bosses and to `test/duel-balance-simulation.js`'s own
+      hardcoded `pushesToDefeat:3` for every "boss" scenario including
+      'final' -- checked directly rather than bumping to 4 to mirror the
+      symphony's four movements, which are already expressed through the
+      PIECE's own four tempo breakpoints/five crescendo markers, not a
+      second redundant phase mechanic). maxHp:110 (escalating past the
+      floor-3 boss's 85), traitPhases rareSeeker->doubled (thematic: precise
+      and certain, then echoing the Fate motif's own repetition).
+      `js/wordbound/floor.js`: `Floor.TOTAL_FLOORS` 3 -> 4;
+      `ELITE_FLOOR_NUMBERS` deliberately left at `[2, 3]` (no elite on the
+      Podium -- a clean walk to the Maestro). `Floor.generateBranchingFloor`
+      (the LIVE floor generator -- confirmed by reading `game.js`'s
+      `startRun`/`advanceFloor`, both call the branching generator, not the
+      older linear `generateFloor`) needed ZERO further changes: its
+      tier/rest/shop/event logic already generalizes past floor 3 with no
+      floor-4-specific casing. `game.js`: `getFloorName` gained `4: 'The
+      Podium'`; the per-floor `<body>` tint classList clear gained
+      `floor-4`. `css/wordbound.css` gained a `body.floor-4` tint rule (deep
+      violet-gold). `MainMenu.jsx`/`wordbound.html`'s menu-goal text updated
+      from "3 floors... floor 3 boss" to "4 floors... the Maestro on the
+      Podium."
+      **Tests fixed as a direct, mechanical consequence of floor 3 no
+      longer being last** (grepped `TOTAL_FLOORS`/"floor 3"/"LAST floor"
+      across `test/*.js` and `src/**/__tests__` first, per update-13's own
+      instruction, rather than discovering breaks one at a time):
+      `test/dom-check.js`'s hardcoded boss-count check (3->4) and its
+      floor-tint classList assertion (added `floor-4`) -- the boss-skip/
+      VICTORY test itself needed NO change, since it already read
+      `Floor.TOTAL_FLOORS` dynamically rather than a literal 3 (confirmed
+      before editing, not assumed). `src/components/__tests__/
+      RunScreen.test.jsx`: the literal `/ 3` floor-label match, and the
+      victory test's `_advanceFloor()` call count (3->4) plus its "cleared
+      all 3 floors" text match (->4). `test/orchestrator-qa-boss-reward.js`
+      (test:qa) and `test/verify-react-qa-boss-reward.js` (test:react-qa)
+      both explicitly asserted "the floor-3 boss is the LAST floor boss,
+      claiming its item triggers VICTORY" -- restructured both: floor 3's
+      boss (Valkyrie Marshal) now asserted to advance to floor 4, and a NEW
+      phase added for floor 4's boss (the Maestro) asserting the real
+      VICTORY, reusing each script's existing generic boss-kill mechanism
+      (`fightUntilOver`'s real-word-submission loop for wordbound.html;
+      `killBossViaRealWord`'s forced-gauge-to-the-brink + one real word for
+      the React app) unchanged.
+      **A real, previously-latent bug found and fixed, not just papered
+      over:** `verify-react-qa-boss-reward.js`'s `killBossViaRealWord` used
+      a small FIXED `WORD_CANDIDATES` list (`RADIO`/`ROAD`/etc., an R/A/D/
+      I/O/E/N/T letter family) that happened to stay playable across floors
+      1-3 for the known seeded run, but returned null at the new floor-4
+      phase -- by then the deterministic seed's rack (after 3 real duel
+      kills' worth of tile/item rewards) no longer contained any of those
+      letters, and the script crashed waiting on a reward panel that never
+      appeared. A fixed list can never promise to stay playable against an
+      ever-changing deck. Fixed by porting `orchestrator-qa-boss-reward.js`'s
+      own robust technique (already used for wordbound.html, untouched by
+      this bug): build a real anagram-subset index from `window.Wordbound.
+      WORDLIST` against the LIVE rack, keeping the existing
+      `Combat.previewWord` validity check as a second safety net. Deleted
+      the now-dead `WORD_CANDIDATES` constant. This is a real robustness fix
+      for ANY future floor/seed combination, not just floor 4.
+      `test/verify-boss-skip-softlock-fix.js` (found stale, NOT wired into
+      any `npm` script or the mandatory gates -- confirmed by grepping
+      `package.json`, and confirmed ALREADY BROKEN on the base commit before
+      this run's changes via `git stash` + a clean re-run, so this is a
+      pre-existing, unrelated bug from the earlier branching-map cutover,
+      not something this run caused) got a textually-accurate update
+      anyway (floor-3/floor-4 skip semantics) since it directly encodes the
+      exact scenario this run changed -- but its real bug (it assumes the
+      OLD linear `generateFloor` node shape/`currentNodeIndex`, while the
+      game has run on `generateBranchingFloor` for a while) is untouched,
+      out of this run's scope, and flagged here for whoever next needs this
+      script for real. `test/duel-balance-simulation.js`'s header comment
+      (which explicitly said "no floor-4/Podium exists... schedulable but
+      not player-reachable") updated to reflect reality -- no code change,
+      since the sim never referenced real defs/maxHp at all (pushesToDefeat
+      is hardcoded per scenario kind, not read from monsters.js).
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED (17/17,
+      up from 16 -- boss-count assertion now checks 4). `npx vitest run`, 3
+      consecutive full-suite runs: **152/152 every time, zero flakes**
+      (unchanged count -- only fixed pre-existing hardcoded-3 assertions,
+      added none). `npm run build`: clean, 46 modules, unchanged. `npm run
+      test:mobile`: ALL CHECKS PASSED (touched CSS this run, so this gate
+      was mandatory, not opportunistic). `npm run test:qa`: ALL CHECKS
+      PASSED, including the new real floor-4 Maestro fight -> real VICTORY
+      in a real browser via wordbound.html's own turn-submission mechanism.
+      `npm run test:react-qa`: ALL CHECKS PASSED, including the new real
+      floor-4 Maestro duel -> real VICTORY in the React app, and the fixed
+      word-finder. `npm run test:react-build`: ALL CHECKS PASSED, run clean
+      (full playthrough + staging/drag/touch suite, unaffected). `npm run
+      test:react-duel-loss`: ALL CHECKS PASSED (Largo/i-frames/parry/Second
+      Wind/GAME_OVER, unaffected). `npm run test:music-engine`: ALL CHECKS
+      PASSED. `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS
+      PASSED, zip listing confirmed to contain `pieces/beethoven-5th.js`.
+      `node test/duel-balance-simulation.js`: same numbers as update-13's
+      own findings (final/boss/skilled 93%/8%, deterministic, confirmed
+      unchanged since the sim's math never referenced the new def).
+      **This closes DUEL-GAUGE COMBAT's stated acceptance bar** (all four
+      VERIFY-line pieces: mocked-clock unit tests, real-browser win AND
+      loss with zero console errors, the full migrated `npm test` suite --
+      all real and passing, confirmed this run and every run since the
+      duel mechanic first landed) -- checked off. **Genuinely-Jaxon-only,
+      flagged rather than blocking:** the VERIFY line's own "Real feel:
+      Jaxon's playtest" -- every fight (all 4 bosses, both directions of a
+      duel) is now real, playable, and mechanically verified end-to-end
+      with real ears/hands/timing NOT yet applied by an actual human;
+      flagging per this routine's own guardrails rather than blocking
+      further engine work on it. **Not done, correctly out of scope:**
+      BOSS ENTRANCE CUTSCENES and STOLEN LETTERS META-PROGRESSION (the
+      Maestro's hostage letter proposal, **Z**, per THEME.md) are separate,
+      already-queued tickets below -- this run only made the Maestro
+      real/reachable/beatable, not cinematic or meta-progression-integrated
+      yet.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

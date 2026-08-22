@@ -22,12 +22,16 @@
 //      boss-reward panel -- the first mobile-layout check of the React
 //      reward-panel family (RewardScreens.jsx's `.treasure-panel` shape has
 //      never been checked at a mobile width before).
-//   3. The run's LAST floor boss (floor 3, the Valkyrie Marshal, a SECOND
-//      real duel piece distinct from floor 1/2's Mountain King) -> claiming
-//      its item resolves to VICTORY through the exact same reward-panel
-//      plumbing, not a special-cased path (GOALS.md DUEL-GAUGE COMBAT
-//      ticket's boss-def cutover).
-//   4. Zero console/page errors and zero failed requests throughout.
+//   3. Floor 3's boss (the Valkyrie Marshal, a SECOND real duel piece
+//      distinct from floor 1/2's Mountain King) -> claiming its item
+//      advances to floor 4, NOT victory -- floor 3 is no longer the run's
+//      last floor (GOALS.md DUEL-GAUGE COMBAT ticket's floor/def-plumbing
+//      run added a real floor 4, "the Podium").
+//   4. The run's LAST floor boss (floor 4, the Maestro, a THIRD real duel
+//      piece -- Beethoven's 5th) -> claiming its item resolves to VICTORY
+//      through the exact same reward-panel plumbing, not a special-cased
+//      path.
+//   5. Zero console/page errors and zero failed requests throughout.
 //
 // React re-render gotcha (GOALS.md STRUCTURAL update 2's own flagged trap):
 // jumping the run's map position to a boss node goes through
@@ -72,7 +76,6 @@ const DIST_DIR = path.join(ROOT, 'dist', 'app');
 const PORT = 9883;
 const SEED = 'vitest-fixed-seed-1'; // same known-good seed the rest of the React suite relies on
 const CHARACTER_NAME = 'The Archivist';
-const WORD_CANDIDATES = ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE', 'RIOT', 'TRIO', 'TIRE', 'RITE'];
 
 const MIME_TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
@@ -180,9 +183,47 @@ async function killBossViaRealWord(page) {
       state.monster.hp = 1;
     }
   });
-  const word = await page.evaluate((candidates) => {
+  // Real rack -> real word, via the SAME anagram-subset technique
+  // orchestrator-qa-boss-reward.js's FIND_WORD_FN already uses for
+  // wordbound.html -- not the fixed WORD_CANDIDATES list this used to be.
+  // Found a real gap this run: by the floor-4 (Maestro) fight, the
+  // deterministic seed's rack (after 3 real duel kills' worth of tile/item
+  // rewards) no longer happened to contain any of WORD_CANDIDATES' fixed
+  // R/A/D/I/O/E/N/T family -- `killBossViaRealWord` returned null and the
+  // script crashed waiting on a reward panel that never appeared. A fixed
+  // list can't promise to stay playable against an ever-changing deck; a
+  // real subset lookup against the actual rack + real WORDLIST can, for any
+  // rack shape at any floor. Kept the existing `Combat.previewWord` validity
+  // check as a second real safety net (rejects a comboState/hex edge case
+  // the anagram index alone wouldn't know about) rather than trusting the
+  // index blindly.
+  const word = await page.evaluate(() => {
     const { Combat } = window.Wordbound;
     const state = window.Wordbound.Game._state;
+    if (!window.__anagramIndex) {
+      const idx = new Map();
+      const list = window.Wordbound.WORDLIST || [];
+      for (const w of list) {
+        if (w.length < 2 || w.length > 8) continue;
+        const key = w.split('').sort().join('');
+        if (!idx.has(key)) idx.set(key, w);
+      }
+      window.__anagramIndex = idx;
+    }
+    const rack = state.player.rack;
+    const letters = [];
+    for (const tile of rack) {
+      if (tile.letter !== '?' && tile.id !== state.hexedTileId) letters.push(tile.letter);
+    }
+    const n = letters.length;
+    const candidates = new Set();
+    for (let mask = 1; mask < (1 << n); mask++) {
+      const subset = [];
+      for (let b = 0; b < n; b++) if (mask & (1 << b)) subset.push(letters[b]);
+      if (subset.length < 2) continue;
+      const w = window.__anagramIndex.get(subset.slice().sort().join(''));
+      if (w) candidates.add(w);
+    }
     for (const w of candidates) {
       const preview = Combat.previewWord(state.player, state.monster, w, state.comboState, {
         previousWord: state.previousWordThisFight,
@@ -193,7 +234,7 @@ async function killBossViaRealWord(page) {
       if (preview && preview.valid) return w;
     }
     return null;
-  }, WORD_CANDIDATES);
+  });
   if (!word) return null;
   await page.fill('input[placeholder="Type or click letters..."]', word);
   await page.click('button:has-text("Play Word")');
@@ -324,14 +365,15 @@ async function main() {
     // now carries a real `.piece` too (Ride of the Valkyries), same as
     // boss_vowelmaw's Mountain King before it. Phases 1-2 above already
     // proved the duel-win -> reward-panel flow for floor 1/2; this phase is
-    // new value, not a repeat -- it's the first real-browser proof that (a)
-    // a SECOND, independently-authored piece drives a real duel correctly
-    // through Game.startDuelFight/DuelCombat, not just Mountain King, and
-    // (b) beating the run's LAST floor boss resolves to VICTORY through the
-    // exact same tile-reward -> boss-item-reward plumbing every other boss
-    // kill uses (advanceFloor's own `floorNumber > TOTAL_FLOORS` check, no
-    // special-cased path) -- floorAfterSkip above already put this run on
-    // floor 3, so no floor jump is needed beyond finding its boss node.
+    // new value, not a repeat -- it's the first real-browser proof that a
+    // SECOND, independently-authored piece drives a real duel correctly
+    // through Game.startDuelFight/DuelCombat, not just Mountain King. Floor
+    // 3 is NO LONGER the LAST floor (the floor/def-plumbing run added a
+    // real floor 4, "the Podium") -- this phase now confirms beating it
+    // advances the floor, same as every non-final boss; the real VICTORY
+    // check moves to Phase 4 below, against the real final boss.
+    // floorAfterSkip above already put this run on floor 3, so no floor
+    // jump is needed beyond finding its boss node.
     await jumpToBossNode(page);
     await page.click('.node-pill.node-boss.node-current');
     await neutralizeDuelPush(page); // see the function's own header comment -- closes a real race, not a defensive habit
@@ -346,8 +388,41 @@ async function main() {
     check('duel state is torn down right after the floor-3 kill', await page.evaluate(() => !window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer));
 
     check('tile-reward panel visible after the floor-3 boss kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
+    const floorBeforeFloor3Claim = await page.evaluate(() => window.Wordbound.Game._state.floorNumber);
     await page.click('.treasure-choice-tile'); // real click: take a tile
     check('after floor-3 tile pick: boss-reward panel visible', await page.isVisible('.treasure-panel:has-text("hoard")'));
+
+    await page.click('.treasure-panel:has-text("hoard") .treasure-choice'); // real click: claim the item
+    await page.waitForFunction((before) => window.Wordbound.Game._state.floorNumber > before, floorBeforeFloor3Claim, { timeout: 3000 });
+    const floorAfterFloor3Claim = await page.evaluate(() => window.Wordbound.Game._state.floorNumber);
+    check(`claiming the floor-3 boss item advances to floor 4, not VICTORY (${floorBeforeFloor3Claim} -> ${floorAfterFloor3Claim})`,
+      floorAfterFloor3Claim === floorBeforeFloor3Claim + 1 && (await page.evaluate(() => window.Wordbound.Game._state.screen === 'RUN')));
+
+    // ---- Phase 4: floor-4 boss (the Maestro, "the Podium") -- the REAL
+    // last floor boss now that DUEL-GAUGE COMBAT's floor/def-plumbing run
+    // wired Floor.TOTAL_FLOORS to 4 and boss_maestro carries Beethoven's
+    // 5th. This is the first real-browser proof that a THIRD,
+    // independently-authored piece drives a real duel correctly, and that
+    // beating the run's true LAST floor boss resolves to VICTORY through
+    // the exact same tile-reward -> boss-item-reward plumbing every other
+    // boss kill uses (advanceFloor's own `floorNumber > TOTAL_FLOORS`
+    // check, no special-cased path).
+    await jumpToBossNode(page);
+    await page.click('.node-pill.node-boss.node-current');
+    await neutralizeDuelPush(page); // see the function's own header comment -- closes a real race, not a defensive habit
+    check(
+      'floor-4 boss combat starts via real click',
+      await page.evaluate(() => window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true),
+    );
+    check('floor-4 boss (the Maestro) fights as a real duel too', await page.evaluate(() => window.Wordbound.Game._state.monster.duel === true));
+
+    const word4 = await killBossViaRealWord(page);
+    check(`floor-4 boss killed via a real submitted word (${word4})`, !!word4);
+    check('duel state is torn down right after the floor-4 kill', await page.evaluate(() => !window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer));
+
+    check('tile-reward panel visible after the floor-4 boss kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
+    await page.click('.treasure-choice-tile'); // real click: take a tile
+    check('after floor-4 tile pick: boss-reward panel visible', await page.isVisible('.treasure-panel:has-text("hoard")'));
 
     await page.click('.treasure-panel:has-text("hoard") .treasure-choice'); // real click: claim the item
     await page.waitForFunction(() => window.Wordbound.Game._state.screen === 'VICTORY', { timeout: 3000 });

@@ -26,7 +26,14 @@
   window.Wordbound = window.Wordbound || {};
   var Floor = (window.Wordbound.Floor = {});
 
-  Floor.TOTAL_FLOORS = 3;
+  // DUEL-GAUGE COMBAT ticket (GOALS.md, floor/def-plumbing half): 3 -> 4,
+  // the real "Podium" floor (THEME.md) now exists as a real, reachable boss
+  // def (boss_maestro, monsters.js). ELITE_FLOOR_NUMBERS deliberately stays
+  // [2, 3] -- no elite on floor 4, the true final gauntlet stays a clean
+  // walk to the Maestro, not diluted by a distracting elite detour.
+  // getAllowedTiers/hasRest/hasEvent below all already generalize past
+  // floor 3 with no further change needed (checked directly, not assumed).
+  Floor.TOTAL_FLOORS = 4;
   Floor.ELITE_FLOOR_NUMBERS = [2, 3];
 
   // FUN OVERHAUL 6/8 (GOALS.md, 2026-08-20): the three RESISTANCE traits

@@ -29,12 +29,12 @@
 //     STAGE_TIER_BASE_PUSH/INTENSITY_PUSH_SCALE sanity, NOT a substitute for
 //     simulating the tier's eventual real piece once one exists -- rerun
 //     this script (or extend TIER_CONFIGS to point at a real piece) once an
-//     early-tier regular gets sequenced. Beethoven's 5th itself is NOT yet
-//     wired into a real, reachable boss def (no floor-4/"Podium" exists in
-//     Floor.TOTAL_FLOORS today) -- these final-tier numbers are
-//     schedulable/balance-simmable but not yet player-reachable, same state
-//     Mountain King/Valkyrie Marshal were each in before their own later
-//     boss-def cutover runs.
+//     early-tier regular gets sequenced. Beethoven's 5th is now wired into a
+//     real, reachable boss def too (boss_maestro, floor 4/"the Podium" --
+//     DUEL-GAUGE COMBAT's floor/def-plumbing run, which also bumped
+//     Floor.TOTAL_FLOORS to 4) -- the final-tier numbers below are real
+//     player-reachable balance data, not just schedulable/simmable-only
+//     numbers.
 //   - Each simulated duel starts fresh at Duel.DEFAULT_HEALTH_BLOCKS (5).
 //     Cross-fight health attrition across a whole run (player.healthBlocks
 //     carried between duels) is explicitly out of scope here -- this
@@ -42,7 +42,9 @@
 //     intended, which is what the ticket's VERIFY line asks for.
 //   - pushesToDefeat: 1 for "regular" (game.js's own default for a
 //     non-boss), 3 for "boss" (game.js's own `monster.isBoss ? 3 : 1`
-//     default, and the exact value boss_vowelmaw/Mountain King uses today).
+//     default, and the exact value all four real bosses use today --
+//     Mountain King, the Unabridged Terror, the Valkyrie Marshal, and the
+//     Maestro alike).
 //   - Largo (the tempo-scale accessibility assist) is NOT modeled here --
 //     already has its own real-browser verification (test:react-duel-loss).
 //
