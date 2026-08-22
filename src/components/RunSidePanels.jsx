@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // React port of the run-header's always-available side surfaces (STRUCTURAL
 // ticket, parity gap found 2026-08-21: wordbound.html's #items-owned strip,
@@ -141,16 +141,11 @@ export function ConsumablesPanel({ state, Game, act }) {
   );
 }
 
-// Direct port of the run-header's Deck/Consumables buttons + music
-// toggle/volume slider (wordbound.html's `.run-header-actions`). Reads
-// Game.getAudioSettings() fresh every render -- audioSettings lives in
-// game.js's own closure, not `state`, so it isn't part of the object
-// RunScreen's `bump` re-reads automatically, but every control here routes
-// through `act()`, which bumps after calling the real Game.* mutator, same
-// as everywhere else in this run's action-then-bump pattern.
+// Direct port of the run-header's Deck/Consumables buttons (wordbound.html's
+// `.run-header-actions`). The music mute/volume + Largo assist used to live
+// here too (see SettingsCorner below, PLAYTEST FINDINGS 3 item 3/4) -- moved
+// out into a corner settings panel so the run header itself stays lean.
 export function RunHeaderActions({ state, Game, act }) {
-  const audio = Game.getAudioSettings();
-  const largoEnabled = Game.getLargoEnabled();
   return (
     <div className="run-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <button className="btn btn-secondary run-header-btn" onClick={() => act(Game.openDeckViewer)}>
@@ -163,36 +158,63 @@ export function RunHeaderActions({ state, Game, act }) {
       >
         Consumables
       </button>
-      {/* DUEL-GAUGE COMBAT ticket, header Accessibility bullet: "Largo"
-          assist -- a global tempo-scale slowdown for a duel's music,
-          "clearly labeled, no shame". A plain persistent toggle (not a
-          combat-only control) so it's visible and available at all times,
-          same header-level placement as the music controls beside it;
-          Game.setLargoEnabled applies live to an in-progress duel too. */}
+    </div>
+  );
+}
+
+// PLAYTEST FINDINGS 3 (GOALS.md), items 3 + 4: Jaxon didn't know what "Largo"
+// meant (the label failed as UI copy) and wanted mute/volume tucked away
+// instead of sitting in the main run header. Both controls -- plus the
+// renamed Largo assist -- now live behind a single gear button fixed in a
+// bottom screen corner, out of the main combat-loop sightline (the header
+// above still shows only Deck/Consumables; the duel-loop chrome itself --
+// Volume gauge, enemy segments, Verses pips, rack -- is untouched by this).
+// Reads Game.getAudioSettings()/Game.getLargoEnabled() fresh every render for
+// the same reason RunHeaderActions used to: both live in game.js's own
+// closure, not `state`, so every control here routes through `act()` to bump
+// after calling the real Game.* mutator.
+export function SettingsCorner({ state, Game, act }) {
+  const [open, setOpen] = useState(false);
+  const audio = Game.getAudioSettings();
+  const largoEnabled = Game.getLargoEnabled();
+  return (
+    <div className="settings-corner">
+      {open && (
+        <div className="settings-panel">
+          <div className="settings-panel-row">
+            <button
+              className="btn btn-secondary music-toggle-btn"
+              onClick={() => act(Game.toggleMusicMute)}
+            >
+              {audio.muted ? '🔇' : '🔊'}
+            </button>
+            <input
+              id="music-volume"
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round(audio.volume * 100)}
+              style={{ width: 80, cursor: 'pointer' }}
+              onChange={(e) => act(() => Game.setMusicVolume(Number(e.target.value) / 100))}
+            />
+          </div>
+          <button
+            className={'btn btn-secondary settings-panel-row largo-toggle-btn' + (largoEnabled ? ' largo-toggle-btn-on' : '')}
+            title="Slows a duel's music for an easier pace. An accessibility assist -- no shame in using it."
+            onClick={() => act(() => Game.setLargoEnabled(!largoEnabled))}
+          >
+            🐢 Slower music (easier){largoEnabled ? ': On' : ''}
+          </button>
+        </div>
+      )}
       <button
-        className={'btn btn-secondary run-header-btn largo-toggle-btn' + (largoEnabled ? ' largo-toggle-btn-on' : '')}
-        title="Largo: slow a duel's music for an easier pace. An accessibility assist -- no shame in using it."
-        onClick={() => act(() => Game.setLargoEnabled(!largoEnabled))}
+        className="settings-corner-btn"
+        title="Settings"
+        aria-label="Settings"
+        onClick={() => setOpen((o) => !o)}
       >
-        🐢 Largo{largoEnabled ? ': On' : ''}
+        ⚙️
       </button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button
-          className="btn btn-secondary music-toggle-btn"
-          onClick={() => act(Game.toggleMusicMute)}
-        >
-          {audio.muted ? '🔇' : '🔊'}
-        </button>
-        <input
-          id="music-volume"
-          type="range"
-          min="0"
-          max="100"
-          value={Math.round(audio.volume * 100)}
-          style={{ width: 80, cursor: 'pointer' }}
-          onChange={(e) => act(() => Game.setMusicVolume(Number(e.target.value) / 100))}
-        />
-      </div>
     </div>
   );
 }

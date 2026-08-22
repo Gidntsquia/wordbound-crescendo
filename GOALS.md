@@ -4208,6 +4208,93 @@ Rules for the routine:
       Verses pips, tile rack + input, crescendo warning, and the corner
       settings button — with no ink, combos, consumables, deck, log, or
       unexplained labels anywhere in the run flow.
+      ORCHESTRATOR NOTE 2026-08-22T20:27Z (items 3, 4, 5 done; 1, 2, 6, 7
+      untouched — box stays unchecked): started at the top of the queue
+      (this ticket, first unchecked). Picked the lowest-risk, self-contained
+      subset first — pure UI moves/removals with zero economy/balance
+      surface — rather than attempting all 7 sub-items in one run; items 1
+      (consumables), 2 (deck), 6 (combos), 7 (ink) all touch shop/reward/
+      duel-math code shared with other systems and deserve their own
+      careful, dedicated passes (same "balance/economy changes get their
+      own run" convention this repo already follows for duel tuning).
+      **Item 3 (Largo → settings, plain language):** renamed the button's
+      label from "🐢 Largo"/"🐢 Largo: On" to "🐢 Slower music (easier)"/
+      "🐢 Slower music (easier): On" and moved it out of the always-visible
+      run header into a new corner settings popover (see item 4).
+      **Item 4 (mute + volume → settings corner):** new `SettingsCorner`
+      component (`src/components/RunSidePanels.jsx`) — a small ⚙️ gear
+      button fixed in the bottom-right corner of every run screen (map,
+      combat, shop, reward — `position: fixed`, so it survives whichever
+      sub-screen is showing), toggling a popover that holds mute, the
+      volume slider, and the renamed Largo assist. `RunHeaderActions` (the
+      always-visible run header) now shows only Deck/Consumables — those
+      two are items 1/2's own scope, deliberately left alone this run.
+      **Item 5 (remove the log mid-combat):** `RunScreen.jsx`'s
+      `MessageLog` is now gated on `!state.combatActive` — gone the moment
+      a fight starts (turn-based or duel), still shown on the map/shop/
+      reward screens between fights.
+      **Verified, real not assumed:** `npx vitest run`: 186/186 clean (2
+      new tests added — settings popover opens on a real click of the
+      corner button; the message log disappears once a real UI-driven
+      fight starts via a real node-pill click, not a direct engine-hook
+      call, per this file's own `bump`-requires-a-real-UI-action caveat
+      logged by the STRUCTURAL ticket). Hit the pre-existing, already-
+      characterized `duelIntegration.test.js` cross-test flake once
+      (unrelated file, no code this run touches), confirmed by a clean
+      immediate re-run of the full suite. `npm test` (dom-check.js): ALL
+      CHECKS PASSED — wordbound.html's own Largo/mute/volume markup is
+      static HTML with different ids/classes entirely (confirmed by
+      reading it directly before assuming), untouched by this run's
+      React-only changes. `npm run build`: clean, 58 modules. `npm run
+      test:mobile`: ALL CHECKS PASSED (real browser, 375/414px, per the
+      header's CSS-change rule — the new corner button/popover don't
+      overflow at either width). `npm run test:react-duel-loss` (real
+      browser, built output): ALL CHECKS PASSED, including a new check
+      that the settings popover opens on a real click, and every existing
+      Largo/Ritardando check still passes with the popover opened once up
+      front (the script now opens it before its first `.largo-toggle-btn`
+      click). `npm run test:react-qa` (real browser, full 4-floor victory,
+      all 4 bosses): ALL CHECKS PASSED, unaffected. `npm run
+      test:react-build` (real browser, built output, full drag/touch/FLIP
+      playthrough): ALL CHECKS PASSED. `npm run test:regular-duel-smoke`:
+      ALL CHECKS PASSED (every regular tier still killable via a real duel
+      word). `npm run test:branching-map`: ALL CHECKS PASSED (180 floors/
+      seeds), unaffected as expected — no floor-gen code touched. Also
+      manually screenshotted the corner button closed/open against a real
+      built-app run (seeded, `The Archivist`) to eyeball the actual layout,
+      not just assert classes exist — gear button sits cleanly in the
+      corner, popover shows mute/volume/"Slower music (easier)" legibly
+      with no overlap.
+      Version bumped v0.12 → v0.13 (`MainMenu.jsx`/`wordbound.html`/
+      `MainMenu.test.jsx`) — real, player-facing UI reorg (a control three
+      players already reported confusion about is now gone from the main
+      header and relabeled in plain English).
+      **Not done, honest gaps — box stays unchecked:** items 1
+      (consumables), 2 (deck view), 6 (combos), 7 (ink) are completely
+      untouched. Concretely, the acceptance bar's target combat-screen
+      inventory ("ONLY: Volume gauge, enemy segment bar, Verses pips, tile
+      rack + input, crescendo warning, and the corner settings button")
+      is NOT yet met — Deck/Consumables buttons still show in the run
+      header, ink still shows in the run header, combos (if any UI exists
+      for them — not yet audited) are untouched.
+      **Genuinely-Jaxon-only:** none this run — copy for the settings
+      label and its exact corner placement are UI judgment calls, not
+      naming/feel/launch calls.
+      **Next:** items 1 and 2 are naturally paired (deck-add reward step
+      needs a replacement decision once tile-deck rewards go away — re-
+      point to gold or something duel-relevant, a real design call worth
+      its own dedicated run) and touch `RewardScreens.jsx`/`items.js`/
+      `game.js`/`test/balance-simulation.js`. Item 7 (ink removal) likely
+      needs to follow 1+2 since the ticket itself says ink removal must
+      re-point "anything currently priced in ink (rewrites, overcharge,
+      shop stock, shopkeeper ink-discount quirks)" — some of that overlaps
+      consumable/shop mechanics. Item 6 (combos) is more standalone but
+      touches `duel.js`/`duelCombat.js` scoring math directly, so it
+      deserves its own sim-verified pass rather than folding into a UI run
+      like this one. PLAYTEST FINDINGS 2's own still-open gap (Mountain
+      King's boss-duel retune, floor 1's real difficulty problem) remains
+      untouched by this run too — still the other live open thread in the
+      queue above this ticket.
 
 - [ ] PLAYTEST FINDINGS 2 — JAXON, 2026-08-22 (~19:25 UTC), SECOND PLAYTEST.
       His feedback, near-verbatim: enemies shouldn't have an HP number — HP

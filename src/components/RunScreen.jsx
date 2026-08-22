@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import CombatScreen from './CombatScreen.jsx';
 import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen, EventScreen, ShredderScreen } from './RewardScreens.jsx';
-import { ItemsOwnedStrip, DeckViewerPanel, ItemInspectorPanel, ConsumablesPanel, RunHeaderActions } from './RunSidePanels.jsx';
+import { ItemsOwnedStrip, DeckViewerPanel, ItemInspectorPanel, ConsumablesPanel, RunHeaderActions, SettingsCorner } from './RunSidePanels.jsx';
 import { BossEntranceOverlay } from './BossEntranceOverlay.jsx';
 
 // Real port of #screen-run's node map (STRUCTURAL ticket, next sub-step after
@@ -145,7 +145,11 @@ export default function RunScreen({ onBackToMenu }) {
       </div>
       <ItemsOwnedStrip state={state} Game={Game} act={act} />
       <div className="run-seed-display">Seed: {state.runSeed}</div>
-      <MessageLog messages={state.messages} />
+      {/* PLAYTEST FINDINGS 3 item 5: the log is clutter mid-fight -- gone
+          while a combat is active (turn-based or duel), still shown on the
+          map/reward/shop screens between fights. */}
+      {!state.combatActive && <MessageLog messages={state.messages} />}
+      <SettingsCorner state={state} Game={Game} act={act} />
 
       {sidePanelOpen ? (
         state.deckViewerOpen ? (

@@ -8700,3 +8700,111 @@ already repeatedly documented -- a `403` on the CONNECT tunnel to
 `gidntsquia.github.io` specifically. The push itself is the actual
 deploy action and it succeeded; this is a known, recurring sandbox
 limitation, not a new one introduced by this run.
+
+---
+
+## 2026-08-22T20:27Z -- PLAYTEST FINDINGS 3, items 3+4+5 (settings corner + log declutter)
+
+Started at the top of the queue: PLAYTEST FINDINGS 3 (Jaxon's declutter order,
+7 sub-items, WINS over Playtest-2's own item 5 wherever they conflict) had no
+prior work logged against it. Scoped this run to the lowest-risk, fully
+self-contained subset -- pure UI moves/removals with zero economy or
+duel-math surface -- rather than attempting all 7 items in one run: items 1
+(consumables), 2 (deck view), 6 (combos), 7 (ink) all reach into shop/reward/
+duel-scoring code shared with other systems and deserve their own dedicated,
+carefully-verified passes (this repo's own established "balance/economy
+changes get their own run" convention).
+
+**Item 3 -- Largo's label was UI copy that failed ("Jaxon doesn't know what
+Largo means"):** renamed the button from "🐢 Largo"/"🐢 Largo: On" to
+"🐢 Slower music (easier)"/"🐢 Slower music (easier): On" and moved it out of
+the always-visible run header.
+
+**Item 4 -- mute + volume into a settings corner:** new `SettingsCorner`
+component (`src/components/RunSidePanels.jsx`) -- a small ⚙️ gear button,
+`position: fixed` in the bottom-right corner of every run screen (map,
+combat, shop, reward alike, since it's rendered once at RunScreen's top
+level, not per-sub-screen), toggling a popover holding mute, the volume
+slider, and the renamed Largo assist. `RunHeaderActions` (the always-visible
+run header) now shows only Deck/Consumables -- those two remain in scope for
+items 1/2, deliberately untouched this run.
+
+**Item 5 -- remove the log mid-combat:** `RunScreen.jsx`'s `MessageLog` is
+now gated on `!state.combatActive` -- gone the instant a fight starts
+(turn-based or duel alike), still shown on the map/shop/reward screens
+between fights.
+
+**Verified, real not assumed:**
+- `npx vitest run`: 186/186 clean. 2 new tests: the settings popover opens
+  on a real click of the corner button (closed by default); the message log
+  disappears once a real fight starts via a genuine UI-driven node-pill
+  click (not a direct `Game.enterCurrentNode` call after render, which
+  would never trigger RunScreen's own `bump` re-render -- see its header
+  comment). Also updated the 3 existing mute/volume/Largo tests to open the
+  settings panel first, and the Largo test's expected text to the new
+  label. Hit the pre-existing, already-characterized cross-test flake in
+  `duelIntegration.test.js` ("surviving a word..." combatActive assertion)
+  once, on an unrelated file this run never touched -- a clean immediate
+  re-run of the full suite confirmed it, not a regression.
+- `npm test` (dom-check.js): ALL CHECKS PASSED. Confirmed directly (read the
+  file before assuming) that `wordbound.html`'s own Largo/mute/volume
+  markup is static HTML with entirely different ids/classes -- this run's
+  React-only changes don't touch it at all.
+- `npm run build`: clean, 58 modules.
+- `npm run test:mobile`: ALL CHECKS PASSED (real browser, 375/414px, per
+  the header's CSS-change rule) -- the new corner button/popover doesn't
+  overflow at either width.
+- `npm run test:react-duel-loss` (real browser, built output): ALL CHECKS
+  PASSED, including a new check that the settings popover opens on a real
+  click; every existing Largo/Ritardando check still passes since the
+  script now opens the popover once before its first `.largo-toggle-btn`
+  click (it stays open/mounted across the script's later boss re-entries,
+  confirmed by the passing checks, not assumed).
+- `npm run test:react-qa` (real browser, full 4-floor victory, all 4
+  bosses): ALL CHECKS PASSED, unaffected.
+- `npm run test:react-build` (real browser, built output, full drag/touch/
+  FLIP playthrough): ALL CHECKS PASSED.
+- `npm run test:regular-duel-smoke`: ALL CHECKS PASSED (every regular tier
+  still killable via a real duel word).
+- `npm run test:branching-map`: ALL CHECKS PASSED (180 floors/seeds),
+  unaffected as expected -- no floor-gen code touched.
+- Manually screenshotted a real built-app run (seeded, The Archivist,
+  corner button closed then open) to eyeball actual layout rather than just
+  asserting classes exist -- gear button sits cleanly in the corner,
+  popover shows mute/volume/"Slower music (easier)" legibly with no
+  overlap or clipping.
+
+Version bumped v0.12 -> v0.13 (`MainMenu.jsx`/`wordbound.html`/
+`MainMenu.test.jsx`) -- a real, player-facing UI reorg (a control multiple
+playtest reports flagged is now out of the main header and relabeled in
+plain English).
+
+**Not done, honest gaps -- GOALS.md's box stays unchecked:** items 1
+(consumables), 2 (deck view), 6 (combos), 7 (ink) are completely untouched.
+The ticket's own acceptance bar ("combat screen containing ONLY: Volume
+gauge, enemy segment bar, Verses pips, tile rack + input, crescendo
+warning, and the corner settings button") is NOT yet met -- Deck/
+Consumables still show in the run header, ink still shows there too, and
+combos (not yet audited for UI presence) are untouched.
+
+**Genuinely-Jaxon-only:** none this run -- the settings label copy and its
+exact corner placement are UI judgment calls, not naming/feel/launch calls.
+
+**Next:** items 1+2 are naturally paired (deck-add reward step needs a real
+replacement decision once tile-deck rewards go away -- gold, or something
+duel-relevant -- worth its own dedicated design-plus-implementation run)
+and touch `RewardScreens.jsx`/`items.js`/`game.js`/
+`test/balance-simulation.js`. Item 7 (ink) likely follows 1+2 since the
+ticket's own text says ink removal must re-point "anything currently priced
+in ink (rewrites, overcharge, shop stock, shopkeeper ink-discount quirks)",
+which overlaps consumable/shop mechanics. Item 6 (combos) is more
+standalone but touches `duel.js`/`duelCombat.js` scoring math directly --
+deserves its own sim-verified pass rather than folding into a UI-only run
+like this one. PLAYTEST FINDINGS 2's own still-open gap (Mountain King's
+boss-duel retune, floor 1's real difficulty problem) remains untouched by
+this run too -- still the other live open thread above this ticket in the
+queue.
+
+**Live deploy refresh:** see the entry immediately following this one for
+the outcome (build + gh-pages publish attempted after this entry was
+written, per the header's standing LIVE DEPLOY rule).

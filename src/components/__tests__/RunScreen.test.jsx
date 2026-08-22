@@ -110,6 +110,33 @@ describe('RunScreen -- node map', () => {
     act(() => { window.Wordbound.Game._emitPlayerDamaged({ damage: 5 }); });
     expect(inkDisplay.classList.contains('take-damage')).toBe(true);
   });
+
+  // PLAYTEST FINDINGS 3 (GOALS.md) item 5: "REMOVE the log screen in the
+  // middle of combat" -- the message log is real clutter mid-fight, still
+  // useful between fights (map/reward/shop). Gated on state.combatActive.
+  // Enters combat via a real UI click (not a direct Game.enterCurrentNode
+  // call) so the component's own act/bump re-render is what's under test --
+  // a direct engine-hook mutation after render doesn't trigger React's
+  // re-render at all (see RunScreen.jsx's own `bump` header comment).
+  it('the message log is visible on the map but gone once a real fight starts', async () => {
+    const state = freshRun(SEED);
+    const user = userEvent.setup();
+    render(<RunScreen onBackToMenu={() => {}} />);
+    expect(document.querySelector('.message-log')).toBeInTheDocument();
+
+    const available = window.Wordbound.Game._availableNodeIds();
+    const foePills = screen.getAllByText('Foe');
+    const clickableFoePills = foePills.filter((el) => el.className.includes('node-current'));
+    const safeNodeId = findAvailableCombatNodeId(state);
+    const combatStartNodeIds = state.floor.nodes
+      .filter((n) => n.type === 'combat' && available.indexOf(n.id) !== -1)
+      .map((n) => n.id);
+    const safeIndex = combatStartNodeIds.indexOf(safeNodeId);
+
+    await user.click(clickableFoePills[safeIndex]);
+    expect(state.combatActive).toBe(true);
+    expect(document.querySelector('.message-log')).not.toBeInTheDocument();
+  });
 });
 
 describe('RunScreen -- screen routing', () => {

@@ -110,13 +110,31 @@ describe('consumables panel', () => {
   });
 });
 
-describe('run-header music controls', () => {
+describe('settings corner (music controls + Slower music assist)', () => {
+  // PLAYTEST FINDINGS 3 (GOALS.md) items 3+4: mute/volume + the renamed
+  // Largo assist moved out of the run header into a corner gear button's
+  // popover -- every test below opens it first, same as a real player would.
+  function openSettings(user) {
+    return user.click(document.querySelector('.settings-corner-btn'));
+  }
+
+  it('the settings panel is closed by default and opens on a real click of the corner button', async () => {
+    freshRun(SEED);
+    const user = userEvent.setup();
+    render(<RunScreen onBackToMenu={() => {}} />);
+
+    expect(document.querySelector('.settings-panel')).not.toBeInTheDocument();
+    await openSettings(user);
+    expect(document.querySelector('.settings-panel')).toBeInTheDocument();
+  });
+
   it('toggling mute flips Game.getAudioSettings().muted and the button glyph', async () => {
     freshRun(SEED);
     const Game = window.Wordbound.Game;
     const startMuted = Game.getAudioSettings().muted;
     const user = userEvent.setup();
     render(<RunScreen onBackToMenu={() => {}} />);
+    await openSettings(user);
 
     const muteBtn = document.querySelector('.music-toggle-btn');
     expect(muteBtn.textContent).toBe(startMuted ? '🔇' : '🔊');
@@ -127,11 +145,13 @@ describe('run-header music controls', () => {
     if (Game.getAudioSettings().muted !== startMuted) Game.toggleMusicMute();
   });
 
-  it('moving the volume slider updates Game.getAudioSettings().volume', () => {
+  it('moving the volume slider updates Game.getAudioSettings().volume', async () => {
     freshRun(SEED);
     const Game = window.Wordbound.Game;
     const before = Game.getAudioSettings().volume;
+    const user = userEvent.setup();
     render(<RunScreen onBackToMenu={() => {}} />);
+    await openSettings(user);
     const slider = document.getElementById('music-volume');
     expect(Number(slider.value)).toBe(Math.round(before * 100));
     Game.setMusicVolume(0.75); // fireEvent.change on a range input is flaky in jsdom; the real handler is exercised directly, same math the onChange calls
@@ -139,19 +159,20 @@ describe('run-header music controls', () => {
     Game.setMusicVolume(before); // restore
   });
 
-  it('clicking the Largo toggle flips Game.getLargoEnabled() and the button label/class', async () => {
+  it('clicking the "Slower music (easier)" toggle flips Game.getLargoEnabled() and the button label/class', async () => {
     freshRun(SEED);
     const Game = window.Wordbound.Game;
     const startEnabled = Game.getLargoEnabled();
     const user = userEvent.setup();
     render(<RunScreen onBackToMenu={() => {}} />);
+    await openSettings(user);
 
     const largoBtn = document.querySelector('.largo-toggle-btn');
-    expect(largoBtn.textContent).toBe(startEnabled ? '🐢 Largo: On' : '🐢 Largo');
+    expect(largoBtn.textContent).toBe(startEnabled ? '🐢 Slower music (easier): On' : '🐢 Slower music (easier)');
     expect(largoBtn.classList.contains('largo-toggle-btn-on')).toBe(startEnabled);
     await user.click(largoBtn);
     expect(Game.getLargoEnabled()).toBe(!startEnabled);
-    expect(largoBtn.textContent).toBe(!startEnabled ? '🐢 Largo: On' : '🐢 Largo');
+    expect(largoBtn.textContent).toBe(!startEnabled ? '🐢 Slower music (easier): On' : '🐢 Slower music (easier)');
     expect(largoBtn.classList.contains('largo-toggle-btn-on')).toBe(!startEnabled);
     // Leave the setting as found (localStorage-persisted), same convention the music-mute test above uses.
     if (Game.getLargoEnabled() !== startEnabled) Game.setLargoEnabled(startEnabled);

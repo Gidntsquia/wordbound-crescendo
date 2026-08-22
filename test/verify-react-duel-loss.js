@@ -146,12 +146,18 @@ async function main() {
     check('no crescendo warning yet (early in the piece)', !(await page.isVisible('.volume-crescendo-warning')));
 
     // ---- Largo accessibility assist: a real click slows the live duel ----
-    // DUEL-GAUGE COMBAT ticket, header Accessibility bullet. The button
-    // lives in the run header (RunSidePanels.jsx's RunHeaderActions), not
-    // combat-specific chrome, but it must affect an ALREADY-RUNNING duel's
-    // sequencer live (Game.setLargoEnabled's whole point) -- proven here via
-    // a real click, not a direct Game.setLargoEnabled() call, so the actual
-    // wired-up button is what's under test.
+    // DUEL-GAUGE COMBAT ticket, header Accessibility bullet. PLAYTEST
+    // FINDINGS 3 items 3+4 moved the control (relabeled "Slower music
+    // (easier)") + mute/volume out of the run header into a corner settings
+    // popover (RunSidePanels.jsx's SettingsCorner) -- opened once here via a
+    // real click and left open for the rest of this phase's clicks, since
+    // the popover stays mounted/open across re-renders until toggled shut.
+    // It must still affect an ALREADY-RUNNING duel's sequencer live
+    // (Game.setLargoEnabled's whole point) -- proven here via a real click,
+    // not a direct Game.setLargoEnabled() call, so the actual wired-up
+    // button is what's under test.
+    await page.click('.settings-corner-btn');
+    check('the settings popover opens on a real click', await page.isVisible('.settings-panel'));
     const tempoBeforeLargo = await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale());
     check(`Largo starts off (tempo scale ${tempoBeforeLargo})`, tempoBeforeLargo === 1);
     await page.click('.largo-toggle-btn');

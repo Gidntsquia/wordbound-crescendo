@@ -360,6 +360,55 @@ h2 {
   accent-color: #f0d789;
 }
 
+/* PLAYTEST FINDINGS 3 (GOALS.md) items 3+4: mute/volume + the renamed Largo
+   assist ("Slower music (easier)") tucked into a small corner button+popover,
+   out of the main combat-loop sightline. Fixed so it's reachable from every
+   run screen (map, combat, shop, reward) without competing with any of them
+   for layout space. */
+.settings-corner {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.settings-corner-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #4a4130;
+  background: linear-gradient(to bottom, #43392a 0%, #33291a 100%);
+  color: #cdbf9a;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.settings-corner-btn:hover {
+  background: linear-gradient(to bottom, #53492a 0%, #423522 100%);
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #4a4130;
+  background: #241d12;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.settings-panel-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
 .run-header {
   display: flex;
   flex-wrap: wrap;
