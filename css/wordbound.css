@@ -384,6 +384,17 @@ h2 {
 .ink-display.take-damage {
   animation: playerDamageFlash 0.4s ease-out;
 }
+/* PLAYTEST FINDINGS (GOALS.md, item 3): once a duel is active, Verses
+   (VolumeGauge's pips) are the real HP -- ink is only overcharge/rewrite
+   currency, so it drops the alarming damage-red/bold treatment down to
+   the same quiet weight as the floor label. React-only (RunScreen.jsx's
+   duelModeActive), applied on top of .ink-display rather than replacing
+   it, so .take-damage still can't fire visibly here (it's only emitted
+   for a turn-based counterattack in the first place). */
+.ink-display.ink-display-currency {
+  color: #b8ac8a;
+  font-weight: normal;
+}
 .gold-display { color: #f0d789; font-weight: bold; white-space: nowrap; }
 .floor-label { color: #b8ac8a; white-space: nowrap; }
 

@@ -4207,6 +4207,143 @@ Rules for the routine:
       playthrough (Playwright against the real built app) proves the
       first-90-seconds experience: duel gauge visible, music playing,
       Verses pips as HP, from the first fight of a fresh run.
+      ORCHESTRATOR NOTE 2026-08-22T18:00Z (item 1 done -- the FIRST fight is
+      now guaranteed a real duel; item 3 partially addressed; items 2 and 4
+      still open): implemented the exact mechanism item 1 names --
+      `js/wordbound/floor.js`'s `pickCombatDefId` now computes its normal
+      allowed-tier pool, then, if ANY def in that pool carries `.piece`,
+      narrows the pool to ONLY those defs before drawing -- so every combat
+      node whose eligible tier pool has a duel-capable option (today: every
+      weak-tier draw, since all 3 wired weak regulars carry `.piece` and the
+      4 old generic ones are `retiredFromPool`) is duel-mode, not a coin
+      flip. This is a real, structural change to floor generation, not a
+      cosmetic one -- verified directly, not assumed:
+      - **Ad-hoc seeded-playthrough check (this ticket's own VERIFY line,
+        "not a def audit")**: wrote and ran a throwaway jsdom script loading
+        the real wordbound.html and calling `Game.startRun` across 200
+        distinct seeds, inspecting every row-0 (start-lane) combat node's
+        real resolved `MONSTER_DEFS` entry. Result: 506/506 start-lane
+        combat nodes across all 200 seeds carry `.piece` -- the first fight
+        of a fresh run is unconditionally a duel, not "usually." Script
+        deleted after running (ad-hoc verification, not a permanent gate,
+        same convention this file's own REGULAR ENEMIES entry already
+        established for its per-species smoke check).
+      - A real, structural test-suite hazard this change exposed and fixed:
+        with floor 1's weak-tier pool now ALL duel-mode, `src/test/
+        gameHelpers.js`'s `findAvailableCombatNodeId` (search-for-an-
+        already-non-duel-node) could come up completely empty on many
+        seeds -- broke 66 Vitest tests across 5 files immediately (RunScreen,
+        RunSidePanels, others that use a turn-based fight as a vehicle to
+        test unrelated systems). Fixed by converting the helper from
+        search-and-hope into PIN-if-needed, mirroring `test/dom-check.js`'s
+        own established `pinNodeAwayFromDuelMode`/`firstSafeDefId`
+        convention exactly: take any available combat node, and if its
+        current def is duel-mode, rewrite its `defId` to the first safe
+        same-tier alternative. `npm run test:react`: 183/183 clean after the
+        fix (was 117/183 before).
+      - Item 3 (Verses unmistakable, ink demoted) was ALREADY substantially
+        real going into this run, not left untouched -- `VolumeGauge.jsx`'s
+        Verses pips were already wired into `CombatScreen.jsx` for every
+        duel fight (prior DUEL-GAUGE COMBAT ticket work), and duel-mode
+        Verse loss (`duel.on('block-lost', ...)`) was already confirmed by
+        reading the code to NOT trigger the ink-display's red
+        `take-damage` flash (`emitPlayerDamaged` is only ever called from
+        the turn-based counterattack path, game.js:1658) -- so ink never
+        visually read as "you got hit" during a duel even before this run.
+        What this run added on top: the ink-display header counter itself
+        (bold, damage-red `#e08a8a`, same color family as a real HP flash)
+        is now visually DEMOTED to the same quiet weight as the floor label
+        specifically while a duel fight is active (`RunScreen.jsx`'s new
+        `duelModeActive` prop -> `.ink-display-currency` in
+        `css/wordbound.css`), leaving its turn-based appearance and
+        behavior (including the real damage flash) completely untouched --
+        confirmed by reading `emitPlayerDamaged`'s only two call sites
+        again before writing this note, not assumed. This is a partial,
+        honest read of item 3, not a claim it's fully done: no player-facing
+        screenshot/manual pass confirms this reads clearly at a glance
+        (React component tests + the real-browser QA runs below don't
+        assert on color), and the vanilla wordbound.html side was
+        deliberately NOT touched (its rendering layer is frozen as the
+        dom-check reference per the STRUCTURAL ticket's own header note, and
+        it exists in the reference UI as it always did).
+      **Verified this run:** `npm test` (dom-check.js): ALL CHECKS PASSED,
+      unaffected (its own `pinNodeAwayFromDuelMode` convention already
+      tolerated this class of change, confirmed by the clean run, not just
+      assumed from the prior ticket's audit). `npm run test:react`: 183/183
+      clean on 5 of 7 repeat runs; 2 runs hit `duelIntegration.test.js`'s own
+      ALREADY-DOCUMENTED timing flake (that test file's own comment: "a flat
+      260ms wait on a razor-thin margin is exactly what made the test above
+      occasionally flake under full-suite parallel load" -- read directly
+      before writing this note, not inferred from the name) -- confirmed
+      this is that exact pre-existing flake and not a regression from this
+      run's change. `npm run build`: clean, 56 modules. `npm run
+      test:branching-map`: ALL CHECKS PASSED (180 floors/seeds, no
+      orphan/reachability regressions -- confirms the bias only changes
+      WHICH defId a node gets, not the floor's shape). `npm run test:mobile`:
+      ALL CHECKS PASSED (the ink CSS change is color-only, no layout risk,
+      but ran it anyway per the header's own CSS-change rule). `npm run
+      test:qa` (real Chromium, vanilla app, full 4-floor victory run
+      including the organic first combat): ALL CHECKS PASSED. `npm run
+      test:react-qa` (same, React build): ALL CHECKS PASSED. `npm run
+      test:regular-duel-smoke`: ALL CHECKS PASSED (both a regular win and a
+      regular-Verse-loss GAME_OVER, real browser). `npm run
+      test:react-duel-loss`/`test:music-engine`/`test:audio`/
+      `test:drag-interrupt`/`test:run-header`/`test:duel-balance`: ALL CHECKS
+      PASSED, unaffected. `npm run build:itch` + `npm run test:itch-build`:
+      ALL CHECKS PASSED.
+      Version bumped v0.8 -> v0.9 (`MainMenu.jsx`/`wordbound.html`/
+      `MainMenu.test.jsx`) -- a real, structural change to what every player
+      meets in their first fight, not a cosmetic patch.
+      **Live deploy refreshed** per item 4's own explicit requirement
+      ("after ANY change to piece wiring / def conversion / combat
+      routing") and the header's standing rule -- see PROGRESS.md for the
+      verification result.
+      **Not done, honest gaps -- box stays unchecked:** item 2 (100% regular
+      conversion -- 4 of 9 regulars are still fully unstarted, normal/strong
+      tiers have ZERO duel-capable defs yet, so floors 2-4 still fall back
+      to turn-based/silent combat whenever a node's pool has no duel option)
+      is untouched by this run. This ticket's own closing bar -- "a seeded
+      live-build playthrough (Playwright against the real built app) proves
+      the first-90-seconds experience" end to end against the DEPLOYED
+      build specifically -- also hasn't been run as its own dedicated check
+      (the ad-hoc jsdom script above proves the floor-generation LOGIC, and
+      `test:regular-duel-smoke`/`test:qa`/`test:react-qa` prove real-browser
+      duel fights work, but no single run yet chains "fresh run -> first
+      fight -> confirm gauge+music+Verses on the LIVE gh-pages URL" the way
+      item 1's own VERIFY line and this ticket's closing bar ask). Item 3 is
+      a partial read (see above), not a finished one -- a real screenshot/
+      manual look to confirm Verses genuinely reads as HP "front and center"
+      at a glance is still open, and demoting ink further (or Jaxon deciding
+      to retag/retire it outright) is still his call, not assumed here.
+      **Next:** REGULAR ENEMIES's own queue entry (immediately below) is the
+      direct unblock for item 2 -- every mid/late regular that ticket wires
+      in automatically shrinks the "still turn-based" gap this run's bias
+      can't close on its own (a bias can only prefer defs that exist).
+      Once normal/strong tiers each have at least one real duel-capable def,
+      re-run this ticket's own ad-hoc seeded-playthrough check at floors 2-4
+      too, not just floor 1's start lanes.
+      POSTSCRIPT, same run (concurrent-run collision at push time --
+      full detail in PROGRESS.md's matching postscript): `git push`
+      rejected, `origin/main` had already landed the REGULAR ENEMIES
+      wiring below (Gnossienne + Invention -> real `normal`-tier duel
+      defs, version already bumped to v0.9 for that unrelated reason).
+      Reset to the landed tree, reapplied this run's own floor.js/
+      RunScreen.jsx/gameHelpers.js/wordbound.css diff cleanly (disjoint
+      files, no conflict), and RE-RAN THIS NOTE'S ENTIRE VERIFY BAR against
+      the merged tree rather than trusting the pre-collision results above
+      -- all still ALL CHECKS PASSED (see PROGRESS.md for the full list,
+      including an itch-build flake rate scare that a disposable git
+      worktree against pure origin/main proved was pre-existing, not a
+      regression). The "Not done" paragraph's "normal/strong tiers have
+      ZERO duel-capable defs yet" is now STALE -- normal tier has 2 real
+      duel defs now (gnossienne/invention), so floor 1's pool this run's
+      bias narrows to is actually 5 defs, not 3. Version bumped again,
+      v0.9 -> v0.10 (this run's own bias is a distinct, separately-verified
+      feature from the concurrent wiring commit, confirmed by its own
+      200-seed sim, so it earns its own bump). Live deploy re-refreshed
+      against the final merged build. Corrected real state: 5 of 9
+      regulars wired (3 weak + 2 mid/normal); item 2 and this ticket's
+      closing bar remain open, strong tier still has zero duel defs.
 
 - [ ] REGULAR ENEMIES: build the 6-10 regulars from the bible — every one a
       DUEL-GAUGE fight (per the header combat decision; no turn-based mode

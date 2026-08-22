@@ -112,6 +112,17 @@ export default function RunScreen({ onBackToMenu }) {
   // game.js enforces via that shared boolean.
   const sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen || state.consumablesPanelOpen;
 
+  // PLAYTEST FINDINGS (GOALS.md, item 3): Jaxon's report singled out ink
+  // reading as HP. Ink genuinely IS still HP in a turn-based fight (a
+  // counterattack lands as ink loss, `.ink-display.take-damage` flashes
+  // for it above), so its damage-red styling stays correct there -- but a
+  // DUEL fight's real HP is Verses (VolumeGauge's pips), and ink is only
+  // the overcharge/rewrite currency once a duel is active. Demote ink's
+  // visual weight (see `.ink-display-currency` in wordbound.css) only
+  // while a duel fight is actually running, so nothing about a turn-based
+  // fight's own display changes.
+  const duelModeActive = state.combatActive && !!(state.monster && state.monster.duel);
+
   return (
     <div className="screen">
       {guideIntroOpen && (
@@ -122,7 +133,12 @@ export default function RunScreen({ onBackToMenu }) {
         />
       )}
       <div className="run-header">
-        <div className="ink-display" ref={inkDisplayRef}>Ink {state.player.ink} / {state.player.maxInk}</div>
+        <div
+          className={'ink-display' + (duelModeActive ? ' ink-display-currency' : '')}
+          ref={inkDisplayRef}
+        >
+          Ink {state.player.ink} / {state.player.maxInk}
+        </div>
         <div className="gold-display">{state.player.gold} 🪙</div>
         <div className="floor-label">Floor {state.floorNumber} / {Floor.TOTAL_FLOORS}</div>
         <RunHeaderActions state={state} Game={Game} act={act} />

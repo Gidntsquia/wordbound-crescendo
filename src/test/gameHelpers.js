@@ -31,33 +31,50 @@ export function findNodeIdByType(state, type) {
 // entering a combat node whose real MONSTER_DEFS entry carries a `.piece`
 // field crashes hard (Game.startCombat -> Game.startDuelFight ->
 // initAudioContext() -> `new AudioContext()` throws) -- the same hazard
-// test/dom-check.js's own audit found and fixed for the vanilla suite. No
-// regular def carries `.piece` today (only bosses do, and this file's own
-// helpers never touch boss nodes), so this is a true no-op right now, but
-// the moment a regular does, EVERY test built on findAvailableCombatNodeId
-// below (most of this component-test suite) would start crashing at once
-// the instant a seed's floor happened to roll that def as the first
-// available combat node. Pin defensively now rather than leave that
-// landmine for whichever future run wires a real `.piece` onto a regular.
+// test/dom-check.js's own audit found and fixed for the vanilla suite.
 function isDuelModeNode(node) {
   if (!node) return false;
   const def = window.Wordbound.Monsters.MONSTER_DEFS[node.defId];
   return !!(def && def.piece);
 }
 
-// A real combat node the player can enter right now (one of the floor's
-// start lanes) -- same idea as findNodeIdByType, but restricted to
-// availableNodeIds() so the returned id is legitimately reachable, not just
-// present somewhere on the floor.
+// Same helper as test/dom-check.js's own firstSafeDefId -- first non-`.piece`
+// def, optionally restricted to one tier.
+function firstSafeDefId(defs, tier) {
+  return Object.keys(defs).find((id) => !defs[id].piece && (!tier || defs[id].tier === tier));
+}
+
+// PLAYTEST FINDINGS ticket (GOALS.md, item 1, 2026-08-22): floor.js's
+// pickCombatDefId now PREFERS duel-capable defs whenever a floor's eligible
+// tier pool has any (so a fresh run's first fight is a real duel per
+// Jaxon's own playtest report) -- which means floor 1 can now roll ZERO
+// non-duel combat nodes at all (today's 3 weak-tier duel defs already
+// crowd out every weak-tier classic def, and floor 1 also allows 'normal',
+// but the shared pool mixes both tiers so a normal-tier node can still land
+// on a duel-mode weak def). A plain search-for-an-already-safe-node (this
+// function's own prior approach, and its own prior comment calling that a
+// "true no-op" landmine) can no longer assume one exists. Mirror
+// test/dom-check.js's own established fix instead: take ANY available
+// combat node and PIN it to a safe same-tier defId if its current one is
+// duel-mode, rather than search-and-hope. Tests that specifically need a
+// real duel node (duelIntegration.test.js) already do their own direct
+// def lookup + FakeAudioContext and don't call this helper.
 export function findAvailableCombatNodeId(state) {
   const Game = window.Wordbound.Game;
+  const Monsters = window.Wordbound.Monsters;
   const available = Game._availableNodeIds();
-  const nodeId = available.find((id) => {
-    const node = state.floor.nodes.find((n) => n.id === id);
-    return node && node.type === 'combat' && !isDuelModeNode(node);
-  });
+  const nodeId = available.find((id) => state.floor.nodes.find((n) => n.id === id && n.type === 'combat'));
   if (!nodeId) {
-    throw new Error(`no available non-duel-mode combat start node on this seed's floor -- available ids: ${available.join(',')}`);
+    throw new Error(`no available combat start node on this seed's floor -- available ids: ${available.join(',')}`);
+  }
+  const node = state.floor.nodes.find((n) => n.id === nodeId);
+  if (isDuelModeNode(node)) {
+    const def = Monsters.MONSTER_DEFS[node.defId];
+    const safeId = firstSafeDefId(Monsters.MONSTER_DEFS, def.tier);
+    if (!safeId) {
+      throw new Error(`no non-duel-mode def left in tier "${def.tier}" to pin node ${nodeId} away to`);
+    }
+    node.defId = safeId;
   }
   return nodeId;
 }

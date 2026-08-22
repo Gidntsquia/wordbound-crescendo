@@ -65,6 +65,20 @@
       var def = Monsters.MONSTER_DEFS[id];
       return allowed.indexOf(def.tier) !== -1 && !def.retiredFromPool;
     });
+    // PLAYTEST FINDINGS (GOALS.md, Jaxon 2026-08-22): "the game looks
+    // basically identical to Wordbound 1" -- because most regulars still
+    // have no `.piece` and fight via the old turn-based path, with no
+    // music. Until every regular is converted (REGULAR ENEMIES ticket),
+    // TEMPORARY selection bias: whenever a floor's eligible pool has ANY
+    // duel-capable (`.piece`-carrying) def, draw ONLY from those -- so a
+    // fresh run's first fight (and every combat node this pool serves) is
+    // a real duel with audible music rather than a coin-flip against a
+    // silent classic regular. Remove this filter once every regular
+    // carries a `.piece` and the distinction is moot.
+    var duelPool = pool.filter(function (id) {
+      return !!Monsters.MONSTER_DEFS[id].piece;
+    });
+    if (duelPool.length > 0) pool = duelPool;
     return rng.choice(pool);
   }
 

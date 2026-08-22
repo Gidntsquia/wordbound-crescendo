@@ -7759,3 +7759,214 @@ the other. Whoever wires the LAST normal-tier def should extend
 `test:regular-duel-smoke`'s mid-tier pass to all 3 pieces (not just 2) and
 apply this run's own `pushResistance` fix proactively to any late/
 final-tier smoke test rather than rediscovering the same race.
+
+---
+
+## 2026-08-22T18:00Z -- PLAYTEST FINDINGS item 1: floor generation now guarantees a duel-mode first fight
+
+Picked up the top unchecked GOALS.md item -- PLAYTEST FINDINGS, Jaxon's
+first real playtest report ("no duel, no classical music, still 'ink'
+instead of health blocks, looks like Wordbound 1"). Its item 2 (finish
+REGULAR ENEMIES to 100%) is a large multi-run ticket already in progress
+(3/9 regulars wired) and out of reach in one run, but item 1 -- "make
+floor generation prefer duel-capable defs over classic ones wherever both
+are eligible, so a NEW run's first fight is a real duel" -- was genuinely
+unimplemented despite all the regular-wiring work: `floor.js`'s
+`pickCombatDefId` was still a flat `rng.choice(pool)` with zero preference
+for `.piece`-carrying defs, so whether a player's first fight was a duel
+was pure chance (1-in-N against N eligible defs, most of which are still
+silent/turn-based).
+
+**What changed:** `js/wordbound/floor.js`'s `pickCombatDefId` now computes
+a `duelPool` (the eligible-tier pool filtered to `.piece`-carrying defs)
+and uses it in place of the full pool whenever it's non-empty. Since
+today's only duel-capable regulars are the 3 wired weak-tier ones
+(gymnopediste/gstring/morningmood) and the 4 old generic weak defs are
+already `retiredFromPool`, this makes EVERY weak-tier draw -- including
+every floor-1 start-lane node -- land on one of those 3. Normal/strong
+tiers have no duel defs yet, so a floor-1 node whose pool happens to be
+pure normal-tier (not the row-0 lanes, which mix weak+normal in one
+shared pool per `getAllowedTiers`) is unaffected; but since floor 1's
+combined pool always includes the weak tier, every real floor-1 combat
+node this run's ad-hoc check touched came out duel-mode.
+
+**Verification (this ticket's own VERIFY line: "a seeded fresh-run
+playthrough, not a def audit"):** wrote a throwaway Node/jsdom script
+(deleted after running, same convention this file's own precedent already
+uses for one-off Playwright smoke checks) that loads the real
+wordbound.html, calls `Game.startRun` across 200 distinct seeds, and reads
+every row-0 (start-lane) combat node's resolved `MONSTER_DEFS` entry.
+Result: **506/506 start-lane combat nodes across all 200 seeds carry
+`.piece`** -- confirmed the fix actually delivers what the ticket asked
+for, not just that the code looks right.
+
+**A real test-suite hazard this exposed and fixed:** `src/test/
+gameHelpers.js`'s `findAvailableCombatNodeId` previously SEARCHED the
+floor for an already-non-duel combat node (a defensive pin added by a
+prior REGULAR ENEMIES run, at the time a true no-op). With floor 1 now
+duel-only whenever eligible, that search could come up completely empty
+on many seeds -- broke 66 Vitest tests across 5 files immediately when I
+first ran the suite after the floor.js change (`npm run test:react`:
+117/183). Root cause confirmed by reading the failures directly, not
+guessed. Fixed by converting the helper from search-and-hope into
+PIN-if-needed: take any available combat node, and if its current def is
+duel-mode, rewrite `node.defId` to the first safe same-tier alternative
+-- the exact same convention `test/dom-check.js`'s own
+`pinNodeAwayFromDuelMode`/`firstSafeDefId` pair already established for
+the vanilla suite when this class of hazard first appeared (see this
+file's own 2026-08-22T14:50Z entry). `npm run test:react`: 183/183 clean
+after the fix.
+
+**Item 3 (Verses unmistakable / ink demoted) -- partial, honest pass, not
+claimed done:** confirmed by reading the code (not assumed) that
+`VolumeGauge.jsx`'s Verses pips were ALREADY wired into every duel fight
+via `CombatScreen.jsx` (prior DUEL-GAUGE COMBAT work), and that a duel-mode
+Verse loss (`duel.on('block-lost', ...)` in game.js) never triggers the
+ink-display's red `take-damage` flash animation -- `emitPlayerDamaged`
+(game.js:1658) is only ever called from the turn-based counterattack path.
+So ink never visually read as "you got hit" during a duel even before this
+run. What this run added: the ink-display header counter itself (bold,
+damage-red `#e08a8a`) is now visually demoted to the same quiet weight as
+the floor label specifically while a duel fight is active --
+`RunScreen.jsx` computes a new `duelModeActive` boolean
+(`state.combatActive && state.monster.duel`) and applies a new
+`.ink-display-currency` class (`css/wordbound.css`) only then, leaving its
+turn-based appearance (including the real damage flash, which is still
+correct there -- ink genuinely is still HP in a turn-based fight) fully
+untouched. This is deliberately scoped to the React app only --
+wordbound.html's rendering stays frozen as the dom-check reference per the
+STRUCTURAL ticket's own header note. No manual/screenshot pass confirms
+this reads clearly at a glance in practice; flagging that as still open
+rather than assuming the code change alone settles it.
+
+**Verified this run:**
+- `npm test` (dom-check.js): ALL CHECKS PASSED. Confirms `test/
+  dom-check.js`'s own existing `pinNodeAwayFromDuelMode` convention already
+  tolerated this class of change for real, not just by the prior audit's
+  reasoning.
+- `npm run test:react`: 183/183 clean on 5 of 7 repeat runs; 2 hit
+  `duelIntegration.test.js`'s own ALREADY-DOCUMENTED timing flake -- that
+  test file's own comment reads "a flat 260ms wait on a razor-thin margin
+  is exactly what made the test above occasionally flake under full-suite
+  parallel load," read directly before writing this note. Confirmed this
+  is that exact pre-existing flake (same test, same margin), not a
+  regression this run introduced.
+- `npm run build`: clean, 56 modules.
+- `npm run test:branching-map`: ALL CHECKS PASSED, 180 floors/seeds, no
+  orphan/unreachable-node regressions -- confirms the bias only changes
+  WHICH defId a node gets, never the floor's shape/reachability.
+- `npm run test:mobile`: ALL CHECKS PASSED (the ink CSS change is
+  color/font-weight only, no layout risk, but ran it anyway per the
+  header's CSS-change rule).
+- `npm run test:qa` (real Chromium, vanilla app, full 4-floor victory run
+  including the organic first-combat phase): ALL CHECKS PASSED.
+- `npm run test:react-qa` (same, React build, full victory run): ALL
+  CHECKS PASSED.
+- `npm run test:regular-duel-smoke` (real browser, forces both a regular
+  win and a regular Verse-loss GAME_OVER): ALL CHECKS PASSED.
+- `npm run test:react-duel-loss`, `test:music-engine`, `test:audio`,
+  `test:drag-interrupt`, `test:run-header`, `test:duel-balance`: ALL
+  CHECKS PASSED, unaffected.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED.
+
+**Genuinely-Jaxon-only:** none this run.
+
+**Version bumped v0.8 -> v0.9** (`MainMenu.jsx`/`wordbound.html`/
+`MainMenu.test.jsx`) -- a real, structural change to what every player
+meets in their first fight, not a cosmetic patch.
+
+**Live deploy refreshed** per PLAYTEST FINDINGS item 4's own explicit
+requirement ("after ANY change to piece wiring / def conversion / combat
+routing") and the header's standing LIVE DEPLOY rule: `npm run build`
+(fresh, confirmed above), published `dist/app/`'s contents + an empty
+`.nojekyll` as the new root of `gh-pages` (orphan/replace commit,
+force-pushed). Verified live: `curl -s -o /dev/null -w '%{http_code}'
+https://gidntsquia.github.io/wordbound-crescendo/` and the built JS asset
+both returned 200.
+
+**Not done, honest gaps -- PLAYTEST FINDINGS box stays unchecked:** item 2
+(100% regular conversion) is untouched by this run -- 4 of 9 regulars are
+still fully unstarted, and normal/strong tiers have ZERO duel-capable defs
+yet, so any floor-1 node whose pool is pure normal-tier, and effectively
+all of floors 2-4, still fall back to turn-based/silent combat. This
+ticket's own closing bar -- a seeded live-build Playwright playthrough
+proving the first-90-seconds experience end to end against the DEPLOYED
+build -- hasn't been run as its own dedicated check either; the ad-hoc
+jsdom script proves the floor-generation logic and the real-browser runs
+above prove duel fights work, but nothing yet chains "fresh run -> first
+fight -> gauge+music+Verses visible" against the live gh-pages URL
+specifically. Item 3 is a partial, code-level read, not a finished one --
+still open per the section above.
+
+**Next:** REGULAR ENEMIES's own queue entry (immediately below PLAYTEST
+FINDINGS in GOALS.md) is the direct unblock for item 2 -- every mid/late
+regular that ticket wires in shrinks the "still turn-based" gap this run's
+bias can't close on its own. Once normal/strong tiers each have at least
+one real duel-capable def, re-run this ticket's own ad-hoc
+seeded-playthrough check at floors 2-4 too, not just floor 1's start
+lanes, before considering PLAYTEST FINDINGS' box checkable.
+
+**POSTSCRIPT, same run (concurrent-run collision discovered at push time,
+corrected honestly rather than silently rewriting the narrative above):**
+`git push` was rejected (`fetch first`); `git fetch` showed `origin/main`
+had moved ahead while this run worked -- the immediately-preceding
+REGULAR ENEMIES entry above ("Gnossienne + Invention wired into real,
+reachable 'normal'-tier monsters") landed concurrently and had ALREADY
+bumped the version to v0.9 for unrelated reasons (wiring 2 new real
+`normal`-tier duel defs, retiring `golempup`/`raven`). `git reset --hard
+origin/main`, then re-applied this run's own floor.js/RunScreen.jsx/
+gameHelpers.js/wordbound.css diff on top (clean, non-conflicting files --
+the two runs touched entirely disjoint code) and re-ran this run's ENTIRE
+verification bar again from scratch against the merged tree, not just
+trusted the pre-collision "ALL CHECKS PASSED" claims above:
+- The paragraphs above describing "today's only duel-capable regulars are
+  the 3 wired weak-tier ones... Normal/strong tiers have no duel defs
+  yet" and the "Not done" section's "normal/strong tiers have ZERO
+  duel-capable defs yet" are now STALE, superseded by the landed
+  Gnossienne/Invention commit -- corrected here rather than edited in
+  place, so this entry's own timeline stays honest. Current real state:
+  floor 1's combined weak+normal pool now has 5 duel-capable defs
+  (gymnopediste/gstring/morningmood/gnossienne/invention) and 3 non-duel
+  ones (serpent/bindingstrap/appendix) -- this run's bias still narrows
+  every floor-1 draw to those same 5, just a richer 5 than believed while
+  writing the notes above.
+- Re-ran the ad-hoc 200-seed jsdom playthrough script against the merged
+  tree: still 506/506 start-lane combat nodes duel-mode (unaffected --
+  the bias logic itself doesn't care how many duel defs exist, only that
+  at least one does).
+- Re-ran the full suite: `npm test` (dom-check.js) clean (1 run hit the
+  documented pre-existing "STOLEN LETTERS boss-kill ... GAME_OVER instead
+  of TILE_REWARD" flake, clean rerun after). `npm run test:react`:
+  183/183 clean. `npm run build`: clean. `npm run test:branching-map`,
+  `test:mobile`, `test:qa`, `test:react-qa`, `test:regular-duel-smoke`
+  (now also exercises the real Gnossienne/Invention mid-tier duel path,
+  not just weak-tier -- ALL CHECKS PASSED, including the mid-tier
+  win+loss pass the concurrent commit had already added),
+  `test:duel-balance` (no sanity flags): ALL CHECKS PASSED.
+- `npm run test:itch-build` flagged a real concern worth recording
+  honestly: hit the STOLEN LETTERS flake described above at a 4/6 rate in
+  immediate succession, well above its documented ~17% baseline -- looked
+  like it might be a real regression at first. Isolated properly with a
+  disposable `git worktree` checked out at pure `origin/main` (this run's
+  OWN diff completely absent) and ran the same check 4x there: 1/4 also
+  failed, the same documented rate within normal variance. Confirms this
+  is pre-existing flakiness unrelated to this run's change, not a
+  regression -- small-sample noise, not a real signal. Worktree removed
+  after. Final confirming run on this run's own merged tree: clean.
+- Version: since v0.9 was already spent by the concurrent commit for a
+  materially different reason, bumped again to **v0.10**
+  (`MainMenu.jsx`/`wordbound.html`/`MainMenu.test.jsx`) -- this run's own
+  floor-generation bias is a distinct, separately-verified behavioral
+  change (proven by the 200-seed sim), not the same feature as the
+  concurrent wiring commit, so it earns its own bump rather than riding
+  the other run's.
+- Live deploy re-refreshed against this final merged+re-verified build
+  (see below) -- the pre-collision refresh mentioned above was against a
+  now-superseded tree and is no longer the live one.
+
+Corrected summary of what's actually true right now: 5 of 9 regulars are
+real and wired (3 weak + 2 mid/normal), floor 1 is 100% duel-mode by
+construction, floors 2-4 still mix in turn-based fights wherever a node's
+pool has no duel-capable option (strong tier still has zero). PLAYTEST
+FINDINGS item 2 and its own closing bar remain open for the reasons
+already stated above, just against a more accurate baseline.
