@@ -8805,6 +8805,16 @@ boss-duel retune, floor 1's real difficulty problem) remains untouched by
 this run too -- still the other live open thread above this ticket in the
 queue.
 
-**Live deploy refresh:** see the entry immediately following this one for
-the outcome (build + gh-pages publish attempted after this entry was
-written, per the header's standing LIVE DEPLOY rule).
+**Live deploy refresh, actually executed:** built `dist/app/` fresh off
+this run's own commit (`fb32b4b`, 58 modules, v0.13) in a disposable `git
+worktree`, published its contents + an empty `.nojekyll` as the new root
+of the `gh-pages` branch via a scratch orphan branch, `git push -f origin
+gh-pages-refresh:gh-pages` -- succeeded, confirmed by git's own ref-update
+output (`573f92b...530ba85 gh-pages-refresh -> gh-pages (forced update)`).
+Worktree removed after. **Could NOT curl-verify, honestly flagged rather
+than assumed:** `curl -sv https://gidntsquia.github.io/wordbound-crescendo/`
+hit the same pre-existing domain-specific proxy block this repo's prior
+runs have already repeatedly documented -- a `403` on the CONNECT tunnel
+to `gidntsquia.github.io` specifically. The push itself is the actual
+deploy action and it succeeded; this is a known, recurring sandbox
+limitation, not a new one introduced by this run.
