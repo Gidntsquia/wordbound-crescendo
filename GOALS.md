@@ -4169,6 +4169,53 @@ Rules for the routine:
       REGULAR ENEMIES remains the queue's next fully independent item after
       that.
 
+- [ ] PLAYTEST FINDINGS 2 — JAXON, 2026-08-22 (~19:25 UTC), SECOND PLAYTEST.
+      His feedback, near-verbatim: enemies shouldn't have an HP number — HP
+      bar instead; damaging them should ONLY happen by winning the duel push
+      (pushing the bar in their direction); the game is far too difficult;
+      all enemies have the same music; one song is unrecognizable; the base
+      mechanic is confusing and needs streamlining. Orchestrator translation
+      into binding work, priority order:
+      1. COMBAT MODEL ALIGNMENT (this was always the pitch — enforce it):
+         in a duel, word scores NEVER damage enemy HP directly. Words push
+         the gauge; WINNING a push is the only thing that hurts the enemy —
+         one won push = one enemy segment lost, `pushesToDefeat` segments
+         total. Remove/disable any parallel word→HP damage path in duel
+         mode. Enemy health UI = a SEGMENTED BAR (one segment per remaining
+         push), no numeric HP anywhere in duel fights. Mirrors the player's
+         Verses pips — two bars, one tug-of-war, fully readable.
+      2. DIFFICULTY: floor-1 must be beatable by a casual player. Use the
+         existing balance sim with a modest words-per-minute/score profile
+         and tune music push rates / player push-per-word until floor-1
+         weak-tier win rate ≥ ~80% at casual pace, scaling difficulty into
+         later floors per the header curve. Commit the tuned numbers AND
+         the sim profile that justifies them.
+      3. MUSIC VARIETY BUG: Jaxon heard the SAME music on all enemies.
+         Diagnose for real (likely the duel-first floor bias or def
+         selection collapsing onto one def) and fix: consecutive fights in
+         a run must not repeat the same piece back-to-back when
+         alternatives exist in the pool. Verify on a seeded playthrough
+         listing which piece each fight used.
+      4. RECOGNIZABILITY RULE (standing, add to the header's PD-vetting
+         rule): pieces must be PD **and broadly recognizable** — the
+         "name that tune in a few seconds" bar. Czerny 299 (The Metronome)
+         fails this; REPLACE its piece with a famous one (candidates
+         already PD-safe: Turkish March, Für Elise, Ode to Joy, William
+         Tell overture, Danse Macabre, Blue Danube). Audit the current
+         roster against this bar and list any other misses in PROGRESS.md.
+      5. STREAMLINE THE LOOP: in duel fights the combat screen shows ONLY
+         what drives the loop — the Volume gauge center-stage, enemy
+         segment bar, player Verses, tile rack/input, crescendo warning.
+         Demote or hide everything else during duels (numeric HP, intents,
+         ink counter prominence, legacy panels). First duel of a fresh
+         profile gets ONE short inline hint ("the music pushes — type
+         words to push back!"), dismissed on first push win.
+      Do these ACROSS RUNS in order; each run deploys per the LIVE DEPLOY
+      rule so Jaxon can re-test immediately. Check this box only when a
+      seeded live-build playthrough demonstrates 1, 3, and 5 together and
+      the sim evidence for 2 is committed; item 4's replacement piece must
+      be wired, not just composed.
+
 - [ ] PLAYTEST FINDINGS — JAXON, 2026-08-22 (~17:00 UTC), FIRST HUMAN PLAYTEST.
       His verbatim report, from the live URL: "There's no duel, there's no
       classical music, there's still 'ink' instead of health blocks, the game
