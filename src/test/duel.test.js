@@ -232,3 +232,74 @@ describe('Parry window', () => {
     expect(duel.attemptParry(1)).toBe(true);
   });
 });
+
+// ITEMS ticket (GOALS.md, 2026-08-22): AMENDED batch's 3 duel-gauge-space
+// items (Sordino/Fermata/Rubato) each work by way of a per-instance
+// Duel.create() opt -- see duel.js's own header doc for why these are opts
+// rather than global Duel.* constants (keeps this module Items-agnostic).
+// game.js's Game.startDuelFight is the only real caller (verified live via
+// test:react-duel-loss, since building the opts from owned items needs a
+// real Items module); these tests exercise the opts directly against the
+// pure engine, same mocked-clock spirit as every other describe block above.
+describe('Per-instance duel modifiers (ITEMS ticket, AMENDED batch)', () => {
+  it('defaults to no push resistance, no i-frame bonus, no parry-window bonus', () => {
+    const duel = Duel.create({ stageTier: 'early' });
+    expect(duel.pushResistance).toBe(0);
+    expect(duel.iframeBonusSec).toBe(0);
+    expect(duel.parryWindowBonusSec).toBe(0);
+  });
+
+  it('pushResistance reduces every tick\'s music push by that fraction', () => {
+    const plain = Duel.create({ stageTier: 'final' });
+    const resisted = Duel.create({ stageTier: 'final', pushResistance: 0.2 });
+    plain.tick(0, 1, 1);
+    resisted.tick(0, 1, 1);
+    const plainPush = Duel.GAUGE_CENTER - plain.gauge;
+    const resistedPush = Duel.GAUGE_CENTER - resisted.gauge;
+    expect(resistedPush).toBeCloseTo(plainPush * 0.8, 6);
+  });
+
+  it('pushResistance composes with parry damping (both reduce the same push multiplicatively)', () => {
+    const duel = Duel.create({ stageTier: 'final', pushResistance: 0.2 });
+    duel.registerCrescendoPeak(0);
+    duel.attemptParry(0);
+    const undamped = Duel.STAGE_TIER_BASE_PUSH.final + Duel.INTENSITY_PUSH_SCALE;
+    duel.tick(0.1, 1, 1); // inside the damping window
+    const expected = undamped * (1 - 0.2) * (1 - Duel.PARRY_MITIGATION);
+    expect(duel.gauge).toBeCloseTo(Duel.GAUGE_CENTER - expected, 6);
+  });
+
+  it('pushResistance is clamped to [0, 0.9] -- a fight can never become un-losable', () => {
+    const duel = Duel.create({ stageTier: 'final', pushResistance: 5 });
+    expect(duel.pushResistance).toBe(0.9);
+    const negative = Duel.create({ stageTier: 'final', pushResistance: -1 });
+    expect(negative.pushResistance).toBe(0);
+  });
+
+  it('iframeBonusSec extends how long i-frames last after a block loss', () => {
+    const duel = Duel.create({ stageTier: 'final', healthBlocks: 5, iframeBonusSec: 1.5 });
+    duel.tick(0, 100, 1); // block loss at t=0, iframeUntil = 3 + 1.5 = 4.5
+    expect(duel.healthBlocks).toBe(4);
+    // Still within the bonus window (default 3s would have expired by now).
+    duel.tick(Duel.IFRAME_DURATION_SEC + 0.1, 1, 1);
+    expect(duel.healthBlocks).toBe(4); // no second loss yet -- i-frames still active
+    // Past the bonus window, push resumes normally.
+    duel.tick(Duel.IFRAME_DURATION_SEC + 1.5 + 0.1, 1, 1);
+    expect(duel.gauge).toBeLessThan(Duel.GAUGE_CENTER);
+  });
+
+  it('parryWindowBonusSec widens the window a word can land in around a registered peak', () => {
+    const duel = Duel.create({ stageTier: 'early', parryWindowBonusSec: 0.1 });
+    duel.registerCrescendoPeak(10);
+    // Outside the DEFAULT window but inside the widened one.
+    const offset = Duel.PARRY_WINDOW_SEC + 0.05;
+    expect(duel.attemptParry(10 + offset)).toBe(true);
+  });
+
+  it('parryWindowBonusSec does not accept a word past the widened window either', () => {
+    const duel = Duel.create({ stageTier: 'early', parryWindowBonusSec: 0.1 });
+    duel.registerCrescendoPeak(10);
+    const offset = Duel.PARRY_WINDOW_SEC + 0.2;
+    expect(duel.attemptParry(10 + offset)).toBe(false);
+  });
+});

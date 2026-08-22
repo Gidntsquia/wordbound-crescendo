@@ -203,6 +203,44 @@ async function main() {
     await page.click('.node-pill.node-boss.node-current');
     check('tempo is back to normal for the remaining phases', (await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale())) === 1);
 
+    // ---- SORDINO / FERMATA / RUBATO (ITEMS ticket, AMENDED batch): the 3
+    // duel-gauge-space statMod items, live on a REAL Duel instance ----
+    // Same reasoning as the Ritardando section above: dom-check already
+    // unit-tests Items.getDuelPushResistance/getDuelIframeBonus/
+    // getDuelParryWindowBonus in isolation, but only a real
+    // Game.startDuelFight call proves those getters are actually READ when
+    // building a real Duel.create() -- these opts only apply at fight start
+    // (same "read once, fight-start" timing as Ritardando/Largo), so grant
+    // all 3, re-enter the same boss fight for real, and read the values
+    // straight off the live duel object (duel.js stores each opt as a
+    // same-named field -- see that file's own Duel.create).
+    await page.evaluate(() => { window.Wordbound.Game._state.player.items = ['sordino', 'fermata', 'rubato']; });
+    await page.evaluate(() => {
+      const s = window.Wordbound.Game._state;
+      s.combatActive = false;
+      s.duelSequencer.stop();
+    });
+    await jumpToBossNode(page);
+    await page.click('.node-pill.node-boss.node-current');
+    const duelResistance = await page.evaluate(() => window.Wordbound.Game._state.duel.pushResistance);
+    const duelIframeBonus = await page.evaluate(() => window.Wordbound.Game._state.duel.iframeBonusSec);
+    const duelParryBonus = await page.evaluate(() => window.Wordbound.Game._state.duel.parryWindowBonusSec);
+    check(`Sordino's push-resistance reaches a freshly-started real Duel instance (${duelResistance})`, Math.abs(duelResistance - 0.2) < 1e-9);
+    check(`Fermata's i-frame bonus reaches a freshly-started real Duel instance (${duelIframeBonus})`, Math.abs(duelIframeBonus - 1.5) < 1e-9);
+    check(`Rubato's parry-window bonus reaches a freshly-started real Duel instance (${duelParryBonus})`, Math.abs(duelParryBonus - 0.1) < 1e-9);
+    await page.evaluate(() => { window.Wordbound.Game._state.player.items = []; }); // strip the items so the phases below run against the plain-Duel numbers they were written against
+    await page.evaluate(() => {
+      const s = window.Wordbound.Game._state;
+      s.combatActive = false;
+      s.duelSequencer.stop();
+    });
+    await jumpToBossNode(page);
+    await page.click('.node-pill.node-boss.node-current');
+    check('duel modifiers are back to zero for the remaining phases', await page.evaluate(() => {
+      const d = window.Wordbound.Game._state.duel;
+      return d.pushResistance === 0 && d.iframeBonusSec === 0 && d.parryWindowBonusSec === 0;
+    }));
+
     // ---- Phase 0: the crescendo-approaching countdown, real sequencer + real wall-clock ----
     // Mountain King's own crescendo peaks at beat 71 (js/wordbound/pieces/
     // mountain-king.js); waiting through the piece's early bars naturally

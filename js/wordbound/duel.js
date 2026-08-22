@@ -78,6 +78,21 @@
 // {pushesWon, pushesToDefeat}), 'defeated' (payload undefined), 'block-lost'
 // (payload {healthBlocks}), 'player-defeated' (payload undefined), 'parried'
 // (payload the crescendo peak time that was parried).
+//
+// PER-INSTANCE TUNING OPTS (ITEMS ticket, AMENDED batch, 2026-08-22): three
+// optional Duel.create() opts, each a per-fight modifier the caller (game.js)
+// derives from owned items -- kept as plain opts rather than global Duel.*
+// constants so this stays the same "pure, framework-agnostic, no Items
+// dependency" engine the header above already establishes (mirrors
+// stageTier/healthBlocks/pushesToDefeat's own shape):
+//   pushResistance      0..1 fraction; every tick's music push (base tier +
+//                       intensity, BEFORE parry damping) is multiplied by
+//                       (1 - pushResistance). Clamped to [0, 0.9] so a fight
+//                       can never become fully un-losable.
+//   iframeBonusSec      added on top of IFRAME_DURATION_SEC when a block is
+//                       lost (loseBlock) -- i-frames last longer.
+//   parryWindowBonusSec added on top of PARRY_WINDOW_SEC in attemptParry --
+//                       a wider window around the registered peak counts.
 (function () {
   window.Wordbound = window.Wordbound || {};
   var Duel = (window.Wordbound.Duel = {});
@@ -111,6 +126,9 @@
     opts = opts || {};
     var stageTier = opts.stageTier || 'early';
     var healthBlocks = opts.healthBlocks != null ? opts.healthBlocks : Duel.DEFAULT_HEALTH_BLOCKS;
+    var pushResistance = Math.max(0, Math.min(0.9, opts.pushResistance || 0));
+    var iframeBonusSec = Math.max(0, opts.iframeBonusSec || 0);
+    var parryWindowBonusSec = Math.max(0, opts.parryWindowBonusSec || 0);
 
     var listeners = {};
     function emit(event, payload) {
@@ -126,6 +144,9 @@
       pushesToDefeat: opts.pushesToDefeat != null ? opts.pushesToDefeat : 1,
       pushesWon: 0,
       gauge: Duel.GAUGE_CENTER,
+      pushResistance: pushResistance,
+      iframeBonusSec: iframeBonusSec,
+      parryWindowBonusSec: parryWindowBonusSec,
       iframeUntil: -Infinity,
       pendingPeakAt: null,
       parryDampingUntil: -Infinity,
@@ -154,7 +175,7 @@
     function loseBlock(now) {
       duel.healthBlocks -= 1;
       duel.gauge = Duel.GAUGE_CENTER;
-      duel.iframeUntil = now + Duel.IFRAME_DURATION_SEC;
+      duel.iframeUntil = now + Duel.IFRAME_DURATION_SEC + duel.iframeBonusSec;
       emit('block-lost', { healthBlocks: duel.healthBlocks });
       if (duel.healthBlocks <= 0) {
         duel.playerDefeated = true;
@@ -183,6 +204,7 @@
 
       var push = Duel.STAGE_TIER_BASE_PUSH[duel.stageTier] || 0;
       push += Math.max(0, Math.min(1, intensity || 0)) * Duel.INTENSITY_PUSH_SCALE;
+      push *= (1 - duel.pushResistance);
       if (now < duel.parryDampingUntil) push *= (1 - Duel.PARRY_MITIGATION);
 
       duel.gauge -= push * dt;
@@ -203,7 +225,7 @@
     // window around the most recent not-yet-consumed crescendo peak.
     duel.attemptParry = function (now) {
       if (duel.pendingPeakAt == null) return false;
-      var withinWindow = Math.abs(now - duel.pendingPeakAt) <= Duel.PARRY_WINDOW_SEC;
+      var withinWindow = Math.abs(now - duel.pendingPeakAt) <= (Duel.PARRY_WINDOW_SEC + duel.parryWindowBonusSec);
       if (!withinWindow) return false;
       var parriedAt = duel.pendingPeakAt;
       duel.pendingPeakAt = null;

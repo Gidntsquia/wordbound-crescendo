@@ -79,6 +79,23 @@
 //   getScoreMultiplier(player) -> 1, or product of any owned
 //       scoreMultiplier statMods (ITEMS ticket's FORTISSIMO) -- read by
 //       combat.js's Combat.playWord as a final damage multiplier.
+//   getDuelPushResistance(player) -> 0, or the sum of owned
+//       duelPushResistance statMods (ITEMS ticket, AMENDED batch), clamped to
+//       [0, 0.9] -- read by game.js's Game.startDuelFight as Duel.create's
+//       own pushResistance opt (duel.js multiplies every tick's music push
+//       by (1 - pushResistance)). Sums rather than multiplies (unlike
+//       getTempoScale/getScoreMultiplier) since a fraction reduction
+//       composes additively in the intuitive sense players expect from
+//       "resistance" -- two 20% items feel like 40% off, not 36% off -- and
+//       the clamp keeps that from ever reaching 100%.
+//   getDuelIframeBonus(player) -> 0, or the sum of owned duelIframeBonusSec
+//       statMods -- read by Game.startDuelFight as Duel.create's own
+//       iframeBonusSec opt (added on top of Duel.IFRAME_DURATION_SEC when a
+//       block is lost).
+//   getDuelParryWindowBonus(player) -> 0, or the sum of owned
+//       duelParryWindowBonusSec statMods -- read by Game.startDuelFight as
+//       Duel.create's own parryWindowBonusSec opt (added on top of
+//       Duel.PARRY_WINDOW_SEC in attemptParry).
 //   bypassesWordValidity(word, player) -> true if `word` is exactly 3
 //       letters and the player owns Poetic License (ITEMS ticket) -- the
 //       second validity gate combat.js's playWord/previewWord check after
@@ -98,6 +115,18 @@
 //   hasInvertedScore(player) -> true if the player owns 'inverted_score'.
 //   upsideDownValid(word, player) -> true only if hasInvertedScore(player)
 //       AND flipUpsideDown(word) is itself a real dictionary word.
+//   applyOnAcquire(player, itemId) -> calls ITEM_DEFS[itemId].onAcquire(player)
+//       if the def has one (ITEMS ticket, AMENDED batch's health items) --
+//       a ONE-SHOT effect fired exactly once, the moment an item is added to
+//       player.items (game.js's Game.pickTreasureItem/buyItem/
+//       pickBossItemReward each call this right after their own
+//       player.items.push), not a per-word/per-fight hook like everything in
+//       the `hooks` object above. Needed because "increase max health
+//       blocks" (Extra Verse) is a permanent one-time stat change at pickup
+//       time, not a recurring proc -- reusing onRunStart (which actually
+//       fires every FIGHT, not once per run, despite its name -- see that
+//       hook's own doc above) would silently re-grant the bonus every fight.
+//       No-op if the def has no onAcquire or itemId is unrecognized.
 //   runHook(hookName, ctx, player) -> iterates player.items (array of item
 //       ids, pickup order) and invokes any matching hook, mutating ctx.
 //   applyBonusDamage(ctx, amount) -> helper hooks call to add extra damage
@@ -814,6 +843,140 @@
     }
   });
 
+  // ---- ITEMS ticket (GOALS.md, 2026-08-22): AMENDED batch. All 4 of
+  // Jaxon's signature items exist above; this rounds out the pool per the
+  // ticket's own "also add HEALTH ITEMS... plus 4-8 more leaning into the
+  // duel-gauge space" amendment. 2 health items (rare, since ~5 health
+  // blocks/Verses makes each one precious, per the ticket) + 4 duel-gauge
+  // items (the ticket's stated floor of the 4-8 range), all Italian musical
+  // terms matching the signature items' own naming voice
+  // (Ritardando/Fortissimo/etc).
+
+  def({
+    id: 'extra_verse',
+    name: 'Extra Verse',
+    hint: 'One more line to the song before it ends -- a whole new verse of endurance.',
+    rarity: 'rare',
+    shopPrice: 50,
+    // A permanent, ONE-TIME +1 to both max and current health blocks at the
+    // moment this is picked up (Items.applyOnAcquire -- see its own header
+    // doc for why this can't be a `hooks` entry: onRunStart fires every
+    // fight, not once, and every other hook is per-word/per-damage-event,
+    // none of which fit "gain a permanent block right now"). Deliberately
+    // grants the block on top of whatever healthBlocks currently is (not
+    // just raising the ceiling) -- consistent with "increase max health
+    // blocks" reading as a genuine gain, not a ceiling the player has to
+    // walk back up to via healing.
+    onAcquire: function (player) {
+      var Duel = window.Wordbound.Duel;
+      var base = (Duel && Duel.DEFAULT_HEALTH_BLOCKS) || 5;
+      var currentMax = player.maxHealthBlocks != null ? player.maxHealthBlocks : base;
+      player.maxHealthBlocks = currentMax + 1;
+      var currentBlocks = player.healthBlocks != null ? player.healthBlocks : base;
+      player.healthBlocks = Math.min(player.maxHealthBlocks, currentBlocks + 1);
+    }
+  });
+
+  def({
+    id: 'mended_verse',
+    name: 'Mended Verse',
+    hint: 'A torn page, carefully rebound -- what was lost returns, one stanza at a time.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      // Floor-transition healing (mirrors Acquisitions Budget's own
+      // onFloorAdvance use, the only other item on this hook) rather than
+      // per-fight (onRunStart) -- healing a lost Verse every single fight
+      // would trivialize the health-block system the ticket's own
+      // "sim-check that health items don't trivialize late tiers" line
+      // warns against; once per floor (several fights) is a meaningfully
+      // slower drip. No-op once already at full health (never overheals).
+      onFloorAdvance: function (ctx) {
+        var Duel = window.Wordbound.Duel;
+        var base = (Duel && Duel.DEFAULT_HEALTH_BLOCKS) || 5;
+        var max = ctx.player.maxHealthBlocks != null ? ctx.player.maxHealthBlocks : base;
+        var current = ctx.player.healthBlocks != null ? ctx.player.healthBlocks : base;
+        if (current >= max) return;
+        ctx.player.healthBlocks = Math.min(max, current + 1);
+        ctx.messages.push('Mended Verse: +1 health block!');
+      }
+    }
+  });
+
+  def({
+    id: 'sordino',
+    name: 'Sordino',
+    hint: "A mute clipped to every string -- the enemy's music presses less hard on you.",
+    rarity: 'rare',
+    shopPrice: 45,
+    // Gauge push-resistance: read by Items.getDuelPushResistance (summed
+    // across owned items, clamped) and passed into Duel.create's own
+    // pushResistance opt -- see duel.js's header doc for the exact math.
+    // 20% is a meaningful but not run-defining slice of a single item.
+    statMods: { duelPushResistance: 0.2 }
+  });
+
+  def({
+    id: 'fermata',
+    name: 'Fermata',
+    hint: 'Hold the pause a beat longer -- the measure waits for you to catch your breath.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    // Longer i-frames after a block loss: read by Items.getDuelIframeBonus
+    // and passed into Duel.create's own iframeBonusSec opt. +1.5s on top of
+    // duel.js's default 3s i-frame window (a 50% extension) -- a real but
+    // not overwhelming survivability boost, priced below the two rare duel
+    // items since it only ever matters after a loss has already happened
+    // (Sordino/Rubato both act pre-emptively).
+    statMods: { duelIframeBonusSec: 1.5 }
+  });
+
+  def({
+    id: 'rubato',
+    name: 'Rubato',
+    hint: 'Borrowed time, given back -- play a hair off the beat and the music forgives you.',
+    rarity: 'rare',
+    shopPrice: 45,
+    // Wider parry window: read by Items.getDuelParryWindowBonus and passed
+    // into Duel.create's own parryWindowBonusSec opt. +0.1s on top of
+    // duel.js's default 0.2s window (PARRY_WINDOW_SEC) -- a 50% widening,
+    // deliberately modest since the parry window is this game's core
+    // precision-timing mechanic and the ticket's own DUEL-GAUGE COMBAT
+    // header flags parry pacing as a Jaxon-only playtest-feel call; a
+    // bigger widening risks trivializing the skill entirely rather than
+    // just making it more forgiving.
+    statMods: { duelParryWindowBonusSec: 0.1 }
+  });
+
+  def({
+    id: 'encore',
+    name: 'Encore',
+    hint: "A parried crescendo doesn't just survive -- it answers back.",
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      // Crescendo-payback: DuelCombat.submitWord attaches `parried: true` to
+      // the result object exactly when duel.attemptParry succeeded for this
+      // word (js/wordbound/duelCombat.js) -- game.js's Game.submitWord then
+      // passes that same result through as ctx.result to every onWordPlayed
+      // hook, so this is readable here without any new plumbing. A
+      // turn-based (non-duel) fight's result never has this field
+      // (Combat.playWord doesn't set it), so ctx.result.parried is
+      // undefined/falsy there and this hook is naturally a no-op outside a
+      // duel fight -- no isDuelFight check needed. Bonus damage lands via
+      // the same Items.applyBonusDamage every other proc item uses (mutates
+      // monster.hp directly); it does NOT retroactively add to the gauge
+      // push that already resolved for this word (duel.applyPlayerPush ran
+      // inside DuelCombat.submitWord, before this hook fires) -- a direct,
+      // immediate strike on top of the parry, not a bigger push.
+      onWordPlayed: function (ctx) {
+        if (!ctx.result || !ctx.result.parried) return;
+        Items.applyBonusDamage(ctx, 8);
+        ctx.messages.push('Encore: the parry strikes back for +8!');
+      }
+    }
+  });
+
   // FLIP_MAP is the "conservative" mapping the ticket itself specifies --
   // only letters with a genuinely clean upside-down glyph get an entry
   // (u<->n, m<->w, b<->q, d<->p; o/s/x/z/i are each already symmetric
@@ -948,6 +1111,40 @@
     return mult;
   };
 
+  // ITEMS ticket, AMENDED batch's 3 duel-gauge items (Sordino/Fermata/
+  // Rubato): each reads its own statMod, summed across every owned item
+  // that sets it (mirrors getTempoScale/getScoreMultiplier's shape, except
+  // additive rather than multiplicative -- see the header doc above for
+  // why). All 3 return 0 (no change) when nothing owned sets them, so
+  // Duel.create's own opts default cleanly with no item-awareness needed on
+  // duel.js's side.
+  Items.getDuelPushResistance = function (player) {
+    var resistance = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.duelPushResistance != null) resistance += d.statMods.duelPushResistance;
+    });
+    return Math.max(0, Math.min(0.9, resistance));
+  };
+
+  Items.getDuelIframeBonus = function (player) {
+    var bonus = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.duelIframeBonusSec != null) bonus += d.statMods.duelIframeBonusSec;
+    });
+    return bonus;
+  };
+
+  Items.getDuelParryWindowBonus = function (player) {
+    var bonus = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.duelParryWindowBonusSec != null) bonus += d.statMods.duelParryWindowBonusSec;
+    });
+    return bonus;
+  };
+
   // A rack this small can never form a real word at all (Lexicon.
   // isValidWord's own floor is 2 letters, and a 2-tile rack is so
   // restrictive it would softlock most fights in practice) -- FORTISSIMO's
@@ -965,6 +1162,15 @@
       if (d.statMods.rackCapacityMult != null) mult *= d.statMods.rackCapacityMult;
     });
     return Math.max(Items.MIN_RACK_CAPACITY, Math.round(capacity * mult));
+  };
+
+  // See this function's own header doc above for why onAcquire is a
+  // separate, one-shot mechanism rather than another `hooks` entry. Callers:
+  // game.js's Game.pickTreasureItem/buyItem/pickBossItemReward, each right
+  // after their own player.items.push(itemId).
+  Items.applyOnAcquire = function (player, itemId) {
+    var d = ITEM_DEFS[itemId];
+    if (d && typeof d.onAcquire === 'function') d.onAcquire(player);
   };
 
   // An item "procced" if its hook announced itself on ctx.messages -- the same

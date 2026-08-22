@@ -779,6 +779,100 @@ async function main() {
     }
   }
 
+  // ITEMS ticket (GOALS.md, 2026-08-22): AMENDED batch -- 2 health items
+  // (Extra Verse, Mended Verse) + 4 duel-gauge-space items (Sordino,
+  // Fermata, Rubato, Encore), rounding out the pool past Jaxon's 4 signature
+  // items.
+  {
+    const Items = window.Wordbound.Items;
+    const Duel = window.Wordbound.Duel;
+
+    // Extra Verse: Items.applyOnAcquire is the one-shot mechanism (not a
+    // `hooks` entry -- see its own header doc for why), so it's called
+    // directly here rather than through Items.runHook.
+    {
+      const player = { items: [], maxHealthBlocks: 5, healthBlocks: 5 };
+      Items.applyOnAcquire(player, 'extra_verse');
+      check('Extra Verse: +1 max health blocks on acquire', player.maxHealthBlocks === 6);
+      check('Extra Verse: +1 CURRENT health blocks too (a genuine gain, not just a raised ceiling)', player.healthBlocks === 6);
+    }
+    {
+      // Acquired while already damaged: both current and max go up by 1,
+      // current stays below the new max exactly as it did below the old one.
+      const damagedPlayer = { items: [], maxHealthBlocks: 5, healthBlocks: 2 };
+      Items.applyOnAcquire(damagedPlayer, 'extra_verse');
+      check('Extra Verse: acquired while damaged -- max still +1 (5 -> 6)', damagedPlayer.maxHealthBlocks === 6);
+      check('Extra Verse: acquired while damaged -- current still +1, not capped early (2 -> 3)', damagedPlayer.healthBlocks === 3);
+    }
+    check('Extra Verse: applyOnAcquire on an unrelated item is a silent no-op', (() => {
+      const player = { items: [], maxHealthBlocks: 5, healthBlocks: 5 };
+      Items.applyOnAcquire(player, 'thick_skin');
+      return player.maxHealthBlocks === 5 && player.healthBlocks === 5;
+    })());
+
+    // Mended Verse: onFloorAdvance heals 1 lost block, never overheals.
+    {
+      const player = { items: ['mended_verse'], maxHealthBlocks: 5, healthBlocks: 3 };
+      const ctx = { player, floorNumber: 2, messages: [] };
+      Items.runHook('onFloorAdvance', ctx, player);
+      check('Mended Verse: heals 1 lost health block on floor advance (3 -> 4)', player.healthBlocks === 4);
+      check('Mended Verse: proc message logged', ctx.messages.some((m) => m.indexOf('Mended Verse') !== -1));
+    }
+    {
+      const fullPlayer = { items: ['mended_verse'], maxHealthBlocks: 5, healthBlocks: 5 };
+      const ctx = { player: fullPlayer, floorNumber: 2, messages: [] };
+      Items.runHook('onFloorAdvance', ctx, fullPlayer);
+      check('Mended Verse: no-op at full health (never overheals)', fullPlayer.healthBlocks === 5);
+      check('Mended Verse: no proc message when already full', ctx.messages.length === 0);
+    }
+
+    // Sordino/Fermata/Rubato: the 3 additive duel-gauge getters. Sum across
+    // owned items (mirroring getTempoScale/getScoreMultiplier's shape,
+    // additive not multiplicative -- see the getters' own header doc).
+    check('Sordino: getDuelPushResistance is 0 with no items owned', Items.getDuelPushResistance({ items: [] }) === 0);
+    check('Sordino: getDuelPushResistance is 0.2 when owned', Items.getDuelPushResistance({ items: ['sordino'] }) === 0.2);
+    check('Sordino: an unrelated item does not affect push resistance', Items.getDuelPushResistance({ items: ['sordino', 'thick_skin'] }) === 0.2);
+    check('Fermata: getDuelIframeBonus is 0 with no items owned', Items.getDuelIframeBonus({ items: [] }) === 0);
+    check('Fermata: getDuelIframeBonus is 1.5 when owned', Items.getDuelIframeBonus({ items: ['fermata'] }) === 1.5);
+    check('Rubato: getDuelParryWindowBonus is 0 with no items owned', Items.getDuelParryWindowBonus({ items: [] }) === 0);
+    check('Rubato: getDuelParryWindowBonus is 0.1 when owned', Items.getDuelParryWindowBonus({ items: ['rubato'] }) === 0.1);
+    // The 0.9 clamp: a deliberately extreme fake item (no real item is this
+    // severe), same convention Fortissimo's own MIN_RACK_CAPACITY test uses.
+    {
+      window.Wordbound.Items.ITEM_DEFS['_test_extreme_resistance'] = { id: '_test_extreme_resistance', statMods: { duelPushResistance: 5 }, hooks: {} };
+      check('Sordino: push resistance clamps to 0.9, never fully un-losable', Items.getDuelPushResistance({ items: ['_test_extreme_resistance'] }) === 0.9);
+      delete window.Wordbound.Items.ITEM_DEFS['_test_extreme_resistance'];
+    }
+
+    // Encore: crescendo-payback, reads ctx.result.parried (the field
+    // DuelCombat.submitWord attaches -- see that module's own doc). Bonus
+    // damage applies via the same Items.applyBonusDamage every other proc
+    // item uses, so a synthetic ctx here (rather than a real duel fight,
+    // which needs AudioContext) is enough to exercise it directly.
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['encore'] }, monster, word: 'CAT', result: { damage: 10, parried: true }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('Encore: a parried word deals +8 bonus damage', monster.hp === 100 - 8 && ctx.result.damage === 18);
+      check('Encore: proc message logged on a real parry', ctx.messages.some((m) => m.indexOf('Encore') !== -1));
+    }
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['encore'] }, monster, word: 'CAT', result: { damage: 10, parried: false }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('Encore: no bonus without a parry', monster.hp === 100 && ctx.result.damage === 10);
+    }
+    {
+      // A turn-based (non-duel) fight's result never carries `parried` at
+      // all -- confirms the hook is naturally inert there, no isDuelFight
+      // check needed (see the def's own comment).
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['encore'] }, monster, word: 'CAT', result: { damage: 10 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('Encore: inert on a turn-based result with no `parried` field at all', monster.hp === 100 && ctx.result.damage === 10);
+    }
+  }
+
   // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants. The two
   // SCORING variants (Charged +4 flat, Volatile letter-value x2) resolve in
   // Lexicon.scoreWord, so they're checked here in isolation against exact
@@ -2521,6 +2615,28 @@ async function main() {
     }
 
     check('ITEMS ticket item "inverted_score" appears in shop rolls across 300 seeded samples', seen.has('inverted_score'));
+
+    state.rng = savedRng;
+    state.player.items = savedItems;
+  }
+
+  // ITEMS ticket (GOALS.md, 2026-08-22): same seeded-shop-appearance check
+  // for the AMENDED batch's 6 new items (2 health + 4 duel-gauge-space).
+  {
+    const savedRng = state.rng;
+    const savedItems = state.player.items;
+    const AMENDED_BATCH_IDS = ['extra_verse', 'mended_verse', 'sordino', 'fermata', 'rubato', 'encore'];
+    const seen = new Set();
+
+    state.player.items = [];
+    for (let i = 0; i < 300; i++) {
+      state.rng = window.Game.RNG.create('items-ticket-amended-batch-shop-odds-' + i);
+      window.Wordbound.Game._rollShopOptions().forEach((id) => seen.add(id));
+    }
+
+    AMENDED_BATCH_IDS.forEach((id) => {
+      check(`ITEMS ticket AMENDED batch item "${id}" appears in shop rolls across 300 seeded samples`, seen.has(id));
+    });
 
     state.rng = savedRng;
     state.player.items = savedItems;

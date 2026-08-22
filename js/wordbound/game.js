@@ -686,6 +686,7 @@
 
   Game.pickTreasureItem = function (itemId) {
     state.player.items.push(itemId);
+    Items.applyOnAcquire(state.player, itemId);
     log('You take ' + Items.ITEM_DEFS[itemId].name + '.');
     currentNode().cleared = true;
     advanceMapPosition();
@@ -802,6 +803,7 @@
       state.player.consumables.push(actualId);
     } else {
       state.player.items.push(actualId);
+      Items.applyOnAcquire(state.player, actualId);
       // Re-roll shop options so the bought item is replaced with a new option
       state.shopOptions = rollShopOptions();
     }
@@ -1196,7 +1198,16 @@
     var duel = Duel.create({
       stageTier: piece.stageTier,
       healthBlocks: state.player.healthBlocks,
-      pushesToDefeat: pushesToDefeat
+      pushesToDefeat: pushesToDefeat,
+      // ITEMS ticket (AMENDED batch, duel-gauge-space items): per-fight
+      // modifiers derived from owned items, read once at fight start (same
+      // "fight-start scale" timing computeDuelTempoScale already uses for
+      // Ritardando/Largo -- none of these three items are meant to react
+      // mid-fight to a pickup, only a fight that starts after the item is
+      // already owned).
+      pushResistance: Items.getDuelPushResistance(state.player),
+      iframeBonusSec: Items.getDuelIframeBonus(state.player),
+      parryWindowBonusSec: Items.getDuelParryWindowBonus(state.player)
     });
     // Second Wind's retarget (GOALS.md, DUEL-GAUGE COMBAT ticket's own
     // flagged gap): turn-based combat gives onPlayerDamaged a chance to cap
@@ -1850,6 +1861,7 @@
 
   Game.pickBossItemReward = function (itemId) {
     state.player.items.push(itemId);
+    Items.applyOnAcquire(state.player, itemId);
     log('You claim ' + Items.ITEM_DEFS[itemId].name + ' from the boss\'s hoard.');
     resolveBossItemReward();
   };
