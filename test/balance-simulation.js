@@ -67,15 +67,19 @@ function buildAnagramMap(wordlist, maxLen) {
   return map;
 }
 
-// Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): mirrors
-// Combat.playWord's comboMultiplier/repeat-penalty math exactly, so
-// findPlayableWords below predicts what a word would ACTUALLY deal against
-// the live comboState, not the pre-combo score. Without this, the "best"
-// bot would keep re-picking its single highest-scoring word every turn (as
-// it did before this ticket) and eat the x0.4 repeat penalty for real every
-// time via Game.submitWord, silently making "best" play worse than the
-// script's own predictions claimed -- exactly the kind of skew this
-// simulation exists to avoid.
+// Word novelty (GOALS.md "FUN OVERHAUL 1/8"): mirrors Combat.playWord's
+// comboMultiplier/repeat-penalty math exactly, so findPlayableWords below
+// predicts what a word would ACTUALLY deal against the live comboState, not
+// the pre-repeat score. PLAYTEST FINDINGS 3 item 6 removed the combo-streak
+// bonus from real play (combat.js never advances comboState.combo any
+// more, so it stays 0 and comboMult below always resolves to 1) -- the
+// formula is left in place for accuracy against comboState.combo values a
+// caller might set explicitly, matching combat.js's own cheap-disable.
+// Without the repeat-penalty half of this, the "best" bot would keep
+// re-picking its single highest-scoring word every turn and eat the x0.4
+// repeat penalty for real every time via Game.submitWord, silently making
+// "best" play worse than the script's own predictions claimed -- exactly
+// the kind of skew this simulation exists to avoid.
 const COMBO_BONUS_PER_STACK = 0.12;
 const COMBO_MAX_STACKS = 5;
 const REPEAT_WORD_PENALTY = 0.4;

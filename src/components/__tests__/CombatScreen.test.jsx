@@ -391,7 +391,7 @@ describe('CombatScreen', () => {
   // STRUCTURAL remaining-scope (c): rack tiles that weren't in the previous
   // committed render get game.js's own 'new-tile' slide-in class, ported
   // natively via a ref-tracked previous-ids diff (CombatScreen.jsx's own
-  // header comment on the combo-bump hooks explains why the shared
+  // header comment on the tile-settle hooks explains why the shared
   // state.rackJustRefilled/lastRackTileIds flags aren't reused directly).
   it('rack tiles are all "new-tile" on the fight\'s first render, and no longer once the rack is unchanged', async () => {
     const state = startFight();
@@ -410,32 +410,23 @@ describe('CombatScreen', () => {
     buttons.forEach((btn) => expect(btn.className).not.toContain('new-tile'));
   });
 
-  // STRUCTURAL remaining-scope (c): "the combo chip's one-shot bump-pop
-  // class" -- ported natively (see CombatScreen.jsx's header comment on the
-  // combo-bump hooks for why the shared state.comboBumped flag isn't reused
-  // directly: React/StrictMode can invoke a component body more than once
-  // per commit, and that flag is consumed as a render side effect in
-  // vanilla, which isn't safe to replicate here).
-  it('the combo chip gets combo-chip-bump the render the streak grows, and loses it on the next unrelated render', async () => {
+  // PLAYTEST FINDINGS 3 item 6 (GOALS.md, "REMOVE combos totally for now"):
+  // the combo chip is gone from the combat screen entirely, including after
+  // a real distinct word is played (the one case the old combo chip would
+  // have appeared for -- see this file's git history for the prior test).
+  it('no combo chip ever renders, even after playing a distinct word', () => {
     const state = startFight();
     render(<Harness />);
+    expect(document.querySelector('.combo-chip')).toBeNull();
     const word = pickPlayableWord(state, ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE']);
     fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: word } });
     fireEvent.click(screen.getByRole('button', { name: 'Play Word' }));
-    expect(state.comboState.combo).toBeGreaterThan(0);
-    const chip = screen.getByText(/Combo x/);
-    expect(chip.className).toContain('combo-chip-bump');
-
-    // An unrelated local re-render (typing) must clear the one-shot bump
-    // class without the combo streak itself changing.
-    fireEvent.change(screen.getByPlaceholderText('Type or click letters...'), { target: { value: 'Z' } });
-    const chipAfter = screen.getByText(/Combo x/);
-    expect(chipAfter.className).not.toContain('combo-chip-bump');
-    expect(state.comboState.combo).toBeGreaterThan(0);
+    expect(state.comboState.combo).toBe(0);
+    expect(document.querySelector('.combo-chip')).toBeNull();
   });
 
   // COMBAT JUICE ticket (GOALS.md): the `.tile-settle` one-shot land flash,
-  // ported the same native way as new-tile/combo-chip-bump above (a ref
+  // ported the same native way as new-tile above (a ref
   // tracking selectedTileIds as of the last committed render, compared
   // during render -- see CombatScreen.jsx's own header comment). Vanilla's
   // markSettle only fires from stage/unstage (not drag-reorder), so that's

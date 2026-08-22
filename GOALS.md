@@ -4296,6 +4296,91 @@ Rules for the routine:
       untouched by this run too — still the other live open thread in the
       queue above this ticket.
 
+      ORCHESTRATOR NOTE 2026-08-22T20:48Z (item 6 done; 1, 2, 7 still
+      untouched — box stays unchecked): picked item 6 (combos) as the next
+      standalone sub-item per the prior run's own "Next" note — no economy/
+      reward-flow design call needed, unlike the paired 1+2 (deck/
+      consumables). Combo scoring (`js/wordbound/combat.js`'s
+      COMBO_BONUS_PER_STACK/comboMultiplier) lived in `comboState.combo`,
+      the SAME state object that also tracks `usedWords` for the still-live,
+      separate repeat-word penalty (`isRepeat`/REPEAT_WORD_PENALTY,
+      "The Archive has heard that one before") — Jaxon's list only names
+      combos, not that penalty, so this run kept usedWords/isRepeat fully
+      live and only disabled combo advancement. Chose a CHEAP-DISABLE
+      implementation, matching the ticket's own stated preference: `combat.js`'s
+      `playWord` no longer increments `comboState.combo` (the mutation block
+      now only maintains `usedWords`), so `comboAtPlay`/`comboMultiplier`
+      permanently resolve to 0/1 in real play (nothing ever sets `combo`
+      above 0 any more) — the read-side formula is left intact rather than
+      deleted, so a caller that sets `combo` explicitly (existing unit tests
+      probing the math) still gets a correct multiplier. This IS a real,
+      verified removal, not just a data-starve: the combo chip UI (React
+      `CombatScreen.jsx`'s chip + bump-ref hooks, vanilla `game.js`
+      `renderCombat`'s equivalent chip HTML, both `.combo-chip`/`comboBump`
+      CSS rules in `css/wordbound.css`) and the "Combo x...!" log line were
+      ALL deleted outright, and `playCombatSound`'s combo-driven pitch
+      ramp (`comboLevel` param) was removed from its 3 call sites in
+      `game.js` — so nothing shows or plays a combo cue any more, not just
+      "would never trigger." `comboPop`'s CSS keyframe was kept (it's
+      shared — `.volume-crescendo-warning` also uses it — confirmed by
+      reading the CSS directly before assuming, not the same rule as
+      `.combo-chip`).
+      **Verified, real not assumed:** `npm test` (dom-check.js): ALL CHECKS
+      PASSED — amended the "combo streak" synthetic-setup block (3
+      consecutive distinct words used to get +12%/+24%; now all three
+      assert NO bonus, comboAtPlay 0/comboMultiplier 1 throughout) and the
+      live-DOM "8/8 magnificent-gold" check (used to assert a `.combo-chip.
+      combo-chip-bump` rendered; now asserts NO `.combo-chip` renders at
+      all after a real word play through the real submit path) — both
+      previously-passing assertions rewritten to assert the opposite,
+      deliberately, not silently dropped. The repeat-penalty checks in the
+      same block (x0.4, isRepeat) are UNCHANGED and still pass, confirming
+      that mechanic survived untouched. `npx vitest run`: 186/186 clean.
+      Amended `CombatScreen.test.jsx`'s combo-chip-bump test (replaced with
+      a real-word-play check that `.combo-chip` never renders) and
+      `duelCombat.test.js`'s "honors comboState" test (now asserts
+      `comboState.combo` stays 0 after a real submitted word, `usedWords`
+      still gets it). Hit the pre-existing, already-characterized
+      `duelIntegration.test.js` cross-test flake once on an unrelated file
+      this run never touched (same file/assertion PROGRESS.md's last two
+      runs already logged) — a clean immediate re-run of the full suite
+      confirmed it, not a regression. `npm run build`: clean, 58 modules.
+      `npm run test:mobile`: ALL CHECKS PASSED (real browser, 375/414px,
+      per the CSS-change rule — the CSS-only change here is deletion, no
+      new layout to check). `npm run test:react-build`,
+      `npm run test:react-qa`, `npm run test:react-duel-loss`,
+      `npm run test:regular-duel-smoke`, `npm run test:qa` (vanilla
+      wordbound.html path), `npm run test:branching-map`: ALL CHECKS
+      PASSED across every one — none of these suites asserted on combo
+      values directly, so a clean pass across full real fights (regular
+      AND boss, duel-mode AND the vanilla non-duel path) is real evidence
+      damage/kill/reward flow is unaffected by removing the combo bonus,
+      not just that the targeted assertions were satisfied. Also ran
+      `node test/duel-balance-simulation.js 10` manually (not a mandatory
+      gate, just a sanity check since this touches `combat.js`'s core
+      scoring) — completed cleanly, no crash, results in the same
+      ballpark as this ticket's own prior documented runs; did NOT commit
+      its regenerated `-results.json` (reverted it before committing --
+      that file is prior runs' own output, not part of this change).
+      Version bumped v0.13 → v0.14 (`MainMenu.jsx`/`wordbound.html`/
+      `MainMenu.test.jsx`) — a real, player-facing removal (no more combo
+      chip, no more combo pitch-rise on hits).
+      **Not done, honest gaps — box stays unchecked:** items 1
+      (consumables), 2 (deck view), 7 (ink) are completely untouched. The
+      ticket's acceptance bar (combat screen containing ONLY the named 6
+      elements) is still not met — Deck/Consumables buttons and ink still
+      show in the run header.
+      **Genuinely-Jaxon-only:** none this run — cheap-disable vs. hard-
+      delete for the scoring formula is an implementation judgment call
+      the ticket's own header explicitly delegates to the orchestrator
+      ("prefer clean feature-flag/disable... where cheap").
+      **Next:** items 1+2 (consumables + deck) remain the next real design-
+      plus-implementation call — same reasoning the prior run gave (reward-
+      step replacement decision, `RewardScreens.jsx`/`items.js`/`game.js`/
+      `test/balance-simulation.js` surface). Item 7 (ink) still likely
+      follows 1+2. PLAYTEST FINDINGS 2's Mountain King boss-duel retune
+      remains the other live open thread above this ticket in the queue.
+
 - [ ] PLAYTEST FINDINGS 2 — JAXON, 2026-08-22 (~19:25 UTC), SECOND PLAYTEST.
       His feedback, near-verbatim: enemies shouldn't have an HP number — HP
       bar instead; damaging them should ONLY happen by winning the duel push

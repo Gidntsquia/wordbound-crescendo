@@ -70,15 +70,16 @@ function check(label, cond) {
 // then find a playable word for the current rack by subset lookup. Returns
 // the word string or null. Blanks are skipped (they only add options).
 //
-// Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): prefers a word
-// NOT already played this fight (real per-fight state at
+// Word novelty (GOALS.md "FUN OVERHAUL 1/8"; combo streak bonuses removed
+// per PLAYTEST FINDINGS 3 item 6, repeat-word tracking still live): prefers
+// a word NOT already played this fight (real per-fight state at
 // Game._state.comboState.usedWords, same Set combat.js checks) over the
-// otherwise-longest one, so this bot actually builds and exercises combo
-// streaks instead of happily eating the x0.4 repeat penalty every fight
-// (which it would, since "longest word for this rack shape" repeats often
-// once the deck cycles back to a similar draw). Falls back to the best word
-// overall (a repeat) only when every playable word this rack can form has
-// already been used this fight -- better than NO_WORD_FOUND.
+// otherwise-longest one, so this bot doesn't happily eat the x0.4 repeat
+// penalty every fight (which it would, since "longest word for this rack
+// shape" repeats often once the deck cycles back to a similar draw). Falls
+// back to the best word overall (a repeat) only when every playable word
+// this rack can form has already been used this fight -- better than
+// NO_WORD_FOUND.
 //
 // Monster intents (GOALS.md "FUN OVERHAUL 2/8"): also excludes a Hex'd tile
 // (Game._state.hexedTileId) from the candidate letter pool, matching the

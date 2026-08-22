@@ -1003,14 +1003,13 @@ async function main() {
     check('rollVariantTile: always carries a variant (premium offer never whiffs)', shopTiles.every((t) => !!t.variant && !t.bonus));
   }
 
-  // Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): three
-  // distinct words should each get a bigger damage multiplier than the last
-  // (+12%/stack off the streak BEFORE that word), and replaying an
-  // already-used word this fight should both apply the x0.4 repeat penalty
-  // and reset the combo for whatever comes next. Isolated synthetic setup
-  // like the Foreword check above -- doesn't need a run in progress. High
-  // monster HP and the 'plain' trait (multiplier always 1) keep the math
-  // predictable (no kill, no weakness multiplier to account for).
+  // Word novelty (GOALS.md "FUN OVERHAUL 1/8"; combo streak bonuses removed
+  // per PLAYTEST FINDINGS 3 item 6): three distinct words should each score
+  // identically (no combo stacking any more), and replaying an already-used
+  // word this fight should apply the x0.4 repeat penalty. Isolated synthetic
+  // setup like the Foreword check above -- doesn't need a run in progress.
+  // High monster HP and the 'plain' trait (multiplier always 1) keep the
+  // math predictable (no kill, no weakness multiplier to account for).
   {
     const Combat = window.Wordbound.Combat;
     const Tiles = window.Wordbound.Tiles;
@@ -1027,19 +1026,16 @@ async function main() {
     const r4 = r3 && Combat.playWord(player, monster, 'CAT', comboState); // repeat
 
     if (r1 && r2 && r3 && r4) {
-      check('combo: 1st distinct word has no bonus yet (comboAtPlay 0, x1.00)', r1.comboAtPlay === 0 && r1.comboMultiplier === 1 && !r1.isRepeat);
-      check('combo: 2nd distinct word gets +12% (comboAtPlay 1, x1.12)', r2.comboAtPlay === 1 && r2.comboMultiplier === 1.12 && !r2.isRepeat);
-      check('combo: 3rd distinct word gets +24% (comboAtPlay 2, x1.24)', r3.comboAtPlay === 2 && r3.comboMultiplier === 1.24 && !r3.isRepeat);
-      check('combo: multiplier strictly grows across 3 distinct words', r1.comboMultiplier < r2.comboMultiplier && r2.comboMultiplier < r3.comboMultiplier);
-      check('combo: damage for each distinct word matches score * comboMultiplier', r1.damage === Math.round(r1.score.total * r1.comboMultiplier) && r2.damage === Math.round(r2.score.total * r2.comboMultiplier) && r3.damage === Math.round(r3.score.total * r3.comboMultiplier));
+      check('combo removed: 1st distinct word has no bonus (comboAtPlay 0, x1.00)', r1.comboAtPlay === 0 && r1.comboMultiplier === 1 && !r1.isRepeat);
+      check('combo removed: 2nd distinct word STILL gets no bonus (comboAtPlay 0, x1.00)', r2.comboAtPlay === 0 && r2.comboMultiplier === 1 && !r2.isRepeat);
+      check('combo removed: 3rd distinct word STILL gets no bonus (comboAtPlay 0, x1.00)', r3.comboAtPlay === 0 && r3.comboMultiplier === 1 && !r3.isRepeat);
+      check('combo removed: distinct-word damage never grows from streaking (all 3 match raw score)', r1.damage === Math.round(r1.score.total) && r2.damage === Math.round(r2.score.total) && r3.damage === Math.round(r3.score.total));
 
-      check('combo: repeating "CAT" is flagged isRepeat', r4.isRepeat === true);
-      // r4 still earns comboAtPlay 3's bonus (the streak going INTO this word)
-      // before the x0.4 repeat penalty is applied on top.
+      check('combo removed: repeating "CAT" is still flagged isRepeat', r4.isRepeat === true);
       const r4Boosted = Math.round(r4.score.total * r4.comboMultiplier);
-      check('combo: repeat damage is the combo-boosted damage x0.4, rounded', r4.damage === Math.round(r4Boosted * 0.4));
-      check('combo: repeat penalty actually reduced the damage below the combo-boosted (pre-penalty) amount', r4Boosted > 0 && r4.damage < r4Boosted);
-      check('combo: repeating a word resets the combo streak to 0', comboState.combo === 0);
+      check('combo removed: repeat penalty (x0.4) is still live', r4.damage === Math.round(r4Boosted * 0.4));
+      check('combo removed: repeat penalty actually reduced the damage below the pre-penalty amount', r4Boosted > 0 && r4.damage < r4Boosted);
+      check('combo removed: comboState.combo never advances from playing words', comboState.combo === 0);
     } else {
       console.log('SKIP combo checks -- synthetic rack could not form CAT/DOG/PIG (unexpected, check LETTER tiles)');
     }
@@ -3541,10 +3537,11 @@ async function main() {
       state.player.items = savedItems;
     }
 
-    // (5) MAGNIFICENT bonus gold (state logic) + combo-chip bump (DOM), driven
-    // through the REAL Game.submitWord so it proves the wiring, not just the
-    // constants. Enters a real uncleared combat node so a fight is live; SKIPs
-    // (never falsely fails) if the floor layout has none left at this point.
+    // (5) MAGNIFICENT bonus gold (state logic) + no combo chip (DOM, combos
+    // removed per PLAYTEST FINDINGS 3 item 6), driven through the REAL
+    // Game.submitWord so it proves the wiring, not just the constants.
+    // Enters a real uncleared combat node so a fight is live; SKIPs (never
+    // falsely fails) if the floor layout has none left at this point.
     if (!state.combatActive) {
       const nodes = (state.floor && state.floor.nodes) || [];
       // Prefer an uncleared combat node; if the run has cleared them all by
@@ -3594,10 +3591,12 @@ async function main() {
         if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
         check('8/8 magnificent-gold: a 7-letter word granted exactly +5 bonus gold', state.player.gold === goldBefore + 5);
         check('8/8 magnificent-gold: the bonus is announced with "MAGNIFICENT!"', state.messages.some((m) => m.indexOf('MAGNIFICENT!') !== -1));
-        check('8/8 combo-bump: the (advanced) combo chip rendered with .combo-chip-bump', !!document.querySelector('.combo-chip.combo-chip-bump'));
+        // PLAYTEST FINDINGS 3 item 6 (GOALS.md): combos removed -- no combo
+        // chip should ever render, even right after a real word is played.
+        check('combo removed: no combo chip rendered after a real word play', !document.querySelector('.combo-chip'));
       }
     } else {
-      console.log('SKIP 8/8 magnificent-gold + combo-bump checks -- no live fight active at this point (layout-dependent, not a bug)');
+      console.log('SKIP 8/8 magnificent-gold + combo-removed check -- no live fight active at this point (layout-dependent, not a bug)');
     }
   }
 

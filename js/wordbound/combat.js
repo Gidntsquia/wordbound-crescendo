@@ -19,17 +19,19 @@
 //        multiplier is just the trait (weakness/resistance) multiplier.
 //        damage = round(score.total * holdMult * multiplier * comboMultiplier),
 //        then halved-ish (x0.4, rounded) if isRepeat.
-//     comboState (optional, GOALS.md "FUN OVERHAUL 1/8"): { combo, usedWords }
-//     tracked per-fight by the caller (reset at combat start). combo is the
-//     number of consecutive DISTINCT words played so far this fight (capped
-//     at 5 for the multiplier, +12%/stack); usedWords is a Set of words
-//     (uppercased) already played this fight. Passing this in is optional --
-//     omit it (or pass nothing) to get plain trait-multiplier damage with no
-//     combo/repeat adjustment, e.g. for callers that don't track a fight
-//     (tests, tools). When provided, playWord mutates it: a repeat resets
-//     combo to 0, a distinct word increments it by 1 and adds the word to
-//     usedWords -- both for the NEXT call, not this one (this call's bonus
-//     uses the combo value as it was BEFORE this word).
+//     comboState (optional): { combo, usedWords } tracked per-fight by the
+//     caller (reset at combat start). usedWords is a Set of words (uppercased)
+//     already played this fight -- a repeat halves damage (REPEAT_WORD_PENALTY)
+//     and is still fully live. combo/comboMultiplier/comboAtPlay are the
+//     GOALS.md "FUN OVERHAUL 1/8" combo-streak bonus (+12%/stack, capped at 5
+//     stacks); PLAYTEST FINDINGS 3 item 6 removed it from real play -- playWord
+//     no longer advances comboState.combo, so it stays 0 and comboMultiplier
+//     always resolves to 1 (cheap-disable, not deleted, per that ticket's own
+//     instruction; the read-side math is left intact for a caller that sets
+//     combo explicitly, e.g. existing unit tests). Passing comboState in is
+//     optional -- omit it (or pass nothing) to get plain trait-multiplier
+//     damage with no repeat adjustment either, e.g. for callers that don't
+//     track a fight (tests, tools).
 //     On success, mutates player.rack (removes used tiles) and monster.hp.
 //     Does NOT refill/discard the rack or advance the turn -- caller's job.
 //
@@ -147,14 +149,17 @@
 
     if (!options.skipDamage) monster.hp = Math.max(0, monster.hp - damage);
 
-    if (comboState) {
-      if (isRepeat) {
-        comboState.combo = 0;
-      } else {
-        if (!comboState.usedWords) comboState.usedWords = new Set();
-        comboState.usedWords.add(upperWord);
-        comboState.combo = (comboState.combo || 0) + 1;
-      }
+    // PLAYTEST FINDINGS 3 item 6 (GOALS.md): combo streak bonuses are removed
+    // for now -- comboState.combo is never advanced any more, so comboAtPlay/
+    // comboMultiplier above always resolve to 0/1 in real play (nothing ever
+    // sets combo above 0). The scoring math and comboState.combo INPUT are
+    // deliberately left in place, cheap-disable rather than deleted, per the
+    // ticket's own "prefer disable over irreversible deletion where cheap"
+    // instruction -- only usedWords (repeat-word tracking, a separate, still-
+    // live mechanic) is still maintained here.
+    if (comboState && !isRepeat) {
+      if (!comboState.usedWords) comboState.usedWords = new Set();
+      comboState.usedWords.add(upperWord);
     }
 
     return {

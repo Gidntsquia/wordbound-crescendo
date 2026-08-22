@@ -115,14 +115,14 @@ describe('DuelCombat.submitWord', () => {
     expect(result.parried).toBe(false);
   });
 
-  it('honors comboState the same way Combat.playWord always has', () => {
+  it('honors comboState the same way Combat.playWord always has (repeat tracking live, combo streak disabled per PLAYTEST FINDINGS 3 item 6)', () => {
     const player = freshPlayer(rackFor('CATSCAT'));
     const monster = freshMonster();
     const duel = Duel.create({ stageTier: 'early' });
     const comboState = { combo: 0, usedWords: new Set() };
 
     DuelCombat.submitWord(player, monster, duel, 'CAT', comboState, 0, {});
-    expect(comboState.combo).toBe(1);
+    expect(comboState.combo).toBe(0);
     expect(comboState.usedWords.has('CAT')).toBe(true);
   });
 });

@@ -166,7 +166,7 @@ function flipTileTo(fromRect, toEl) {
 // separate port needed; confirmed by reading the call sites, not assumed).
 // The `.tile-settle` one-shot land flash (COMBAT JUICE ticket, GOALS.md) IS
 // now ported -- see the prevSelectedTileIdsRef block below, which computes
-// it natively (same StrictMode-safe pattern as combo-chip-bump/new-tile)
+// it natively (same StrictMode-safe pattern as new-tile below)
 // rather than reading the shared state.settleTileIds array, since nothing
 // in the React tree ever consumed/cleared that array. The FLIP-style
 // position-SLIDE (flipTile, a distinct mechanism from the .tile-settle CSS
@@ -458,22 +458,6 @@ export default function CombatScreen({ state, Game, act }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word, monster && monster.hp, state.overchargeArmed]);
 
-  // Combo-bump (GOALS.md STRUCTURAL remaining-scope (c), "the combo chip's
-  // one-shot bump-pop class"): game.js's own renderCombat() reads a shared
-  // state.comboBumped flag and clears it as a side effect of rendering --
-  // not portable here as-is, since React (especially StrictMode, which
-  // main.jsx wraps the app in) may invoke a function component's body more
-  // than once per commit, and a consumed-during-render one-shot flag would
-  // get eaten by a throwaway invocation. Tracked natively instead: a ref
-  // holds the combo value as of the last COMMITTED render, updated in an
-  // effect (which StrictMode only double-invokes harmlessly, never mutating
-  // shared engine state); comparing the current combo against it during
-  // render tells us if this render is the one where the streak grew.
-  const combo = (state.comboState && state.comboState.combo) || 0;
-  const prevComboRef = useRef(combo);
-  const comboBumped = combo > prevComboRef.current;
-  useEffect(() => { prevComboRef.current = combo; }, [combo]);
-
   // new-tile slide-in (GOALS.md STRUCTURAL remaining-scope (c), "the rack's
   // ...new-tile...cosmetic class"): vanilla diffs the rack against
   // state.lastRackTileIds (a tile id absent from last render's rack is
@@ -493,7 +477,7 @@ export default function CombatScreen({ state, Game, act }) {
   // staged (left the rack) or unstaged (returned to the rack) gets a short
   // one-shot brightness/glow flash for exactly one render -- the role
   // game.js's own state.settleTileIds/markSettle plays for wordbound.html.
-  // Ported natively, same reasoning as combo-chip-bump/new-tile above,
+  // Ported natively, same reasoning as new-tile above,
   // rather than reading state.settleTileIds directly: StrictMode can invoke
   // this component's body more than once per commit, so a shared one-shot
   // flag consumed during render risks being eaten by a throwaway
@@ -694,11 +678,6 @@ export default function CombatScreen({ state, Game, act }) {
         {monster.intent && (
           <div className={'monster-intent' + (Intents.isSignatureIntent(monster.intent) ? ' intent-signature' : '')}>
             {Intents.describeIntent(monster.intent)}
-          </div>
-        )}
-        {combo > 0 && (
-          <div className={'combo-chip' + (comboBumped ? ' combo-chip-bump' : '')}>
-            Combo x{combo} &middot; +{Math.min(combo, 5) * 12}%
           </div>
         )}
         {damageNumbers.map((d) => (
