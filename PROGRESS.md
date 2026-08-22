@@ -8577,3 +8577,121 @@ specifically (maxHp/pushesToDefeat/its piece's own dynamics) rather than
 any shared 'mid'-tier constant, for the same "don't soften mid tier
 everywhere" reasoning this run applied to the regular fix. Items 3-5
 remain fully open after that.
+
+---
+
+## 2026-08-22T20:05Z -- PLAYTEST FINDINGS 2 item 1 addendum: a real word-score-adjacent HP bypass the concurrent run's fix missed, found+fixed on the merged tree
+
+Started this run against the same first-unchecked ticket (PLAYTEST
+FINDINGS 2, item 1) as the run immediately above, independently:
+investigated `js/wordbound/duelCombat.js`'s `submitWord`, confirmed the
+same thing that run's own note confirms (word-score damage was already
+gauge-only, `skipDamage: true` forced on, only `decisiveBlow` on a won
+push touches `monster.hp`), then built the exact same fix the other run
+built -- a segmented enemy-pip health bar replacing numeric HP during
+duels, wired into `CombatScreen.jsx`/`VolumeGauge.jsx`. `git push` was
+rejected non-fast-forward; fetching showed the other run had landed first
+(`0a52db1`, "PLAYTEST FINDINGS 2 items 1-2: segmented enemy bar, floor-1
+tier-exposure fix"). Diffed the two implementations before doing anything
+else: genuinely equivalent (same condition gating the swap, same pip
+shape mirroring `VolumeGauge`'s own Verses pips, same red/gold color
+split) -- `git reset --hard origin/main` to take theirs rather than land
+a duplicate second implementation of the same UI, per this repo's own
+established collision-handling precedent (see the PLAYTEST FINDINGS
+item-1 entry's own "POSTSCRIPT" from earlier today).
+
+**What survived the reset, because it's genuinely additive, not
+duplicated:** before noticing the collision, this run's own reading of
+`game.js`'s `Game.submitWord` found a SEPARATE real gap the other run's
+diff never touches (confirmed by checking their commit's changed-files
+list: `js/wordbound/game.js` and `js/wordbound/duelCombat.js` are not in
+it). The other run's note correctly says "no word-score-to-HP path
+existed to remove" -- true for a word's own score. But a CONSUMABLE's
+bonus damage (`player.bonusDamageUntilEndOfTurn`, granted by Index Card
+Shard or Homer's exclusive Wine-Dark Litany) is resolved separately,
+later in the same function, via a raw `state.monster.hp = Math.max(0,
+state.monster.hp - bonusDmg)` -- UNCONDITIONALLY, including inside a duel
+fight. That's exactly the parallel word->HP path item 1 bans, just
+sourced from a consumable rather than the word's own score: a player
+holding that item could kill a duel-mode monster outright without ever
+winning a push, invisible to the segment bar the other run just built.
+
+**Fix:** new `DuelCombat.applyBonusPush(monster, duel, now, bonusDamage)`
+in `js/wordbound/duelCombat.js` -- a second, independent
+`duel.applyPlayerPush` call through the exact same `decisiveBlow`
+mechanism the word's own push already uses (not a new damage path of its
+own). `game.js`'s bonus-damage block now branches on `isDuelFight`: duel
+mode routes through this new push, turn-based mode keeps the original
+direct subtraction (correct there -- no gauge to push through). Verified
+the second push call is genuinely safe in every duel state, not assumed:
+`duel.applyPlayerPush` itself no-ops (`{pushed:0, pushWon:false}`) once
+`duel.isTerminal()` (read directly in `duel.js` before relying on it), so
+a bonus landing on an already-lethal word can't double-defeat an
+already-dead monster or push a boss past its final phase; on a
+non-terminal multi-push boss it's a second real push against the
+just-recentered gauge -- extra force, same as the flat bonus damage
+always represented, just correctly routed now.
+
+**Verified against the MERGED tree (their landed commit + this addition
+applied on top), not just this addition in isolation:**
+- `npm test` (dom-check.js): ALL CHECKS PASSED, clean.
+- `npm run test:react` (Vitest): 184/184 clean, unchanged from the
+  concurrent run's own count (this addition touches no
+  `src/components/*` file, no new/changed test needed for it beyond what
+  the concurrent run's own VolumeGauge/EnemySegmentBar-equivalent tests
+  already cover for the UI half).
+- `npm run build`: clean.
+- `npm run test:regular-duel-smoke`: ALL CHECKS PASSED -- every regular
+  tier (weak/mid, including The Metronome) still killed via a real duel
+  word, real Verse-loss GAME_OVER still fires, on the merged tree.
+- `npm run test:react-duel-loss`: ALL CHECKS PASSED -- Largo/Ritardando/
+  Sordino/Fermata/Rubato, the crescendo countdown, a real block loss,
+  Second Wind's revival, and a real fatal loss all still work.
+- `npm run test:react-qa`: ALL CHECKS PASSED -- full 4-floor victory run,
+  all 4 bosses killed via real duel words, zero console/page errors.
+- `npm run test:mobile` / `npm run test:branching-map`: ALL CHECKS
+  PASSED, unaffected (no CSS/floor-gen change in this addition).
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED --
+  confirms the shared-engine change (game.js, duelCombat.js) still works
+  in the vanilla itch bundle.
+- `npm run test:duel-balance`: ran clean, no new sanity flags (this
+  addition doesn't touch any push-rate/word-score constant, only how a
+  consumable's already-existing bonus routes).
+- Did NOT re-run `test:audio`/`test:music-engine`/`test:drag-interrupt`/
+  `test:run-header` -- none of this addition's 2 changed files
+  (duelCombat.js, game.js's bonus-damage block) intersect what those
+  scripts exercise, and the concurrent run this addition builds on top of
+  already ran them clean against the same shared-engine surface.
+
+Version stays v0.12 (already bumped by the concurrent run for this same
+ticket; this is an addition to that run's own shipped chunk, not a
+separate feature).
+
+**Genuinely-Jaxon-only:** none this run.
+
+**Not done, honest gaps -- box stays unchecked (unchanged from the
+concurrent run's own note):** item 2's real remaining gap (Mountain
+King, floor 1's own boss, still 0% winnable for a weak/casual bot per the
+sim) is untouched by this addition. Items 3 (music variety), 4
+(recognizability), 5 (streamline) are all still fully open.
+
+**Next:** same as the concurrent run's own note -- Mountain King's boss-duel
+retune is the direct next step for item 2's real intent. No other
+consumable-bonus-style bypass was found while auditing this one (checked
+every other `monster.hp` write site in `game.js`/`combat.js`/
+`duelCombat.js` directly -- `combat.js`'s own direct write is gated
+behind `skipDamage`, already correctly `true` for every duel-mode call;
+`duelCombat.js`'s only other write is `decisiveBlow` itself), so this
+addendum is believed to close out item 1's "remove/disable any parallel
+word->HP damage path" bullet completely, not just partially -- flagged as
+a belief based on a direct audit, not an exhaustive proof.
+
+**Live deploy refresh, actually executed:** built `dist/app/` fresh off
+this run's own commit (merged tree + this addition) in a disposable `git
+worktree`, published its contents + an empty `.nojekyll` as the new root
+of the `gh-pages` branch via a scratch orphan branch, `git push -f origin
+gh-pages-refresh:gh-pages`. **Could NOT curl-verify, honestly flagged
+rather than assumed:** the same pre-existing domain-specific proxy block
+this repo's prior runs have already repeatedly documented (`403` on the
+CONNECT tunnel to `gidntsquia.github.io` specifically) -- see below for
+the actual push result.

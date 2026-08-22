@@ -1379,9 +1379,13 @@
     // unaffected code -- see the two duel-only branches further down for
     // the two places that genuinely differ (health-loss handling, and the
     // post-word counterattack/Intents step, which duel fights don't have).
+    // Captured once so the bonus-damage push below (if any) reads the exact
+    // same clock instant as the word's own push -- see that block's own
+    // comment for why it needs a second, independent applyPlayerPush call.
+    var duelClockNow = duelNow != null ? duelNow : Game.getDuelClockNow();
     var result = isDuelFight
       ? DuelCombat.submitWord(state.player, state.monster, state.duel, word, state.comboState,
-          duelNow != null ? duelNow : Game.getDuelClockNow(), { overcharge: overcharging })
+          duelClockNow, { overcharge: overcharging })
       : Combat.playWord(state.player, state.monster, word, state.comboState, { overcharge: overcharging });
 
     if (hexedTile) {
@@ -1520,10 +1524,26 @@
 
     if (Achievements) Achievements.trackDamage(result.damage);
 
-    // Apply Index Card Shard bonus damage if active
+    // Apply Index Card Shard (or Wine-Dark Litany) bonus damage if active.
+    // PLAYTEST FINDINGS 2 item 1 (GOALS.md, COMBAT MODEL ALIGNMENT): "word
+    // scores NEVER damage enemy HP directly [in duel mode] -- WINNING a push
+    // is the only thing that hurts the enemy." A raw `monster.hp -=` here
+    // was exactly the parallel word->HP path that rule bans -- it could kill
+    // a duel-mode monster outright without ever winning a push, invisible to
+    // the segmented push-bar the player is actually reading. Fixed by
+    // routing the bonus through a SECOND real duel push (DuelCombat.
+    // applyBonusPush, same decisive-blow mechanism the word's own push
+    // already uses) instead of touching monster.hp directly -- consistent
+    // with every other duel-mode damage source. Turn-based (non-duel)
+    // fights are unaffected: that path still has no gauge to push through,
+    // so direct HP subtraction remains correct there.
     if (state.player.bonusDamageUntilEndOfTurn > 0) {
       var bonusDmg = state.player.bonusDamageUntilEndOfTurn;
-      state.monster.hp = Math.max(0, state.monster.hp - bonusDmg);
+      if (isDuelFight) {
+        DuelCombat.applyBonusPush(state.monster, state.duel, duelClockNow, bonusDmg);
+      } else {
+        state.monster.hp = Math.max(0, state.monster.hp - bonusDmg);
+      }
       result.damage += bonusDmg;
       log('Index Card Shard bonus: +' + bonusDmg + ' damage!');
       state.player.bonusDamageUntilEndOfTurn = 0;

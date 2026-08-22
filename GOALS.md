@@ -4409,6 +4409,38 @@ Rules for the routine:
       than any shared 'mid'-tier constant, for the same "don't soften mid
       tier everywhere" reasoning this run already applied to the regular
       fix. Items 3-5 remain fully open after that.
+      ORCHESTRATOR ADDENDUM 2026-08-22T20:05Z (item 1: one more real gap
+      found and fixed, on top of the note above): started this run against
+      the same first-unchecked ticket, unaware a concurrent run had already
+      landed the note above until `git push` was rejected non-fast-forward
+      -- fetched, confirmed the collision, and diffed the two independent
+      item-1 implementations. They're genuinely equivalent (a segmented
+      enemy-pip bar replacing numeric HP during duels, same condition, same
+      shape language) -- kept theirs as-is rather than landing a duplicate
+      second implementation. But this run's own investigation, done before
+      noticing the collision, found a real gap THEIRS did not touch: the
+      prior note's claim "no word-score-to-HP path existed to remove" is
+      true for a word's own score, but `js/wordbound/game.js`'s
+      `Game.submitWord` also resolves the Index Card Shard/Wine-Dark
+      Litany consumable bonus (`player.bonusDamageUntilEndOfTurn`) via a
+      raw `monster.hp -= bonusDmg`, UNCONDITIONALLY -- including inside a
+      duel fight, completely bypassing the gauge and invisible to the very
+      segment bar the note above just built. A player holding that
+      consumable could still kill a duel-mode monster outright without
+      ever winning a push. Fixed with a new `DuelCombat.applyBonusPush`
+      (`js/wordbound/duelCombat.js`) -- a second, independent
+      `duel.applyPlayerPush` call through the exact same `decisiveBlow`
+      mechanism the word's own push already uses -- called from
+      `game.js` only when `isDuelFight`; the turn-based path is untouched.
+      Confirmed safe to call in every duel state (not assumed): `duel.
+      applyPlayerPush` itself no-ops once `duel.isTerminal()`, so a bonus
+      landing on an already-lethal word can't double-defeat an
+      already-dead monster or over-push a boss past its final phase.
+      Full verify bar (re-run against the merged tree, not just this
+      addition in isolation) in PROGRESS.md. Version stays v0.12 (already
+      bumped by the concurrent run for the same ticket). Box stays
+      unchecked -- items 2's boss-difficulty gap, 3, 4, 5 are all still
+      open, same as the note above already says.
 
 - [ ] PLAYTEST FINDINGS — JAXON, 2026-08-22 (~17:00 UTC), FIRST HUMAN PLAYTEST.
       His verbatim report, from the live URL: "There's no duel, there's no

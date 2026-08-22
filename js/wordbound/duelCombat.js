@@ -112,6 +112,26 @@
     });
   };
 
+  // PLAYTEST FINDINGS 2 item 1 (GOALS.md, COMBAT MODEL ALIGNMENT, 2026-08-22):
+  // a second, independent push through the SAME decisive-blow mechanism
+  // submitWord's own base push uses -- for damage sources that land AFTER
+  // Combat.playWord already resolved (a consumable's bonusDamageUntilEndOfTurn,
+  // resolved by game.js's Game.submitWord once the word itself is confirmed)
+  // but must still never touch monster.hp directly. Safe to call with the
+  // duel already at/just past a won push: duel.applyPlayerPush no-ops
+  // (`{pushed: 0, pushWon: false}`) once duel.isTerminal() (see duel.js's
+  // own comment on that guard), so a bonus that lands on a fight-ending word
+  // can't double-defeat an already-defeated monster or push past a boss's
+  // final phase. On a multi-push boss that ISN'T terminal yet, this pushes
+  // against the gauge winPush() already reset to center -- a second real
+  // push attempt for the same word, not a bug: the bonus is genuinely extra
+  // force, same as it always was as flat bonus damage.
+  DuelCombat.applyBonusPush = function (monster, duel, now, bonusDamage) {
+    var duelPush = duel.applyPlayerPush(now, bonusDamage);
+    if (duelPush.pushWon) decisiveBlow(monster, duel);
+    return Object.assign({}, duelPush, { monsterDied: monster.hp <= 0 });
+  };
+
   DuelCombat.syncHealthBlocks = function (player, duel) {
     duel.on('block-lost', function () {
       player.healthBlocks = duel.healthBlocks;
