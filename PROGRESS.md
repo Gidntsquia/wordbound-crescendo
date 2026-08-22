@@ -8253,6 +8253,17 @@ out of scope (elites already carry a labeled resistance-trait warning
 per FUN OVERHAUL 6/8 -- a separate, already-telegraphed difficulty
 spike) -- not decided either way yet, flagged for whoever picks this up.
 
-**Live deploy refreshed** per the header's standing rule (game code
-changed -- a new real, reachable duel regular). See below for the
-verification result.
+**Live deploy, actually executed:** built `dist/app/` fresh off this
+run's own commit (57 modules), published its contents + an empty
+`.nojekyll` as the new root of the `gh-pages` branch via a scratch `git
+worktree` + orphan branch, `git push -f origin
+gh-pages-refresh:gh-pages` -- succeeded, confirmed by git's own
+ref-update output (`5af500e...a3144da gh-pages-refresh -> gh-pages
+(forced update)`). Worktree removed after. **Could NOT curl-verify,
+honestly flagged rather than assumed:** `curl -sv
+https://gidntsquia.github.io/wordbound-crescendo/` hit the SAME
+pre-existing domain-specific proxy block this repo's prior runs have
+already repeatedly documented -- a `403` on the CONNECT tunnel to
+`gidntsquia.github.io` specifically. The push itself is the actual
+deploy action and it succeeded; this is a known, recurring sandbox
+limitation, not a new one introduced by this run.
