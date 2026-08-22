@@ -83,6 +83,19 @@ Vitest/RTL test in the same commit rather than letting it lag (see gameHelpers.j
 driving real game state instead of hardcoding node ids, which the seed's `floor.js`
 node-id counter makes unsafe across tests).
 
+**LIVE DEPLOY (added 2026-08-22, DEPLOY ticket):** the game is publicly served at
+https://gidntsquia.github.io/wordbound-crescendo/ from the `gh-pages` BRANCH
+(GitHub Pages "deploy from branch"; there is deliberately NO Actions workflow —
+every available token lacks the `workflow` scope, see the DEPLOY ticket note).
+STANDING RULE: any run that changes game code/assets must, after its normal
+verify+push to main, refresh the deploy: `npm run build`, publish the CONTENTS of
+`dist/app/` (plus an empty `.nojekyll`) as the new root of the `gh-pages` branch
+(orphan/replace commit, `git push -f origin gh-pages`), a plain branch push that
+the sandbox's `repo`-scoped token CAN do. Verify with a curl of the live index +
+one hashed asset URL (expect 200s; Pages takes ~a minute to rebuild). Doc-only
+runs may skip this. If the deploy push ever 403s, flag it in PROGRESS.md — do not
+silently drop the rule.
+
 Rules for the routine:
 - Work top to bottom. Blocked → note why in PROGRESS.md, move to the next item.
 - Only check `[x]` when complete, working, and verified. Multi-run tasks are fine —
@@ -3143,7 +3156,7 @@ Rules for the routine:
       and its `BOSS_HOSTAGE_LETTERS` mapping together, per this ticket's own
       scope note.
 
-- [ ] DEPLOY: public play URL via GitHub Pages (orchestrator for Jaxon,
+- [x] DEPLOY: public play URL via GitHub Pages (orchestrator for Jaxon,
       2026-08-22 — he asked "where can I play the game"; do this FIRST, it
       unblocks his playtest of everything already built). The repo is already
       public; the sibling repo serves its game off Pages, so this is
@@ -3166,6 +3179,20 @@ Rules for the routine:
          what step 1 prevents; prove it didn't happen. Log the live URL
          prominently in PROGRESS.md.
       Scope guard: no CNAME/custom domain, no itch upload — Pages only.
+      CLOSED 2026-08-22 ~14:00 UTC (orchestrator): shipped via "deploy from
+      BRANCH" instead of the Actions workflow — the workflow route is
+      permission-blocked everywhere (sandbox token AND Jaxon's local `gh`
+      token both lack the `workflow` scope; the cloud run's verified YAML
+      stays inlined in the ORCHESTRATOR NOTE above should that scope ever
+      be granted). Orchestrator built locally, pushed `dist/app` contents +
+      `.nojekyll` to a new `gh-pages` branch; Jaxon himself ran the
+      Pages-enable API call (the local permission classifier blocks
+      repo-settings changes from the orchestrator). VERIFIED live per step
+      3's bar: index, hashed JS bundle, and CSS all HTTP 200 at
+      https://gidntsquia.github.io/wordbound-crescendo/. The standing
+      refresh rule for every future run now lives in this file's LIVE
+      DEPLOY header block — the deploy goes stale unless runs re-push
+      `gh-pages` after game-affecting changes.
       ORCHESTRATOR NOTE 2026-08-22: step 1 is ALREADY DONE, verified for
       real this run, not just by reading config -- `vite.config.mjs`'s
       `base: './'` (a prior run's own choice, its comment already says

@@ -6757,3 +6757,26 @@ nothing shipped to real gameplay.
 **Next:** the dom-check.js real-floor-RNG audit is the right next chunk --
 small, self-contained, unblocks the rest of this ticket. DEPLOY's
 permission-grant blocker (previous entry) remains open in parallel.
+
+## 2026-08-22T14:02Z — DEPLOY closed: game live at https://gidntsquia.github.io/wordbound-crescendo/ (orchestrator)
+
+Mechanism: GitHub Pages "deploy from branch" (`gh-pages`), NOT the Actions
+workflow — the workflow file is unpushable by every token this project has
+(sandbox and local both lack `workflow` scope; prior run's verified YAML
+remains inlined in the ticket note if that ever changes). Orchestrator
+built locally (`npm run build` → `dist/app`), pushed contents +
+`.nojekyll` to `gh-pages`; Jaxon ran the Pages-enable API call himself
+(orchestrator's permission classifier blocks repo-settings mutations).
+
+**Verified:** live index HTTP 200, hashed JS bundle 200, CSS 200 (curl,
+step 3's stated minimum). **Not verified:** a full browser boot/playthrough
+against the LIVE URL (local `test:react-build` covers the same artifact
+served statically, so risk is low; a future run may point a Playwright
+pass at the live URL if it wants the last inch).
+
+**Standing rule added** to GOALS.md's header (LIVE DEPLOY block): every
+game-affecting run must rebuild and force-push `gh-pages` after its main
+push, then curl-verify — plain branch push, sandbox-token compatible.
+
+**Next:** REGULAR ENEMIES (in flight in a concurrent run) is the last open
+ticket; queue otherwise complete.
