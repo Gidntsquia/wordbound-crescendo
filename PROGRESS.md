@@ -7740,7 +7740,17 @@ to piece wiring / def conversion / combat routing, the gh-pages deploy
 refresh is MANDATORY in the same run") -- this run is exactly that: real
 def conversion, 2 more reachable duel-mode monsters. `npm run build`,
 published `dist/app/`'s contents (+ `.nojekyll`) as the new `gh-pages`
-branch root. See below for the curl-verification outcome.
+branch root (orphan branch in a scratch `git worktree`, `git push -f
+origin gh-pages-refresh:gh-pages` -- confirmed by git's own ref-update
+output: `842ccd1...414f87c gh-pages-refresh -> gh-pages (forced update)`).
+**Could NOT curl-verify, honestly flagged rather than assumed** -- the
+same domain-specific `EGRESS_BLOCKED`/403 this ticket's own prior runs
+already hit for `gidntsquia.github.io` specifically (confirmed again this
+run: `api.github.com` returned a clean 200 in the same session, so this
+is a per-session network-proxy policy, not a general outage or a problem
+with the deploy itself). Unchanged open item: a future run with
+unrestricted egress should curl the live index + one hashed asset URL to
+close this loop for real.
 
 **Next:** either compose The Metronome (completes the mid-tier roster,
 unblocks retiring the last 3 normal defs) or start the late tier (Swarm/
