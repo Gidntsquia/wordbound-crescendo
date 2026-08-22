@@ -238,10 +238,24 @@
   // Game.startDuelFight itself uses at fight-start -- a player who turns
   // Largo on mid-duel doesn't have to lose the fight and restart to feel it.
   Game.getLargoEnabled = function () { return largoEnabled; };
+  // ITEMS ticket (GOALS.md), RITARDANDO: combines Largo's own scale with
+  // Items.getTempoScale's product of any owned tempoScale statMods,
+  // MULTIPLICATIVELY (0.6 * 0.75 = 0.45 with both active) -- a single choke
+  // point so Largo's live mid-duel toggle (below) and a fight's own
+  // fight-start scale (Game.startDuelFight) can never independently forget
+  // the other's contribution. Exposed as Game._computeDuelTempoScale for
+  // jsdom-safe unit testing: this is pure (no AudioContext touched), unlike
+  // actually starting a duel fight, which crashes in jsdom (no
+  // window.AudioContext there -- the same hazard this file's other
+  // real-duel-boss tests already document at length).
+  function computeDuelTempoScale() {
+    return (largoEnabled ? LARGO_TEMPO_SCALE : 1) * (Items ? Items.getTempoScale(state.player) : 1);
+  }
+  Game._computeDuelTempoScale = computeDuelTempoScale;
   Game.setLargoEnabled = function (enabled) {
     largoEnabled = !!enabled;
     saveLargoSetting();
-    if (state.duelSequencer) state.duelSequencer.setTempoScale(largoEnabled ? LARGO_TEMPO_SCALE : 1);
+    if (state.duelSequencer) state.duelSequencer.setTempoScale(computeDuelTempoScale());
     render();
   };
   // STRUCTURAL ticket (GOALS.md, remaining scope (c) step 2, tile-staging
@@ -1151,7 +1165,11 @@
 
     var sequencer = Music.createSequencer(ctx, destination, piece);
     sequencer.play();
-    if (largoEnabled) sequencer.setTempoScale(LARGO_TEMPO_SCALE); // Largo assist: a fight that starts with it already on begins slow, not just toggled-slow mid-fight
+    // Largo assist AND/OR Ritardando (ITEMS ticket) combined, so a fight that
+    // starts with either (or both) already active begins slow, not just
+    // toggled-slow mid-fight -- see computeDuelTempoScale's own comment.
+    var startingTempoScale = computeDuelTempoScale();
+    if (startingTempoScale !== 1) sequencer.setTempoScale(startingTempoScale);
 
     var pushesToDefeat = opts.pushesToDefeat != null ? opts.pushesToDefeat
       : (monster.pushesToDefeat != null ? monster.pushesToDefeat : (monster.isBoss ? 3 : 1));

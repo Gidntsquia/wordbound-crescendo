@@ -3441,6 +3441,106 @@ Rules for the routine:
       letter-recovery synergies.
       Each item: real hook-level `npm test` assertions, seeded-shop appearance
       check, sim sanity per tier. VERIFY as the sibling's item batches did.
+      ORCHESTRATOR NOTE 2026-08-22: landed 2 of Jaxon's 4 signature items this
+      run -- RITARDANDO and POETIC LICENSE. FORTISSIMO (rack-capacity/tile-
+      size + Rewrite interaction) and THE INVERTED SCORE (flip-mapping
+      dictionary check) are real, separately-scoped remaining work -- each
+      needs its own rendering or validity-engine change, not a small addition
+      alongside these two, so deliberately not attempted this run. The health
+      items + 4-8 duel-gauge-space items (the ticket's AMENDED batch) are
+      also still fully open.
+      - RITARDANDO: `js/wordbound/items.js`'s new `statMods.tempoScale: 0.75`
+        + `Items.getTempoScale(player)` (multiplies together any owned
+        tempoScale statMods, 1 = no-op). `js/wordbound/game.js` gained
+        `computeDuelTempoScale()` (Largo's own scale * the item's, so a
+        Largo-assisted player who also owns this item gets 0.6*0.75=0.45,
+        not either alone) -- used by both `Game.startDuelFight` (fight-start
+        scale) and `Game.setLargoEnabled` (so toggling Largo mid-duel while
+        the item is owned recombines correctly, not just resets to 1),
+        exposed as `Game._computeDuelTempoScale` for jsdom-safe testing
+        (pure -- no AudioContext touched, unlike actually starting a duel
+        fight). Deliberately a SMALLER slowdown than Largo alone (which is a
+        0.6 accessibility assist, not a build item) -- retunable, flagged
+        like every other numeric judgment call in this file.
+      - POETIC LICENSE: a second validity gate in `js/wordbound/combat.js`'s
+        `playWord`/`previewWord` (the ONE choke point both vanilla and React
+        share, confirmed by grep -- React's CombatScreen only ever calls
+        `Combat.previewWord`), via the new `Items.bypassesWordValidity(word,
+        player)`: an exactly-3-letter combination formable from the rack
+        counts as playable even when `Lexicon.isValidWord` rejects it.
+        Scoring is completely untouched (scoreWord doesn't know or care
+        whether the letters spelled a real word) -- this is what makes the
+        ticket's "keep base scoring low" requirement fall out of the
+        EXISTING formula for free: lengthBonus only starts past length 4 and
+        bingoBonus needs the whole rack, so a 3-letter play (real or
+        bypassed) is already this engine's lowest-scoring shape, a floor
+        action rather than a competing optimum. Sim-checked the literal
+        worst case (Q+Z+X, the pool's 3 highest-value letters at 10/10/8 =
+        28 raw, no length/bingo bonus) against a mediocre real word rather
+        than building a new statistical simulator for a single item --
+        documented in the item's own def comment. A small `onWordPlayed`
+        hook (pure feedback, no damage change) announces the bypass only
+        when one was actually exercised (a real 3-letter word needs no
+        license, stays silent), matching this file's own "silent modifiers
+        don't create builds" convention.
+      **Verified:**
+      - `npm test` (jsdom dom-check): ALL CHECKS PASSED, +15 new checks --
+        Poetic License unplayable without the item (both playWord AND
+        previewWord agree), playable and correctly scored (28) with it,
+        proc-message fires only on a real bypass (not a real word), still
+        respects rack formability and the exactly-3-letters restriction;
+        Items.getTempoScale in isolation, and
+        Game._computeDuelTempoScale's 1 / 0.75 / 0.45 (Largo+item combined)
+        cases via a temporary synthetic player swapped into `Game._state`
+        (no real run exists yet at that point in the file) and restored
+        after, so the probe leaves no state for later checks in the same
+        shared jsdom window.
+      - `npm run test:react-duel-loss` (real browser, built output): ALL
+        CHECKS PASSED, extended with a new mid-file section -- grants
+        Ritardando via the same `page.evaluate` "no shop/treasure UI offers
+        a specific item yet" convention Second Wind's own check already
+        established, re-enters the SAME boss fight for real (Ritardando
+        only applies at fight start, so this proves a freshly-started real
+        sequencer picks it up, not a retroactive expectation), confirms
+        tempo scale 0.75 on the live sequencer, then a real Largo click on
+        top confirms 0.6*0.75=0.45 (**the one behavior no jsdom test can
+        reach** -- `Game.setLargoEnabled`'s live-sequencer branch), then
+        strips the item and re-enters once more so the rest of the file's
+        existing phases (block loss, i-frames, Second Wind, fatal defeat)
+        run at the normal pace they were written against -- all of which
+        still passed unchanged, confirming the re-entry trick didn't
+        disturb anything downstream.
+      - `npm run build`: clean, 51 modules (unchanged count -- no new file,
+        the two items live in the existing items.js).
+      - `npm run test:mobile`, `test:qa`, `test:react-qa`, `test:react-build`,
+        `test:music-engine`, `test:duel-balance`, `test:branching-map`,
+        `test:audio`, `test:drag-interrupt`, `test:run-header`: ALL CHECKS
+        PASSED, unaffected (no UI/CSS touched by either item -- both are
+        invisible passive effects, same as most items in this pool).
+        `test:duel-balance`'s pre-existing early/regular/weak stalemate flag
+        persists unchanged, exit code 0 -- unrelated (that sim doesn't model
+        items at all).
+      - `npx vitest run`: 172/172, unchanged count -- neither item touches a
+        `src/components/*.jsx` file (no UI for either), so this wasn't
+        expected to need new React tests, and didn't regress.
+      - `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED,
+        no manifest change needed (items.js was already listed).
+      **Not done, honest gaps:** FORTISSIMO, THE INVERTED SCORE, and the
+      full AMENDED batch (health items + 4-8 duel-gauge-space items) all
+      remain open -- this ticket's box stays unchecked. No shop/treasure UI
+      has offered either new item to a real player yet (same gap every
+      prior item batch in this file already has -- items only reach players
+      through the existing shop/reward roll pools, which both new items are
+      registered in via `ITEM_DEFS`, so they'll surface once a run rolls
+      them; nothing item-specific blocks that). **Genuinely-Jaxon-only:**
+      Ritardando's 0.75 tempo scale and Poetic License's rarity/shopPrice
+      (both round, distinguishable numbers, not balance-sim-tuned).
+      **Next:** FORTISSIMO is probably the more self-contained of the two
+      remaining signature items to pick up next (rack-capacity halving +
+      double-size tile rendering, needs `test:mobile` verification and an
+      explicit Rewrite-interaction decision, but no new validity-engine
+      work) -- THE INVERTED SCORE needs a real flip-mapping + reversed-order
+      dictionary check, a bigger lift.
 
 - [ ] REGULAR ENEMIES: build the 6-10 regulars from the bible — every one a
       DUEL-GAUGE fight (per the header combat decision; no turn-based mode

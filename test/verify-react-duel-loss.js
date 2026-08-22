@@ -162,6 +162,47 @@ async function main() {
     check('a second real click restores normal tempo', (await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale())) === 1);
     check('the Largo button shows its "Off" state again', !(await page.isVisible('.largo-toggle-btn.largo-toggle-btn-on')));
 
+    // ---- RITARDANDO (ITEMS ticket): the item's own tempo-scale hook, live on the SAME real sequencer ----
+    // No shop/treasure UI offers a specific item yet (same "grant via
+    // page.evaluate" convention Phase 1.5 below uses for Second Wind) --
+    // this proves Game.startDuelFight's computeDuelTempoScale actually reads
+    // Items.getTempoScale for a REAL running sequencer, not just that the
+    // pure helper functions multiply correctly (already unit-tested in
+    // dom-check). Toggling Largo back on WHILE Ritardando is owned also
+    // proves the two combine multiplicatively (0.6 * 0.75 = 0.45), the one
+    // behavior no jsdom test can touch (Game.setLargoEnabled's own
+    // mid-duel live-sequencer branch).
+    await page.evaluate(() => { window.Wordbound.Game._state.player.items = ['ritardando']; });
+    // Ritardando only applies at fight START (computeDuelTempoScale is read
+    // once in Game.startDuelFight) -- re-enter the same boss fight for real
+    // rather than expecting the already-running sequencer to pick it up
+    // retroactively, which would be testing a behavior this item was never
+    // built to have.
+    await page.evaluate(() => {
+      const s = window.Wordbound.Game._state;
+      s.combatActive = false;
+      s.duelSequencer.stop();
+    });
+    await jumpToBossNode(page);
+    await page.click('.node-pill.node-boss.node-current');
+    const tempoWithRitardando = await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale());
+    check(`Ritardando slows a freshly-started real duel's sequencer (tempo scale ${tempoWithRitardando})`, Math.abs(tempoWithRitardando - 0.75) < 1e-9);
+    await page.click('.largo-toggle-btn');
+    const tempoWithBoth = await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale());
+    check(`Ritardando + Largo combine multiplicatively on the live sequencer (${tempoWithRitardando} * Largo -> ${tempoWithBoth})`, Math.abs(tempoWithBoth - 0.45) < 1e-9);
+    await page.click('.largo-toggle-btn'); // back off
+    await page.evaluate(() => { window.Wordbound.Game._state.player.items = []; }); // strip the item so the phases below run at the normal pace they were written against
+    // Re-enter the fight once more, now item-free, so its sequencer starts
+    // at tempoScale 1 like every phase below assumes.
+    await page.evaluate(() => {
+      const s = window.Wordbound.Game._state;
+      s.combatActive = false;
+      s.duelSequencer.stop();
+    });
+    await jumpToBossNode(page);
+    await page.click('.node-pill.node-boss.node-current');
+    check('tempo is back to normal for the remaining phases', (await page.evaluate(() => window.Wordbound.Game._state.duelSequencer.getTempoScale())) === 1);
+
     // ---- Phase 0: the crescendo-approaching countdown, real sequencer + real wall-clock ----
     // Mountain King's own crescendo peaks at beat 71 (js/wordbound/pieces/
     // mountain-king.js); waiting through the piece's early bars naturally

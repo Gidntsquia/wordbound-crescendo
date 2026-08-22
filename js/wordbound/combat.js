@@ -7,7 +7,9 @@
 // PUBLIC API (window.Wordbound.Combat):
 //   playWord(player, monster, word, comboState)
 //     -> null if the word isn't formable/valid (caller should reject before
-//        spending a turn), otherwise:
+//        spending a turn; "valid" also accepts an exactly-3-letter non-word
+//        combination when the player owns Poetic License, see items.js's
+//        Items.bypassesWordValidity -- ITEMS ticket, GOALS.md), otherwise:
 //        { word, tilesUsed, score, holdMult, activeTraitId, multiplier,
 //          comboMultiplier, comboAtPlay, isRepeat, damage, monsterDied }
 //        tilesUsed is the array of tiles.js Tile objects spent. holdMult is
@@ -83,7 +85,14 @@
     var Tiles = window.Wordbound.Tiles;
     var Items = window.Wordbound.Items;
 
-    if (!Lexicon.isValidWord(word)) return null;
+    // ITEMS ticket, POETIC LICENSE: a second validity gate after the
+    // dictionary check, for a rare item that lets an exactly-3-letter
+    // combination count even when it isn't a real word. See
+    // items.js's Items.bypassesWordValidity for the full reasoning
+    // (scoring is unaffected either way -- this only changes what's
+    // playable, never what it's worth).
+    var validWord = Lexicon.isValidWord(word) || (Items && Items.bypassesWordValidity(String(word).toUpperCase(), player));
+    if (!validWord) return null;
     var formed = Lexicon.canFormFromRack(word, player.rack);
     if (!formed.possible) return null;
 
@@ -180,7 +189,8 @@
     options = options || {};
     if (!player || !monster || !word) return { valid: false };
     var upper = String(word).trim().toUpperCase();
-    if (!upper || !Lexicon.isValidWord(upper)) return { valid: false };
+    var validWord = !!upper && (Lexicon.isValidWord(upper) || (Items && Items.bypassesWordValidity(upper, player)));
+    if (!validWord) return { valid: false };
 
     // Clone every piece playWord + the item hooks mutate. Tile objects are
     // shared by reference (nothing in this path mutates a tile's own fields --

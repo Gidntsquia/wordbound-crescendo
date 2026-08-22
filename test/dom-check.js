@@ -477,6 +477,115 @@ async function main() {
     }
   }
 
+  // ITEMS ticket (GOALS.md, 2026-08-22): Jaxon's four signature items, 2 of 4
+  // landed this run. POETIC LICENSE is a validity-GATE item (checked inside
+  // Combat.playWord/previewWord itself, before any onWordPlayed hook runs),
+  // unlike every item above -- tested here via the real playWord/previewWord
+  // entry points, not a synthetic ctx. RITARDANDO is a duel-only tempo-scale
+  // item; the pure Items.getTempoScale helper and game.js's
+  // Game._computeDuelTempoScale combiner are jsdom-safe (no AudioContext
+  // touched), but actually starting a duel fight is NOT (see this file's own
+  // repeated "Game.startDuelFight -> initAudioContext() hard jsdom crash"
+  // notes elsewhere) -- proving the scale actually reaches a REAL running
+  // sequencer is test:react-duel-loss's job (real browser), not this file's.
+  {
+    const Combat = window.Wordbound.Combat;
+    const Tiles = window.Wordbound.Tiles;
+    const Items = window.Wordbound.Items;
+    const Lexicon = window.Wordbound.Lexicon;
+    const Game = window.Wordbound.Game;
+    const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+    // Q(10) + Z(10) + X(8) -- not a real word (confirmed below), and the
+    // worst-case (highest-value) 3-letter combination the letter pool can
+    // produce, per the item's own def comment's sim-check.
+    const nonWordRack = () => ['Q', 'Z', 'X', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+
+    check('Poetic License test setup: "QZX" is not a real dictionary word', !Lexicon.isValidWord('QZX'));
+
+    // 1. Without the item, a non-word 3-letter combo is rejected exactly like
+    // any other invalid word (both entry points).
+    {
+      const player = { rack: nonWordRack(), items: [], ink: 20, maxInk: 20 };
+      check('Poetic License: "QZX" unplayable without the item (playWord)', Combat.playWord(player, monster, 'QZX') === null);
+    }
+    {
+      const player = { rack: nonWordRack(), items: [], ink: 20, maxInk: 20 };
+      check('Poetic License: "QZX" unplayable without the item (previewWord)', Combat.previewWord(player, monster, 'QZX', null, {}).valid === false);
+    }
+
+    // 2. With the item, the exact same non-word combo IS playable, scores
+    // exactly the tiles' raw value (28: no length bonus below 5 letters, no
+    // bingo bonus for a 3-of-7 play), and announces the bypass.
+    {
+      const player = { rack: nonWordRack(), items: ['poetic_license'], ink: 20, maxInk: 20 };
+      const result = Combat.playWord(player, monster, 'QZX');
+      check('Poetic License: "QZX" playable with the item', !!result);
+      if (result) {
+        check('Poetic License: worst-case 3-letter combo scores 28 raw (Q10+Z10+X8), no length/bingo bonus', result.damage === 28);
+        const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, messages: [] };
+        Items.runHook('onWordPlayed', ctx, player);
+        check('Poetic License: logs a proc message for a real bypass', ctx.messages.indexOf('Poetic License: "QZX" counts!') !== -1);
+      }
+    }
+    {
+      // previewWord must agree exactly (no separate/duplicated formula).
+      const player = { rack: nonWordRack(), items: ['poetic_license'], ink: 20, maxInk: 20 };
+      const preview = Combat.previewWord(player, monster, 'QZX', null, {});
+      check('Poetic License: previewWord agrees with playWord (valid, 28 damage)', preview.valid === true && preview.damage === 28);
+    }
+
+    // 3. A real dictionary word does NOT get an announcement (it needed no
+    // license) -- confirms the hook only fires for a genuine bypass.
+    {
+      const rack = ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['poetic_license'], ink: 20, maxInk: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Poetic License: a real word plays normally with no proc message', ctx.messages.length === 0);
+    }
+
+    // 4. The item never widens what's FORMABLE from the rack -- a 3-letter
+    // combo whose letters aren't actually on the rack still fails.
+    {
+      const player = { rack: ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null)), items: ['poetic_license'], ink: 20, maxInk: 20 };
+      check('Poetic License: still rejects a combo the rack cannot form', Combat.playWord(player, monster, 'QZX') === null);
+    }
+
+    // 5. Exactly-3-letters only -- the ticket's own wording. A 4-letter
+    // non-word stays rejected even with the item owned.
+    {
+      const rack = ['Q', 'Z', 'X', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['poetic_license'], ink: 20, maxInk: 20 };
+      check('Poetic License: does not bypass a 4-letter non-word', Combat.playWord(player, monster, 'QZXD') === null);
+    }
+
+    // 6. RITARDANDO: the pure tempo-scale helper and its combination with
+    // Largo, both jsdom-safe (no AudioContext).
+    check('Ritardando: Items.getTempoScale is 1 with no items owned', Items.getTempoScale({ items: [] }) === 1);
+    check('Ritardando: Items.getTempoScale is 0.75 when owned', Items.getTempoScale({ items: ['ritardando'] }) === 0.75);
+    if (Game && typeof Game._computeDuelTempoScale === 'function') {
+      // No real run has started yet at this point in the file (Game.startRun
+      // isn't called until much further down) -- Game._state.player is still
+      // null, and computeDuelTempoScale reads it via closure, not a
+      // parameter, so a temporary synthetic player is swapped in for this
+      // probe alone and restored after, same "don't leak state to whatever
+      // runs next in this shared jsdom window" discipline the rest of this
+      // block already follows for Largo.
+      const largoWasEnabled = Game.getLargoEnabled();
+      const playerBefore = Game._state.player;
+      Game._state.player = { items: [] };
+      Game.setLargoEnabled(false);
+      check('computeDuelTempoScale: 1 with Largo off and no items', Game._computeDuelTempoScale() === 1);
+      Game._state.player.items = ['ritardando'];
+      check('computeDuelTempoScale: 0.75 with Ritardando owned, Largo off', Math.abs(Game._computeDuelTempoScale() - 0.75) < 1e-9);
+      Game.setLargoEnabled(true);
+      check('computeDuelTempoScale: 0.45 with Ritardando owned AND Largo on (multiplicative)', Math.abs(Game._computeDuelTempoScale() - 0.45) < 1e-9);
+      Game.setLargoEnabled(largoWasEnabled);
+      Game._state.player = playerBefore;
+    }
+  }
+
   // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants. The two
   // SCORING variants (Charged +4 flat, Volatile letter-value x2) resolve in
   // Lexicon.scoreWord, so they're checked here in isolation against exact

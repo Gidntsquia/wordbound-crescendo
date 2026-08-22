@@ -70,6 +70,13 @@
 //     }
 //   }
 //   getRackCapacity(player) -> 7 + sum of owned rackCapacityBonus
+//   getTempoScale(player) -> 1, or product of any owned tempoScale statMods
+//       (ITEMS ticket's RITARDANDO -- see its def for why this multiplies
+//       rather than adds).
+//   bypassesWordValidity(word, player) -> true if `word` is exactly 3
+//       letters and the player owns Poetic License (ITEMS ticket) -- the
+//       second validity gate combat.js's playWord/previewWord check after
+//       Lexicon.isValidWord.
 //   runHook(hookName, ctx, player) -> iterates player.items (array of item
 //       ids, pickup order) and invokes any matching hook, mutating ctx.
 //   applyBonusDamage(ctx, amount) -> helper hooks call to add extra damage
@@ -682,6 +689,98 @@
       }
     }
   });
+
+  // ---- ITEMS ticket (GOALS.md, 2026-08-22): Jaxon's four signature items,
+  // 1 of 4 landed as passive statMods/hooks this run (RITARDANDO,
+  // POETIC LICENSE) -- FORTISSIMO (rack-capacity/tile-size change) and
+  // THE INVERTED SCORE (flip-mapping dictionary check) are real, separate,
+  // still-open scope (each needs its own rendering/validity-engine work,
+  // not a small addition on top of this run's two) -- see PROGRESS.md.
+
+  def({
+    id: 'ritardando',
+    name: 'Ritardando',
+    hint: 'Every measure downshifts -- the enemy\'s music arrives late, buying you time to build the word.',
+    rarity: 'rare',
+    shopPrice: 45,
+    // A global tempo-scale multiplier applied to a duel's music sequencer at
+    // fight start (js/wordbound/game.js's computeDuelTempoScale, via the
+    // engine's own setTempoScale hook -- music.js's header comment literally
+    // calls this out as "the tempo-scale hook the ticket asks to be built
+    // now for a future slow-the-music item"). 0.75 (25% slower) is a
+    // deliberately smaller effect than the Largo accessibility assist's own
+    // 0.6 -- Largo is meant to make a duel meaningfully easier for players
+    // who need it; a purchasable build item shouldn't just be "buy Largo",
+    // so this stacks MULTIPLICATIVELY with Largo (0.6 * 0.75 = 0.45 combined)
+    // rather than matching or exceeding it alone. Retunable starting value,
+    // not sim-locked -- flagged like every other numeric judgment call in
+    // this file.
+    statMods: { tempoScale: 0.75 }
+  });
+
+  def({
+    id: 'poetic_license',
+    name: 'Poetic License',
+    hint: 'Three letters, any three letters -- who\'s to say what counts as a word?',
+    rarity: 'rare',
+    shopPrice: 40,
+    hooks: {
+      // The actual validity bypass lives in Items.bypassesWordValidity
+      // (below), called from combat.js's playWord/previewWord validity gate
+      // BEFORE this hook ever runs -- by the time onWordPlayed fires, the
+      // word has already been accepted and scored exactly like any other
+      // play. This hook is pure user feedback (per this file's own "silent
+      // modifiers don't create builds" convention): announce the bypass only
+      // when it was actually exercised (a real dictionary word of length 3
+      // doesn't need announcing -- it needed no license).
+      onWordPlayed: function (ctx) {
+        var Lexicon = window.Wordbound.Lexicon;
+        if (ctx.word.length !== 3 || Lexicon.isValidWord(ctx.word)) return;
+        ctx.messages.push('Poetic License: "' + ctx.word + '" counts!');
+      }
+    }
+  });
+
+  // Combat.playWord/previewWord's second validity gate (js/wordbound/
+  // combat.js): with Poetic License owned, any EXACTLY-3-LETTER combination
+  // formable from the rack is playable even if Lexicon.isValidWord rejects
+  // it as not a real word. Scoring is completely untouched -- scoreWord has
+  // no idea (and doesn't need to know) whether the letters it's summing
+  // happened to spell a real word, so a bypassed play scores exactly what a
+  // real 3-letter word using the same tiles would. This is what makes the
+  // ticket's "keep base scoring low so it's a floor-raiser" requirement fall
+  // out of the EXISTING formula for free rather than needing a special case:
+  // lengthBonus only starts past length 4 and bingoBonus needs the whole
+  // rack, so a 3-letter play (real or bypassed) is already the lowest-value
+  // shape this engine can score. Worst case checked (sim-check, per the
+  // ticket): the two highest-value letters in the pool (Q, Z = 10 each) plus
+  // a third at 8 (J or X) scores 28 raw points with zero length/bingo bonus
+  // -- around what a single mediocre 5-letter real word already deals
+  // (e.g. a 5-letter word of common 1-2pt letters already clears ~10 base +
+  // 2 length bonus, and any real word using a genuine rare letter matches or
+  // beats 28 outright) -- and drawing Q+Z+J/X together in one 7-tile rack is
+  // already a rare draw under LETTER_POOL's weights (1 copy of each in the
+  // whole pool). Not a degenerate optimum; a guaranteed-but-modest floor
+  // action for an otherwise dead rack, exactly the ticket's intent.
+  Items.bypassesWordValidity = function (word, player) {
+    if (!player || !word || word.length !== 3) return false;
+    return (player.items || []).indexOf('poetic_license') !== -1;
+  };
+
+  // RITARDANDO's tempo-scale statMod, multiplied together across every owned
+  // item that sets one (only one exists today, but this mirrors
+  // getRackCapacity's additive-across-items shape rather than assuming
+  // exactly one item will ever grant this). Returns 1 (no change) when
+  // nothing owned sets it. The caller (game.js) further combines this with
+  // the Largo accessibility assist's own scale -- see computeDuelTempoScale.
+  Items.getTempoScale = function (player) {
+    var scale = 1;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.tempoScale != null) scale *= d.statMods.tempoScale;
+    });
+    return scale;
+  };
 
   Items.getRackCapacity = function (player) {
     var capacity = 7;

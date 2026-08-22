@@ -5876,3 +5876,140 @@ ls-remote origin` -- purely a stale local-ref artifact of container provisioning
 Fixed with `git fetch origin main && git checkout -B main origin/main` before
 starting any work. Worth that same sanity check at the start of a run if `git
 status` ever reports a detached HEAD.
+
+---
+
+## 2026-08-22T10:48Z
+
+Same repo-hygiene fix needed again at start (stale local `main`/`origin/main`
+refs, `HEAD` detached ~50 commits ahead) -- resolved the same way. SHAKESPEARE
+GUIDE + AUTHOR SHOPKEEPERS's only remaining scope (author exclusive items) is
+explicitly blocked on the ITEMS ticket per its own last several notes, so per
+GOALS.md's "blocked -> move to the next item" rule, picked up ITEMS next
+(large, self-contained, next unchecked item after that).
+
+**What was done:** implemented 2 of Jaxon's 4 signature items --
+**RITARDANDO** (slows all enemy music via a global tempo-scale multiplier)
+and **POETIC LICENSE** (any exactly-3-letter rack combination counts as a
+playable word). Deliberately did NOT attempt FORTISSIMO (rack-capacity
+halving + double-size tile rendering, a real CSS/mobile-layout change) or
+THE INVERTED SCORE (a flip-mapping + reversed-letter-order dictionary check)
+this run -- both need their own separate engine/rendering work, not a small
+addition alongside these two, and doing all 4 shallowly in one run risked
+skipping the ticket's own "sim-check this" bar for the trickier two.
+
+- **Ritardando**: `js/wordbound/items.js` got `statMods.tempoScale: 0.75`
+  and `Items.getTempoScale(player)` (multiplies together any owned
+  tempoScale statMods; 1 = no-op, mirrors `getRackCapacity`'s shape).
+  `js/wordbound/game.js`'s new `computeDuelTempoScale()` combines this with
+  the pre-existing Largo accessibility assist's own scale
+  MULTIPLICATIVELY (0.6 Largo * 0.75 item = 0.45 combined) -- used at both
+  `Game.startDuelFight` (fight-start) and `Game.setLargoEnabled` (so
+  toggling Largo mid-duel while the item is owned recombines correctly
+  instead of resetting to 1 or 0.6 flatly), exposed as
+  `Game._computeDuelTempoScale` for jsdom-safe unit testing since it's pure
+  (no AudioContext touched, unlike actually starting a duel fight -- the
+  same hard-jsdom-crash hazard this file has documented many times before).
+  0.75 is deliberately a SMALLER effect than Largo alone -- a purchasable
+  build item shouldn't just replicate an accessibility toggle's full power.
+- **Poetic License**: added a second validity gate inside
+  `js/wordbound/combat.js`'s `playWord`/`previewWord` -- confirmed by grep
+  this is the ONE choke point both vanilla and React share (React's
+  CombatScreen only ever calls `Combat.previewWord`, which calls
+  `playWord` internally). New `Items.bypassesWordValidity(word, player)`:
+  an exactly-3-letter combination formable from the rack is playable even
+  when `Lexicon.isValidWord` rejects it as not a real word. Scoring is
+  completely untouched -- `scoreWord` has no idea whether the letters
+  happened to spell a real word, so a bypassed play scores exactly what a
+  real 3-letter word using the same tiles would. This is what makes the
+  ticket's own "keep base scoring low so it's a floor-raiser" requirement
+  fall out of the EXISTING formula for free, no special case needed:
+  `lengthBonus` only starts past length 4 and `bingoBonus` needs the whole
+  rack, so a 3-letter play (real or bypassed) is already this engine's
+  lowest-scoring shape. Sim-checked the literal worst case by hand rather
+  than building a new statistical simulator for one item: Q+Z+X, the
+  letter pool's 3 highest-value letters (10/10/8), scores 28 raw with zero
+  length/bingo bonus -- comparable to a single mediocre 5-letter real word,
+  and drawing all three of those exact tiles in one 7-tile rack is already
+  rare under `LETTER_POOL`'s weights (1 copy of each in the whole pool).
+  Not a degenerate optimum; a guaranteed-but-modest floor action for an
+  otherwise dead rack, which is the ticket's stated intent. A small
+  `onWordPlayed` hook (feedback only, no damage change) announces the
+  bypass with a message, but only when one was actually exercised (a real
+  3-letter word needs no license and stays silent) -- matches this file's
+  existing "silent modifiers don't create builds" convention.
+
+**A real judgment call, documented rather than silently resolved:** neither
+item has a shop/treasure roll test targeting it BY NAME yet (same gap every
+prior item batch in this file already carries -- items only reach players
+through the existing roll pools they're registered in via `ITEM_DEFS`, and
+both new ones are). Not a regression, just not a new guarantee either.
+
+**Verified:**
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED, +15 new checks -- Poetic
+  License unplayable without the item via BOTH `playWord` and `previewWord`
+  (confirming they agree, not a duplicated formula), playable and correctly
+  scored (28 for the QZX worst case) with it, the proc-message firing only
+  on a genuine bypass (a real word like CAT logs nothing), still respecting
+  rack formability (a combo the rack can't form still fails) and the
+  exactly-3-letters restriction (a 4-letter non-word stays rejected);
+  `Items.getTempoScale` in isolation (1 with nothing owned, 0.75 with the
+  item); `Game._computeDuelTempoScale`'s 1 / 0.75 / 0.45 (Largo+item
+  combined) cases via a temporary synthetic player swapped into
+  `Game._state.player` (no real run exists yet at that point in the file's
+  test order) and restored afterward so the probe leaves no state behind
+  for whatever runs next in the same shared jsdom window.
+- `npm run test:react-duel-loss` (real browser, built output): ALL CHECKS
+  PASSED. Extended with a new section between the pre-existing Largo
+  click-check and Phase 0: grants Ritardando via the same `page.evaluate`
+  convention Phase 1.5's Second Wind check already established (no shop UI
+  offers a specific item yet), then RE-ENTERS the same boss fight for real
+  (Ritardando only reads at fight start, so retroactively expecting an
+  already-running sequencer to pick it up would test a behavior this item
+  was never built to have) and confirms the freshly-started real
+  sequencer's `getTempoScale()` reads 0.75, then a real Largo button click
+  on top confirms 0.6*0.75=0.45(ish, float) on the SAME live sequencer --
+  **the one behavior no jsdom test can reach**, `Game.setLargoEnabled`'s
+  live-sequencer branch. Strips the item and re-enters once more afterward
+  so the file's pre-existing phases (non-fatal block loss, i-frames,
+  Second Wind revival, fatal defeat) run at the normal pace they were
+  written against -- all of which still passed unchanged, confirming the
+  extra re-entry cycles didn't disturb anything downstream.
+- `npm run build`: clean, 51 modules (unchanged count -- both items live in
+  the existing `items.js`, no new file).
+- `npm run test:mobile`, `test:qa`, `test:react-qa`, `test:react-build`,
+  `test:music-engine`, `test:duel-balance`, `test:branching-map`,
+  `test:audio`, `test:drag-interrupt`, `test:run-header`: ALL CHECKS
+  PASSED, unaffected -- neither item touches any UI/CSS (both are
+  invisible passive effects, like most of this item pool).
+  `test:duel-balance`'s pre-existing early/regular/weak stalemate flag is
+  unchanged, exit code 0 -- that sim doesn't model items at all.
+- `npx vitest run`: 172/172, unchanged count -- neither item touches a
+  `src/components/*.jsx` file, so no new React coverage was needed and
+  none regressed.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED, no
+  manifest change needed (`items.js` was already listed).
+
+Version NOT bumped -- ITEMS is a large multi-run ticket (Jaxon's four +
+round out to 8-12), and this run landed 2 of 4 signature items plus none of
+the batch expansion; the "bump minor per completed feature" convention
+applies once the ticket's box is actually checked.
+
+**Not done, honest gaps:** FORTISSIMO (rack-capacity halving + double-size
+tile rendering + an explicit Rewrite-interaction decision) and THE INVERTED
+SCORE (flip-mapping + reversed-letter-order dictionary check) are both real,
+separately-scoped remaining signature items. The AMENDED batch (health
+items + 4-8 duel-gauge-space items) is fully untouched. ITEMS stays
+unchecked.
+
+**Genuinely-Jaxon-only, flagged rather than blocking:** Ritardando's 0.75
+tempo scale and Poetic License's rarity ('rare')/shopPrice (40) -- round,
+mutually distinguishable numbers, not balance-sim-tuned.
+
+**Next:** FORTISSIMO is likely the more self-contained of the two remaining
+signature items (rack-capacity/rendering work, no new validity-engine
+change needed) -- THE INVERTED SCORE needs a real flip-mapping/reversed-
+order dictionary check, a bigger lift. Once all 4 (or a documented subset
+Jaxon signs off on) land plus a reasonable batch expansion, return to
+SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS to wire the six author exclusives on
+top and finally check that ticket's box too.
