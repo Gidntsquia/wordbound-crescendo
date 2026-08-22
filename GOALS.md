@@ -1566,6 +1566,39 @@ Rules for the routine:
       reachable. Second Wind's retarget, the crescendo-approaching
       countdown, the Largo surface, and the balance sim remain open,
       smaller, independent pieces after that.
+      **ORCHESTRATOR DECISION 2026-08-22 (resolves the boss-def blocker
+      documented in COMBAT JUICE's update-1 note; supersedes this ticket's
+      "Next" phrasing where they conflict): option (c) — DUEL FIGHTS ARE
+      REACT-ONLY.** Rationale, derived from standing decisions rather than
+      new taste: Jaxon chose React+Vite as the app; the header combat model
+      says EVERY Crescendo fight is a duel (no turn-based mode exists in
+      this game's design); and the closed STRUCTURAL ticket already promised
+      to retire the legacy dom-check once the React harness superseded it.
+      Teaching wordbound.html a duel-tick path (option b) is investment in a
+      page this repo is retiring; a parallel second boss-def system with a
+      floor-selection policy (option a) is permanent complexity purchased
+      only to keep a legacy reference page pristine. Concretely, in ONE
+      commit so `npm test` never sits red:
+      1. Convert the real floor-1 boss def directly (the Mountain King
+         reskin of `boss_vowelmaw` per THEME.md): `.piece`, name,
+         `pushesToDefeat`. Mutating the shared def is now sanctioned.
+      2. In the SAME commit, amend `test/dom-check.js` deliberately: retire
+         or skip `enterAndKillBoss('boss_vowelmaw')` and the two Mend-intent
+         turn-based tests WITH a comment naming their React-side
+         replacements — allowed only because equivalent-or-better duel
+         coverage exists harness-side (duelIntegration.test.js + a real
+         verify-react-build duel playthrough; extend those first if any gap
+         remains). Never delete legacy coverage whose behavior the React
+         harness does not yet verify.
+      3. wordbound.html: no duel back-port, no removal this ticket — it
+         simply keeps whatever turn-based content still works and stops
+         being load-bearing for duel-era defs. Checks in dom-check that
+         cover still-shared non-combat behavior stay until superseded.
+      This is the first deliberate bite of STRUCTURAL's dom-check
+      retirement, not gate-weakening: coverage MOVES to the harness that
+      tests the actual product. If Jaxon dislikes React-only duels he can
+      say so and the def change reverts cheaply; flagged in the status
+      board either way.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the
