@@ -2,10 +2,10 @@
 // test/verify-regular-duel-smoke.js
 //
 // REGULAR ENEMIES ticket (GOALS.md) -- the ticket's own VERIFY line asks for
-// "Playwright duel smoke per tier win + loss paths." This closes that bar for
-// the early tier, the only tier with real wired content today (real
-// remaining scope (2): gymnopediste/gstring/morningmood, js/wordbound/
-// monsters.js). Every prior real-browser check in this suite
+// "Playwright duel smoke per tier win + loss paths." Closes that bar for the
+// early tier (gymnopediste/gstring/morningmood) and, as of this run, the
+// first 2 of the mid tier's 3 named regulars (gnossienne/invention) --
+// js/wordbound/monsters.js. Every prior real-browser check in this suite
 // (verify-react-qa-boss-reward.js, verify-react-duel-loss.js) only ever
 // exercised a BOSS's `.piece` auto-detection -- this is the first real,
 // live-browser proof that a plain REGULAR carrying `.piece` also routes
@@ -139,6 +139,21 @@ async function winDuelViaRealWord(page) {
     const state = window.Wordbound.Game._state;
     state.duel.pushesToDefeat = 1;
     state.duel.gauge = window.Wordbound.Duel.GAUGE_MAX - 1;
+    // Freeze the enemy's own continuous music push for this forced setup
+    // (per-instance `pushResistance`, header's own documented tuning knob)
+    // -- at low/'early' push rates (1-2 gauge/sec) the real-browser
+    // round-trip between forcing the gauge and the word actually landing
+    // (fill+click, ~150-300ms observed) barely moves the needle, but at
+    // higher tiers (mid+, 3-19 gauge/sec) that same real-time gap can drain
+    // enough of the forced near-win gauge to make the word's own push fall
+    // short, or even cost a real Verse before the word lands -- confirmed
+    // directly (REGULAR ENEMIES ticket, this run): without this, the
+    // gnossienne win attempt below reproducibly lost 2 health blocks and
+    // never won at all. This only neutralizes the racing background push
+    // for the deliberately-forced "one word from winning" setup already in
+    // place -- it doesn't change what's under test (a real submitted word
+    // crossing the gauge and triggering the real win flow end-to-end).
+    state.duel.pushResistance = 1;
   });
   const word = await page.evaluate(() => {
     const { Combat } = window.Wordbound;
@@ -255,6 +270,51 @@ async function main() {
     check('a real tick-loop Verse loss against a REGULAR ends the run for real (not just bosses)', await page.evaluate(() => window.Wordbound.Game._state.screen === 'GAME_OVER'));
     check('the real GAME_OVER screen renders ("The Well Ran Dry")', await page.isVisible('h1:has-text("The Well Ran Dry")'));
     check('combatActive is cleared on defeat', await page.evaluate(() => window.Wordbound.Game._state.combatActive === false));
+
+    // ---- PART 2 (this run, REGULAR ENEMIES mid-tier wiring): a fresh run
+    // to smoke-test the two real 'normal'-tier duel regulars the same way
+    // -- WIN via gnossienne, LOSS via invention. A fresh run (not more
+    // forced fights piled onto the same floor) because the floor-1 loss
+    // above already ended the first run at GAME_OVER; "normal" tier is
+    // allowed on floor 1 too (Floor.getAllowedTiers), so no floor advance
+    // is needed to reach it.
+    await page.click('button:has-text("Main Menu")');
+    await page.waitForSelector('#screen-main-menu');
+    await page.click('button:has-text("New Run")');
+    await page.waitForSelector('#screen-character-select');
+    await page.fill('#run-seed-input', SEED + '-mid');
+    await page.click(`.character-option:has-text("${CHARACTER_NAME}")`);
+    await page.waitForSelector('.node-map');
+
+    // ---- WIN: gnossienne (mid tier) ----
+    await enterForcedRegularDuel(page, 'gnossienne');
+    check('mid-tier regular fight starts in duel mode', await page.evaluate(() => window.Wordbound.Game._state.monster.duel === true));
+    check('the real gnossienne def (name/glyph/tier) reaches the live monster instance', await page.evaluate(() => {
+      const m = window.Wordbound.Game._state.monster;
+      const def = window.Wordbound.Monsters.MONSTER_DEFS.gnossienne;
+      return m.name === def.name && m.glyph === def.glyph && m.tier === 'normal';
+    }));
+    check('the duel piece is the real vetted mid-tier piece (stageTier + PD vetting)', await page.evaluate(() => {
+      const piece = window.Wordbound.Game._state.duelPiece;
+      return piece && piece.stageTier === 'mid' && piece.vetting && piece.vetting.publicDomain === true;
+    }));
+    const midWord = await winDuelViaRealWord(page);
+    check(`mid-tier regular #1 (The Gnossienne) killed via a real submitted word (${midWord})`, !!midWord);
+    check('tile-reward panel visible after the mid-tier regular kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
+    await page.click('.treasure-choice-tile');
+    await page.waitForSelector('.node-map');
+
+    // ---- LOSS: invention (mid tier), a fresh node on the same floor ----
+    await enterForcedRegularDuelAnywhereOnFloor(page, 'invention');
+    check('second mid-tier regular fight also starts in duel mode', await page.evaluate(() => window.Wordbound.Game._state.monster.duel === true));
+    check('second mid-tier regular is the real Invention def', await page.evaluate(() => window.Wordbound.Game._state.monster.name === window.Wordbound.Monsters.MONSTER_DEFS.invention.name));
+    await page.evaluate(() => {
+      const state = window.Wordbound.Game._state;
+      state.duel.healthBlocks = 1;
+      state.duel.gauge = window.Wordbound.Duel.GAUGE_MIN + 2;
+    });
+    await page.waitForFunction(() => window.Wordbound.Game._state.screen === 'GAME_OVER', { timeout: 5000 });
+    check('a real tick-loop Verse loss against a mid-tier regular ends the run for real', await page.evaluate(() => window.Wordbound.Game._state.screen === 'GAME_OVER'));
 
     check('zero failed requests / 404s across the whole run', failedRequests.length === 0);
     failedRequests.forEach((f) => console.log('  BAD REQUEST:', f));

@@ -7595,3 +7595,157 @@ The Metronome (Czerny) to complete the mid-tier trio before any wiring, or
 `test:duel-balance` for the first time against real mid-tier content.
 Leaning toward (a) for consistency with how the early tier was actually
 staged (all 3 pieces composed across separate runs before any wiring).
+
+---
+
+## 2026-08-22T17:41Z -- REGULAR ENEMIES: Gnossienne + Invention wired into real, reachable 'normal'-tier monsters (option (b), not (a))
+
+The prior run's own note leaned toward composing The Metronome (mid tier's
+3rd piece) before wiring anything. Went with the other option instead --
+wiring the 2 already-composed mid-tier pieces into real `MONSTER_DEFS`
+entries now -- because GOALS.md's own PLAYTEST FINDINGS ticket (Jaxon's
+first human playtest, still open, first item in the queue) makes "no def
+without `.piece` remains reachable in normal play" the higher-priority
+problem: 2 real reachable mid-tier monsters now is more progress toward
+that than composing a 3rd piece that would also sit unwired.
+
+**What landed** (`js/wordbound/monsters.js`): two new `tier: 'normal'`
+duel-mode defs -- `gnossienne` (The Gnossienne, HP 53, attack 3, glyph
+🎹, `traitId: 'lengthy'`) and `invention` (The Invention, HP 55, attack 3,
+glyph 🎼, `traitId: 'doubled'`), both `pushesToDefeat: 1` explicit, HP/
+attack/gold matching this file's own normal-tier band. `tier: 'normal'`
+is floor.js's own pool-filter tier -- distinct from the piece's own
+`stageTier: 'mid'`, which is what actually drives the duel-push
+multiplier (`Duel.STAGE_TIER_BASE_PUSH.mid = 3`). traitIds are flavor-only
+picks (loose thematic fit -- "lengthy" for the Gnossienne's own irregular,
+longer-than-early-tier phrasing; "doubled" for the Invention's two paired
+contrapuntal voices); duel mode's damage math never reads them, same as
+every other duel-mode def's own established convention.
+
+Retired 2 of the 5 old generic normal-tier defs (`golempup`/`raven`) via
+`retiredFromPool: true`, same mechanism as the weak-tier cutover. A
+DELIBERATE partial cutover, not all 5 -- flagged as a judgment call: the
+mid tier's own named roster isn't complete yet (The Metronome is still
+unstarted), so retiring all 5 now would shrink the real floor's normal
+pool to just these 2 repeated monsters before the tier is actually done,
+trading variety for a "fully converted" claim this tier doesn't yet
+deserve. `serpent`/`bindingstrap`/`appendix` (3 of the 5 old normal defs)
+and all 3 strong-tier defs remain reachable -- real remaining scope for a
+future run.
+
+**`test/duel-balance-simulation.js` also updated:** 'mid' tier now
+simulates a real REGULAR curve (Gnossienne) separately from Mountain
+King's own boss curve -- previously the boss curve stood in for both
+kinds (the comment explicitly said "no regular monster def is stageTier
+mid... that tier is Mountain King's alone today", now false). Restructured
+`TIERS.mid` into `{regular, boss}` sub-curves and added a `tierCurve(tier,
+kind)` helper that falls back to the old flat shape for every other tier
+(none of which has 2 distinct real pieces yet). Picked Gnossienne over
+Invention as the tier's single sim representative arbitrarily (both share
+the same ~0.46-0.48 peak/3-spike shape by design, so either reads near-
+identically) -- same "one representative per tier" convention Morning
+Mood already established for the early tier's 3 real pieces. Removed
+`mid|regular` from `NON_DESIGNED` since it's real content now, so it gets
+real sanity-flag scrutiny going forward (a `mid|regular` result reads INFO
+this run, not a flag -- see verified numbers below).
+
+**A real bug found and fixed in the TEST HARNESS itself, not the game:**
+extending `test/verify-regular-duel-smoke.js`'s existing WIN helper
+(`winDuelViaRealWord`, already proven correct for the early tier) to the
+mid tier reproducibly LOST 2 real health blocks and never won at all.
+Root-caused by instrumenting the real duel state at each step (temporary
+`console.log`s of `state.duel`/timing, since removed) rather than
+guessing: the helper forces the gauge to one point from winning, then
+finds+submits a real word -- that real-browser round trip (fill + click)
+takes ~150-300ms of actual wall-clock time. At the early tier's low push
+rate (`Duel.STAGE_TIER_BASE_PUSH.early = 1`, 1-2 gauge/sec effective) that
+gap is noise. At mid+ tiers (3-19 gauge/sec) it's enough for the real,
+continuously-running enemy push to meaningfully erode the forced near-win
+gauge before the word's own push lands -- and enough real time was
+elapsing while the test polled for a "did we win" DOM change (5s timeout)
+for TWO separate real Verse losses to occur before the helper gave up.
+Fixed by also forcing `state.duel.pushResistance = 1` (an existing
+per-instance tuning field, not a new mechanism) for the forced-setup
+window -- neutralizes the racing background push without changing what's
+actually under test (a real submitted word crossing the gauge and
+triggering the real win flow end-to-end). Flagged as a LATENT bug in this
+same smoke-test pattern for every tier not yet covered by it (late,
+final) -- worth remembering rather than rediscovering when one of those
+gets its own Playwright pass.
+
+Extended the same script with a real mid-tier WIN (Gnossienne) + LOSS
+(Invention) pass -- structured as a SECOND fresh run (`New Run` again with
+a `-mid` seed suffix) rather than piling more forced fights onto the
+first floor, since the early-tier LOSS check already ends that run at
+GAME_OVER; floor 1 already allows `'normal'` tier (`Floor.
+getAllowedTiers`), so no floor advance was needed to reach it.
+
+Version bumped v0.8 -> v0.9 (`wordbound.html`, `src/components/
+MainMenu.jsx`, and `src/components/__tests__/MainMenu.test.jsx`'s matching
+assertion, all 3 together) -- first version bump in this ticket's own
+history, since this is the first run to ship real, reachable gameplay
+content rather than just unwired data/pieces.
+
+**Verified this run:**
+- `npm test` (dom-check.js): 3 clean runs with the change in place. 1
+  separate run hit the pre-existing "STOLEN LETTERS boss-kill... GAME_OVER"
+  flake at its own already-extensively-documented line/rate (`test/
+  dom-check.js:4180`) -- confirmed unrelated by re-running clean 3/3 times
+  right after with no other change.
+- `npm run test:react`: 183/183, unaffected -- no `src/components/*.jsx`
+  file's own behavior changed, only MainMenu's version string plus its
+  matching test.
+- `npm run build`: clean, unaffected module count (monsters.js/
+  duel-balance-simulation.js aren't part of the Vite graph the same piece
+  files are, since MONSTER_DEFS references the pieces already-imported by
+  main.jsx).
+- `npm run test:regular-duel-smoke` (extended with this run's own mid-tier
+  content): ALL CHECKS PASSED, run 3x clean including the new mid-tier
+  WIN/LOSS pass each time -- confirms the `pushResistance` fix holds, not
+  a one-off pass.
+- `npm run test:mobile` / `test:qa` / `test:react-qa`: ALL CHECKS PASSED.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+  (confirmed via `unzip -l` that `gnossienne-1.js`/`invention-4.js` are
+  actually present in the zip, not assumed; hit the same pre-existing
+  dom-check flake once inside the itch-build harness too, clean on
+  retry).
+- `npm run test:duel-balance`: runs clean, no crash, no new sanity flags
+  ("none -- all checked tiers/profiles land within the expected band").
+  `mid|regular|weak` reads 0% win / 100% loss -- the SAME "a fully
+  disengaged weak-bot loses" pattern `mid|boss|weak` already showed
+  pre-existing (also 0%/100%), not something this run's wiring
+  introduced. Not flagged as a defect: no sanity check requires the mid
+  tier to be "nearly-safe" the way the early tier explicitly is (header's
+  own difficulty curve: mid tier is supposed to have "a few real spikes
+  to worry about"), and `mid|regular|average`/`skilled` both read 100%
+  win -- reads as "engaged play handles it, total disengagement doesn't,"
+  consistent with the design intent. Worth a real Jaxon playtest read to
+  confirm it FEELS right, not a code defect.
+
+**Genuinely-Jaxon-only:** none this run -- balance/wiring judgment calls
+only, all flagged above (which 2 of 5 old normal defs to retire, which
+piece represents the tier in the sim, traitId flavor picks).
+
+**Not done, honest gaps:** normal tier is NOT 100% converted -- 3 of 5 old
+generic defs (`serpent`/`bindingstrap`/`appendix`) still reachable. Strong
+tier is completely untouched (0 of 3 late-tier pieces composed, all 3 old
+strong defs still reachable). The Metronome (mid tier's named 3rd piece)
+is still unstarted. GOALS.md's PLAYTEST FINDINGS ticket's own item 2 ("no
+def without `.piece` remains reachable in normal play") is therefore
+still open -- this run is real, verified progress toward it, not a close.
+
+**Live deploy refreshed** per the header's standing rule, and doubly
+mandatory this run per PLAYTEST FINDINGS's own item 4 ("after ANY change
+to piece wiring / def conversion / combat routing, the gh-pages deploy
+refresh is MANDATORY in the same run") -- this run is exactly that: real
+def conversion, 2 more reachable duel-mode monsters. `npm run build`,
+published `dist/app/`'s contents (+ `.nojekyll`) as the new `gh-pages`
+branch root. See below for the curl-verification outcome.
+
+**Next:** either compose The Metronome (completes the mid-tier roster,
+unblocks retiring the last 3 normal defs) or start the late tier (Swarm/
+Sabbath/Organist, THEME.md's own names) -- both are valid, neither blocks
+the other. Whoever wires the LAST normal-tier def should extend
+`test:regular-duel-smoke`'s mid-tier pass to all 3 pieces (not just 2) and
+apply this run's own `pushResistance` fix proactively to any late/
+final-tier smoke test rather than rediscovering the same race.

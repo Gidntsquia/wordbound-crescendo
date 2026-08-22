@@ -96,9 +96,9 @@
       "lossRate": 1,
       "stalemateRate": 0,
       "avgWinDuration": 0,
-      "avgLossDuration": 68.07874999999828,
+      "avgLossDuration": 96.44249999999666,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 15.7,
+      "avgWordsPlayed": 22.35,
       "parryLandRate": null
     },
     {
@@ -109,11 +109,11 @@
       "winRate": 1,
       "lossRate": 0,
       "stalemateRate": 0,
-      "avgWinDuration": 51.71249999999917,
+      "avgWinDuration": 55.77374999999883,
       "avgLossDuration": 0,
-      "avgBlocksLostOnWin": 1.075,
-      "avgWordsPlayed": 17.275,
-      "parryLandRate": 0.46153846153846156
+      "avgBlocksLostOnWin": 0,
+      "avgWordsPlayed": 18.425,
+      "parryLandRate": 0.4583333333333333
     },
     {
       "tier": "mid",
@@ -123,11 +123,11 @@
       "winRate": 1,
       "lossRate": 0,
       "stalemateRate": 0,
-      "avgWinDuration": 8.224999999999993,
+      "avgWinDuration": 8.549999999999994,
       "avgLossDuration": 0,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 3.8,
-      "parryLandRate": null
+      "avgWordsPlayed": 3.925,
+      "parryLandRate": 0.6
     },
     {
       "tier": "mid",

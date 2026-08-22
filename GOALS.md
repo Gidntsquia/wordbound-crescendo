@@ -4976,3 +4976,110 @@ Rules for the routine:
       once per tier" staging consistent with how the early tier was
       actually done (all 3 early pieces composed across separate runs
       before any of them were wired).
+      ORCHESTRATOR NOTE 2026-08-22T17:41Z (real remaining scope (2) done for
+      the mid tier's first 2 pieces -- went with option (b) over (a)):
+      chose to wire Gnossienne + Invention into real, reachable
+      `normal`-tier `MONSTER_DEFS` entries NOW rather than waiting on The
+      Metronome first, breaking from the immediately-prior note's own
+      leaning -- judgment call, flagged: the PLAYTEST FINDINGS ticket
+      (this file, above) makes "a def without `.piece` reachable in normal
+      play" the higher-priority problem than roster-staging consistency,
+      and 2 real reachable mid-tier monsters now is strictly more progress
+      toward that than 0, even if the mid tier isn't 100% converted yet.
+      **What landed (`js/wordbound/monsters.js`):** `gnossienne` (The
+      Gnossienne) and `invention` (The Invention), `tier: 'normal'`
+      (floor.js's own pool tier, distinct from the piece's `stageTier:
+      'mid'`), `pushesToDefeat: 1` explicit (same convention as every
+      other duel-mode def), HP 53/55 and attack 3 (this file's own
+      normal-tier band), `traitId` picked for loose thematic fit only
+      (`lengthy` for the Gnossienne's longer irregular phrases, `doubled`
+      for the Invention's two paired voices -- duel damage math doesn't
+      read either), glyphs 🎹/🎼. Retired 2 of the 5 old generic
+      normal-tier defs (`golempup`/`raven`) via `retiredFromPool: true` --
+      a DELIBERATE partial cutover, not all 5: the mid tier's own roster
+      isn't complete yet (Metronome still unstarted), so shrinking the
+      normal pool to just 2 repeats before then would trade variety for a
+      "100% converted" claim this tier doesn't actually deserve yet. The 3
+      untouched old normal defs (serpent/bindingstrap/appendix) and all 3
+      strong-tier defs remain reachable, real remaining scope for a future
+      run. `test/duel-balance-simulation.js` also updated: 'mid' now
+      simulates its own real regular curve (Gnossienne) separately from
+      Mountain King's boss curve (previously the boss curve stood in for
+      both -- 'mid' is the only tier where 2 real pieces with genuinely
+      different curves now coexist) -- picked Gnossienne over Invention as
+      the single representative arbitrarily (both share the same
+      ~0.46-0.48 peak/3-spike shape by design), same "one representative
+      per tier" convention Morning Mood already established for all 3
+      early regulars. `mid|regular` also removed from `NON_DESIGNED` (it's
+      real content now) so it gets real sanity-flag scrutiny going
+      forward.
+      **A real bug found and fixed in `test/verify-regular-duel-smoke.js`
+      itself, not the game:** extending this script's WIN helper
+      (`winDuelViaRealWord`) to the mid tier reproducibly LOST 2 real
+      health blocks and never won at all, confirmed by instrumenting the
+      real duel state at each step rather than guessing: forcing the gauge
+      to one point from winning, then finding+submitting a real word takes
+      ~150-300ms of real wall-clock time (Playwright fill+click
+      round-trip) -- at the EARLY tier's low push rate (1-2 gauge/sec)
+      that gap is noise, but at mid+ tiers (3-19 gauge/sec, `Duel.
+      STAGE_TIER_BASE_PUSH`) it's enough for the real continuous enemy
+      push to meaningfully erode the forced near-win gauge before the
+      word's own push lands, and enough real time was elapsing (waiting on
+      the 5s "did we win" poll) for TWO separate Verse losses before the
+      helper gave up. Fixed by having the helper also force `state.duel.
+      pushResistance = 1` (an existing per-instance tuning field) for the
+      forced-setup window, neutralizing the racing background push without
+      changing what's actually under test (a real submitted word crossing
+      the gauge and triggering the real win flow). This is a latent bug in
+      every FUTURE tier this smoke-test pattern gets extended to (late,
+      final) as well, not just this run's mid-tier addition -- worth
+      remembering if a future run hits the same symptom there.
+      Also extended the same script with a real mid-tier WIN (Gnossienne)
+      + LOSS (Invention) pass, structured as a SECOND fresh run (not more
+      forced fights piled onto the first floor) since the early-tier LOSS
+      already ends that run at GAME_OVER, and floor 1 already allows
+      'normal' tier (`Floor.getAllowedTiers`) so no floor advance is
+      needed.
+      **Verified this run:** `npm test` (dom-check.js): 3 clean runs with
+      the change in place (1 separate run hit the pre-existing "STOLEN
+      LETTERS boss-kill" GAME_OVER flake at its own already-documented
+      line/rate, confirmed by re-running clean 3x after -- unrelated,
+      matches this file's own extensively pre-documented ~17% rate at
+      that exact spot). `npm run test:react`: 183/183, unaffected (no
+      `src/components/*.jsx` file's own behavior changed, only its version
+      string + matching test). `npm run build`: clean. `npm run
+      test:regular-duel-smoke` (extended, this run's own real content):
+      ALL CHECKS PASSED, 3 runs clean including the mid-tier WIN/LOSS pass
+      (confirms the pushResistance fix holds, not a one-off). `npm run
+      test:mobile`/`test:qa`/`test:react-qa`: ALL CHECKS PASSED. `npm run
+      build:itch` + `test:itch-build`: ALL CHECKS PASSED (confirmed via
+      `unzip -l` that `gnossienne-1.js`/`invention-4.js` are present in
+      the zip; hit the same pre-existing dom-check flake once inside the
+      itch-build harness too, clean on retry). `npm run test:duel-balance`:
+      no crash, no new sanity flags -- `mid|regular|weak` reads 0% win /
+      100% loss (same "weak/disengaged play loses" pattern `mid|boss|weak`
+      already showed pre-existing; not flagged as a problem since no
+      sanity check requires mid tier to be "nearly-safe" the way early
+      tier is -- INFO only, worth a real Jaxon playtest read, not
+      necessarily a defect). Version bumped v0.8 -> v0.9 (wordbound.html +
+      MainMenu.jsx + its own Vitest assertion, all 3 updated together and
+      re-verified).
+      **Genuinely-Jaxon-only:** none this run (balance/wiring judgment
+      calls only, all flagged above).
+      **Not done, honest gaps:** normal tier is NOT 100% converted (3 of 5
+      old generic defs still reachable: serpent/bindingstrap/appendix);
+      strong tier is completely untouched (0 of 3 late-tier pieces
+      composed, all 3 old strong defs still reachable). The Metronome
+      (mid tier's 3rd piece) is still unstarted. PLAYTEST FINDINGS's own
+      item 2 ("no def without `.piece` remains reachable") is therefore
+      still open -- this run is real, verified progress toward it, not a
+      close.
+      **Next:** either compose The Metronome (completes the mid tier
+      roster, unblocks retiring the last 3 normal defs) or start the late
+      tier (Swarm/Sabbath/Organist, THEME.md's own names) -- both are
+      valid next chunks, neither blocks the other. Whoever eventually
+      wires the LAST normal-tier def should also remember to extend
+      `test:regular-duel-smoke`'s mid-tier pass to cover all 3 pieces
+      rather than just 2, and apply this run's own `pushResistance` fix
+      pattern proactively to any late/final-tier smoke test rather than
+      rediscovering it.

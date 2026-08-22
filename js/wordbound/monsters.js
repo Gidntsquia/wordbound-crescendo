@@ -92,6 +92,28 @@
   mdef({ id: 'gymnopediste', name: 'The Gymnopédiste', maxHp: 18, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }], glyph: '🩰', piece: window.Wordbound.Pieces.gymnopedie1, pushesToDefeat: 1 });
   mdef({ id: 'gstring', name: 'The G String', maxHp: 19, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }], glyph: '🎻', piece: window.Wordbound.Pieces.airGString, pushesToDefeat: 1 });
   mdef({ id: 'morningmood', name: 'Morning Mood', maxHp: 20, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }], glyph: '🌅', piece: window.Wordbound.Pieces.morningMood, pushesToDefeat: 1 });
+  // REGULAR ENEMIES ticket (GOALS.md, real remaining scope (2) for the mid
+  // tier): the first 2 of THEME.md's 3 named mid-tier regulars, now real,
+  // reachable `tier: 'normal'` duel-mode fights -- same cutover shape as
+  // the weak-tier trio above (`piece`/`pushesToDefeat: 1` explicit, `tier`
+  // is the FLOOR tier floor.js's pool filters on, separate from the
+  // piece's own `stageTier: 'mid'` that drives the duel-push multiplier).
+  // Only 2 of 3 land this run -- The Metronome (Czerny) is still
+  // unstarted, per PROGRESS.md -- so only 2 of the 5 old generic
+  // 'normal'-tier defs (golempup/raven, picked below) retire this run
+  // rather than all 5: a deliberate judgment call to keep the normal pool
+  // from shrinking to just these 2 repeats before the mid-tier roster is
+  // actually complete (unlike the weak tier, where all 3 named regulars
+  // existed already, so a full cutover was correct there). HP/attack/gold
+  // match this file's own normal-tier band (~50-57, attack 3, 3-6 gold)
+  // just above/below. `traitId` picked for loose thematic fit even though
+  // duel mode's damage math never reads it (same "flavor for the
+  // Weakness: line only" reasoning the weak trio's own comment gives):
+  // 'lengthy' for the Gnossienne (its irregular 7/5/9-beat phrases run
+  // LONGER than the early tier's clean 4/8 grid), 'doubled' for the
+  // Invention (two contrapuntal voices -- a literal pairing).
+  mdef({ id: 'gnossienne', name: 'The Gnossienne', maxHp: 53, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }], glyph: '🎹', piece: window.Wordbound.Pieces.gnossienne1, pushesToDefeat: 1 });
+  mdef({ id: 'invention', name: 'The Invention', maxHp: 55, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], glyph: '🎼', piece: window.Wordbound.Pieces.invention4, pushesToDefeat: 1 });
   // attack 4 -> 3 -> 4 on serpent/raven/bindingstrap/appendix (2026-08-20
   // Jaxon-authorized difficulty rebalance): round 1 cut these from 4 to 3
   // when floor-1-regular deaths were ~38% of all deaths (target <=10%).
@@ -120,11 +142,17 @@
   // 5's Binding Strap/Appendix-only fix. Win rate has ~4 points of buffer
   // under the 50% ceiling (round 6 read 46%), enough room for one more
   // small floor1-only correction.
-  mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 50, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
+  // retiredFromPool (REGULAR ENEMIES ticket, mid-tier cutover above): same
+  // "kept intact for direct construction, no longer drawn by a fresh
+  // floor" reasoning as slime/gremlin/wisp/glossary -- all balance-tuning
+  // history in the comments above stays valid/readable, just no longer
+  // reachable from a fresh floor draw.
+  mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 50, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], retiredFromPool: true });
   // attack 4 -> 3 (2026-08-20 rebalance ROUND 7): same reasoning as above --
   // Quoth was bumped to 4 in round 4 and never revisited; round 6's data
   // flags it as a floor1 HARD outlier (4.1 dmg taken vs. 2.5 floor avg).
-  mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  // retiredFromPool: same reasoning as golempup directly above.
+  mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }], retiredFromPool: true });
   // `intents` (GOALS.md "FUN OVERHAUL 2/8"): signature moves this monster
   // can roll on TOP of Attack/Heavy Blow, but ONLY when it's fighting as an
   // elite (node.type === 'elite') -- these are the same defs the floor also

@@ -33,7 +33,16 @@
 //     4/"the Podium" -- DUEL-GAUGE COMBAT's floor/def-plumbing run, which
 //     also bumped Floor.TOTAL_FLOORS to 4) -- the final-tier numbers below
 //     are real player-reachable balance data, not just schedulable/
-//     simmable-only numbers.
+//     simmable-only numbers. Also as of this run: Gnossienne No. 1 ('mid'
+//     tier's first real REGULAR -- js/wordbound/pieces/gnossienne-1.js,
+//     `gnossienne` in monsters.js), simulated separately from Mountain
+//     King's own boss curve (see the 'mid' TIERS entry) now that both a
+//     mid-tier regular and a mid-tier boss are real, reachable content with
+//     genuinely different curves. Invention No. 4 (the mid tier's other
+//     landed regular) isn't wired into this script -- one representative
+//     per tier, same as Morning Mood standing in for all 3 early regulars.
+//     The Metronome (mid tier's still-unstarted third piece) and every
+//     late-tier regular remain unsequenced.
 //   - Each simulated duel starts fresh at Duel.DEFAULT_HEALTH_BLOCKS (5).
 //     Cross-fight health attrition across a whole run (player.healthBlocks
 //     carried between duels) is explicitly out of scope here -- this
@@ -75,6 +84,17 @@ require('../js/wordbound/pieces/beethoven-5th.js');
 // REGULAR ENEMIES ticket (GOALS.md): early tier's real-piece representative
 // -- see the SCOPE note above for why Morning Mood specifically.
 require('../js/wordbound/pieces/morning-mood.js');
+// REGULAR ENEMIES ticket (GOALS.md, this run): mid tier's real-REGULAR-piece
+// representative, now that a mid-tier regular is real, reachable content
+// (`gnossienne` in monsters.js) rather than a theoretical future def -- see
+// the 'mid' TIERS entry below for why this is now split from Mountain
+// King's own boss curve. Picked over the tier's other landed piece
+// (Invention No. 4) arbitrarily -- both share the same ~0.46-0.48 peak band
+// and 3-spike shape by design (see each piece's own file header), so either
+// would read near-identically here; Invention isn't wired into this script
+// for the same "one representative per tier" reason Morning Mood alone
+// represents 3 real early-tier pieces above.
+require('../js/wordbound/pieces/gnossienne-1.js');
 
 const Duel = window.Wordbound.Duel;
 const Music = window.Wordbound.Music;
@@ -82,6 +102,7 @@ const mountainKing = window.Wordbound.Pieces.mountainKing;
 const valkyrieMarshal = window.Wordbound.Pieces.valkyrieMarshal;
 const beethoven5th = window.Wordbound.Pieces.beethoven5th;
 const morningMood = window.Wordbound.Pieces.morningMood;
+const gnossienne1 = window.Wordbound.Pieces.gnossienne1;
 
 const TRIALS = parseInt(process.argv[2], 10) || 40;
 const DT_SEC = 0.05;
@@ -168,8 +189,14 @@ const mkTier = realPieceTier(mountainKing);
 const vmTier = realPieceTier(valkyrieMarshal);
 const b5Tier = realPieceTier(beethoven5th);
 const earlyTier = realPieceTier(morningMood);
+const gnTier = realPieceTier(gnossienne1);
 
 // ---- tier setup ---------------------------------------------------------
+// 'mid' is the one tier with TWO distinct real pieces now (Mountain King
+// the boss, Gnossienne No. 1 a regular) -- every other tier below still has
+// only one real piece, so its single curve stands in for both 'regular' and
+// 'boss' kinds (see tierCurve() just below, and NON_DESIGNED further down
+// for which of those stand-in pairings have no real designed counterpart).
 
 const TIERS = {
   early: {
@@ -177,8 +204,14 @@ const TIERS = {
     peaks: earlyTier.peakTimes(Math.ceil((HORIZON_SEC + 50) / earlyTier.loopDurationSec) + 1),
   },
   mid: {
-    intensityFn: mkTier.intensityFn,
-    peaks: mkTier.peakTimes(Math.ceil((HORIZON_SEC + 50) / mkTier.loopDurationSec) + 1),
+    regular: {
+      intensityFn: gnTier.intensityFn,
+      peaks: gnTier.peakTimes(Math.ceil((HORIZON_SEC + 50) / gnTier.loopDurationSec) + 1),
+    },
+    boss: {
+      intensityFn: mkTier.intensityFn,
+      peaks: mkTier.peakTimes(Math.ceil((HORIZON_SEC + 50) / mkTier.loopDurationSec) + 1),
+    },
   },
   late: {
     intensityFn: vmTier.intensityFn,
@@ -189,6 +222,14 @@ const TIERS = {
     peaks: b5Tier.peakTimes(Math.ceil((HORIZON_SEC + 50) / b5Tier.loopDurationSec) + 1),
   },
 };
+
+// Looks up the {intensityFn, peaks} pair for a (tier, kind) combo -- tiers
+// with a single shared curve (early/late/final today) return it for either
+// kind unchanged; 'mid' returns its own regular/boss curve.
+function tierCurve(tier, kind) {
+  const entry = TIERS[tier];
+  return entry.intensityFn ? entry : entry[kind];
+}
 
 // ---- bot profiles ---------------------------------------------------------
 
@@ -239,8 +280,8 @@ function nextWordDelay(profile, rng, peaks, now) {
 
 // ---- one duel -------------------------------------------------------------
 
-function simulateDuel({ tier, pushesToDefeat, profile, seed }) {
-  const { intensityFn, peaks } = TIERS[tier];
+function simulateDuel({ tier, kind, pushesToDefeat, profile, seed }) {
+  const { intensityFn, peaks } = tierCurve(tier, kind);
   const rng = mulberry32(seed);
   const duel = Duel.create({ stageTier: tier, pushesToDefeat, healthBlocks: Duel.DEFAULT_HEALTH_BLOCKS });
 
@@ -295,12 +336,14 @@ function main() {
   const profileNames = ['weak', 'average', 'skilled'];
   const encounterKinds = [{ label: 'regular', pushesToDefeat: 1 }, { label: 'boss', pushesToDefeat: 3 }];
   // Combos with no real designed counterpart yet in THEME.md's roster (no
-  // boss is stageTier 'early', and no regular monster def is stageTier
-  // 'mid' -- that tier is Mountain King's alone today). Still simulated
-  // (cheap, and useful engine-tuning-sanity across the whole possible
-  // space), but excluded from the sanity-flag checks below so a slow or
-  // unusual result on a pairing nobody plans to ship doesn't read as a real
-  // balance bug.
+  // boss is stageTier 'early'). 'mid|regular' left this set this run --
+  // Gnossienne No. 1 is now real, reachable content (see the 'mid' TIERS
+  // entry above), so it gets real sanity-flag scrutiny like every other
+  // designed pairing. Still simulated for the remaining non-designed
+  // combos (cheap, and useful engine-tuning-sanity across the whole
+  // possible space), but excluded from the sanity-flag checks below so a
+  // slow or unusual result on a pairing nobody plans to ship doesn't read
+  // as a real balance bug.
   const NON_DESIGNED = new Set(['early|boss']);
 
   const allResults = [];
@@ -309,7 +352,8 @@ function main() {
   console.log('\n================ DUEL-GAUGE VIRTUAL-CLOCK BALANCE SIMULATION ================');
   console.log(`trials per combo: ${TRIALS}   dt: ${DT_SEC}s   horizon: ${HORIZON_SEC}s`);
   console.log(`early-tier real piece: Morning Mood, loop ${earlyTier.loopDurationSec.toFixed(1)}s, ${morningMood.dynamics.crescendos.length} crescendo/loop`);
-  console.log(`mid-tier real piece: Mountain King, loop ${mkTier.loopDurationSec.toFixed(1)}s, 1 crescendo/loop`);
+  console.log(`mid-tier real boss piece: Mountain King, loop ${mkTier.loopDurationSec.toFixed(1)}s, 1 crescendo/loop`);
+  console.log(`mid-tier real regular piece: The Gnossienne, loop ${gnTier.loopDurationSec.toFixed(1)}s, ${gnossienne1.dynamics.crescendos.length} crescendos/loop`);
   console.log(`late-tier real piece: Valkyrie Marshal, loop ${vmTier.loopDurationSec.toFixed(1)}s, ${valkyrieMarshal.dynamics.crescendos.length} crescendos/loop`);
   console.log(`final-tier real piece: Symphony No. 5 (Beethoven), loop ${b5Tier.loopDurationSec.toFixed(1)}s, ${beethoven5th.dynamics.crescendos.length} crescendos/loop`);
 
@@ -320,7 +364,7 @@ function main() {
         const trials = [];
         for (let i = 0; i < TRIALS; i++) {
           const seed = tierNames.indexOf(tier) * 100000 + kind.pushesToDefeat * 10000 + profileNames.indexOf(profileName) * 1000 + i;
-          trials.push(simulateDuel({ tier, pushesToDefeat: kind.pushesToDefeat, profile, seed }));
+          trials.push(simulateDuel({ tier, kind: kind.label, pushesToDefeat: kind.pushesToDefeat, profile, seed }));
         }
         const wins = trials.filter((t) => t.won);
         const losses = trials.filter((t) => t.lost);
