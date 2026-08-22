@@ -3143,6 +3143,30 @@ Rules for the routine:
       and its `BOSS_HOSTAGE_LETTERS` mapping together, per this ticket's own
       scope note.
 
+- [ ] DEPLOY: public play URL via GitHub Pages (orchestrator for Jaxon,
+      2026-08-22 — he asked "where can I play the game"; do this FIRST, it
+      unblocks his playtest of everything already built). The repo is already
+      public; the sibling repo serves its game off Pages, so this is
+      established practice, but Crescendo's real game is the BUILT React app,
+      not a static HTML file, so it needs a build+deploy pipeline:
+      1. Set Vite `base` correctly for a project page
+         (`/wordbound-crescendo/`) WITHOUT breaking local dev/preview or the
+         itch build — check how `build:itch` handles base/relative paths and
+         keep both working (a `--base` CLI flag on the Pages build, or an env
+         switch, beats hardcoding).
+      2. A GitHub Actions workflow (`.github/workflows/pages.yml`, official
+         actions/deploy-pages flow) that builds `dist` and deploys on every
+         push to main; enable Pages via `gh api` (build_type "workflow").
+      3. VERIFY for real, not by reading YAML: after the workflow lands,
+         confirm a green Actions run, then fetch the live URL and check the
+         app shell + JS bundle actually load (HTTP 200 on index + the built
+         entry script; a `curl` pass over the asset URLs it references is the
+         minimum). The classic failure here is absolute `/assets/...` paths
+         404ing under the `/wordbound-crescendo/` prefix — that exact bug is
+         what step 1 prevents; prove it didn't happen. Log the live URL
+         prominently in PROGRESS.md.
+      Scope guard: no CNAME/custom domain, no itch upload — Pages only.
+
 - [ ] SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS (Jaxon, 2026-08-21): the friendly
       faces of the words side are famous dead authors.
       0. FIRST, AMEND THE BIBLE: THEME.md was completed before this request
