@@ -83,6 +83,21 @@
 //       letters and the player owns Poetic License (ITEMS ticket) -- the
 //       second validity gate combat.js's playWord/previewWord check after
 //       Lexicon.isValidWord.
+//   isWordValid(word, player) -> the ONE validity decision combat.js's
+//       playWord/previewWord both call (ITEMS ticket, THE INVERTED SCORE):
+//       normally isValidWord(word) || bypassesWordValidity(word, player),
+//       but while the player owns The Inverted Score, that whole OR chain
+//       is REPLACED by upsideDownValid(word, player) instead of extended --
+//       see that function's own comment for why this is exclusive, not
+//       additive.
+//   flipUpsideDown(word) -> the word with each letter flipped per FLIP_MAP
+//       and the whole result reversed (turning a strip of tiles 180
+//       degrees does both at once), or null the instant any letter has no
+//       clean flipped form (ITEMS ticket's own "letters without a clean
+//       flipped form make a word unplayable" rule).
+//   hasInvertedScore(player) -> true if the player owns 'inverted_score'.
+//   upsideDownValid(word, player) -> true only if hasInvertedScore(player)
+//       AND flipUpsideDown(word) is itself a real dictionary word.
 //   runHook(hookName, ctx, player) -> iterates player.items (array of item
 //       ids, pickup order) and invokes any matching hook, mutating ctx.
 //   applyBonusDamage(ctx, amount) -> helper hooks call to add extra damage
@@ -768,6 +783,113 @@
     // PROGRESS.md).
     statMods: { scoreMultiplier: 2, rackCapacityMult: 0.5 }
   });
+
+  def({
+    id: 'inverted_score',
+    name: 'The Inverted Score',
+    hint: 'Turn the whole sheet on its head -- only a phrase that still reads true upside-down will sound.',
+    rarity: 'rare',
+    // Priced above the other three signature items (45/40/50) -- the
+    // ticket's own "build-warping rare, cost/rarity accordingly" -- since
+    // this one is a strictly harder trade than any of them: it carries no
+    // built-in stat bonus at all (unlike Fortissimo's doubled score or
+    // Ritardando's slowed music), only a severe validity restriction (see
+    // Items.upsideDownValid), so a compensating score multiplier is added
+    // below to keep it a build worth taking rather than a pure downside.
+    // The multiplier VALUE (2.5x) is this run's own judgment call, not
+    // sim-locked -- flagged like every other numeric call in this file.
+    shopPrice: 60,
+    statMods: { scoreMultiplier: 2.5 },
+    hooks: {
+      // Every word played while this item is owned necessarily passed
+      // Items.upsideDownValid to get this far (Items.isWordValid replaces
+      // the normal gate entirely -- see its own comment), so
+      // flipUpsideDown(ctx.word) can never be null here; the guard below is
+      // defensive, not a real branch, matching this file's own convention
+      // of never assuming an invariant it can check instead.
+      onWordPlayed: function (ctx) {
+        var flipped = Items.flipUpsideDown(ctx.word);
+        if (flipped) ctx.messages.push('The Inverted Score: turned round, it reads "' + flipped + '"!');
+      }
+    }
+  });
+
+  // FLIP_MAP is the "conservative" mapping the ticket itself specifies --
+  // only letters with a genuinely clean upside-down glyph get an entry
+  // (u<->n, m<->w, b<->q, d<->p; o/s/x/z/i are each already symmetric
+  // under a 180-degree turn, so they self-flip). Every other letter
+  // (a c e f g h j k l r t v y) has NO entry -- a word containing any of
+  // them is unplayable while The Inverted Score is owned, per the
+  // ticket's own instruction.
+  var FLIP_MAP = {
+    U: 'N', N: 'U',
+    M: 'W', W: 'M',
+    B: 'Q', Q: 'B',
+    D: 'P', P: 'D',
+    O: 'O', S: 'S', X: 'X', Z: 'Z', I: 'I'
+  };
+  Items.FLIP_MAP = FLIP_MAP;
+
+  // Flips `word` upside-down: maps each letter through FLIP_MAP, then
+  // reverses the whole result -- physically turning a strip of tiles 180
+  // degrees does BOTH at once (per the ticket's own reminder), not just
+  // the per-letter mirror alone. Returns null (never a string) the instant
+  // any letter has no FLIP_MAP entry, the "unplayable" case, rather than
+  // silently dropping it. Self-check against the classic real-world
+  // examples confirms the order matters: SWIMS -> flip each letter
+  // (S,M,I,W,S) -> reverse -> SWIMS again (a genuine upside-down
+  // palindrome); MOM -> flip (W,O,W) -> reverse (still W,O,W, itself a
+  // palindrome) -> WOW.
+  Items.flipUpsideDown = function (word) {
+    var upper = String(word || '').toUpperCase();
+    var flipped = [];
+    for (var i = 0; i < upper.length; i++) {
+      var f = FLIP_MAP[upper[i]];
+      if (!f) return null;
+      flipped.push(f);
+    }
+    flipped.reverse();
+    return flipped.join('');
+  };
+
+  Items.hasInvertedScore = function (player) {
+    return !!(player && (player.items || []).indexOf('inverted_score') !== -1);
+  };
+
+  // THE INVERTED SCORE's validity gate: playable ONLY when the flipped
+  // reading is itself a real dictionary word. See Items.isWordValid below
+  // for why this REPLACES (rather than extends) the normal validity OR
+  // chain while owned.
+  Items.upsideDownValid = function (word, player) {
+    if (!Items.hasInvertedScore(player)) return false;
+    var flipped = Items.flipUpsideDown(word);
+    if (!flipped) return false;
+    var Lexicon = window.Wordbound.Lexicon;
+    return Lexicon.isValidWord(flipped);
+  };
+
+  // The single validity decision combat.js's playWord/previewWord both
+  // call -- centralized here so the two call sites can't silently drift
+  // out of sync on which validity-altering item wins when more than one is
+  // owned. Normally: a real dictionary word, or Poetic License's 3-letter
+  // bypass. While The Inverted Score is owned, that whole OR chain is
+  // REPLACED by the flip-and-reverse check instead, per the ticket's own
+  // "playable ONLY if it reads as a real word upside down" wording -- a
+  // genuinely build-warping rare that overrides the game's whole validity
+  // model, not an additional bypass layered on top the way Poetic
+  // License's carve-out is. Documented judgment call: if a player somehow
+  // owns both this and Poetic License at once, the flip check alone
+  // decides playability -- a 3-letter non-word combo still needs a clean
+  // flipped dictionary word; Poetic License's own bypass does not
+  // additionally apply. Untested by design since nothing in the shop pool
+  // hands out both at meaningfully overlapping odds today, but documented
+  // here for whoever next revisits item synergies.
+  Items.isWordValid = function (word, player) {
+    var Lexicon = window.Wordbound.Lexicon;
+    var upper = String(word || '').toUpperCase();
+    if (Items.hasInvertedScore(player)) return Items.upsideDownValid(upper, player);
+    return Lexicon.isValidWord(upper) || Items.bypassesWordValidity(upper, player);
+  };
 
   // Combat.playWord/previewWord's second validity gate (js/wordbound/
   // combat.js): with Poetic License owned, any EXACTLY-3-LETTER combination

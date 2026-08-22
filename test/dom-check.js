@@ -649,6 +649,136 @@ async function main() {
     }
   }
 
+  // ITEMS ticket (GOALS.md, 2026-08-22): THE INVERTED SCORE, the last of
+  // Jaxon's 4 signature items -- "flips all tiles upside-down; a word is
+  // playable ONLY if it reads as a real word upside-down." Unlike Poetic
+  // License (an OR'd-in bypass) this REPLACES the whole validity decision
+  // while owned -- see items.js's Items.isWordValid for the reasoning.
+  // FLIP_MAP self-check against the classic real-world examples first
+  // (SWIMS is a genuine upside-down palindrome; MOM flips to WOW), then the
+  // 3 real gameplay cases: a word normally VALID but with no clean flipped
+  // reading (MOOD -> POOW, not a word) becomes UNplayable; a combination
+  // normally INVALID but whose flip IS a real word (UOM -> WON) becomes
+  // playable; a word using letters with no flip form at all (CAT -- C/A/T
+  // are all outside FLIP_MAP) is unplayable regardless. All three
+  // candidate words/letter sets were found via a one-off node script
+  // against the real bundled wordlist, not hand-picked from memory.
+  {
+    const Combat = window.Wordbound.Combat;
+    const Items = window.Wordbound.Items;
+    const Tiles = window.Wordbound.Tiles;
+    const Lexicon = window.Wordbound.Lexicon;
+    const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+
+    // FLIP_MAP / flipUpsideDown in isolation.
+    check('Inverted Score: FLIP_MAP self-flip check, SWIMS is a genuine upside-down palindrome', Items.flipUpsideDown('SWIMS') === 'SWIMS');
+    check('Inverted Score: FLIP_MAP flip check, MOM flips to WOW', Items.flipUpsideDown('MOM') === 'WOW');
+    check('Inverted Score: a letter with no clean flipped form (C) makes flipUpsideDown return null', Items.flipUpsideDown('CAT') === null);
+    check('Inverted Score: hasInvertedScore is false with nothing owned', Items.hasInvertedScore({ items: [] }) === false);
+    check('Inverted Score: hasInvertedScore is true when owned', Items.hasInvertedScore({ items: ['inverted_score'] }) === true);
+    check('Inverted Score: upsideDownValid is false without the item even for a valid flip', Items.upsideDownValid('UOM', { items: [] }) === false);
+
+    // Case 1: MOOD is a real dictionary word, but its flip (POOW) is not --
+    // becomes unplayable with the item owned, even though it plays fine
+    // without it.
+    check('Inverted Score test setup: "MOOD" is a real dictionary word', Lexicon.isValidWord('MOOD'));
+    check('Inverted Score test setup: "MOOD" flipped (POOW) is NOT a real word', !Lexicon.isValidWord(Items.flipUpsideDown('MOOD')));
+    {
+      const rack = ['M', 'O', 'O', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: [], ink: 20, maxInk: 20 };
+      check('Inverted Score: "MOOD" plays normally without the item', !!Combat.playWord(player, monster, 'MOOD'));
+    }
+    {
+      const rack = ['M', 'O', 'O', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['inverted_score'], ink: 20, maxInk: 20 };
+      check('Inverted Score: "MOOD" (playWord) becomes unplayable with the item, no clean flip', Combat.playWord(player, monster, 'MOOD') === null);
+    }
+    {
+      const rack = ['M', 'O', 'O', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['inverted_score'], ink: 20, maxInk: 20 };
+      check('Inverted Score: "MOOD" (previewWord) agrees, invalid', Combat.previewWord(player, monster, 'MOOD', null, {}).valid === false);
+    }
+
+    // Case 2: UOM is NOT a real word forward, but its flip (WON) is --
+    // playable ONLY with the item owned, scored at the raw tile value
+    // (U1+O1+M3=5) times the item's own 2.5x compensating multiplier,
+    // rounded (12.5 -> 13) -- the exact real Combat.playWord arithmetic,
+    // confirmed by running it rather than hand-derived.
+    check('Inverted Score test setup: "UOM" is not a real dictionary word', !Lexicon.isValidWord('UOM'));
+    check('Inverted Score test setup: "UOM" flipped (WON) IS a real word', Lexicon.isValidWord(Items.flipUpsideDown('UOM')));
+    {
+      const rack = ['U', 'O', 'M', 'G', 'L', 'N', 'Z'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: [], ink: 20, maxInk: 20 };
+      check('Inverted Score: "UOM" stays unplayable without the item', Combat.playWord(player, monster, 'UOM') === null);
+    }
+    {
+      const rack = ['U', 'O', 'M', 'G', 'L', 'N', 'Z'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['inverted_score'], ink: 20, maxInk: 20 };
+      const result = Combat.playWord(player, monster, 'UOM');
+      check('Inverted Score: "UOM" (playWord) becomes playable with the item, real flip', !!result);
+      if (result) check('Inverted Score: "UOM" scores 5 raw * 2.5 multiplier, rounded = 13', result.damage === 13);
+    }
+    {
+      const rack = ['U', 'O', 'M', 'G', 'L', 'N', 'Z'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['inverted_score'], ink: 20, maxInk: 20 };
+      const preview = Combat.previewWord(player, monster, 'UOM', null, {});
+      check('Inverted Score: "UOM" (previewWord) agrees with playWord (valid, 13 damage)', preview.valid === true && preview.damage === 13);
+    }
+    {
+      // The proc message announces the flipped reading -- fired via the
+      // real onWordPlayed hook, same as every other item's message check
+      // in this file.
+      const rack = ['U', 'O', 'M', 'G', 'L', 'N', 'Z'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['inverted_score'], ink: 20, maxInk: 20 };
+      const result = Combat.playWord(player, monster, 'UOM');
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Inverted Score: logs a proc message with the flipped reading', ctx.messages.indexOf('The Inverted Score: turned round, it reads "WON"!') !== -1);
+    }
+
+    // Case 3: CAT uses letters entirely outside FLIP_MAP (C, A, T) -- a
+    // perfectly normal word without the item, unplayable with it, and
+    // Items.isWordValid REPLACES (does not OR with) plain dictionary
+    // validity, so this stays true even though CAT is unambiguously real.
+    {
+      const rack = ['C', 'A', 'T', 'G', 'L', 'N', 'Z'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: [], ink: 20, maxInk: 20 };
+      check('Inverted Score: "CAT" plays normally without the item', !!Combat.playWord(player, monster, 'CAT'));
+    }
+    {
+      const rack = ['C', 'A', 'T', 'G', 'L', 'N', 'Z'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['inverted_score'], ink: 20, maxInk: 20 };
+      check('Inverted Score: "CAT" becomes unplayable with the item (no letter has a flip form)', Combat.playWord(player, monster, 'CAT') === null);
+    }
+
+    // Composes multiplicatively with Fortissimo's own scoreMultiplier, same
+    // "multiplication is commutative" shape RITARDANDO/Largo already
+    // established for tempoScale.
+    check('Inverted Score: getScoreMultiplier composes with Fortissimo (2 * 2.5 = 5)', Items.getScoreMultiplier({ items: ['fortissimo', 'inverted_score'] }) === 5);
+
+    // ANTI-SOFTLOCK: Lexicon.hasPlayableInvertedWord, the item-aware
+    // playability check game.js's ensureRackIsPlayable switches to while
+    // this item is owned (hasPlayableWord alone would under-count the real
+    // softlock risk -- see that function's own comment).
+    {
+      const allUnflippableRack = ['C', 'A', 'T', 'E', 'R', 'H', 'L'].map((l) => Tiles.createTile(l, null));
+      check('Inverted Score: hasPlayableInvertedWord is false for a rack with zero flippable letters', Lexicon.hasPlayableInvertedWord(allUnflippableRack) === false);
+      // hasPlayableWord (the NORMAL check) would call this same rack
+      // playable (CAT/ART/etc. are real words) -- proving the two checks
+      // genuinely disagree, not just that the inverted one is stricter in
+      // the abstract.
+      check('Inverted Score: the SAME rack is playable under the normal (non-inverted) check', Lexicon.hasPlayableWord(allUnflippableRack) === true);
+    }
+    {
+      const momRack = ['M', 'O', 'M', 'C', 'A', 'T', 'E'].map((l) => Tiles.createTile(l, null));
+      check('Inverted Score: hasPlayableInvertedWord is true when a flippable subset (M,O,M -> WOW) exists', Lexicon.hasPlayableInvertedWord(momRack) === true);
+    }
+    {
+      const blankRack = [Tiles.createTile('?', null), Tiles.createTile('C', null)];
+      check('Inverted Score: a blank tile short-circuits hasPlayableInvertedWord to true', Lexicon.hasPlayableInvertedWord(blankRack) === true);
+    }
+  }
+
   // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants. The two
   // SCORING variants (Charged +4 flat, Volatile letter-value x2) resolve in
   // Lexicon.scoreWord, so they're checked here in isolation against exact
@@ -2377,6 +2507,25 @@ async function main() {
     state.player.items = savedItems;
   }
 
+  // ITEMS ticket (GOALS.md, 2026-08-22): same seeded-shop-appearance check
+  // for THE INVERTED SCORE, the last of Jaxon's 4 signature items.
+  {
+    const savedRng = state.rng;
+    const savedItems = state.player.items;
+    const seen = new Set();
+
+    state.player.items = [];
+    for (let i = 0; i < 300; i++) {
+      state.rng = window.Game.RNG.create('items-ticket-inverted-score-shop-odds-' + i);
+      window.Wordbound.Game._rollShopOptions().forEach((id) => seen.add(id));
+    }
+
+    check('ITEMS ticket item "inverted_score" appears in shop rolls across 300 seeded samples', seen.has('inverted_score'));
+
+    state.rng = savedRng;
+    state.player.items = savedItems;
+  }
+
   // FUN OVERHAUL 5/8: the shop's premium variant-tile offer. It lives in its
   // own state field (state.shopTileOffer, a Tile object) rather than in
   // shopOptions -- which stays a flat array of string ids so every consumer
@@ -2946,6 +3095,52 @@ async function main() {
       window.Wordbound.Game.submitWord('CAT');
       await new Promise((r) => setTimeout(r, 800));
       check('Fortissimo (live): a doubled real word kills the 1-HP monster', state.monster.hp <= 0);
+      state.player.items = savedItems;
+    }
+
+    // (4.6) ITEMS ticket, THE INVERTED SCORE end-to-end: a real fight, real
+    // Game.submitWord, confirming the item's validity gate reaches the real
+    // engine entry point players actually use (not just Combat.playWord
+    // called directly). A normal word the item makes UNplayable is
+    // rejected by the real submit path (monster HP unchanged, no tiles
+    // spent), then the real flip-valid combo lands and kills the monster.
+    // Same "trivially-killable, plain monster, resolve it fully"
+    // convention as (4.5) above.
+    {
+      const Tiles = window.Wordbound.Tiles;
+      state.combatActive = false;
+      state.screen = 'RUN';
+      state.pendingEventSkipNextCombat = false;
+      const savedItems = state.player.items;
+      state.player.items = ['inverted_score'];
+      const node = { id: 'node-inverted-score-combat', type: 'combat', defId: 'slime', cleared: false };
+      state.floor.nodes.push(node);
+      state.currentNodeId = node.id;
+      window.Wordbound.Game.enterCurrentNode();
+      await new Promise((r) => setTimeout(r, 60));
+
+      state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+      state.monster.hp = 5;
+      state.monster.maxHp = 5;
+      state.monster.intent = { type: 'attack', value: 0 };
+      state.hexedTileId = null;
+      state.player.ink = state.player.maxInk;
+
+      // CAT is a real word but has no flip form -- the real submit path
+      // must reject it exactly like an invalid word, spending nothing.
+      state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+      const hpBeforeReject = state.monster.hp;
+      const rackLenBeforeReject = state.player.rack.length;
+      window.Wordbound.Game.submitWord('CAT');
+      await new Promise((r) => setTimeout(r, 200));
+      check('Inverted Score (live): a normal word with no flip form is rejected by the real submit path', state.monster.hp === hpBeforeReject && state.player.rack.length === rackLenBeforeReject);
+
+      // UOM is not a real word, but flips to WON -- the real submit path
+      // must accept it and deal real damage.
+      state.player.rack = ['U', 'O', 'M'].map((l) => Tiles.createTile(l, null));
+      window.Wordbound.Game.submitWord('UOM');
+      await new Promise((r) => setTimeout(r, 800));
+      check('Inverted Score (live): a flip-valid combination kills the monster via the real submit path', state.monster.hp <= 0);
       state.player.items = savedItems;
     }
 

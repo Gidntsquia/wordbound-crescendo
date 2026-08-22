@@ -42,6 +42,12 @@
 //          tiles left in the rack, which combat.js resolves. Gilded/Vampiric
 //          variants (gold/heal) aren't part of scoring at all -- game.js
 //          resolves those directly from a played word's tilesUsed.
+//   hasPlayableWord(rack) -> bool, does any subset of this rack spell a real
+//          dictionary word (in some order)? Used by game.js's softlock
+//          safety net.
+//   hasPlayableInvertedWord(rack) -> bool, the same softlock check but for
+//          THE INVERTED SCORE's flip-and-reverse validity gate (ITEMS
+//          ticket) -- see its own comment for the equivalence proof.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -157,6 +163,28 @@
     return anagramKeySet;
   }
 
+  // Shared subset-search core for hasPlayableWord/hasPlayableInvertedWord
+  // below: given an already-filtered array of single-char strings, is
+  // there ANY subset (size >= 2) whose letters, in SOME order, sort to the
+  // same key as a real dictionary word? Sorting is order-independent, so
+  // this answers "can some arrangement of this exact subset spell a real
+  // word" without enumerating every permutation.
+  function anySubsetIsAWord(letters) {
+    var n = letters.length;
+    if (n < 2) return false;
+    var keys = getAnagramKeySet();
+    for (var mask = 1; mask < (1 << n); mask++) {
+      var subset = [];
+      for (var bit = 0; bit < n; bit++) {
+        if (mask & (1 << bit)) subset.push(letters[bit]);
+      }
+      if (subset.length < 2) continue;
+      var key = subset.slice().sort().join('');
+      if (keys.has(key)) return true;
+    }
+    return false;
+  }
+
   // Is there ANY word this rack can form? Used to detect and avoid a hard
   // softlock: if a rack can spell nothing, the player has no possible action
   // (there's no discard/redraw), and the rack only ever cycles after a word
@@ -171,18 +199,45 @@
       if (rack[i].letter === '?') return true;
       usable.push(rack[i].letter);
     }
-    var n = usable.length;
-    if (n < 2) return false;
-    var keys = getAnagramKeySet();
-    for (var mask = 1; mask < (1 << n); mask++) {
-      var subset = [];
-      for (var bit = 0; bit < n; bit++) {
-        if (mask & (1 << bit)) subset.push(usable[bit]);
-      }
-      if (subset.length < 2) continue;
-      var key = subset.slice().sort().join('');
-      if (keys.has(key)) return true;
+    return anySubsetIsAWord(usable);
+  };
+
+  // ITEMS ticket, THE INVERTED SCORE: the anti-softlock safety net
+  // (game.js's ensureRackIsPlayable) needs a DIFFERENT playability check
+  // while this item is owned, since its validity gate REPLACES normal
+  // dictionary validity with "the flipped-and-reversed reading is a real
+  // word" (items.js's Items.upsideDownValid) -- hasPlayableWord above would
+  // happily report a rack playable just because it contains a normal
+  // dictionary word the player could never actually submit while this item
+  // is owned, letting a genuine hard softlock slip past the existing safety
+  // net entirely.
+  //
+  // Reuses the SAME anagram-key-set/subset-search machinery
+  // (anySubsetIsAWord): mapping a subset's letters through FLIP_MAP one-for-
+  // one is a bijection on that subset, so as the player's chosen ordering
+  // ranges over every permutation of the subset, the flipped-and-reversed
+  // reading ranges over every permutation of the MAPPED subset too --
+  // reversal is itself just another permutation of the same multiset, so it
+  // never changes which multisets have a valid arrangement, only the
+  // FLIP_MAP mapping does. That makes "does this subset have SOME ordering
+  // that flips into a real word" exactly equivalent to "is the MAPPED
+  // subset's sorted-letter key a real word's key" -- the identical check
+  // hasPlayableWord already does, just against mapped letters.
+  //
+  // Letters with no FLIP_MAP entry are dropped from the usable set entirely
+  // (matching Items.flipUpsideDown's own "unplayable" rule), not treated as
+  // wildcards. A blank ('?') tile short-circuits to playable, the same
+  // inherited simplification hasPlayableWord documents above.
+  Lexicon.hasPlayableInvertedWord = function (rack) {
+    var Items = window.Wordbound.Items;
+    var FLIP_MAP = Items ? Items.FLIP_MAP : null;
+    var usable = [];
+    for (var i = 0; i < rack.length; i++) {
+      var letter = rack[i].letter;
+      if (letter === '?') return true;
+      var flipped = FLIP_MAP && FLIP_MAP[letter];
+      if (flipped) usable.push(flipped);
     }
-    return false;
+    return anySubsetIsAWord(usable);
   };
 })();

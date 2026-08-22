@@ -7,9 +7,11 @@
 // PUBLIC API (window.Wordbound.Combat):
 //   playWord(player, monster, word, comboState)
 //     -> null if the word isn't formable/valid (caller should reject before
-//        spending a turn; "valid" also accepts an exactly-3-letter non-word
-//        combination when the player owns Poetic License, see items.js's
-//        Items.bypassesWordValidity -- ITEMS ticket, GOALS.md), otherwise:
+//        spending a turn; validity is items.js's Items.isWordValid --
+//        normally a real dictionary word, or an exactly-3-letter non-word
+//        combination with Poetic License owned, or REPLACED entirely by
+//        THE INVERTED SCORE's flip-and-reverse dictionary check when that
+//        item is owned instead -- ITEMS ticket, GOALS.md), otherwise:
 //        { word, tilesUsed, score, holdMult, activeTraitId, multiplier,
 //          comboMultiplier, comboAtPlay, isRepeat, damage, monsterDied }
 //        tilesUsed is the array of tiles.js Tile objects spent. holdMult is
@@ -85,13 +87,14 @@
     var Tiles = window.Wordbound.Tiles;
     var Items = window.Wordbound.Items;
 
-    // ITEMS ticket, POETIC LICENSE: a second validity gate after the
-    // dictionary check, for a rare item that lets an exactly-3-letter
-    // combination count even when it isn't a real word. See
-    // items.js's Items.bypassesWordValidity for the full reasoning
-    // (scoring is unaffected either way -- this only changes what's
-    // playable, never what it's worth).
-    var validWord = Lexicon.isValidWord(word) || (Items && Items.bypassesWordValidity(String(word).toUpperCase(), player));
+    // ITEMS ticket: validity is a single decision, Items.isWordValid --
+    // normally a real dictionary word or Poetic License's 3-letter bypass,
+    // but REPLACED entirely by THE INVERTED SCORE's flip-and-reverse check
+    // while that item is owned (see items.js's own comment on
+    // Items.isWordValid for why replace rather than extend). Scoring is
+    // unaffected either way -- this only changes what's playable, never
+    // what it's worth.
+    var validWord = Items ? Items.isWordValid(word, player) : Lexicon.isValidWord(word);
     if (!validWord) return null;
     var formed = Lexicon.canFormFromRack(word, player.rack);
     if (!formed.possible) return null;
@@ -198,7 +201,7 @@
     options = options || {};
     if (!player || !monster || !word) return { valid: false };
     var upper = String(word).trim().toUpperCase();
-    var validWord = !!upper && (Lexicon.isValidWord(upper) || (Items && Items.bypassesWordValidity(upper, player)));
+    var validWord = !!upper && (Items ? Items.isWordValid(upper, player) : Lexicon.isValidWord(upper));
     if (!validWord) return { valid: false };
 
     // Clone every piece playWord + the item hooks mutate. Tile objects are

@@ -1045,9 +1045,29 @@
   // redraw when this happens -- bounded attempts as a safety net against a
   // pathological near-empty pool; in practice one retry is always enough.
   var UNPLAYABLE_RACK_RETRY_LIMIT = 5;
+  // ITEMS ticket, THE INVERTED SCORE: its flip-and-reverse validity gate is
+  // far more restrictive than plain dictionary validity (only 13 of 26
+  // letters even have a flipped form) -- a node script simulation against
+  // the real LETTER_POOL weights (documented in PROGRESS.md) found a fresh
+  // 7-tile rack fails the inverted check ~25% of the time, same order as
+  // the pre-existing Scribe-vowel-poor case UNPLAYABLE_RACK_RETRY_LIMIT
+  // was sized for, so 5 retries is still enough there (<0.1% residual).
+  // But a player who ALSO owns Fortissimo (rack capacity halved to 4) sees
+  // a first-draw fail rate near 59%, and 5 retries alone would still leave
+  // a real ~5% chance of a permanent stuck fight for that specific
+  // two-rare-item combo -- unacceptable for a hard dead end. Bumping the
+  // retry ceiling specifically for the inverted check (cheap: each check is
+  // a sub-256-subset scan, not a real cost) brings that combo's residual
+  // risk down near 0.02%, matching this same safety net's own pre-existing
+  // "in practice enough, not mathematically zero" standard for the normal
+  // case above -- not claimed as impossible, just brought back in line.
+  var UNPLAYABLE_RACK_RETRY_LIMIT_INVERTED = 25;
   function ensureRackIsPlayable() {
     var attempts = 0;
-    while (!Lexicon.hasPlayableWord(state.player.rack) && attempts < UNPLAYABLE_RACK_RETRY_LIMIT) {
+    var inverted = !!(Items && Items.hasInvertedScore(state.player));
+    var isPlayable = inverted ? Lexicon.hasPlayableInvertedWord : Lexicon.hasPlayableWord;
+    var retryLimit = inverted ? UNPLAYABLE_RACK_RETRY_LIMIT_INVERTED : UNPLAYABLE_RACK_RETRY_LIMIT;
+    while (!isPlayable(state.player.rack) && attempts < retryLimit) {
       state.pile.discardPile = state.pile.discardPile.concat(state.player.rack);
       state.player.rack = [];
       refillRack();

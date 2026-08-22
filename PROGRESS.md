@@ -6151,3 +6151,125 @@ plus a reasonable batch expansion, return to SHAKESPEARE GUIDE + AUTHOR
 SHOPKEEPERS to wire the six author exclusives on top and finally check that
 ticket's box too. REGULAR ENEMIES remains the queue's next fully
 independent item after both.
+
+## 2026-08-22T11:59Z -- ITEMS ticket: THE INVERTED SCORE (4th of Jaxon's 4 signature items)
+
+Picked up ITEMS at the exact point the prior run's own "Next" note left it:
+THE INVERTED SCORE, the last of Jaxon's 4 signature items ("flips all tiles
+upside-down; a word is playable ONLY if it reads as a real word
+upside-down"). All 4 signature items now exist; the ticket's AMENDED batch
+(health items + 4-8 duel-gauge-space items) is the only ITEMS scope still
+open, so the box stays unchecked. Full reasoning is in GOALS.md's own
+ORCHESTRATOR NOTE under the ITEMS ticket -- this entry summarizes.
+
+**What landed** (`js/wordbound/items.js`, `js/wordbound/combat.js`,
+`js/wordbound/lexicon.js`, `js/wordbound/game.js` -- no new file, no
+manifest change needed):
+- `FLIP_MAP`: the ticket's own conservative mapping (u<->n, m<->w, b<->q,
+  d<->p, o/s/x/z/i self-flip). Every other letter has no entry.
+- `Items.flipUpsideDown(word)`: maps each letter, then REVERSES the whole
+  result (a physical tile strip turned 180 degrees does both at once).
+  Self-checked against the classic real-world examples: SWIMS flips to
+  SWIMS itself (a genuine upside-down palindrome), MOM flips to WOW.
+  Returns null the instant any letter has no FLIP_MAP entry.
+- `Items.upsideDownValid`/`hasInvertedScore`, and a new centralizing
+  `Items.isWordValid(word, player)` that `combat.js`'s `playWord`/
+  `previewWord` BOTH now call instead of each duplicating its own
+  `isValidWord || bypassesWordValidity` OR chain -- a small refactor, not
+  a behavior change for any existing case (confirmed by the full
+  pre-existing suite staying green unchanged).
+
+**Judgment call 1 (documented, not silently decided):** the ticket's
+"playable ONLY if it reads as a real word upside down" reads as EXCLUSIVE.
+While this item is owned, `isWordValid` REPLACES the whole normal validity
+chain (plain dictionary check AND Poetic License's bypass), not an OR
+alongside them -- so a completely ordinary word the player could always
+play (e.g. "MOOD", real, but its flip "POOW" isn't) becomes UNplayable the
+instant this item is picked up. Confirmed as the intended severity by the
+ticket's own explicit "letters without a clean flipped form make a word
+unplayable" callout, not an accident of implementation.
+
+**Judgment call 2:** the ticket specifies the restriction but names no
+compensating benefit, unlike the other 3 signature items (each pairs a
+restriction with a real payoff). A pure restriction with zero upside would
+be a shop item nobody would ever buy. Added `statMods.scoreMultiplier: 2.5`
+(composes multiplicatively with Fortissimo's own 2x) so it's a real,
+extreme trade rather than a dead purchase -- this run's own addition, not
+dictated by the ticket text. Also set price 60g (above the other three's
+40-50g, "cost/rarity accordingly" per the ticket) and the flavor reading of
+"score" as sheet music, not a point total (the musical-pun conceit: the
+music itself turns upside-down). All flagged for Jaxon.
+
+**A real, non-hypothetical softlock risk found and closed:** the
+pre-existing anti-softlock safety net (`ensureRackIsPlayable`/
+`Lexicon.hasPlayableWord`) checks PLAIN dictionary validity -- with this
+item owned it would call a rack "playable" because it contains a normal
+word the player could never submit, letting a genuine permanent dead end
+through. A node-script simulation against the real `LETTER_POOL` weights
+(not guessed) found a fresh 7-tile rack fails the real flip-aware
+playability check ~25% of the time on the first draw (same order as the
+pre-existing Scribe-vowel-poor case this net was already sized for, so the
+existing 5-retry limit is still enough there, <0.1% residual). But a
+player who ALSO owns Fortissimo (rack capacity 7->4) sees a ~59% first-draw
+fail rate, and 5 retries alone leave a real ~5% chance of a permanently
+stuck fight for that specific two-rare-item combo -- simulated directly.
+Fixed with `Lexicon.hasPlayableInvertedWord(rack)` (reuses the existing
+anagram-key-set machinery, mapping each subset through FLIP_MAP first; a
+short equivalence proof in its own comment covers why the reversal step
+doesn't need separate handling) plus a higher retry ceiling used only when
+this item is owned (`UNPLAYABLE_RACK_RETRY_LIMIT_INVERTED = 25`), bringing
+the Fortissimo-combo residual risk down near 0.02% -- not claimed
+impossible, brought back in line with this safety net's own pre-existing
+"in practice enough" standard.
+
+**Verified:**
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED, +27 new checks -- flip
+  self-checks, 3 real gameplay scenarios found via a one-off node script
+  against the actual bundled wordlist (MOOD real-but-unplayable-with-item,
+  UOM not-real-but-playable-with-item scoring the predicted 13 damage via
+  the real formula, CAT real-but-unplayable-with-item proving the replace-
+  not-OR behavior), getScoreMultiplier composing with Fortissimo, 4
+  hasPlayableInvertedWord checks (including one proving it genuinely
+  disagrees with the normal check on the same rack), a seeded 300-sample
+  shop-appearance check, and a real end-to-end fight via `Game.submitWord`
+  (reject with no state mutated, then a real kill).
+- `npx vitest run`: 174/174, unaffected (no `.jsx` touched -- combat.js is
+  the shared choke point both apps already use, no new UI needed).
+- `npm run build`: clean, 51 modules (unchanged).
+- `npm run test:mobile`, `test:qa`, `test:react-qa`, `test:react-build`,
+  `test:react-duel-loss`, `test:music-engine`, `test:branching-map`,
+  `test:run-header`, `test:audio`, `test:drag-interrupt`: ALL CHECKS
+  PASSED. (First attempt at `test:audio`/`test:itch-build`/
+  `test:react-build` hit `EADDRINUSE`/a Playwright timeout from running
+  several fixed-port Playwright scripts concurrently in this container --
+  a self-inflicted resource/port collision from MY OWN parallel test runs,
+  not a regression; re-ran each alone afterward and all passed clean.
+  Noting this explicitly so a future run doesn't mistake concurrent local
+  script contention for a real failure, and doesn't run these particular
+  scripts in parallel with each other.)
+- `npm run build:itch` + `test:itch-build`: ALL CHECKS PASSED, no manifest
+  change needed.
+- `npm run test:duel-balance`: same pre-existing stalemate flag every
+  prior run documents, exit 0, unrelated (no item modeling).
+
+Version NOT bumped -- all 4 signature items exist now, but the AMENDED
+batch (health items + duel-gauge-space items) is still fully open; the
+"bump minor" convention applies once that lands and the box is checked.
+
+**Genuinely-Jaxon-only, flagged rather than blocking:** the 2.5x
+compensating multiplier, the 60g price, filling in "no stated benefit,"
+and the exclusive/replacing reading of "playable ONLY if" -- worth Jaxon's
+explicit read given how significant "replaces validity entirely" is for a
+shop item.
+
+**Not done, honest gaps:** the AMENDED batch (health items + 4-8
+duel-gauge-space items, 8-12 total per the ticket) is the only remaining
+ITEMS scope. ITEMS ticket stays unchecked.
+
+**Next:** the health items + duel-gauge-space batch is the natural next
+chunk -- once it lands and the box is checked, return to SHAKESPEARE GUIDE
++ AUTHOR SHOPKEEPERS to wire the six author exclusives on top (its own
+coordination note; the exclusives pool can reasonably draw from items that
+exist today even before the full batch lands, a call for whoever picks
+that up next). REGULAR ENEMIES remains the queue's next fully independent
+item after both.
