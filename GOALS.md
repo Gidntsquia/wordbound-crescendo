@@ -3541,6 +3541,96 @@ Rules for the routine:
       explicit Rewrite-interaction decision, but no new validity-engine
       work) -- THE INVERTED SCORE needs a real flip-mapping + reversed-order
       dictionary check, a bigger lift.
+      ORCHESTRATOR NOTE 2026-08-22 (update 2): landed FORTISSIMO, the 3rd of
+      Jaxon's 4, exactly the piece the prior note scoped as next. THE
+      INVERTED SCORE remains the one signature item left, plus the fully
+      untouched 8-12-item round-out batch. Ticket stays unchecked.
+      `js/wordbound/items.js`: a `fortissimo` def (rarity rare, 50g,
+      `statMods: { scoreMultiplier: 2, rackCapacityMult: 0.5 }`), new
+      `Items.getScoreMultiplier(player)` (product across owned items, 1 if
+      none -- mirrors `getTempoScale`'s shape), and `Items.getRackCapacity`
+      extended to apply any owned `rackCapacityMult` statMod AFTER the
+      existing additive `rackCapacityBonus` sum, rounded, clamped to a new
+      `Items.MIN_RACK_CAPACITY = 3` floor (a real word needs 2+ letters
+      per `Lexicon.isValidWord`'s own minimum, and a 2-tile rack would
+      softlock most fights in practice -- a documented judgment call, not
+      a value from the ticket itself). `js/wordbound/combat.js`'s
+      `Combat.playWord` applies `Items.getScoreMultiplier` as one more
+      final damage multiplier (multiplication is commutative, so it makes
+      no difference whether "ALL scores doubled" is read as doubling the
+      raw base score or the final number -- both give the identical
+      result, confirmed by a test that composes it with the repeat-word
+      penalty and checks the exact expected value).
+      **The ticket's own "interaction with Rewrite/rack cycling must be
+      defined" requirement, answered directly rather than built new:**
+      confirmed by reading `game.js`'s `refillRack`/`cycleRackAfterWord`/
+      Rewrite handler that ALL THREE already read `Items.getRackCapacity`
+      as their single source of truth for target rack size (the same
+      function Spare Satchel's `rackCapacityBonus` already flows through)
+      -- so FORTISSIMO's halved capacity applies everywhere with ZERO
+      special-casing needed. The pre-existing `ensureRackIsPlayable()`
+      anti-softlock retry (reshuffles/redraws when the rack can form no
+      word at all) already covers the smaller-rack risk too, unchanged.
+      **Visual half** (the ticket's own "tiles render at double size"):
+      one CSS rule, `.rack-display-fortissimo` (`css/wordbound.css`,
+      applied to the rack CONTAINER, not each tile), toggled by both
+      apps' rack containers (`game.js`'s `renderCombat()`,
+      `CombatScreen.jsx`'s `rack-display` div) reading
+      `state.player.items.indexOf('fortissimo')` directly -- the existing
+      `.rack-display`'s own `flex-wrap: wrap` handles a halved, larger
+      rack wrapping onto more rows at narrow widths with no extra layout
+      work, confirmed by a new `test:mobile` section (375/414px, a forced
+      halved rack + doubled tiles, zero overflow either width).
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED,
+      including 14 new checks -- `getScoreMultiplier`/`getRackCapacity`'s
+      full arithmetic (no items, Fortissimo alone, composed with an
+      additive bonus, the `MIN_RACK_CAPACITY` floor via a deliberately
+      extreme temporary fake item def), a real `Combat.playWord` doubling
+      check and its composition with the repeat penalty, a 300-seeded
+      shop-appearance check, and a full real end-to-end fight (real
+      halved rack drawn via the real `refillRack()` path, the real
+      `#rack-display` DOM getting the class + exact halved tile count, a
+      doubled real word killing a 1-HP monster and resolving cleanly to
+      TILE_REWARD). `npx vitest run`: 174/174 (up from 172 -- 2 new
+      `CombatScreen.test.jsx` tests: Fortissimo halves the real rack +
+      applies the class, and the class is absent without the item), 3
+      consecutive clean full-suite runs (1 flake seen once across many
+      repeated runs, then gone -- same pre-existing full-suite timing
+      flake this file's own header comment already documents, not
+      reintroduced by this change). `npm run build`: clean, 51 modules
+      (unchanged -- no new file). `npm run test:mobile`: ALL CHECKS
+      PASSED, including the new Fortissimo section. `npm run test:qa`,
+      `test:react-qa`, `test:react-build`, `test:react-duel-loss`,
+      `test:music-engine`, `test:branching-map`, `test:run-header`,
+      `test:audio`, `test:drag-interrupt`: ALL CHECKS PASSED, unaffected.
+      `npm run build:itch` + `test:itch-build`: ALL CHECKS PASSED, no
+      manifest change needed (no new file). `npm run test:duel-balance`:
+      same pre-existing stalemate flag every prior run's note documents,
+      exit 0, unrelated (models no items). A genuine pre-existing
+      dom-check.js flake (a `waitForScreen('TILE_REWARD')` timeout,
+      already characterized by the prior run's own note as reproducing on
+      the unmodified base commit) recurred once across many repeated runs
+      during this run's own verification too -- consistent with, not
+      worse than, the already-documented rate.
+      Version NOT bumped -- 3 of Jaxon's 4 land, still not a finished
+      ticket; the "bump minor" convention applies once THE INVERTED SCORE
+      and the round-out batch land and the box is checked for real.
+      **Genuinely-Jaxon-only:** Fortissimo's exact multiplier (2x)/rack
+      divisor (0.5x)/rarity/shopPrice (rare, 50g) and the
+      `MIN_RACK_CAPACITY=3` floor are this run's own tuning calls, not
+      balance-sim-verified (the same pre-existing `test/balance-
+      simulation.js` AudioContext-crash gap the prior note already
+      flagged blocks a full statistical check).
+      **Next:** THE INVERTED SCORE is the one remaining signature item --
+      a real flip-mapping (u↔n, m↔w, b↔q, d↔p, o/s/x/z/i self-flip,
+      letters with no clean flip make a word unplayable) + reversed-
+      letter-order validity check, its own from-scratch addition to
+      combat.js's validity gate (a third one, alongside Poetic License's)
+      rather than a small extension of existing machinery like FORTISSIMO
+      was. Once all 4 (or a documented subset Jaxon signs off on) land
+      plus a reasonable batch expansion, return to SHAKESPEARE GUIDE +
+      AUTHOR SHOPKEEPERS to wire the six author exclusives on top and
+      check that ticket's box too.
 
 - [ ] REGULAR ENEMIES: build the 6-10 regulars from the bible — every one a
       DUEL-GAUGE fight (per the header combat decision; no turn-based mode

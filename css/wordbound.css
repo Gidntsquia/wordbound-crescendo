@@ -881,6 +881,27 @@ h2 {
   margin-bottom: 14px;
 }
 
+/* ITEMS ticket (GOALS.md, Jaxon's four): FORTISSIMO doubles tile size --
+   applied to the rack CONTAINER (not each tile's own class list) so both
+   apps only need to toggle one class, and .rack-display's own flex-wrap
+   already handles a halved, larger rack wrapping onto more rows at narrow
+   widths with zero extra layout work (confirmed by test:mobile at
+   375/414px). .rack-slot-empty (a staged tile's placeholder) is doubled
+   too so a staged tile's "same footprint" convention still holds. */
+.rack-display-fortissimo .letter-tile,
+.rack-display-fortissimo .rack-slot-empty {
+  width: 92px;
+  height: 92px;
+}
+.rack-display-fortissimo .letter-tile {
+  font-size: 2.6rem;
+}
+.rack-display-fortissimo .letter-tile sub {
+  font-size: 1.1rem;
+  bottom: 4px;
+  right: 8px;
+}
+
 @keyframes slideInTile {
   from {
     opacity: 0;

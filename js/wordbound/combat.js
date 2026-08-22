@@ -130,6 +130,15 @@
     var boostedDamage = Math.round(score.total * holdMult * traitMultiplier * comboMultiplier);
     var damage = isRepeat ? Math.round(boostedDamage * REPEAT_WORD_PENALTY) : boostedDamage;
 
+    // ITEMS ticket, FORTISSIMO: "ALL scores doubled" -- Items.
+    // getScoreMultiplier is 1 (no-op) unless owned, so this is a true no-op
+    // for every existing player/test. Multiplication is commutative, so it
+    // makes no difference whether this reads as doubling the raw score or
+    // the final damage -- applied here (one more final multiplier,
+    // alongside the repeat penalty above and overcharge below) rather than
+    // inside Lexicon.scoreWord, which has no player/item awareness at all.
+    if (Items) damage = Math.round(damage * Items.getScoreMultiplier(player));
+
     var overcharged = !!options.overcharge;
     if (overcharged) damage = Math.round(damage * Combat.OVERCHARGE_DAMAGE_MULTIPLIER);
 

@@ -3863,6 +3863,11 @@
 
     var rack = $('rack-display');
     rack.innerHTML = '';
+    // ITEMS ticket, FORTISSIMO: the ticket's own "tiles render at double
+    // size" -- one class on the CONTAINER (css/wordbound.css's
+    // .rack-display-fortissimo) rather than on every tile/slot, so this is
+    // the only line either renderer needs.
+    rack.classList.toggle('rack-display-fortissimo', state.player.items.indexOf('fortissimo') !== -1);
     var currentRackIds = [];
     state.player.rack.forEach(function (tile, index) {
       var isSelected = state.selectedTileIds.indexOf(tile.id) !== -1;

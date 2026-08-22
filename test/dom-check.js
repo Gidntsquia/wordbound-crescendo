@@ -586,6 +586,69 @@ async function main() {
     }
   }
 
+  // ITEMS ticket (GOALS.md, 2026-08-22): FORTISSIMO, the 3rd of Jaxon's 4
+  // signature items -- "ALL scores doubled, but tiles render at double
+  // size and the rack holds HALF as many." The score/capacity math is
+  // fully jsdom-safe (pure functions + Combat.playWord, no AudioContext);
+  // the visual "tiles render at double size" half is checked via a real
+  // renderCombat() further down (live-DOM section) and via a Vitest/RTL
+  // test for the React side (CombatScreen.test.jsx), since this file only
+  // covers wordbound.html.
+  {
+    const Combat = window.Wordbound.Combat;
+    const Items = window.Wordbound.Items;
+    const Tiles = window.Wordbound.Tiles;
+    const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+    const freshRack = () => ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+
+    // Score multiplier: 1 with nothing owned, 2 with Fortissimo, and an
+    // unrelated item (no scoreMultiplier statMod) doesn't affect it.
+    check('Fortissimo: Items.getScoreMultiplier is 1 with no items owned', Items.getScoreMultiplier({ items: [] }) === 1);
+    check('Fortissimo: Items.getScoreMultiplier is 2 when owned', Items.getScoreMultiplier({ items: ['fortissimo'] }) === 2);
+    check('Fortissimo: an unrelated item (Thick Skin) does not affect the multiplier', Items.getScoreMultiplier({ items: ['fortissimo', 'thick_skin'] }) === 2);
+
+    // Rack capacity: base 7 with nothing owned; halved (rounded) with
+    // Fortissimo alone; the additive rackCapacityBonus items (e.g. Spare
+    // Satchel) apply BEFORE the halving, not after (8 -> 4, not 7+0.5=7.5).
+    check('Fortissimo: base rack capacity is unaffected with no items', Items.getRackCapacity({ items: [] }) === 7);
+    check('Fortissimo: halves rack capacity (7 -> round(3.5) = 4)', Items.getRackCapacity({ items: ['fortissimo'] }) === 4);
+    check('Fortissimo: composes with an additive bonus BEFORE halving ((7+1)*0.5 = 4)', Items.getRackCapacity({ items: ['fortissimo', 'spare_satchel'] }) === 4);
+
+    // The MIN_RACK_CAPACITY floor: a real word needs 2+ letters
+    // (Lexicon.isValidWord's own minimum), and a rack that small would
+    // softlock most fights in practice -- confirmed here via a temporary,
+    // deliberately extreme fake item (no real item is this severe) rather
+    // than assuming Fortissimo's own 0.5 alone ever gets close to the
+    // floor (round(7*0.5)=4 doesn't).
+    {
+      window.Wordbound.Items.ITEM_DEFS['_test_extreme_shrink'] = { id: '_test_extreme_shrink', statMods: { rackCapacityMult: 0.05 }, hooks: {} };
+      check('Fortissimo: MIN_RACK_CAPACITY floor clamps an extreme shrink (7*0.05=0.35 -> floor 3, not 0)', Items.getRackCapacity({ items: ['_test_extreme_shrink'] }) === Items.MIN_RACK_CAPACITY);
+      delete window.Wordbound.Items.ITEM_DEFS['_test_extreme_shrink'];
+    }
+
+    // Damage doubling: a real word, otherwise identical setup, deals exactly
+    // 2x with Fortissimo owned -- and it composes multiplicatively with the
+    // repeat-word penalty (a genuinely independent multiplier), not just in
+    // isolation.
+    {
+      const withoutItem = Combat.playWord({ rack: freshRack(), items: [] }, monster, 'CAT');
+      const withItem = Combat.playWord({ rack: freshRack(), items: ['fortissimo'] }, monster, 'CAT');
+      check('Fortissimo: doubles a real word\'s damage', withItem.damage === withoutItem.damage * 2);
+    }
+    {
+      const comboState = { combo: 0, usedWords: new Set(['CAT']) }; // CAT already played -> this play is a repeat
+      const rack = freshRack();
+      const result = Combat.playWord({ rack, items: ['fortissimo'] }, monster, 'CAT', comboState);
+      // Compute the expected value the same way combat.js itself does
+      // (round at each step) rather than a single combined formula, so
+      // this test can't silently drift from real intermediate rounding.
+      const baseline = Combat.playWord({ rack: freshRack(), items: [] }, monster, 'CAT');
+      const expectedRepeatOnly = Math.round(baseline.damage * 0.4); // REPEAT_WORD_PENALTY, mirrored here since it isn't exported
+      const expectedWithFortissimo = Math.round(expectedRepeatOnly * 2);
+      check('Fortissimo: composes multiplicatively with the repeat-word penalty', result.damage === expectedWithFortissimo);
+    }
+  }
+
   // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants. The two
   // SCORING variants (Charged +4 flat, Volatile letter-value x2) resolve in
   // Lexicon.scoreWord, so they're checked here in isolation against exact
@@ -2286,6 +2349,34 @@ async function main() {
     state.player.items = savedItems;
   }
 
+  // ITEMS ticket (GOALS.md, 2026-08-22): same "prove it's really drawn from
+  // the pool, don't assume" check as the CONTENT ticket's block above, for
+  // FORTISSIMO -- the ticket's own per-item verification bar asks for a
+  // seeded-shop-appearance check for every new item. (Ritardando/Poetic
+  // License, landed earlier this same ticket, don't have this specific
+  // check either -- a minor, low-risk, pre-existing gap across all of this
+  // ticket's items so far, not something to silently retrofit onto
+  // someone else's already-landed, already-verified work; every item in
+  // ITEM_DEFS is automatically shop/treasure-eligible by construction
+  // (Object.keys(Items.ITEM_DEFS)), so this check is more a mechanical
+  // confirmation than a real risk.)
+  {
+    const savedRng = state.rng;
+    const savedItems = state.player.items;
+    const seen = new Set();
+
+    state.player.items = [];
+    for (let i = 0; i < 300; i++) {
+      state.rng = window.Game.RNG.create('items-ticket-fortissimo-shop-odds-' + i);
+      window.Wordbound.Game._rollShopOptions().forEach((id) => seen.add(id));
+    }
+
+    check('ITEMS ticket item "fortissimo" appears in shop rolls across 300 seeded samples', seen.has('fortissimo'));
+
+    state.rng = savedRng;
+    state.player.items = savedItems;
+  }
+
   // FUN OVERHAUL 5/8: the shop's premium variant-tile offer. It lives in its
   // own state field (state.shopTileOffer, a Tile object) rather than in
   // shopOptions -- which stays a flat array of string ids so every consumer
@@ -2812,6 +2903,49 @@ async function main() {
       const chip2 = Array.from(document.querySelectorAll('#items-owned .item-chip')).find((c) => c.textContent === Items.ITEM_DEFS['consonant_cluster'].name);
       check('8/8 chip-flash: the flash is gone on the following render (one-shot)',
         !!chip2 && chip2.className.indexOf('item-chip-proc') === -1);
+      state.player.items = savedItems;
+    }
+
+    // (4.5) ITEMS ticket, FORTISSIMO end-to-end: a real fight started with
+    // the item already owned draws a HALVED, real rack (via the real
+    // refillRack() -> Items.getRackCapacity() path) and the real
+    // #rack-display container gets .rack-display-fortissimo -- the
+    // "tiles render at double size" half of the ticket, proven against
+    // real DOM rather than just the pure capacity/CSS-class-string logic
+    // above. Same "trivially-killable, plain monster, resolve it fully"
+    // convention as the gamble/wager killWith() helper above, so this
+    // doesn't leave a dangling in-combat node for later blocks in this
+    // large file to trip over.
+    {
+      const Tiles = window.Wordbound.Tiles;
+      state.combatActive = false;
+      state.screen = 'RUN';
+      state.pendingEventSkipNextCombat = false;
+      const savedItems = state.player.items;
+      state.player.items = ['fortissimo'];
+      const node = { id: 'node-fortissimo-combat', type: 'combat', defId: 'slime', cleared: false };
+      state.floor.nodes.push(node);
+      state.currentNodeId = node.id;
+      window.Wordbound.Game.enterCurrentNode();
+      await new Promise((r) => setTimeout(r, 60));
+      const expectedCapacity = Items.getRackCapacity(state.player);
+      check('Fortissimo (live): the real rack draws to the halved capacity (' + expectedCapacity + ', not 7)', state.player.rack.length === expectedCapacity && expectedCapacity < 7);
+      const rackEl = document.getElementById('rack-display');
+      check('Fortissimo (live): the real #rack-display gets .rack-display-fortissimo', !!rackEl && rackEl.classList.contains('rack-display-fortissimo'));
+      check('Fortissimo (live): the real rack renders exactly that many .letter-tile buttons', rackEl.querySelectorAll('.letter-tile').length === expectedCapacity);
+
+      // Resolve the fight cleanly (1 HP, a word the forced rack can form)
+      // rather than leaving it dangling for later blocks to trip over.
+      state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+      state.monster.hp = 1;
+      state.monster.maxHp = 1;
+      state.monster.intent = { type: 'attack', value: 0 };
+      state.hexedTileId = null;
+      state.player.ink = state.player.maxInk;
+      state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+      window.Wordbound.Game.submitWord('CAT');
+      await new Promise((r) => setTimeout(r, 800));
+      check('Fortissimo (live): a doubled real word kills the 1-HP monster', state.monster.hp <= 0);
       state.player.items = savedItems;
     }
 

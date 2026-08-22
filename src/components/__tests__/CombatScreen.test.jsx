@@ -58,6 +58,31 @@ describe('CombatScreen', () => {
     tileButtons.forEach((btn) => expect(btn).toBeInTheDocument());
   });
 
+  // ITEMS ticket (GOALS.md, 2026-08-22): FORTISSIMO's "tiles render at
+  // double size" half -- dom-check.js already covers wordbound.html's own
+  // #rack-display class toggle + real rack size, this is the React-side
+  // equivalent per GOALS.md's own mandatory test:react gate for any
+  // src/components/*.jsx change. Item granted BEFORE enterCurrentNode so
+  // the real refillRack() -> Items.getRackCapacity() path draws the
+  // halved rack, exactly like a real pickup before a fight would.
+  it('FORTISSIMO halves the real rack and the rack container gets .rack-display-fortissimo', () => {
+    const state = freshRun(SEED);
+    state.player.items = ['fortissimo'];
+    window.Wordbound.Game.enterCurrentNode(findAvailableCombatNodeId(state));
+    render(<Harness />);
+    const expectedCapacity = window.Wordbound.Items.getRackCapacity(state.player);
+    expect(expectedCapacity).toBeLessThan(7);
+    expect(state.player.rack).toHaveLength(expectedCapacity);
+    expect(document.getElementById('rack-display')).toHaveClass('rack-display-fortissimo');
+    expect(document.querySelectorAll('#rack-display .letter-tile')).toHaveLength(expectedCapacity);
+  });
+
+  it('without FORTISSIMO, the rack container does NOT get .rack-display-fortissimo', () => {
+    startFight();
+    render(<Harness />);
+    expect(document.getElementById('rack-display')).not.toHaveClass('rack-display-fortissimo');
+  });
+
   it('clicking rack tiles appends their letters to the word input', async () => {
     const state = startFight();
     render(<Harness />);

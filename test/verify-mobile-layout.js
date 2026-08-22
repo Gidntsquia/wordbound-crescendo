@@ -402,6 +402,43 @@ async function main() {
       }
     }
 
+    // ITEMS ticket (GOALS.md, 2026-08-22), FORTISSIMO's own "test:mobile
+    // mandatory" bar: tiles render at double size, rack halved -- confirm
+    // this real combination fits 375/414px. Forces a deterministic small
+    // rack matching Items.getRackCapacity's own real halved number
+    // directly (rather than needing a real fresh run/fight to reach it),
+    // same "force determinism via setup" convention the game-over/shop
+    // sections above already use.
+    console.log('Testing combat screen with Fortissimo (halved rack, doubled tiles):\n');
+
+    await page.evaluate(() => {
+      const Wordbound = window.Wordbound;
+      const Game = Wordbound.Game;
+      const state = Game._state;
+      state.player.items = ['fortissimo'];
+      const capacity = Wordbound.Items.getRackCapacity(state.player);
+      state.player.rack = ['C', 'A', 'T', 'D', 'G', 'L', 'N'].slice(0, capacity).map((l) => Wordbound.Tiles.createTile(l, null));
+      state.monster = { name: 'Layout Test Monster', hp: 10, maxHp: 10, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }], isBoss: false };
+      state.combatActive = true;
+      state.screen = 'RUN';
+      state.selectedTileIds = [];
+      Game.openDeckViewer();
+      Game.closeDeckViewer();
+    });
+
+    for (const width of widths) {
+      console.log(`${width}px width:`);
+      const result = await checkLayout(page, width);
+      results.push(result);
+
+      const hasIssues = result.checks.overflowX ||
+                       result.checks.elementsClipped.length > 0 ||
+                       !result.checks.buttonSizesOK ||
+                       !result.checks.textReadable;
+
+      console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
+    }
+
     // MOBILE INPUT 1/3 (GOALS.md, Jaxon 2026-08-20), real-browser touch-mode
     // check: on coarse-pointer devices the typing box must be CSS-hidden (no
     // soft keyboard) and the tap-only blank-letter picker must fit small

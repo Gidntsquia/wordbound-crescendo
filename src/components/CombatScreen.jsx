@@ -715,7 +715,10 @@ export default function CombatScreen({ state, Game, act }) {
         />
       )}
 
-      <div className="rack-display" id="rack-display">
+      <div
+        className={'rack-display' + (state.player.items.indexOf('fortissimo') !== -1 ? ' rack-display-fortissimo' : '')}
+        id="rack-display"
+      >
         {state.player.rack.map((tile, index) => {
           const isHexed = tile.id === state.hexedTileId;
           const isStaged = state.selectedTileIds.indexOf(tile.id) !== -1;

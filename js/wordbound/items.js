@@ -69,10 +69,16 @@
 //                            item using this hook so far.
 //     }
 //   }
-//   getRackCapacity(player) -> 7 + sum of owned rackCapacityBonus
+//   getRackCapacity(player) -> 7 + sum of owned rackCapacityBonus, then
+//       the product of any owned rackCapacityMult statMods (ITEMS ticket's
+//       FORTISSIMO), rounded and clamped to never go below
+//       MIN_RACK_CAPACITY.
 //   getTempoScale(player) -> 1, or product of any owned tempoScale statMods
 //       (ITEMS ticket's RITARDANDO -- see its def for why this multiplies
 //       rather than adds).
+//   getScoreMultiplier(player) -> 1, or product of any owned
+//       scoreMultiplier statMods (ITEMS ticket's FORTISSIMO) -- read by
+//       combat.js's Combat.playWord as a final damage multiplier.
 //   bypassesWordValidity(word, player) -> true if `word` is exactly 3
 //       letters and the player owns Poetic License (ITEMS ticket) -- the
 //       second validity gate combat.js's playWord/previewWord check after
@@ -690,12 +696,12 @@
     }
   });
 
-  // ---- ITEMS ticket (GOALS.md, 2026-08-22): Jaxon's four signature items,
-  // 1 of 4 landed as passive statMods/hooks this run (RITARDANDO,
-  // POETIC LICENSE) -- FORTISSIMO (rack-capacity/tile-size change) and
-  // THE INVERTED SCORE (flip-mapping dictionary check) are real, separate,
-  // still-open scope (each needs its own rendering/validity-engine work,
-  // not a small addition on top of this run's two) -- see PROGRESS.md.
+  // ---- ITEMS ticket (GOALS.md, 2026-08-22): Jaxon's four signature items.
+  // RITARDANDO and POETIC LICENSE landed first (both passive statMods/
+  // hooks). FORTISSIMO (rack-capacity/tile-size change) landed next --
+  // see its own def below. THE INVERTED SCORE (flip-mapping dictionary
+  // check) is the one remaining signature item, real separate still-open
+  // scope -- see PROGRESS.md.
 
   def({
     id: 'ritardando',
@@ -741,6 +747,28 @@
     }
   });
 
+  def({
+    id: 'fortissimo',
+    name: 'Fortissimo',
+    hint: 'Every note struck at full force -- the whole score doubles, but the hand that holds it shrinks.',
+    rarity: 'rare',
+    shopPrice: 50,
+    // ALL scores doubled (statMods.scoreMultiplier, read by
+    // combat.js's Combat.playWord alongside every other final damage
+    // modifier -- see Items.getScoreMultiplier below), rack capacity
+    // HALVED (statMods.rackCapacityMult, read by Items.getRackCapacity,
+    // rounded and floored at MIN_RACK_CAPACITY so a real word is always
+    // still formable -- see that function's own comment for why 3 is the
+    // floor). Tiles render at double size (css/wordbound.css's
+    // .rack-display-fortissimo, toggled by both apps' rack containers)
+    // -- the ticket's own visual half of the trade. A genuine build-
+    // warping rare: doubled damage per word against roughly half as many
+    // plays per rack refill before Rewrite/a full cycle, not a pure
+    // upgrade -- exact numbers are a judgment call, not sim-tuned (see
+    // PROGRESS.md).
+    statMods: { scoreMultiplier: 2, rackCapacityMult: 0.5 }
+  });
+
   // Combat.playWord/previewWord's second validity gate (js/wordbound/
   // combat.js): with Poetic License owned, any EXACTLY-3-LETTER combination
   // formable from the rack is playable even if Lexicon.isValidWord rejects
@@ -782,13 +810,39 @@
     return scale;
   };
 
-  Items.getRackCapacity = function (player) {
-    var capacity = 7;
+  // FORTISSIMO's damage statMod, multiplied together across every owned
+  // item that sets one (mirrors getTempoScale's shape). Applied by
+  // combat.js's Combat.playWord as one more final multiplier alongside the
+  // repeat-word penalty/Poetic License's own -- multiplication is
+  // commutative, so it doesn't matter whether "ALL scores doubled" is read
+  // as doubling the raw base score or the final damage number; both give
+  // the identical result. Returns 1 (no change) when nothing owned sets it.
+  Items.getScoreMultiplier = function (player) {
+    var mult = 1;
     (player.items || []).forEach(function (itemId) {
       var d = ITEM_DEFS[itemId];
-      if (d && d.statMods.rackCapacityBonus) capacity += d.statMods.rackCapacityBonus;
+      if (d && d.statMods.scoreMultiplier != null) mult *= d.statMods.scoreMultiplier;
     });
-    return capacity;
+    return mult;
+  };
+
+  // A rack this small can never form a real word at all (Lexicon.
+  // isValidWord's own floor is 2 letters, and a 2-tile rack is so
+  // restrictive it would softlock most fights in practice) -- FORTISSIMO's
+  // rack-capacity HALVING (below) is clamped to never go under this, a
+  // documented judgment call rather than a value from the ticket itself.
+  Items.MIN_RACK_CAPACITY = 3;
+
+  Items.getRackCapacity = function (player) {
+    var capacity = 7;
+    var mult = 1;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (!d) return;
+      if (d.statMods.rackCapacityBonus) capacity += d.statMods.rackCapacityBonus;
+      if (d.statMods.rackCapacityMult != null) mult *= d.statMods.rackCapacityMult;
+    });
+    return Math.max(Items.MIN_RACK_CAPACITY, Math.round(capacity * mult));
   };
 
   // An item "procced" if its hook announced itself on ctx.messages -- the same
