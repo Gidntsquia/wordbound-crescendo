@@ -23,6 +23,7 @@ import '../js/wordbound/traits.js';
 // (mirrors wordbound.html's own script order exactly).
 import '../js/wordbound/music.js';
 import '../js/wordbound/pieces/mountain-king.js';
+import '../js/wordbound/pieces/valkyrie-marshal.js';
 import '../js/wordbound/monsters.js';
 import '../js/wordbound/intents.js';
 import '../js/wordbound/combat.js';

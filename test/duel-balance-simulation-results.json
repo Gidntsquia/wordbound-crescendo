@@ -180,9 +180,9 @@
       "lossRate": 1,
       "stalemateRate": 0,
       "avgWinDuration": 0,
-      "avgLossDuration": 43.051249999999676,
+      "avgLossDuration": 29.956250000000296,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 9.575,
+      "avgWordsPlayed": 6.425,
       "parryLandRate": null
     },
     {
@@ -190,14 +190,14 @@
       "kind": "regular",
       "profile": "average",
       "nonDesigned": false,
-      "winRate": 0.35,
-      "lossRate": 0.65,
+      "winRate": 0.25,
+      "lossRate": 0.75,
       "stalemateRate": 0,
-      "avgWinDuration": 42.264285714285215,
-      "avgLossDuration": 75.84999999999783,
-      "avgBlocksLostOnWin": 2.857142857142857,
-      "avgWordsPlayed": 21.3,
-      "parryLandRate": 0.3387096774193548
+      "avgWinDuration": 22.450000000000188,
+      "avgLossDuration": 39.88833333333321,
+      "avgBlocksLostOnWin": 2.9,
+      "avgWordsPlayed": 11.65,
+      "parryLandRate": 0.3333333333333333
     },
     {
       "tier": "late",
@@ -207,11 +207,11 @@
       "winRate": 1,
       "lossRate": 0,
       "stalemateRate": 0,
-      "avgWinDuration": 20.23625000000005,
+      "avgWinDuration": 13.613749999999996,
       "avgLossDuration": 0,
-      "avgBlocksLostOnWin": 0.025,
-      "avgWordsPlayed": 9.5,
-      "parryLandRate": 0.7209302325581395
+      "avgBlocksLostOnWin": 1.125,
+      "avgWordsPlayed": 6.65,
+      "parryLandRate": 0.7272727272727273
     },
     {
       "tier": "late",
@@ -222,9 +222,9 @@
       "lossRate": 1,
       "stalemateRate": 0,
       "avgWinDuration": 0,
-      "avgLossDuration": 42.70749999999973,
+      "avgLossDuration": 29.902500000000288,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 9.6,
+      "avgWordsPlayed": 6.55,
       "parryLandRate": null
     },
     {
@@ -236,24 +236,24 @@
       "lossRate": 1,
       "stalemateRate": 0,
       "avgWinDuration": 0,
-      "avgLossDuration": 70.66999999999813,
+      "avgLossDuration": 39.83999999999989,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 23.2,
-      "parryLandRate": 0.3368421052631579
+      "avgWordsPlayed": 12.725,
+      "parryLandRate": 0.4260355029585799
     },
     {
       "tier": "late",
       "kind": "boss",
       "profile": "skilled",
       "nonDesigned": false,
-      "winRate": 1,
-      "lossRate": 0,
+      "winRate": 0.925,
+      "lossRate": 0.075,
       "stalemateRate": 0,
-      "avgWinDuration": 56.59874999999893,
-      "avgLossDuration": 0,
-      "avgBlocksLostOnWin": 0.05,
-      "avgWordsPlayed": 27.075,
-      "parryLandRate": 0.7
+      "avgWinDuration": 40.61621621621584,
+      "avgLossDuration": 84.16666666666403,
+      "avgBlocksLostOnWin": 3.081081081081081,
+      "avgWordsPlayed": 21.025,
+      "parryLandRate": 0.7281553398058253
     },
     {
       "tier": "final",

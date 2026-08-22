@@ -51,6 +51,7 @@ const DEPENDENCIES = [
   'js/wordbound/monsters.js',
   'js/wordbound/music.js',
   'js/wordbound/pieces/mountain-king.js',
+  'js/wordbound/pieces/valkyrie-marshal.js',
   'js/wordbound/tiles.js',
   'js/wordbound/traits.js',
   'js/wordbound/wordlist.js',

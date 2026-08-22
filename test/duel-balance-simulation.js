@@ -14,20 +14,22 @@
 // turn-based sim.
 //
 // SCOPE, flagged plainly:
-//   - Only ONE real sequenced piece exists yet (Mountain King, 'mid' tier,
-//     the floor-1 boss -- see js/wordbound/pieces/mountain-king.js). The
-//     'early'/'late'/'final' tiers have no real piece to simulate against
-//     (Valkyrie Marshal and the final Beethoven's-5th boss are both still
-//     "Not done" in GOALS.md's DUEL-GAUGE COMBAT ticket notes), so this
-//     script uses SYNTHETIC deterministic intensity schedules for those
-//     three tiers -- a periodic base level + triangular crescendo pulses,
-//     hand-tuned to match the header COMBAT MODEL's own curve language
-//     (early: rare/gentle, mid: "a few real spikes", late: frequent/strong,
-//     final: frequent/max). These are explicitly a proxy for tuning
-//     STAGE_TIER_BASE_PUSH/INTENSITY_PUSH_SCALE sanity, NOT a substitute for
-//     simulating each tier's eventual real piece once one exists -- rerun
-//     this script (or extend TIER_CONFIGS to point at a real piece) once
-//     Valkyrie Marshal / the final boss get real sequenced pieces.
+//   - TWO real sequenced pieces exist now: Mountain King ('mid' tier, the
+//     floor-1 boss -- js/wordbound/pieces/mountain-king.js) and, as of this
+//     update, the Valkyrie Marshal ('late' tier, the floor-3 boss --
+//     js/wordbound/pieces/valkyrie-marshal.js). 'early'/'final' still have
+//     no real piece to simulate against (the final Beethoven's-5th boss is
+//     still "Not done" in GOALS.md's DUEL-GAUGE COMBAT ticket notes, and no
+//     early-tier regular has been sequenced yet -- REGULAR ENEMIES
+//     territory), so this script uses SYNTHETIC deterministic intensity
+//     schedules for those two tiers -- a periodic base level + triangular
+//     crescendo pulses, hand-tuned to match the header COMBAT MODEL's own
+//     curve language (early: rare/gentle, final: frequent/max). These are
+//     explicitly a proxy for tuning STAGE_TIER_BASE_PUSH/
+//     INTENSITY_PUSH_SCALE sanity, NOT a substitute for simulating each
+//     tier's eventual real piece once one exists -- rerun this script (or
+//     extend TIER_CONFIGS to point at a real piece) once an early-tier
+//     regular / the final boss get real sequenced pieces.
 //   - Each simulated duel starts fresh at Duel.DEFAULT_HEALTH_BLOCKS (5).
 //     Cross-fight health attrition across a whole run (player.healthBlocks
 //     carried between duels) is explicitly out of scope here -- this
@@ -62,10 +64,12 @@ window.Wordbound = window.Wordbound || {};
 require('../js/wordbound/duel.js');
 require('../js/wordbound/music.js');
 require('../js/wordbound/pieces/mountain-king.js');
+require('../js/wordbound/pieces/valkyrie-marshal.js');
 
 const Duel = window.Wordbound.Duel;
 const Music = window.Wordbound.Music;
 const mountainKing = window.Wordbound.Pieces.mountainKing;
+const valkyrieMarshal = window.Wordbound.Pieces.valkyrieMarshal;
 
 const TRIALS = parseInt(process.argv[2], 10) || 40;
 const DT_SEC = 0.05;
@@ -113,10 +117,13 @@ function pulsePeakTimes(period, count) {
   return arr;
 }
 
-// ---- real Mountain King piece (mid tier) -------------------------------
+// ---- real pieces (mid: Mountain King, late: Valkyrie Marshal) ---------
 // Mirrors music.js's own private unscaledTimeAtBeat/beatAtUnscaledTime
 // (tempoScale=1, i.e. no Largo modeled -- see header note) since that
-// conversion isn't part of Music's public API.
+// conversion isn't part of Music's public API. Generalized (not
+// Mountain-King-specific) so a real piece with MULTIPLE crescendo markers
+// -- Valkyrie Marshal has four, unlike Mountain King's one continuous ramp
+// -- schedules every one of its own peaks correctly, not just the first.
 
 function buildTempoSegments(piece) {
   const segs = typeof piece.tempo === 'number' ? [{ beat: 0, bpm: piece.tempo }] : piece.tempo;
@@ -140,29 +147,40 @@ function beatAtTime(tempoSegs, time) {
   return segs[i].beat + (time - times[i]) * (segs[i].bpm / 60);
 }
 
-const mkTempo = buildTempoSegments(mountainKing);
-const mkLoopDurationSec = timeAtBeat(mkTempo, mountainKing.lengthBeats);
-const mkPeakBeat = mountainKing.dynamics.crescendos[0].peakBeat;
-const mkPeakTimeInLoop = timeAtBeat(mkTempo, mkPeakBeat);
+function realPieceTier(piece) {
+  const tempo = buildTempoSegments(piece);
+  const loopDurationSec = timeAtBeat(tempo, piece.lengthBeats);
+  // Every crescendo marker's peak time within one loop, ascending -- a
+  // single-crescendo piece (Mountain King) yields a 1-element array, a
+  // multi-crescendo piece (Valkyrie Marshal) yields all of them.
+  const peakTimesInLoop = piece.dynamics.crescendos
+    .map((c) => timeAtBeat(tempo, c.peakBeat))
+    .sort((a, b) => a - b);
 
-function mkIntensityFn(t) {
-  const tt = ((t % mkLoopDurationSec) + mkLoopDurationSec) % mkLoopDurationSec;
-  return Music.intensityAt(mountainKing, beatAtTime(mkTempo, tt));
+  function intensityFn(t) {
+    const tt = ((t % loopDurationSec) + loopDurationSec) % loopDurationSec;
+    return Music.intensityAt(piece, beatAtTime(tempo, tt));
+  }
+  function peakTimes(count) {
+    const loops = Math.ceil(count / peakTimesInLoop.length) + 1;
+    const arr = [];
+    for (let k = 0; k < loops; k++) {
+      peakTimesInLoop.forEach((pt) => arr.push(k * loopDurationSec + pt));
+    }
+    return arr.filter((x) => x > 0).sort((a, b) => a - b);
+  }
+  return { loopDurationSec, intensityFn, peakTimes };
 }
-function mkPeakTimes(count) {
-  const arr = [];
-  for (let k = 0; k < count; k++) arr.push(k * mkLoopDurationSec + mkPeakTimeInLoop);
-  return arr.filter((x) => x > 0);
-}
+
+const mkTier = realPieceTier(mountainKing);
+const vmTier = realPieceTier(valkyrieMarshal);
 
 // ---- tier setup ---------------------------------------------------------
 
 const TIER_CONFIGS = {
   // "early-stage enemies have slow, chill pieces posing little threat"
   early: { base: 0.05, peakMag: 0.3, period: 20, rampDur: 3 },
-  // mid uses the REAL Mountain King piece (below), not this synthetic shape.
-  // "middle-stage pieces have a few spikes to worry about"
-  late: { base: 0.25, peakMag: 0.85, period: 9, rampDur: 2 },
+  // mid/late use REAL pieces (above), not this synthetic shape.
   // "end-stage enemies have frequent, scarily powerful crescendos"
   final: { base: 0.35, peakMag: 1.0, period: 5, rampDur: 1.5 },
 };
@@ -175,12 +193,12 @@ const TIERS = {
     peaks: pulsePeakTimes(TIER_CONFIGS.early.period, peakCountFor(TIER_CONFIGS.early.period)),
   },
   mid: {
-    intensityFn: mkIntensityFn,
-    peaks: mkPeakTimes(Math.ceil((HORIZON_SEC + 50) / mkLoopDurationSec) + 1),
+    intensityFn: mkTier.intensityFn,
+    peaks: mkTier.peakTimes(Math.ceil((HORIZON_SEC + 50) / mkTier.loopDurationSec) + 1),
   },
   late: {
-    intensityFn: makePulseIntensityFn(TIER_CONFIGS.late),
-    peaks: pulsePeakTimes(TIER_CONFIGS.late.period, peakCountFor(TIER_CONFIGS.late.period)),
+    intensityFn: vmTier.intensityFn,
+    peaks: vmTier.peakTimes(Math.ceil((HORIZON_SEC + 50) / vmTier.loopDurationSec) + 1),
   },
   final: {
     intensityFn: makePulseIntensityFn(TIER_CONFIGS.final),
@@ -306,7 +324,8 @@ function main() {
 
   console.log('\n================ DUEL-GAUGE VIRTUAL-CLOCK BALANCE SIMULATION ================');
   console.log(`trials per combo: ${TRIALS}   dt: ${DT_SEC}s   horizon: ${HORIZON_SEC}s`);
-  console.log(`mid-tier real piece: Mountain King, loop ${mkLoopDurationSec.toFixed(1)}s, peak @ beat ${mkPeakBeat} (${mkPeakTimeInLoop.toFixed(1)}s into loop)`);
+  console.log(`mid-tier real piece: Mountain King, loop ${mkTier.loopDurationSec.toFixed(1)}s, 1 crescendo/loop`);
+  console.log(`late-tier real piece: Valkyrie Marshal, loop ${vmTier.loopDurationSec.toFixed(1)}s, ${valkyrieMarshal.dynamics.crescendos.length} crescendos/loop`);
 
   for (const tier of tierNames) {
     for (const kind of encounterKinds) {

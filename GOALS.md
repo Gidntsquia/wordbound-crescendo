@@ -2297,6 +2297,126 @@ Rules for the routine:
       King) to replace their synthetic proxy numbers with real ones.
       COMBAT JUICE's damage-landed hook remains available as a separate,
       lower-priority pickup whenever this queue is otherwise empty.
+      ORCHESTRATOR NOTE 2026-08-22 (update 11): sequenced the Valkyrie
+      Marshal's real piece -- update-10's own "Next" note, the last real
+      per-tier data gap the ticket's own VERIFY line's balance-sim
+      requirement flagged. New `js/wordbound/pieces/valkyrie-marshal.js`
+      ("Ride of the Valkyries", Wagner; PD-vetted per THEME.md's own table:
+      composed 1856, Wagner died 1883, 143 years -- safely public domain),
+      same hand-authored-transcription-not-critical-edition disclosure
+      mountain-king.js's own header carries. Deliberately scoped this run to
+      SEQUENCING THE PIECE ONLY -- same shape as the original MUSIC ENGINE
+      ticket's own "sequence at least one piece" bar, which shipped and
+      closed as its own ticket before DUEL-GAUGE COMBAT wired Mountain King
+      into a real boss def in a LATER, separate run (update-5's own
+      ORCHESTRATOR DECISION). Reskinning `boss_sovereign` (the real floor-3
+      boss def) into "The Valkyrie Marshal" the way `boss_vowelmaw` became
+      Mountain King is real, substantial remaining work of its own (per
+      update-5's own account: a load-order fix, dom-check test relocations,
+      `verify-react-qa-boss-reward.js`/`orchestrator-qa-boss-reward.js`
+      duel-aware kill-mechanism changes) -- deliberately NOT attempted
+      alongside composing the piece itself in the same hour.
+      **Piece design, per THEME.md's own text** ("no theatrics, no taunting
+      pause, just relentless forward pressure from the first note... the
+      piece barely lets up long enough to breathe" / "the most continuously
+      aggressive of the three floor bosses by design"): unlike Mountain
+      King's single continuous accelerando (one long ramp, near-silent
+      start), this piece starts loud (`dynamics.keyframes` never drops
+      below 0.5) and carries FOUR real crescendo surges across its 64 beats
+      -- 'late' tier's own "frequent, powerful crescendos" per the header
+      curve decision, genuinely distinct in shape from mid's one-ramp
+      design, not a reskin of the same curve. A driving bass ostinato
+      (one note every half-beat, zero rests) for the piece's entire length
+      makes "barely lets up" literal in the track data, not just the
+      dynamics curve. Constant fast tempo (152bpm flat, no accelerando --
+      Mountain King builds INTO its speed, this piece starts at full gallop
+      and never varies) is the one deliberate structural difference beyond
+      the dynamics shape.
+      **Wired as a true no-op everywhere** (same bar mountain-king.js was
+      held to before ITS integration run): loaded alongside mountain-king.js
+      in `wordbound.html`, `src/main.jsx`, `src/test/setup.js`,
+      `tools/build-itch.js`'s dependency list -- confirmed present in the
+      packaged itch zip listing directly, not assumed. Nothing in
+      `monsters.js`/`game.js` references it yet.
+      **Balance-sim upgrade, genuinely new value beyond just adding the
+      piece:** `test/duel-balance-simulation.js`'s 'late' tier previously ran
+      on a synthetic triangular-pulse proxy (same as 'early'/'final' still
+      do) -- refactored the script's Mountain-King-specific real-piece
+      helper (`mkIntensityFn`/`mkPeakTimes`, hardcoded to one crescendo
+      marker) into a generic `realPieceTier(piece)` that correctly handles a
+      piece with MULTIPLE crescendo markers per loop (Valkyrie Marshal's
+      four, sorted and repeated across the simulation horizon), applied to
+      BOTH mid (Mountain King, unchanged behavior -- confirmed by an
+      identical mid-tier results table before/after this refactor) and late
+      (Valkyrie Marshal, newly real). `TIER_CONFIGS.late`'s now-dead
+      synthetic config was removed rather than left orphaned.
+      **Findings (40 trials/combo, real Valkyrie Marshal data replacing the
+      synthetic late-tier proxy -- full table in
+      `test/duel-balance-simulation-results.json`):** late/regular: weak
+      0% win, average 25% win (75% loss), skilled 100% win (1.13 avg Verses
+      lost). late/boss (the Valkyrie Marshal herself): weak 0% win, average
+      0% win (100% loss -- notably harsher than mid/boss's average-bot 75%
+      win, a real and fairly steep difficulty step up between the two floor
+      bosses), skilled 93% win / 8% loss (3.08 avg Verses lost on a win).
+      Reads as a real, escalating step beyond mid per the header curve
+      decision's own intent, though the average-bot cliff between mid-boss
+      (75% win) and late-boss (0% win) is steeper than late-to-final's own
+      gap (final/boss/average is also 0% win, i.e. late and final now read
+      similarly harsh to an average bot) -- flagging this plainly as a real
+      balance observation, not a bug: worth Jaxon's eye on whether late
+      should feel distinctly easier than final or whether "last floor boss
+      before the Podium" earning near-final difficulty is the intended
+      read. Deliberately did NOT retune `duel.js`'s push constants off this
+      finding -- one data point on one real piece isn't enough to justify a
+      global rebalance, and the ticket's own established practice (update-10)
+      is to document a tuning trail rather than react to single findings.
+      **Verified:** 7 new Vitest tests
+      (`src/test/valkyrieMarshal.test.js`, real `Music.intensityAt` +
+      `Music.createSequencer` against a `FakeAudioContext`, mirroring
+      music.test.js's own convention -- no mocks of the piece data or the
+      engine): PD vetting, floor/tier tagging, monotonic well-formed
+      keyframes spanning the whole piece, the "never below 0.5" intensity
+      floor, exactly 4 crescendo markers (vs. Mountain King's 1, confirmed
+      directly rather than assumed), the unbroken bass ostinato, and a full
+      real scheduling pass through `Music.createSequencer` producing real
+      started oscillators start-to-finish. `npx vitest run`, 3 consecutive
+      full-suite runs: **142/142 every time, zero flakes** (up from 135 -- 7
+      new, all in this run's own file). `npm test` (jsdom dom-check): ALL
+      CHECKS PASSED (16/16), unaffected -- no `game.js`/monster-def change
+      this run. `npm run build`: clean, 45 modules (up from 44 -- the one
+      genuinely new module). `npm run test:react-build` (real browser,
+      built output): 2 consecutive clean runs after this run's changes (one
+      earlier run hit the pre-existing, already-characterized
+      `flipTileTo`/double-rAF-timing flake from the COMBAT JUICE ticket,
+      unrelated to anything this run touched -- confirmed by rerunning
+      clean twice with zero further code changes). `npm run test:react-qa`,
+      `npm run test:react-duel-loss`, `npm run test:mobile`, `npm run
+      test:qa`, `npm run test:music-engine`: ALL CHECKS PASSED, unaffected.
+      `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED,
+      zip listing confirmed to contain `pieces/valkyrie-marshal.js` for
+      real. `node test/duel-balance-simulation.js` run twice, byte-identical
+      JSON output (deterministic, confirmed not just assumed).
+      **Not done:** `boss_sovereign` is still "The Unabridged, Unbound," not
+      the Valkyrie Marshal -- no real boss def carries this piece, so (like
+      Mountain King before update-5) it's schedulable and balance-simmable
+      but not yet reachable by a real player. The final Beethoven's-5th
+      boss's piece remains the one entirely unsequenced tier. DUEL-GAUGE
+      COMBAT stays unchecked -- a sub-step, not full completion. No version
+      bump, per this repo's own convention. **Next:** the boss-def cutover
+      itself -- reskin `boss_sovereign` into "The Valkyrie Marshal"
+      (`.piece`, name, `pushesToDefeat`) exactly per update-5's own
+      established playbook (load-order check, `test/dom-check.js`'s
+      floor-3 boss coverage relocated the same way floor-1's was, the two
+      real-browser QA scripts' kill mechanisms made duel-aware for a
+      3rd-floor duel) -- at that point Jaxon has a SECOND real duel to
+      playtest, and the balance-sim's late-tier numbers above stop being
+      "schedulable but unreached." The final boss's piece (Beethoven's 5th,
+      four movements as fight phases per THEME.md's own note) remains the
+      largest single remaining piece of this ticket's scope, comparable to
+      composing two pieces at once given the phase-structure design work
+      it implies. COMBAT JUICE's damage-landed hook remains available as a
+      separate, lower-priority pickup whenever this queue is otherwise
+      empty.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the
