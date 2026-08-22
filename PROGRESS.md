@@ -2981,3 +2981,167 @@ Valkyrie Marshal and the final Beethoven's-5th boss still need theirs, per THEME
 own roster), (5) the virtual-clock balance sim and real Playwright duel win/loss
 checks, both blocked on (2) existing first. COMBAT JUICE remains available as
 lower-priority, opportunistic pickup, unchanged.
+
+## 2026-08-22T00:44Z — DUEL-GAUGE COMBAT: standalone Volume/Verses telegraph UI (orchestrator)
+
+Repo state note before starting: local checkout was on a detached HEAD at the prior
+run's commit; `git checkout main && git pull` confirmed it matched `origin/main`
+exactly (`ade6581`) -- no stale-branch fixup needed, just reattaching the branch ref.
+
+**Scope decision:** the previous run's own "Next" note pointed at the ink/Verses audit
++ the full game.js/CombatScreen.jsx combat-loop integration as the next step. Before
+committing to that, read `Combat.playWord`/`Game.submitWord`'s full flow
+(`js/wordbound/combat.js`, `js/wordbound/game.js` lines ~876-1140) end to end: this
+confirmed the integration is genuinely a from-scratch real-time rebuild, not a
+wiring job -- there is no `requestAnimationFrame`-style continuous loop anywhere in
+game.js today, every "turn" (player word -> monster counterattack -> render) is one
+synchronous `setTimeout`-deferred call chain, and the duel-gauge model needs a
+continuously-ticking loop reading `Music.getIntensity()` every frame regardless of
+whether a word was just played. Attempting that rebuild AND the ink/Verses
+game-wide audit (ink is read/written in ~25+ places across combat.js, events.js,
+items.js, consumables.js, achievements.js, game.js, per a full-repo grep) in one
+hourly run risked landing something half-working or, worse, leaving the existing
+turn-based combat broken mid-run. Followed this ticket's own established precedent
+(MUSIC ENGINE, then DUEL-GAUGE COMBAT's own update-1: build+verify one isolated,
+testable piece before the risky integration) one level further down: the ticket's
+TELEGRAPH bullet ("the player must SEE the music coming... swelling meter, scrolling
+dynamics ribbon") is itself a genuinely separable, presentational concern that
+doesn't need the combat loop to exist yet -- build it now as a pure component driven
+by a real `Duel` instance's shape, verified standalone, ready for a future
+integration run to just mount and feed real per-frame state into.
+
+**What I built:**
+- `src/components/VolumeGauge.jsx` (new) -- a pure presentational React component,
+  deliberately taking NO dependency on `window.Wordbound.Duel`/`Music` (never reads
+  either global) so it doesn't care whether its `duel` prop is a live engine
+  instance or a duel-shaped plain object -- documented in its own header comment as
+  useful for whichever future run builds the real per-frame render loop. Renders,
+  using THEME.md's actual named pieces (not duel.js's generic field names, per that
+  file's own "UI-facing code is where the bible's words belong" note):
+  - **"The Volume"**: a horizontal tug-of-war bar. Fill runs from the gauge's
+    center (duel.js's `GAUGE_CENTER=50`) out to the current `gauge` value --
+    colored gold (`.volume-gauge-fill-safe`) when leaning toward the enemy's end
+    (`gauge > 50`, matches the existing "safe"/gold family used elsewhere), red
+    (`.volume-gauge-fill-danger`) when leaning toward the player's end. A
+    `role="meter"` with `aria-valuemin/max/now` for accessibility.
+  - **"Verses"**: a row of pips, one per `maxHealthBlocks`, filled gold for
+    remaining health blocks and hollow for lost ones.
+  - **I-frame grace state**: while `duel.isIframeActive(now)` is true (called on
+    the real engine method when present, falling back to a plain
+    `now < duel.iframeUntil` comparison for a hand-built fixture), the track gets a
+    distinct blue glow class and a "Grace period -- the music can't touch you"
+    label appears -- the ticket's own "make i-frames visually obvious" requirement.
+  - **Parry damping**: while `now < duel.parryDampingUntil`, the fill gets an
+    additional blue `.volume-gauge-parried` class layered on top of its
+    safe/danger color, so a successful parry reads as a distinct visual state.
+  - **Upcoming-crescendo warning**: an optional `approachingCrescendoSecondsAway`
+    prop (meant to be derived by a future caller from music.js's
+    'crescendo-approaching' event payload + the sequencer's own clock) renders
+    "Crescendo in Xs" -- the da-da-da-DUM telegraph the ticket's own design target
+    names.
+  - **Boss push counter**: "Pushes N / M" shown only when `pushesToDefeat > 1`
+    (hidden for a regular's default of 1), so a regular's UI stays uncluttered
+    while a boss fight shows real progress toward its multi-push defeat.
+  New CSS section in `css/wordbound.css`, inserted right after the existing
+  `.monster-intent` rules (same combat-panel neighborhood it'll eventually sit in),
+  reusing the established palette (`#f0d789` gold / `#a03c3c`+`#e08a8a` red, the
+  same family `.ink-display`/`.monster-hp-fill` already use) and the repo's
+  existing `@media (prefers-reduced-motion: no-preference)` gating convention for
+  the crescendo-warning pop and the i-frame glow.
+- `src/components/__tests__/VolumeGauge.test.jsx` (new, 5 tests) -- drives a REAL
+  `Duel.create()` instance (from `window.Wordbound.Duel`, wired by
+  `src/test/setup.js`) through real `.tick()`/`.applyPlayerPush()`/
+  `.registerCrescendoPeak()`/`.attemptParry()` calls and asserts on the real
+  resulting DOM -- no mocked duel-shaped fixture anywhere, matching this repo's
+  established "drive the real engine, not a stand-in" convention for every other
+  `src/components/__tests__` suite. Covers: the centered/full-Verses/no-warnings
+  starting state; the fill leaning red as a real `tick()` call pushes the gauge
+  down (deliberately short of a full block loss, covered separately); the fill
+  leaning gold after a real `applyPlayerPush()`; the grace-period label + track
+  glow appearing after a REAL block loss (`tick(0, 10, 1)` at 'final' tier
+  deliberately overshoots `GAUGE_MIN` in one call, matching duel.js's own
+  documented "loses exactly one block even from a massive overshoot" behavior) and
+  disappearing again once real i-frames expire (via RTL's `rerender`, not a second
+  unmanaged `render()` call); a real parry (`registerCrescendoPeak` +
+  `attemptParry` within the real `PARRY_WINDOW_SEC`) showing the parried-fill state
+  alongside a boss's push counter and the crescendo warning together.
+  One real test-authoring mistake caught and fixed before landing, not a duel.js
+  bug: the first draft's "leans danger" test used `tick(0, 2, 1)` at 'final' tier,
+  which happens to drive the gauge to EXACTLY `GAUGE_MIN` (25 pts/sec x 2s = 50,
+  the full center-to-edge distance) -- duel.js correctly treats that as a block
+  loss (recenters the gauge to 50, the opposite of "leaning danger"), so the
+  assertion was actually wrong, not duel.js. Caught by running the test (it failed
+  with a `50 !== <expected less-than-50>`, not a false green) rather than assumed;
+  fixed by picking `dt=1` instead (lands at gauge=25, strictly between center and
+  the edge) with the arithmetic commented inline so the next person touching this
+  test doesn't repeat the same mistake.
+- No `game.js`, `combat.js`, `duel.js`, or `CombatScreen.jsx` changes this run --
+  `VolumeGauge.jsx` is imported by nothing outside its own test file, confirmed by
+  `npm run build` staying at exactly 42 modules (unchanged from the prior run's
+  build), the same "true no-op, nothing calls into the new thing yet" bar
+  music.js/duel.js were each held to before their own integration runs.
+
+**Deliberately NOT done this run (real, open scope, not hidden):**
+- The ink/Verses audit + decision (this ticket's own open call from update-1,
+  restated in GOALS.md's note above) -- untouched, no ink-related code read or
+  written this run beyond the read-only grep used to size the audit for the scope
+  decision above.
+- No real-time tick loop in `CombatScreen.jsx` or anywhere else -- `VolumeGauge` has
+  nowhere to mount yet. This run's own investigation narrowed that future work: it
+  will need an actual `requestAnimationFrame` (or equivalent) loop, since none
+  exists in the current turn-based combat flow.
+- No Largo control surface, no boss `stageTier`/piece assignment for the Valkyrie
+  Marshal or final boss, no virtual-clock balance sim, no real-browser Playwright
+  duel win/loss checks -- all still blocked on the integration loop existing, per
+  update-1's own note, unchanged by this run.
+
+**Verified:**
+- `npx vitest run src/components/__tests__/VolumeGauge.test.jsx`: 5/5.
+- Full `npx vitest run`, 3 consecutive runs: **99/99 every time, zero flakes** (up
+  from 94 pre-existing -- 5 new, all in this run's new file; the
+  STRUCTURAL-14/15/16/N flake class stays fixed).
+- `npm test` (jsdom dom-check, `wordbound.html`): ALL CHECKS PASSED -- unaffected,
+  no `game.js`/`wordbound.html` change this run.
+- `npm run build`: clean, 42 modules -- unchanged from the prior run's build,
+  confirming `VolumeGauge.jsx` is genuinely unreferenced anywhere yet.
+- `npm run test:react-build` (real browser, built React output, not dev server):
+  ALL CHECKS PASSED, unaffected -- the full real-word playthrough, drag-reorder,
+  and touch-drag checks all still pass unchanged.
+- `npm run test:react-qa`, `npm run test:mobile`, `npm run test:qa`, `npm run
+  test:music-engine`: ALL CHECKS PASSED, unaffected.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED, unaffected
+  (the itch build packages `wordbound.html`'s dependency tree only, which never
+  touches `src/`).
+
+**Not verified / explicitly out of scope:** any real-browser rendering of
+`VolumeGauge` itself (nothing mounts it yet -- Vitest/RTL is the only place it's
+been rendered); visual/UX feel of the gauge (Jaxon's call, as always, once it's
+actually on screen during a real duel); the crescendo-warning prop's real derivation
+from a live `music.js` sequencer (this run only proved the component renders it
+correctly given a number -- computing that number from a real
+'crescendo-approaching' event + a live clock is integration-run work).
+
+**Current state:** `src/components/VolumeGauge.jsx` exists, is fully styled, and is
+unit-tested against a real `Duel` engine instance covering every visual state the
+ticket's TELEGRAPH bullet asks for (the gauge itself, Verses, i-frame grace, parry,
+the upcoming-crescendo warning, boss multi-push) -- but nothing in the live app
+mounts it yet, confirmed as a true no-op via the unchanged build module count.
+`wordbound.html` and the rest of the React app remain fully intact and unaffected.
+Ticket stays unchecked -- this is another isolated, engine/UI-first slice of a
+multi-run ticket, same shape as MUSIC ENGINE and this ticket's own update-1. **Next:**
+the real remaining scope is now more precisely bounded than it was after update-1 --
+(1) the ink/Verses audit (still completely open, still this ticket's own explicit
+call to make), (2) build the actual real-time tick loop in `CombatScreen.jsx`
+(`requestAnimationFrame` reading a live `Music` sequencer's `getIntensity()` into
+`Duel.tick`, replacing `Combat.playWord`'s direct `monster.hp` mutation with
+`Duel.applyPlayerPush` + a caller-side damage-on-push-won mapping, wiring
+`'crescendo-peak'` to `registerCrescendoPeak` and word-submit to `attemptParry`),
+(3) mount `VolumeGauge` into that loop, passing it real per-frame `duel`/`now`/
+`approachingCrescendoSecondsAway` values -- this piece is now smaller than it would
+have been, since the component itself is done and tested, (4) the Largo control
+surface, (5) real `stageTier`/piece assignment for the Valkyrie Marshal and final
+Beethoven's-5th boss (both still need actual sequenced note data -- a substantial
+task of its own, comparable to MUSIC ENGINE's "sequence at least one piece" bar),
+(6) the virtual-clock balance sim and real Playwright duel win/loss checks, both
+still blocked on (2) existing first. COMBAT JUICE remains available as
+lower-priority, opportunistic pickup, unchanged.

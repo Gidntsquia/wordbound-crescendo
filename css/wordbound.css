@@ -583,6 +583,90 @@ h2 {
 .monster-intent { font-size: 0.85rem; color: #d8b088; font-weight: bold; margin-top: 6px; }
 .monster-intent.intent-signature { color: #e08a8a; }
 
+/* DUEL-GAUGE COMBAT ticket (GOALS.md, 2026-08-21 header COMBAT MODEL
+   decision): the Volume telegraph -- src/components/VolumeGauge.jsx. Not
+   yet mounted anywhere in the live app (see that component's own header
+   comment); styled now so the integration run can drop it in without a
+   styling pass of its own. Colors follow the existing combat palette:
+   #f0d789 gold for "safe"/enemy-leaning, #e08a8a/#a03c3c red for "danger"/
+   player-leaning (same family as .ink-display and .monster-hp-fill). */
+.volume-gauge { margin-bottom: 12px; }
+.volume-gauge-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.85rem;
+  color: #b8ac8a;
+  margin-bottom: 4px;
+}
+.volume-crescendo-warning {
+  color: #e08a8a;
+  font-weight: bold;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .volume-crescendo-warning { animation: comboPop 0.25s ease-out; }
+}
+.volume-gauge-track {
+  position: relative;
+  background: #14110b;
+  border: 1px solid #3a3226;
+  border-radius: 4px;
+  height: 16px;
+  overflow: hidden;
+}
+.volume-gauge-center-mark {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #3a3226;
+}
+.volume-gauge-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transition: left 0.15s linear, width 0.15s linear;
+}
+.volume-gauge-fill-safe { background: #f0d789; }
+.volume-gauge-fill-danger { background: #a03c3c; }
+.volume-gauge-fill.volume-gauge-parried { background: #7fc4e8; }
+.volume-gauge-track.volume-gauge-iframe {
+  border-color: #7fc4e8;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .volume-gauge-track.volume-gauge-iframe {
+    box-shadow: 0 0 8px rgba(127, 196, 232, 0.7);
+  }
+}
+.volume-gauge-grace {
+  font-size: 0.8rem;
+  color: #7fc4e8;
+  font-style: italic;
+  margin-top: 4px;
+}
+.verses-display {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.verse-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: #f0d789;
+  border: 1px solid #3a3226;
+}
+.verse-pip.verse-pip-lost {
+  background: transparent;
+  border-color: #5a5040;
+}
+.pushes-display {
+  font-size: 0.8rem;
+  color: #b8ac8a;
+  margin-top: 4px;
+}
+
 /* Hexed tile: locked for the player's current turn (Hex monster intent).
    Same greyscale-lock language a disabled control uses elsewhere. */
 .letter-tile.tile-hexed {
