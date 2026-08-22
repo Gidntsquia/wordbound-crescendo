@@ -6890,3 +6890,114 @@ before it.
 small, self-contained, and unblocks wiring these pieces (and any future
 regular) into the live game. DEPLOY is now genuinely closed (see above) --
 no future run needs to revisit it.
+
+---
+
+## 2026-08-22T14:50Z -- REGULAR ENEMIES: dom-check.js real-floor-RNG audit
+## (real remaining scope (1)) done
+
+**What this closes:** the previous two runs' own demonstrated blocker --
+wiring a `.piece` onto a real weak-tier `MONSTER_DEFS` entry makes it
+reachable via real floor-generation RNG, and any `test/dom-check.js` combat-
+entry block that doesn't route to a known non-`.piece` def crashes hard
+(`initAudioContext()` throws -- no `window.AudioContext` in jsdom). This
+ticket's own prior note named exactly 2 blocks (the Volatile-tile next-fight
+reset, the MAGNIFICENT-bonus-gold check) as confirmed examples and called
+the audit "small, self-contained." It was bigger than that framing: the
+audit found the file's own FIRST-EVER combat entry (New Run -> character
+select -> the first node-pill click) is the single biggest exposure --
+`Game.startRun`'s `Floor.generateBranchingFloor` picks EVERY row-0 start
+node's regular defId (2-3 lanes, all real RNG) before any test code runs at
+all, gating the entire rest of the 4500-line file -- plus a NEW class of
+hazard the prior note didn't name: 5 blocks that pick
+`Object.keys(MONSTER_DEFS)[0]` (fragile, relies on insertion order) and 5
+MORE blocks that hardcode a literal regular defId ('slime' x4, 'sentinel'
+x1) which LOOK pinned-safe but aren't -- nothing stops 'slime' or 'sentinel'
+specifically from being the first regular a future run wires a `.piece`
+onto.
+
+**Confirmed the hazard is real, not theorized, before fixing anything:**
+temporarily wired `.piece: Pieces.morningMood, pushesToDefeat: 1` onto
+'slime' (weak) directly in `js/wordbound/monsters.js` (never committed) and
+ran `npm test` 4 times pre-fix: 4/4 crashed with the exact
+`SCRIPT CRASHED: TypeError: (window.AudioContext || window.webkitAudioContext)
+is not a constructor` a prior run's own note already documented -- this
+time at the 'slime'-hardcoded `killWith` helper (a different call site than
+originally demonstrated, confirming this is a systemic pattern across the
+file, not one fixable line). Repeated with 'sentinel' (strong/elite) to
+confirm the elite path has the identical exposure.
+
+**Fix:** two small shared helpers added at the top of `test/dom-check.js`:
+`firstSafeDefId(defs, tier)` (first def without `.piece`, optionally
+tier-filtered) and `pinNodeAwayFromDuelMode(node, Monsters)` (rewrites a
+combat/elite node's `defId` to a safe same-tier alternative ONLY if its
+current def actually carries `.piece` -- a true no-op against today's real
+`MONSTER_DEFS`, since none do yet). Applied at every real exposure point:
+(1) right after character-select, before the file's first-ever node-pill
+click, pins EVERY node in the freshly-generated `state.floor.nodes` (all
+branching-map start lanes, not just one) -- since this same array is never
+regenerated for the rest of the file (the two spots that call
+`Game._advanceFloor()` for a real check save/restore `state.floor` around
+it), this single early pin transitively covers the two "next uncleared
+node" blocks too, but (2) defense-in-depth pins were added directly in
+those two named blocks anyway, since the ticket's own audit called them out
+by name; (3) all 5 `Object.keys(MONSTER_DEFS)[0]` picks replaced with
+`firstSafeDefId(MONSTER_DEFS)` (identical result today); (4) all 5
+hardcoded-literal node objects ('slime' x4, 'sentinel' x1) now call
+`pinNodeAwayFromDuelMode` on the constructed node right after creation.
+Left the boss side untouched -- `'boss_unabridged'` picked deliberately
+everywhere as the one non-`.piece` boss is already the correct, intentional
+analog (a fixed per-boss fact across only 4 bosses total, not a "next
+content" moving target the way regulars are), not a gap this run needed to
+touch.
+
+**VERIFIED, this run:**
+- Re-ran the SAME temporary `.piece` injection (both 'slime' and
+  'sentinel', each in a separate isolated pass) WITH the fix in place:
+  `npm test` clean 5/5 with 'slime' duel-ified, clean 3/3 with 'sentinel'
+  duel-ified -- both previously 4/4 (spot-checked) reproducible crashes,
+  now genuinely tolerated.
+- Reverted the injection; confirmed `git diff js/wordbound/monsters.js`
+  came back completely empty afterward -- nothing shipped to game content
+  this run, this is test-harness-only.
+- Against the REAL, unmodified `monsters.js` (today's actual state, zero
+  `.piece` regulars): `npm test` clean on 2 separate runs; 1 separate run
+  hit the SAME pre-existing "STOLEN LETTERS boss-kill ends in GAME_OVER
+  instead of TILE_REWARD" flake this file's own history already documents
+  multiple times under different names ("audio: dying to a counterattack",
+  the earlier "STOLEN LETTERS flake" note). Isolated via `git stash` back to
+  the unmodified base: reran 5 times with none of this run's changes
+  present, all 5 clean -- consistent with this being real, already-
+  documented pre-existing flakiness recurring at its known rate, not
+  something this run's change caused. Additional confirmation: with zero
+  `.piece` regulars anywhere, `firstSafeDefId(MONSTER_DEFS)` returns the
+  IDENTICAL first key `Object.keys(MONSTER_DEFS)[0]` already returned --
+  this run's change is a byte-for-byte behavioral no-op against today's
+  real game state, so it cannot be the cause of a new flake.
+- `npm run test:react`: 183/183, unaffected (no `src/` file touched).
+- `npm run build`: clean, unaffected (44 modules).
+- `node --check test/dom-check.js`: clean.
+
+**Not done, honest gaps:** this closes real remaining scope (1) in full --
+broader than the prior note's own framing, since the literal-defId and
+`Object.keys()[0]` hazards weren't named there but are the same class of
+bug and are now fixed too. Real remaining scope (2) (wire the 3 landed
+early-tier pieces into real weak-tier `MONSTER_DEFS` entries +
+`retiredFromPool` + `floor.js`'s pool filter) and (3) (compose the 6
+mid/late regulars) are still untouched -- this run was scoped to the audit
+alone, per its own "small, self-contained" framing. Version NOT bumped --
+nothing shipped to real gameplay this run. This is a test-only change, so
+the LIVE DEPLOY refresh rule does not apply (no game code/assets changed).
+
+**Genuinely-Jaxon-only:** none this run -- pure test-infrastructure hardening.
+
+**Next:** real remaining scope (2) is now genuinely unblocked -- wiring a
+`.piece` onto a real weak-tier `MONSTER_DEFS` entry (the exact diff a
+concurrent run's own history already has, per the prior note) should no
+longer crash `npm test`, since every combat-entry block in
+`test/dom-check.js` now tolerates it. A future run should still run the
+FULL verification suite after that wiring lands rather than just trust this
+audit -- this run's confirmation used a synthetic/reverted injection on
+'slime'/'sentinel' specifically, not the real def a future run will
+actually pick, and the `retiredFromPool`/floor-pool-filter half of scope
+(2) is still fully unbuilt.

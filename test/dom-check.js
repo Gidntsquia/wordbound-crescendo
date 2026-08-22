@@ -39,6 +39,34 @@ function check(label, cond) {
   }
 }
 
+// REGULAR ENEMIES ticket (GOALS.md, "dom-check.js real-floor-RNG audit"):
+// jsdom has no window.AudioContext, so entering a combat node whose real
+// MONSTER_DEFS entry carries a `.piece` field crashes hard the instant it's
+// entered -- Game.startCombat routes straight into Game.startDuelFight ->
+// initAudioContext() -> `new AudioContext()`, which throws -- demonstrated
+// directly by a prior run wiring a piece into a live weak-tier def and
+// hitting "SCRIPT CRASHED: TypeError: ... is not a constructor" (see
+// PROGRESS.md). No regular def carries `.piece` today (only the duel-mode
+// bosses do, and every boss-facing block in this file already pins an
+// explicit turn-based-only `defId` like 'boss_unabridged', per the
+// "duel fights are React-only" decision), so this is a true no-op right
+// now -- but `Floor.generateBranchingFloor`'s `pickCombatDefId`/
+// `pickEliteDefId` choose a REGULAR's defId via real RNG, and the moment any
+// regular gets a `.piece` (this ticket's own next content step), every block
+// below that enters combat off a real-floor-generated node rather than a
+// literal defId would silently start crashing this mandatory gate. Pin
+// defensively now rather than leave that landmine for a future run.
+function firstSafeDefId(defs, tier) {
+  return Object.keys(defs).find(function (id) {
+    return !defs[id].piece && (!tier || defs[id].tier === tier);
+  });
+}
+function pinNodeAwayFromDuelMode(node, Monsters) {
+  if (!node || (node.type !== 'combat' && node.type !== 'elite')) return;
+  var def = Monsters.MONSTER_DEFS[node.defId];
+  if (def && def.piece) node.defId = firstSafeDefId(Monsters.MONSTER_DEFS, def.tier);
+}
+
 // STOLEN LETTERS META-PROGRESSION ticket (GOALS.md): polls the real state
 // instead of a flat sleep, same convention src/test/gameHelpers.js's own
 // waitForScreen already established for the Vitest suite -- a flat sleep
@@ -1350,6 +1378,18 @@ async function main() {
     await new Promise((r) => setTimeout(r, 50));
   }
 
+  // Game.startRun (fired by the character-option click above) already
+  // generated the real floor-1 node graph via real RNG at this point --
+  // grab state now (moved up from below the first node-pill click) so every
+  // one of its 'combat'/'elite' nodes (there are 2-3 reachable start nodes on
+  // a branching floor, not just one) can be pinned away from duel mode
+  // BEFORE that click can reach one. See pinNodeAwayFromDuelMode's own
+  // comment above for why this matters.
+  const state = window.Wordbound.Game._state;
+  if (state.floor && state.floor.nodes) {
+    state.floor.nodes.forEach((n) => pinNodeAwayFromDuelMode(n, window.Wordbound.Monsters));
+  }
+
   // Verify game-over and victory screens are hidden (should never be visible at this point)
   const screenGameOver = document.getElementById('screen-game-over');
   const screenVictory = document.getElementById('screen-victory');
@@ -1364,7 +1404,6 @@ async function main() {
   }
   check('entering the first node produces zero errors', errors.length === 0);
 
-  const state = window.Wordbound.Game._state;
   check('combat is active after entering a combat node', state.combatActive === true);
   check('rack has tiles', state.player.rack.length > 0);
 
@@ -3058,6 +3097,11 @@ async function main() {
     if (nextCombatIndex === -1) {
       console.log('SKIP volatile next-fight-reset check -- no uncleared combat node left on this floor (layout-dependent, not a bug)');
     } else {
+      // Defense in depth: the run-start pin above already covers this exact
+      // node (same state.floor.nodes array, never regenerated), but pin
+      // again here too -- this is one of the two blocks the REGULAR
+      // ENEMIES ticket's own audit named directly.
+      pinNodeAwayFromDuelMode(nodes[nextCombatIndex], window.Wordbound.Monsters);
       state.currentNodeId = nodes[nextCombatIndex].id;
       state.screen = 'RUN';
       state.combatActive = false;
@@ -3194,6 +3238,7 @@ async function main() {
       state.screen = 'RUN';
       state.pendingEventSkipNextCombat = false;
       const node = { id: 'node-wager-combat', type: 'combat', defId: 'slime', cleared: false };
+      pinNodeAwayFromDuelMode(node, Monsters); // 'slime' is only safe today -- see pinNodeAwayFromDuelMode's comment
       state.floor.nodes.push(node);
       state.currentNodeId = node.id;
       window.Wordbound.Game.enterCurrentNode();
@@ -3316,6 +3361,7 @@ async function main() {
       state.screen = 'RUN';
       state.pendingEventSkipNextCombat = false;
       const node = { id: 'node-damagelanded-combat', type: 'combat', defId: 'slime', cleared: false };
+      pinNodeAwayFromDuelMode(node, window.Wordbound.Monsters); // 'slime' is only safe today -- see pinNodeAwayFromDuelMode's comment
       state.floor.nodes.push(node);
       state.currentNodeId = node.id;
       window.Wordbound.Game.enterCurrentNode();
@@ -3392,6 +3438,7 @@ async function main() {
       const savedItems = state.player.items;
       state.player.items = ['fortissimo'];
       const node = { id: 'node-fortissimo-combat', type: 'combat', defId: 'slime', cleared: false };
+      pinNodeAwayFromDuelMode(node, window.Wordbound.Monsters); // 'slime' is only safe today -- see pinNodeAwayFromDuelMode's comment
       state.floor.nodes.push(node);
       state.currentNodeId = node.id;
       window.Wordbound.Game.enterCurrentNode();
@@ -3433,6 +3480,7 @@ async function main() {
       const savedItems = state.player.items;
       state.player.items = ['inverted_score'];
       const node = { id: 'node-inverted-score-combat', type: 'combat', defId: 'slime', cleared: false };
+      pinNodeAwayFromDuelMode(node, window.Wordbound.Monsters); // 'slime' is only safe today -- see pinNodeAwayFromDuelMode's comment
       state.floor.nodes.push(node);
       state.currentNodeId = node.id;
       window.Wordbound.Game.enterCurrentNode();
@@ -3478,6 +3526,10 @@ async function main() {
         if (idx !== -1) nodes[idx].cleared = false;
       }
       if (idx !== -1) {
+        // Defense in depth, same reasoning as the volatile-reset block above
+        // -- this is the second of the two blocks the REGULAR ENEMIES
+        // ticket's own audit named directly.
+        pinNodeAwayFromDuelMode(nodes[idx], window.Wordbound.Monsters);
         state.currentNodeId = nodes[idx].id;
         state.screen = 'RUN';
         state.pendingEventSkipNextCombat = false;
@@ -3556,6 +3608,7 @@ async function main() {
     state.screen = 'RUN';
     state.pendingEventSkipNextCombat = false;
     const eliteNode = { id: 'node-elite-test', type: 'elite', defId: 'sentinel', eliteTraitId: 'alphabetic', cleared: false };
+    pinNodeAwayFromDuelMode(eliteNode, Monsters); // 'sentinel' is only safe today -- see pinNodeAwayFromDuelMode's comment
     state.floor.nodes.push(eliteNode);
     state.currentNodeId = eliteNode.id;
 
@@ -3618,7 +3671,7 @@ async function main() {
     // Fresh regular (non-boss, non-elite) combat to work against.
     state.screen = 'RUN';
     state.combatActive = false;
-    const regDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
+    const regDefId = firstSafeDefId(Monsters.MONSTER_DEFS); // pinned away from any future duel-mode regular, see pinNodeAwayFromDuelMode's comment
     const audioNode = { id: 'audio-test-combat', type: 'combat', defId: regDefId, cleared: false };
     state.floor.nodes.push(audioNode);
     state.currentNodeId = audioNode.id;
@@ -3862,7 +3915,7 @@ async function main() {
 
     state.screen = 'RUN';
     state.combatActive = false;
-    const inkDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
+    const inkDefId = firstSafeDefId(Monsters.MONSTER_DEFS); // pinned away from any future duel-mode regular, see pinNodeAwayFromDuelMode's comment
     const inkNode = { id: 'ink-spend-test-combat', type: 'combat', defId: inkDefId, cleared: false };
     state.floor.nodes.push(inkNode);
     state.currentNodeId = inkNode.id;
@@ -3993,7 +4046,7 @@ async function main() {
       document.getElementById('node-map').classList.contains('hidden') === false);
 
     // (b) mid-combat -- the bug also reproduced here, not just on the node map.
-    const stackDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
+    const stackDefId = firstSafeDefId(Monsters.MONSTER_DEFS); // pinned away from any future duel-mode regular, see pinNodeAwayFromDuelMode's comment
     const stackNode = { id: 'panel-stack-test-combat', type: 'combat', defId: stackDefId, cleared: false };
     state.floor.nodes.push(stackNode);
     state.currentNodeId = stackNode.id;
@@ -4111,7 +4164,7 @@ async function main() {
     // anything syncs -- exercised here via a real (non-boss) kill, which
     // also runs the sync per game.js's own onMonsterDefeated wiring.
     Achievements.unlock('massive_overkill'); // paired with 'C' in stolenLetters.js
-    const regularDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
+    const regularDefId = firstSafeDefId(window.Wordbound.Monsters.MONSTER_DEFS); // pinned away from any future duel-mode regular, see pinNodeAwayFromDuelMode's comment
     const regularNode = { id: 'stolen-letters-test-regular', type: 'combat', defId: regularDefId, cleared: false };
     state.floor.nodes.push(regularNode);
     state.currentNodeId = regularNode.id;
@@ -4171,7 +4224,7 @@ async function main() {
     state.screen = 'RUN';
     state.combatActive = false;
     state.pendingEventSkipNextCombat = true;
-    const regDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
+    const regDefId = firstSafeDefId(window.Wordbound.Monsters.MONSTER_DEFS); // pinned away from any future duel-mode regular, see pinNodeAwayFromDuelMode's comment
     const regNode = { id: 'skip-test-combat', type: 'combat', defId: regDefId, cleared: false };
     state.floor.nodes.push(regNode);
     state.currentNodeId = regNode.id;
@@ -4250,7 +4303,7 @@ async function main() {
     check('boss-skip/floor2: the skip flag is STILL pending after the boss fight', state.pendingEventSkipNextCombat === true);
     // The next regular combat on floor 3 is now skipped by the surviving flag.
     state.combatActive = false;
-    const followDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
+    const followDefId = firstSafeDefId(window.Wordbound.Monsters.MONSTER_DEFS); // pinned away from any future duel-mode regular, see pinNodeAwayFromDuelMode's comment
     const followNode = { id: 'skip-test-follow-combat', type: 'combat', defId: followDefId, cleared: false };
     state.floor.nodes.push(followNode);
     state.currentNodeId = followNode.id;
