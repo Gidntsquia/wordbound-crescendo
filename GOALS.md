@@ -2974,7 +2974,7 @@ Rules for the routine:
       acceptance bar (VERIFY line), which is fully met for every boss that
       currently has real entrance content.
 
-- [ ] STOLEN LETTERS META-PROGRESSION: the permanent progression. The faction has
+- [x] STOLEN LETTERS META-PROGRESSION: the permanent progression. The faction has
       stolen part of the alphabet; recover letters permanently across runs.
       - Starting stolen set: curated so early runs are playable but visibly
         incomplete (start by stealing e.g. J K Q V X Z + 2-3 mid-tier letters —
@@ -2990,6 +2990,158 @@ Rules for the routine:
         winnable pre-recovery.
       VERIFY: `npm test` (stolen letters absent from draws, recovery persists
       across a simulated reload, display correct), sim sanity, `npm run test:qa`.
+      ORCHESTRATOR NOTE 2026-08-22: built and verified end to end. New
+      `js/wordbound/stolenLetters.js` module -- see its own header comment for
+      the full reasoning (read that before touching any of this again), summarized
+      here:
+      - STARTING_STOLEN = ['C','H','J','K','Q','V','W','Z'] (8 letters). K/V/Z are
+        3 of THEME.md's own 4 boss-hostage proposals, for the 3 real, reachable,
+        reskinned bosses (Mountain King/K, Valkyrie Marshal/V, the Maestro/Z) --
+        recovered by defeating that specific boss. THEME.md's 4th proposal, X
+        (Death, the Fiddler), is DELIBERATELY EXCLUDED: that boss is floor 2's
+        still-unreskinned placeholder (`boss_unabridged`, no bible identity, no
+        real `.piece` -- same gap BOSS ENTRANCE CUTSCENES's own note already
+        flagged). Stealing X now with no boss able to recover it would make one
+        letter permanently unrecoverable until a future run reskins floor 2 --
+        worse than not stealing it yet. C/H/J/Q/W (no boss tied to them) are each
+        recovered instead by one of achievements.js's 5 EXISTING achievements
+        (the ticket's own "optional extra recoveries" bullet) -- an arbitrary
+        pairing, flagged for Jaxon's taste like every naming/tuning call in this
+        repo. E is never stolen, per the ticket's own explicit warning.
+      - A CHARACTER'S FIXED STARTING DECK IS DELIBERATELY NOT FILTERED --
+        THEME.md's own "All you have left is your Rack... still yours" reads
+        those tiles as the player's own kept property, predating the theft, not
+        part of the world supply the Fermata raided. This also sidesteps a real
+        conflict found while designing the set: the Scribe's starting deck
+        (characters.js) already carries K/Z (and X) as its whole signature
+        rare-letter identity -- filtering starting decks would have gutted ONE
+        character's design on its own, wildly disproportionate to the other two,
+        and rebalancing a character isn't this ticket's job. Mechanically this
+        needed zero special-case code: `createCharacterDeck` builds starting
+        tiles straight from `characterDef.deckLetters` via `Tiles.createTile`,
+        never through the frequency-pool path this ticket filters -- confirmed
+        by reading the code before assuming an exemption was needed.
+      - `js/wordbound/tiles.js`: the shared letter-frequency pool (both
+        `rollRewardOptions` -- post-fight/shop tile rewards -- and
+        `rollVariantTile` -- the shop's premium tile -- already funneled through
+        ONE function) now filters out any currently-stolen letter, recomputed
+        fresh on every call (not memoized) so a letter recovered mid-run is
+        reflected immediately, per the ticket's own "recover... permanently"
+        intent.
+      - `js/wordbound/game.js`: `onMonsterDefeated` calls
+        `StolenLetters.recoverByBossDefId(state.monster.defId)` on a boss kill
+        and `StolenLetters.syncFromAchievements()` unconditionally (any of the 5
+        paired achievements could unlock on a REGULAR kill too); `endRun` also
+        syncs on victory specifically, since `clear_a_run` can only unlock there
+        (a run's last boss kill resolves to TILE_REWARD first, VICTORY only
+        fires later once its item is claimed/skipped). `renderMainMenu` gained
+        `renderAlphabetDisplay` -- all 26 letters, stolen ones struck through/
+        dimmed, recovered ones gold-highlighted, wired into
+        `wordbound.html`/`css/wordbound.css` (`#alphabet-display`).
+      - `src/components/MainMenu.jsx`: a React `AlphabetDisplay` component doing
+        the same render, off the same real `window.Wordbound.StolenLetters`
+        module (no reimplemented logic, same convention as its achievements
+        block).
+      - A REAL, PREVIOUSLY-LATENT BUG found and fixed, not papered over:
+        `achievements.js`'s own `reset()` called `localStorage.removeItem`
+        UNGUARDED (unlike its sibling `loadProgress`/`saveProgress`, which both
+        already guard `typeof localStorage === 'undefined'`) -- a real crash
+        risk in jsdom/private-browsing/storage-disabled contexts, just never hit
+        before because nothing in this repo's test suite called
+        `Achievements.reset()` until this ticket's own dom-check.js block did.
+        Fixed with the same guard its siblings already use.
+      - Also fixed a real, previously-unflagged omission the exact same way
+        BOSS ENTRANCE CUTSCENES's own run caught one: `tools/build-itch.js`'s
+        hardcoded dependency list needed `stolenLetters.js` added -- caught this
+        time by testing `build:itch`/`test:itch-build` proactively BEFORE
+        considering the ticket done, per that earlier lesson, rather than
+        discovering it after the fact again.
+      **Verified:**
+      - `npm test` (jsdom dom-check): ALL CHECKS PASSED, 5 consecutive clean
+        runs after a real timing bug was found and fixed (see below). New block
+        confirms: a fresh state starts with exactly the 8 designed stolen
+        letters; E is never stolen; 600 reward/shop tile rolls (200
+        reward-batches of 3 + 200 premium-variant singles) never produced a
+        stolen letter; the Scribe's starting deck still carries K/Z (the
+        exemption is real, not accidental); the real hostage-mapping function
+        maps `boss_vowelmaw` -> K; `onMonsterDefeated`'s actual wiring recovers
+        the right letter on a real boss kill (proven via a temporarily
+        redirected function call onto the audio-safe `boss_unabridged`, since
+        every REAL cutscene/hostage boss carries a `.piece` and crashes jsdom's
+        missing `window.AudioContext` via `Game.startDuelFight` -- the same
+        hazard every other boss-related block in this file already documents);
+        a recovered letter reappears in fresh reward rolls; an unlocked
+        achievement recovers its paired letter on the next kill's sync;
+        `saveProgress`/`loadProgress` are safe no-ops under jsdom's real
+        `file://`-url environment (confirmed directly: `typeof
+        dom.window.localStorage === 'undefined'` there -- the exact same
+        limitation `achievements.js` already documents, so real persistence is
+        proven in Vitest instead, see below).
+      - **A real timing bug found and fixed while stabilizing this block, not
+        a flake papered over with a longer sleep:** the two new fight-and-check
+        sequences initially used a flat `setTimeout(800)` (matching this file's
+        own dominant convention) and passed 3 runs, then failed inconsistently.
+        Root-caused rather than re-guessing a bigger number: `state.screen` was
+        still `'TILE_REWARD'` left over from an EARLIER kill in the same block
+        (never reset to `'RUN'` before entering the next node, unlike the
+        established pattern elsewhere in this file) -- a flat sleep can't
+        distinguish "still stale from before" from "genuinely resolved," so the
+        checks sometimes ran before the real kill had actually finished
+        resolving. Fixed two ways: added `state.screen = 'RUN'` before each new
+        node entry (the real fix), and added a local `waitForScreen` poll
+        helper (mirroring `gameHelpers.js`'s own Vitest-side one) instead of a
+        flat sleep, so the wait is now correct-by-construction rather than
+        tuned to a hopefully-big-enough number. 5 consecutive clean full-suite
+        runs after both fixes, zero flakes.
+      - `npx vitest run`, several consecutive full-suite runs: 165/165 (up from
+        162 -- 3 new tests in `MainMenu.test.jsx`'s new `AlphabetDisplay`
+        describe block, covering render/recovered-highlight/and REAL
+        localStorage persistence across a simulated reload -- Vitest's jsdom
+        environment has a working `localStorage`, confirmed directly, unlike
+        dom-check's `file://` one, so this is where the ticket's "recovery
+        persists across a simulated reload" bullet is actually proven for
+        real, not just as a safe-no-op). One run hit the pre-existing,
+        already-characterized `duelIntegration.test.js` full-suite timing flake
+        (COMBAT JUICE's own note) -- confirmed unrelated.
+      - `npm run build`: clean, 50 modules (up from 48 -- `stolenLetters.js` +
+        no new React module, `AlphabetDisplay` lives inside `MainMenu.jsx`).
+      - `npm run test:mobile`: ALL CHECKS PASSED (touched CSS + the main-menu
+        DOM, mandatory) -- confirmed no overflow at 375/414px with the new
+        26-letter grid visible.
+      - `npm run test:qa` + `npm run test:react-qa`: ALL CHECKS PASSED, full
+        real-browser runs start-to-VICTORY across all 4 floors -- **this is
+        the ticket's own "sim check: bot runs... confirm the game is winnable
+        pre-recovery" bar, satisfied for real**: every tile reward/shop offer
+        across both complete playthroughs drew from the real 8-letter-filtered
+        pool (nothing in either script resets/bypasses `StolenLetters`), and
+        both runs won. NOT a bulk statistical bot sim across many seeds --
+        `test/balance-simulation.js` (the only script built for that) is
+        confirmed PRE-EXISTING BROKEN, unrelated to this ticket (crashes on
+        `Game.startDuelFight`'s `initAudioContext()` in jsdom, the same
+        real-duel-boss/no-`AudioContext` hazard this whole file already
+        documents at length -- reproduced on the unmodified base commit before
+        touching anything). Fixing that script is real, separate, out-of-scope
+        work; flagged here rather than silently left for a future run to
+        rediscover.
+      - `npm run test:react-build`, `npm run test:react-duel-loss`, `npm run
+        test:music-engine`: ALL CHECKS PASSED, unaffected.
+      - `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+        after adding `stolenLetters.js` to the dependency list up front (see
+        the real-bug note above for why this needed to be tested proactively).
+      Version bumped v0.4 -> v0.5 (a completed feature), all three
+      version-string locations updated together.
+      **Not done / honest gaps:** the achievement-letter pairing (C/H/J/Q/W)
+      is arbitrary flavor with no thematic justification -- worth a better
+      pairing if Jaxon has one. `test/balance-simulation.js`'s pre-existing
+      brokenness (noted above) means no MULTI-SEED statistical winnability
+      proof exists yet, only the two real single-seed full runs described
+      above -- a future run fixing that script (likely needs the same
+      "audio-safe boss" or a `window.AudioContext` stub treatment every other
+      real-duel-boss test in this repo has needed) would be valuable, separate
+      work. Whichever run reskins floor 2's boss into its bible identity
+      (Death, the Fiddler / Danse Macabre) should add X to `STARTING_STOLEN`
+      and its `BOSS_HOSTAGE_LETTERS` mapping together, per this ticket's own
+      scope note.
 
 - [ ] SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS (Jaxon, 2026-08-21): the friendly
       faces of the words side are famous dead authors.

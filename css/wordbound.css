@@ -188,6 +188,53 @@ body.floor-4 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50%
   margin: 0 0 16px;
 }
 
+/* STOLEN LETTERS META-PROGRESSION ticket (GOALS.md): the main menu's
+   "Alphabet" display -- 26 letters, stolen ones visibly locked, recovered
+   ones highlighted. Reuses achievements-display's own border-top divider
+   look for a consistent "menu footer stats" family. */
+.alphabet-display {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #b8ac8a;
+  text-align: center;
+}
+.alphabet-caption {
+  color: #b8ac8a;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+.alphabet-grid {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 4px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+.alphabet-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  background: #241f17;
+  border: 1px solid #4a4130;
+  color: #e8dfc8;
+}
+.alphabet-letter-stolen {
+  color: #6b6252;
+  background: #1a1611;
+  border-color: #3a3428;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.alphabet-letter-recovered {
+  color: #14110b;
+  background: #f0d789;
+  border-color: #f0d789;
+}
+
 .seed-input-row {
   display: flex;
   align-items: center;

@@ -14,7 +14,7 @@
   window.Wordbound = window.Wordbound || {};
   var Game = (window.Wordbound.Game = {});
 
-  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents, Duel, DuelCombat, Music;
+  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents, Duel, DuelCombat, Music, StolenLetters;
 
   // COMBAT JUICE ticket (GOALS.md): the damage-landed hook. Game.submitWord
   // resolves a word's damage (and, in a duel fight, the monster's
@@ -490,6 +490,13 @@
     stopBackgroundMusic();
     playSfx(victory ? 'victory' : 'defeat', null, victory ? playVictorySound : playDefeatSound);
     if (victory && Achievements) Achievements.trackRunCompletion();
+    // STOLEN LETTERS META-PROGRESSION ticket: clear_a_run only ever unlocks
+    // here (onMonsterDefeated's own sync call can't catch it -- a run's
+    // final boss kill resolves to TILE_REWARD first, VICTORY only fires
+    // later once its item is claimed/skipped), so this is the one call
+    // site that actually needs its own sync rather than relying on the
+    // combat-side one above.
+    if (victory && StolenLetters) StolenLetters.syncFromAchievements();
     state.screen = victory ? 'VICTORY' : 'GAME_OVER';
     render();
   }
@@ -1650,6 +1657,24 @@
       }
       Achievements.trackOverkill(overkill);
       Achievements.trackItemsCollected(state.player.items.length);
+    }
+
+    // STOLEN LETTERS META-PROGRESSION ticket (GOALS.md): defeating a boss
+    // that holds a hostage letter (see stolenLetters.js's own
+    // BOSS_HOSTAGE_LETTERS) recovers it permanently, right after the
+    // achievement tracking above -- syncFromAchievements() is called
+    // unconditionally (not just on a boss kill) since any of the 5 tracked
+    // achievements above could have just unlocked for the first time on a
+    // REGULAR kill too (e.g. collect_many_items/massive_overkill).
+    if (StolenLetters) {
+      if (wasBoss) {
+        var recoveredHostageLetter = StolenLetters.recoverByBossDefId(state.monster.defId);
+        if (recoveredHostageLetter) log('You recover the stolen letter ' + recoveredHostageLetter + '!');
+      }
+      var recoveredFromAchievements = StolenLetters.syncFromAchievements();
+      recoveredFromAchievements.forEach(function (letter) {
+        log('An achievement recovers the stolen letter ' + letter + '!');
+      });
     }
 
     state.player.rack = [];
@@ -3035,6 +3060,31 @@
       }
       achvDisplay.innerHTML = progressText;
     }
+    renderAlphabetDisplay();
+  }
+
+  // STOLEN LETTERS META-PROGRESSION ticket (GOALS.md): the main menu's
+  // "Alphabet" display -- every letter A-Z, visibly locked (chained) if
+  // still stolen, distinctly highlighted if recovered, plain otherwise.
+  function renderAlphabetDisplay() {
+    var el = $('alphabet-display');
+    if (!el || !StolenLetters) return;
+    var html = '<div class="alphabet-caption">The Alphabet</div><div class="alphabet-grid">';
+    for (var i = 0; i < 26; i++) {
+      var letter = String.fromCharCode(65 + i);
+      var cls = 'alphabet-letter';
+      var title = letter;
+      if (StolenLetters.isStolen(letter)) {
+        cls += ' alphabet-letter-stolen';
+        title = letter + ' -- stolen by the Fermata';
+      } else if (StolenLetters.STARTING_STOLEN.indexOf(letter) !== -1) {
+        cls += ' alphabet-letter-recovered';
+        title = letter + ' -- recovered!';
+      }
+      html += '<span class="' + cls + '" title="' + title + '">' + letter + '</span>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
   }
 
   // End-of-run stats block (review N6): a compact record of the run, shown
@@ -3862,6 +3912,7 @@
     Duel = window.Wordbound.Duel;
     DuelCombat = window.Wordbound.DuelCombat;
     Music = window.Wordbound.Music;
+    StolenLetters = window.Wordbound.StolenLetters;
   };
 
   Game.init = function () {

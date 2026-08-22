@@ -39,6 +39,23 @@ function check(label, cond) {
   }
 }
 
+// STOLEN LETTERS META-PROGRESSION ticket (GOALS.md): polls the real state
+// instead of a flat sleep, same convention src/test/gameHelpers.js's own
+// waitForScreen already established for the Vitest suite -- a flat sleep
+// close to TILE_PLAY_ANIM_MS (220ms) + MONSTER_DEATH_BEAT_MS (500ms)'s
+// ~720ms combined delay left too thin a margin under this file's own full-
+// suite CPU load (observed directly: 3 clean runs, then one real flake).
+async function waitForScreen(state, screen, timeoutMs) {
+  timeoutMs = timeoutMs || 3000;
+  var start = Date.now();
+  while (state.screen !== screen) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('timed out waiting for screen "' + screen + '" -- state.screen is still "' + state.screen + '"');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
 async function main() {
   // Optional CLI arg: path to the HTML file to check (defaults to the repo's
   // own wordbound.html). Lets the itch.io build script point this same check
@@ -3100,6 +3117,148 @@ async function main() {
       document.getElementById('combat-panel').classList.contains('hidden') === false);
     check('panel-stacking block: produced zero errors', errors.length === 0);
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+  }
+
+  // STOLEN LETTERS META-PROGRESSION ticket (GOALS.md): the permanent,
+  // cross-run progression. See js/wordbound/stolenLetters.js's own header
+  // for the full reasoning behind the starting set and the boss/achievement
+  // recovery mapping -- this block proves the mechanism end to end through
+  // the real engine (Tiles/Achievements/StolenLetters/Game.onMonsterDefeated/
+  // Game.endRun), not just the module in isolation.
+  {
+    const StolenLetters = window.Wordbound.StolenLetters;
+    const Tiles = window.Wordbound.Tiles;
+    const Achievements = window.Wordbound.Achievements;
+    const Characters = window.Wordbound.Characters;
+
+    StolenLetters.reset();
+    Achievements.reset();
+
+    check('stolen-letters: fresh state starts with exactly the 8 designed stolen letters',
+      JSON.stringify(StolenLetters.getStolenLetters().slice().sort()) === JSON.stringify(['C', 'H', 'J', 'K', 'Q', 'V', 'W', 'Z']));
+    check('stolen-letters: E is never stolen (the ticket\'s own explicit warning)', !StolenLetters.isStolen('E'));
+    check('stolen-letters: nothing is recovered yet', StolenLetters.getRecoveredLetters().length === 0);
+
+    // A currently-stolen letter must never appear in a freshly-generated
+    // reward/shop tile -- rolled 600 times (200 reward-batches of 3 +
+    // 200 single premium-variant rolls) against the real weighted RNG, not
+    // just a handful, so a rare-letter escape wouldn't hide in a small
+    // sample (several stolen letters -- J/K/Q/V/W/X/Z -- have the pool's
+    // OWN lowest natural weight, exactly the ones most likely to slip
+    // through a filter bug unnoticed at low N).
+    let sawStolenInRewards = false;
+    for (let i = 0; i < 200; i++) {
+      const options = Tiles.rollRewardOptions(state.rng, 3);
+      options.forEach((t) => { if (StolenLetters.isStolen(t.letter)) sawStolenInRewards = true; });
+      const variantTile = Tiles.rollVariantTile(state.rng);
+      if (StolenLetters.isStolen(variantTile.letter)) sawStolenInRewards = true;
+    }
+    check('stolen-letters: 600 reward/shop tile rolls never produced a stolen letter', !sawStolenInRewards);
+
+    // Character starting decks are DELIBERATELY exempt (see the module's own
+    // header on why) -- the Scribe's fixed deck still carries K/Z even
+    // though both are currently stolen, confirming the exemption is real,
+    // not accidental.
+    const scribeDeckLetters = Characters.CHARACTER_DEFS.scribe.deckLetters;
+    check('stolen-letters: the Scribe\'s starting deck still carries K (exempt from filtering)', scribeDeckLetters.indexOf('K') !== -1);
+    check('stolen-letters: the Scribe\'s starting deck still carries Z (exempt from filtering)', scribeDeckLetters.indexOf('Z') !== -1);
+
+    // Boss-hostage recovery, part 1: the mapping itself (bossDefId -> its
+    // hostage letter) is real, plain data-driven logic with no combat/audio
+    // involvement at all -- calling the real exported function directly is
+    // legitimate coverage of it, not a stand-in.
+    check('stolen-letters: recoverByBossDefId maps boss_vowelmaw -> K', StolenLetters.recoverByBossDefId('boss_vowelmaw') === 'K');
+    check('stolen-letters: defeating Mountain King recovers K specifically', !StolenLetters.isStolen('K'));
+    StolenLetters.reset(); // back to a clean slate before the wiring check below
+
+    // Boss-hostage recovery, part 2: proves game.js's onMonsterDefeated
+    // actually WIRES this in (calls StolenLetters.recoverByBossDefId with
+    // the real state.monster.defId at the real moment a boss dies), not
+    // just that the mapping table itself works. Every real hostage-bearing
+    // boss (boss_vowelmaw/sovereign/maestro) carries a `.piece` and routes
+    // through Game.startDuelFight -> initAudioContext(), a hard jsdom crash
+    // (no window.AudioContext here) -- the exact hazard every other
+    // boss-related block in this file already documents at length.
+    // Temporarily monkey-patches the real exported function (restored
+    // right after) so a safe, turn-based def (boss_unabridged) exercises
+    // the exact same onMonsterDefeated call path/log-message branch a real
+    // hostage boss would, without touching audio at all -- same
+    // "boss-identity-agnostic, use the audio-safe boss" convention this
+    // file's boss-skip block already established, adapted from a data
+    // table to a function since StolenLetters' mapping is a fixed internal
+    // one (no per-test registration hook like cutscenes/entrance data has).
+    const realRecoverByBossDefId = StolenLetters.recoverByBossDefId;
+    StolenLetters.recoverByBossDefId = function (defId) {
+      if (defId === 'boss_unabridged') return realRecoverByBossDefId('boss_vowelmaw');
+      return realRecoverByBossDefId(defId);
+    };
+    const bossNode = { id: 'stolen-letters-test-boss', type: 'boss', defId: 'boss_unabridged', cleared: false };
+    state.floor.nodes.push(bossNode);
+    state.currentNodeId = bossNode.id;
+    state.screen = 'RUN'; // real fix, not defensive: without this, state.screen stays whatever the LAST resolved screen was (e.g. still 'TILE_REWARD' from an earlier kill in this same block), and waitForScreen below would return instantly against stale state instead of actually waiting for this kill to resolve
+    state.combatActive = false;
+    window.Wordbound.Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 30));
+    state.monster.hp = 1;
+    state.player.rack = ['C', 'A', 'T'].map((l) => window.Wordbound.Tiles.createTile(l, null));
+    window.Wordbound.Game.submitWord('CAT');
+    await waitForScreen(state, 'TILE_REWARD');
+    StolenLetters.recoverByBossDefId = realRecoverByBossDefId; // restore before any later block relies on the real mapping
+
+    check('stolen-letters: onMonsterDefeated\'s real wiring recovers the hostage letter on a real boss kill', !StolenLetters.isStolen('K'));
+    check('stolen-letters: recovery did not also free an unrelated stolen letter', StolenLetters.isStolen('V') && StolenLetters.isStolen('Z'));
+    check('stolen-letters: a recovered letter can now appear in a fresh reward roll', (() => {
+      for (let i = 0; i < 300; i++) {
+        if (Tiles.rollRewardOptions(state.rng, 3).some((t) => t.letter === 'K')) return true;
+      }
+      return false;
+    })());
+
+    // Achievement-driven recovery: unlocking one of the 5 mapped achievements
+    // (not tied to any boss) recovers its paired letter the next time
+    // anything syncs -- exercised here via a real (non-boss) kill, which
+    // also runs the sync per game.js's own onMonsterDefeated wiring.
+    Achievements.unlock('massive_overkill'); // paired with 'C' in stolenLetters.js
+    const regularDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
+    const regularNode = { id: 'stolen-letters-test-regular', type: 'combat', defId: regularDefId, cleared: false };
+    state.floor.nodes.push(regularNode);
+    state.currentNodeId = regularNode.id;
+    state.screen = 'RUN'; // see the boss-kill setup above for why this matters -- otherwise still 'TILE_REWARD' from that earlier kill
+    state.combatActive = false;
+    window.Wordbound.Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 30));
+    state.monster.hp = 1;
+    state.player.rack = ['C', 'A', 'T'].map((l) => window.Wordbound.Tiles.createTile(l, null));
+    window.Wordbound.Game.submitWord('CAT');
+    await waitForScreen(state, 'TILE_REWARD');
+    check('stolen-letters: an unlocked achievement recovers its paired letter (C) on the next kill sync', !StolenLetters.isStolen('C'));
+
+    // Persistence: real localStorage round-tripping cannot be verified here
+    // -- confirmed directly (this script's own JSDOM, constructed with a
+    // file:// url same as every other block in this file, has NO
+    // `window.localStorage` at all: `typeof dom.window.localStorage ===
+    // 'undefined'`), the exact same jsdom limitation achievements.js's own
+    // loadProgress/saveProgress/reset already guard against. What IS real
+    // and worth proving here: those calls are safe NO-OPS under that
+    // limitation (matching achievements.js's own established contract)
+    // rather than silently crashing the whole run -- confirmed by calling
+    // them directly and checking in-memory state is simply unchanged, not
+    // by asserting anything localStorage actually did. Real reload
+    // persistence is verified in a real browser instead -- see
+    // test:qa's new "stolen letter survives a page reload" check.
+    StolenLetters.saveProgress();
+    StolenLetters.loadProgress();
+    check('stolen-letters: saveProgress/loadProgress are safe no-ops under jsdom (no crash, no state change)',
+      !StolenLetters.isStolen('K') && !StolenLetters.isStolen('C') && StolenLetters.isStolen('V'));
+
+    check('stolen-letters block: produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+
+    // Restore real module state (reset + fresh sync) so this block never
+    // leaks stolen/recovered state into the boss-skip block right below,
+    // which also fights boss_vowelmaw-family defs and doesn't expect any of
+    // this block's synthetic recoveries.
+    StolenLetters.reset();
   }
 
   // DESIGN FIX (GOALS.md, 2026-08-20, Jaxon's ruling): bosses cannot be

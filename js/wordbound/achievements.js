@@ -216,7 +216,17 @@
   function reset() {
     unlockedAchievements = {};
     resetRunState();
-    localStorage.removeItem(STORAGE_KEY);
+    // Same guard loadProgress/saveProgress above already use -- this was a
+    // real, previously-latent crash risk (jsdom/private-browsing/storage-
+    // disabled contexts have no `localStorage` global at all), just never
+    // hit before because nothing called reset() in such an environment
+    // until the STOLEN LETTERS META-PROGRESSION ticket's dom-check block did.
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      // localStorage unavailable
+    }
   }
 
   // Public API

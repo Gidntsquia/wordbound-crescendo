@@ -67,16 +67,33 @@
 
   // Weighted by standard Scrabble letter frequency (Lexicon.LETTER_POOL),
   // blanks excluded -- reward tiles are always a real letter, occasionally
-  // with a bonus attached.
-  var letterFrequencyPool = null;
-  function getLetterFrequencyPool() {
-    if (letterFrequencyPool) return letterFrequencyPool;
+  // with a bonus attached. Memoized (the RAW pool never changes at
+  // runtime -- Lexicon.LETTER_POOL is static data).
+  var baseLetterFrequencyPool = null;
+  function getBaseLetterFrequencyPool() {
+    if (baseLetterFrequencyPool) return baseLetterFrequencyPool;
     var Lexicon = window.Wordbound.Lexicon;
-    letterFrequencyPool = [];
+    baseLetterFrequencyPool = [];
     Object.keys(Lexicon.LETTER_POOL).forEach(function (letter) {
-      for (var i = 0; i < Lexicon.LETTER_POOL[letter]; i++) letterFrequencyPool.push(letter);
+      for (var i = 0; i < Lexicon.LETTER_POOL[letter]; i++) baseLetterFrequencyPool.push(letter);
     });
-    return letterFrequencyPool;
+    return baseLetterFrequencyPool;
+  }
+
+  // STOLEN LETTERS META-PROGRESSION ticket (GOALS.md): a currently-stolen
+  // letter never appears in a freshly-generated reward/shop tile. Filtered
+  // fresh on every call (NOT memoized, unlike the base pool above) so a
+  // letter recovered mid-run is reflected immediately, per the ticket's own
+  // "recover letters permanently" intent -- the stolen SET can change at
+  // runtime even though the base frequency table never does.
+  // window.Wordbound.StolenLetters may not be loaded in every context this
+  // module runs in (e.g. an isolated future unit test) -- guarded, falls
+  // back to "nothing stolen" (today's pre-ticket behavior) if absent.
+  function getAvailableLetterFrequencyPool() {
+    var StolenLetters = window.Wordbound.StolenLetters;
+    var base = getBaseLetterFrequencyPool();
+    if (!StolenLetters) return base;
+    return base.filter(function (letter) { return !StolenLetters.isStolen(letter); });
   }
 
   var BONUS_CHANCE = 0.18;
@@ -103,7 +120,7 @@
 
   Tiles.rollRewardOptions = function (rng, count) {
     count = count || 3;
-    var pool = getLetterFrequencyPool();
+    var pool = getAvailableLetterFrequencyPool();
     var options = [];
     for (var i = 0; i < count; i++) {
       var letter = rng.choice(pool);
@@ -118,7 +135,7 @@
   // rollShopOptions) -- a "premium" offer that sometimes has no variant at
   // all would undercut the point of paying extra for one.
   Tiles.rollVariantTile = function (rng) {
-    var pool = getLetterFrequencyPool();
+    var pool = getAvailableLetterFrequencyPool();
     var letter = rng.choice(pool);
     return Tiles.createTile(letter, null, rollVariant(rng));
   };
