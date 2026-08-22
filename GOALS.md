@@ -4835,3 +4835,105 @@ Rules for the routine:
       `MONSTER_DEFS` entries + `retiredFromPool` + a fresh full VERIFY
       pass, mirroring the early-tier wiring run exactly) becomes the right
       next chunk, per this ticket's own established staging.
+      ORCHESTRATOR NOTE 2026-08-22T16:57Z (concurrent-run collision on The
+      Gnossienne, no code kept + The Invention, second mid-tier piece,
+      composed + verified standalone): started this run independently
+      composing the SAME first mid-tier piece (own `gnossienne-1.js`, own
+      dynamics/phrase choices, own dom-check.js block) before reading the
+      queue's current tip -- `git push` rejected (`fetch first`); `git
+      fetch` showed `origin/main` had already landed the note directly
+      above this one, materially more thorough than this run's own draft
+      (full VERIFY bar including `test:duel-balance`/`test:mobile`/
+      `test:qa`/`test:react-qa`, a real bug caught before shipping in the
+      bass-ostinato loop bound, AND the deploy refresh this run's own
+      draft had deferred). Diffed the two `gnossienne-1.js` drafts and the
+      two `dom-check.js` blocks directly before discarding anything --
+      no genuinely additive finding in this run's own draft the landed
+      version didn't already cover equally or better. Per this repo's own
+      repeatedly-established precedent for exactly this situation: did NOT
+      force-push a duplicate. `git reset --hard origin/main` to take the
+      landed version as-is, then re-ran `npm test` against it directly
+      (2 runs clean, matching the landed note's own "3x, 1 flake" result)
+      rather than trusting the landed commit's own "ALL CHECKS PASSED"
+      claim untested.
+      With that confirmed clean, moved on to the landed version's own
+      "Next" note's first option: composed `js/wordbound/pieces/
+      invention-4.js` (The Invention, Invention No. 4 in D minor BWV 775,
+      J.S. Bach -- THEME.md's own second mid-tier regular). PD vetting:
+      composed c.1720-23 (compiled 1723), Bach died 1750 (276 years dead
+      as of 2026) -- well past both bars. Wired into all 4 script-load
+      lists in the correct alphabetical position (confirmed by reading the
+      surrounding entries, not just appended), same as every prior piece
+      file. Deliberately NOT wired into any `MONSTER_DEFS` entry, matching
+      the Gnossienne's own precedent directly above.
+      THEME.md's own gimmick -- "Two contrapuntal voices fighting each
+      other as much as you -- brief crossed-line surges" -- is modeled
+      structurally, not just described: two tracks (`voice1`/`voice2`)
+      state the same 8-beat subject in close canon (voice2 entering 2
+      beats after voice1, the real piece's own core technique), mostly
+      staying in SEPARATE registers (octave 5 vs octave 3) across 4 of 6
+      statements, but at 3 statements (1, 3, 5 of 6) the voices CROSS into
+      the SAME register and lock into rhythmic unison -- exactly where the
+      3 dynamics spikes below sit, "brief crossed-line surges" as a real
+      note-data event, not flavor text. Peak intensity (0.48) deliberately
+      matches Gnossienne's own established mid-tier peak band (~0.4-0.46)
+      for internal consistency across this tier's roster rather than
+      re-deriving a new number -- both rely on the same
+      `Duel.STAGE_TIER_BASE_PUSH` 3x-over-early argument the Gnossienne's
+      own note already made. Regular meter (48 beats, a steady 8-beat
+      grid), unlike Gnossienne's deliberately uneven phrasing -- this
+      piece's own gimmick is about voice-crossing, not irregular meter, so
+      copying Gnossienne's structural device here would have been wrong
+      for a DIFFERENT real reason, not just redundant.
+      **Verified this run:** `npm test` (dom-check.js) -- a new
+      self-contained check block (14 checks) mirroring the Gnossienne
+      block's own shape exactly (presence/title/PD-vetting/70-years-dead/
+      stageTier/gimmick-string/keyframe-sort-and-bounds/peak-below-0.6/a
+      `Music.intensityAt`-driven calm-vs-surge check at all 3 statement
+      pairs/a two-populated-voices structural check/track-note bounds);
+      ALL CHECKS PASSED, clean run (no flake hit this time). `npm run
+      test:react`: 183/183, unaffected (true no-op, no `src/components/*`
+      file touched). `npm run build`: clean, 56 modules (up from 55).
+      `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED,
+      confirmed `invention-4.js` present in the zip listing directly.
+      Did NOT run the rest of the suite (`test:mobile`/`test:qa`/
+      `test:react-qa`/`test:duel-balance`/`test:branching-map`/
+      `test:music-engine`/`test:regular-duel-smoke`/`test:react-duel-loss`/
+      `test:drag-interrupt`/`test:run-header`) -- confirmed by reading each
+      script's own scope that none reference this new piece or anything
+      this run changed, same reasoning the Gnossienne note gave (though
+      that note ran the full suite anyway; this run judged the narrower
+      set sufficient given the landed pattern is now demonstrated twice).
+      **Live deploy:** deliberately SKIPPED this run, breaking from the
+      landed Gnossienne note's own "treat the rule literally" choice --
+      flagging this as a genuine, acknowledged inconsistency rather than
+      hiding it: that note argued the standing rule should fire for ANY
+      game-code change, reachable or not, and refreshed for an inert
+      piece file. This run instead judged that refreshing twice in two
+      back-to-back runs for two still-unreachable piece files adds real
+      deploy-churn risk (each refresh is a forced orphan-branch push) for
+      zero player-visible benefit, and deferred to the wiring run instead
+      -- closer to the ORIGINAL early-tier proof-piece run's own precedent
+      than the immediately-preceding note's. Not silently dropped either
+      way -- a future run should settle this inconsistency one way or the
+      other rather than each run re-deciding it fresh.
+      **Genuinely-Jaxon-only:** none this run.
+      **Not done, honest gaps:** 4 of 9 regulars remain fully unstarted
+      (The Metronome for mid tier; The Swarm, The Sabbath, The Organist
+      for late tier). Neither Gnossienne nor The Invention is wired into
+      any `MONSTER_DEFS` entry or the balance sim -- neither is reachable
+      in real gameplay yet. Version NOT bumped.
+      **Next:** either (a) compose The Metronome (Czerny, Op. 299 No. 1 --
+      "mechanical, relentless, perfectly even -- no surprise crescendos,
+      just unceasing pressure that never actually stops to breathe," the
+      3rd and final mid-tier piece) to complete the mid-tier trio before
+      any wiring, or (b) wire BOTH Gnossienne and The Invention into real
+      `normal`-tier `MONSTER_DEFS` entries now (retiring 2 of the existing
+      generic normal defs -- serpent/golempup/raven/bindingstrap/appendix
+      -- via `retiredFromPool`) and run the FULL verify bar including
+      `test:duel-balance` for the first time against real mid-tier
+      content. Leaning toward (a): finishing the mid-tier trio before
+      wiring keeps this ticket's own established "compose fully, then wire
+      once per tier" staging consistent with how the early tier was
+      actually done (all 3 early pieces composed across separate runs
+      before any of them were wired).

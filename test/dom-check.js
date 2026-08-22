@@ -4646,6 +4646,66 @@ async function main() {
     }
   }
 
+  // REGULAR ENEMIES ticket (real remaining scope (3)): The Invention,
+  // second of the 6 remaining mid/late regulars, composed and validated
+  // in ISOLATION this run, same "proof piece, verified standalone before
+  // wiring" precedent the Gnossienne's own block directly above (and every
+  // early-tier piece before it) already established. Deliberately NOT
+  // wired into any MONSTER_DEFS entry yet.
+  {
+    const Music = window.Wordbound.Music;
+    const Pieces = window.Wordbound.Pieces;
+    const invention = Pieces.invention4;
+
+    check('REGULAR ENEMIES: window.Wordbound.Pieces.invention4 is present', !!invention && typeof invention === 'object');
+    if (invention) {
+      check('REGULAR ENEMIES: Invention No. 4 in D minor has the right title', invention.title === 'Invention No. 4 in D minor');
+      // PD vetting, re-checked directly against the piece's own fields
+      // rather than trusted from THEME.md's table.
+      check('REGULAR ENEMIES: Invention No. 4 PD vetting matches its own vetting fields',
+        invention.vetting.composed === 1723 && invention.vetting.composerDied === 1750 && invention.vetting.publicDomain === true);
+      check('REGULAR ENEMIES: Invention No. 4 composer has been dead 70+ years as of 2026', (2026 - invention.vetting.composerDied) >= 70);
+      check("REGULAR ENEMIES: The Invention is 'mid' stageTier", invention.stageTier === 'mid');
+      check('REGULAR ENEMIES: The Invention has a non-empty gimmick string', typeof invention.gimmick === 'string' && invention.gimmick.length > 0);
+      check('REGULAR ENEMIES: The Invention keyframes are sorted ascending by beat',
+        invention.dynamics.keyframes.every((kf, i) => i === 0 || kf.beat > invention.dynamics.keyframes[i - 1].beat));
+      check('REGULAR ENEMIES: The Invention keyframes never exceed lengthBeats',
+        invention.dynamics.keyframes[invention.dynamics.keyframes.length - 1].beat <= invention.lengthBeats);
+      check('REGULAR ENEMIES: The Invention every keyframe intensity is within 0..1',
+        invention.dynamics.keyframes.every((kf) => kf.intensity >= 0 && kf.intensity <= 1));
+      // Same mid-tier peak convention gnossienne-1.js's own block already
+      // establishes (< 0.6) -- internally consistent across this tier's
+      // roster rather than re-deriving a new ceiling.
+      const peakIntensity = Math.max(...invention.dynamics.keyframes.map((kf) => kf.intensity));
+      check('REGULAR ENEMIES: The Invention never reaches a boss-level peak intensity (< 0.6)', peakIntensity < 0.6);
+
+      // The gimmick itself, verified against the real intensity curve via
+      // Music.intensityAt: calm whenever the two voices stay in separate
+      // registers (statements 0/2/4, beats 0/16/32), spiking only during
+      // the 3 crossed-register statements (1/3/5, peaking at beats
+      // 12/28/44) -- "brief crossed-line surges," a real structural event
+      // in the note data, not just trusted from a comment.
+      check("REGULAR ENEMIES: The Invention stays calm in separate registers, surges only where the voices cross ('two contrapuntal voices fighting each other')",
+        Music.intensityAt(invention, 0) < 0.2 &&
+        Music.intensityAt(invention, 12) > 0.35 &&
+        Music.intensityAt(invention, 16) < 0.2 &&
+        Music.intensityAt(invention, 28) > 0.35 &&
+        Music.intensityAt(invention, 32) < 0.2 &&
+        Music.intensityAt(invention, 44) > 0.35);
+
+      // The two-voice structure itself: both `voice1` and `voice2` carry
+      // real notes (a true two-part texture, not one voice with an empty
+      // second track).
+      check('REGULAR ENEMIES: The Invention has two real, populated voices (voice1 and voice2)',
+        Array.isArray(invention.tracks.voice1) && invention.tracks.voice1.length > 0 &&
+        Array.isArray(invention.tracks.voice2) && invention.tracks.voice2.length > 0);
+      const allNotes = Object.values(invention.tracks).flat();
+      check('REGULAR ENEMIES: The Invention has at least one note in its tracks', allNotes.length > 0);
+      check('REGULAR ENEMIES: The Invention every note starts within [0, lengthBeats) and has positive duration/freq',
+        allNotes.every((n) => n.beat >= 0 && n.beat < invention.lengthBeats && n.duration > 0 && n.freq > 0));
+    }
+  }
+
   // REGULAR ENEMIES ticket: the monster-info glyph-rendering groundwork
   // (game.js's renderCombat) -- purely additive and currently inert (no
   // real MONSTER_DEFS entry sets `.glyph` yet, deliberately, per the note

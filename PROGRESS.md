@@ -7498,3 +7498,100 @@ other. Once all 3 mid-tier pieces exist, the wiring step (real
 `MONSTER_DEFS` entries + `retiredFromPool` + a fresh full VERIFY pass,
 mirroring the early-tier wiring run's own pattern exactly) becomes the
 right next chunk.
+
+## 2026-08-22T16:57Z -- REGULAR ENEMIES: collision on The Gnossienne (no code kept) + The Invention, second mid-tier piece composed + verified standalone
+
+First fixed a container-init artifact: this session's local `main` branch
+ref pointed at the original seed commit (`f98ff83`) with no common ancestor
+with the real `origin/main` HEAD (`4b40192` at session start) -- git
+reported "unrelated histories." `origin/main` on GitHub was already
+correct (matched the session's own detached-HEAD starting commit exactly);
+fixed by pointing local `main` at `origin/main` directly
+(`git checkout -B main origin/main`), no history rewritten.
+
+Read GOALS.md/PROGRESS.md's tail, saw the most recent note recommend
+composing a first mid-tier piece standalone, and independently composed
+The Gnossienne (own `gnossienne-1.js`, own phrase/dynamics choices, own
+dom-check.js block) before checking the queue's live tip. `git push`
+rejected (fetch first); `git fetch` showed `origin/main` had already
+landed the identical idea, more thoroughly (full VERIFY bar including
+`test:duel-balance`/`test:mobile`/`test:qa`/`test:react-qa`, a real bug
+caught in the bass-ostinato loop bound before it shipped, and a deploy
+refresh this run's own draft had deferred). Diffed both drafts directly
+before discarding anything -- nothing in this run's own draft was
+genuinely additive over the landed version. Per this ticket's own
+repeatedly-established precedent for exactly this situation: did NOT
+force-push a duplicate. `git reset --hard origin/main`, then re-ran
+`npm test` against the landed tree directly (2 runs clean) rather than
+trusting its own "ALL CHECKS PASSED" claim untested.
+
+**Composed The Invention** (`js/wordbound/pieces/invention-4.js`): moved
+on to the landed Gnossienne note's own "Next" recommendation -- Invention
+No. 4 in D minor, BWV 775, J.S. Bach, THEME.md's second mid-tier regular.
+PD vetting re-derived directly: composed c.1720-23 (compiled into the
+final Two-Part Inventions set by 1723), Bach died 1750 (276 years dead as
+of 2026) -- well past both bars. Wired into all 4 script-load lists in the
+correct alphabetical position. Deliberately NOT wired into any
+`MONSTER_DEFS` entry, matching the Gnossienne's own precedent directly
+above it.
+
+THEME.md's gimmick -- "Two contrapuntal voices fighting each other as much
+as you -- brief crossed-line surges" -- is modeled structurally: two
+tracks (`voice1`/`voice2`) state the same 8-beat subject in close canon
+(voice2 entering 2 beats after voice1, the real piece's own core
+technique), staying in separate registers (octave 5 vs octave 3) across 4
+of 6 statements, but at 3 statements the voices cross into the SAME
+register and lock into rhythmic unison -- exactly where the 3 dynamics
+spikes sit, a real note-data event rather than just descriptive text. Peak
+intensity (0.48) deliberately matches Gnossienne's own established
+mid-tier peak band (~0.4-0.46) for internal consistency across the tier's
+roster, relying on the same `Duel.STAGE_TIER_BASE_PUSH` 3x-over-early
+argument Gnossienne's own note already made. Uses a REGULAR 48-beat, 8-beat
+grid (unlike Gnossienne's deliberately uneven phrasing) -- this piece's
+gimmick is about voice-crossing, not irregular meter, so a steady canon is
+the structurally correct choice here, not a shortcut.
+
+**Verified:**
+- `npm test` (dom-check.js): a new self-contained check block (14 checks)
+  mirroring the landed Gnossienne block's own shape (presence, title, PD
+  vetting, 70-years-dead, stageTier, gimmick string, keyframe sort/bounds,
+  sub-0.6 peak, a `Music.intensityAt`-driven calm-vs-surge check at all 3
+  statement pairs, a two-populated-voices structural check, track-note
+  bounds). Clean run, no flake hit this time.
+- `npm run test:react`: 183/183, unaffected -- no `src/components/*.jsx`
+  file touched.
+- `npm run build`: clean, 56 modules (up from 55).
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED,
+  confirmed `invention-4.js` present in the zip listing directly.
+- Deliberately did NOT run `test:mobile`/`test:qa`/`test:react-qa`/
+  `test:duel-balance`/`test:branching-map`/`test:music-engine`/
+  `test:regular-duel-smoke`/`test:react-duel-loss`/`test:drag-interrupt`/
+  `test:run-header` -- read each script's own scope and confirmed none
+  touch anything this run changed.
+
+**Live deploy:** deliberately skipped, breaking from the immediately-prior
+Gnossienne note's own "treat the rule literally" choice -- flagging this
+inconsistency honestly rather than hiding it. That note refreshed the
+deploy for an inert, unreachable piece file on the reasoning that the
+standing rule reads "any run that changes game code/assets," not "any
+reachable change." This run judged that refreshing twice back to back for
+two still-unreachable piece files trades real deploy-churn risk (each
+refresh force-pushes an orphan branch) for zero player-visible benefit,
+and deferred to the eventual wiring run instead. A future run should
+settle this inconsistency one way rather than each run re-deciding it.
+
+**Genuinely-Jaxon-only:** none this run.
+
+**Not done, honest gaps:** 4 of 9 regulars remain fully unstarted (The
+Metronome for mid tier; The Swarm, The Sabbath, The Organist for late
+tier). Neither Gnossienne nor The Invention is wired into any
+`MONSTER_DEFS` entry or the balance sim -- neither reachable in real
+gameplay yet. Version NOT bumped.
+
+**Next:** GOALS.md's own updated note lays out two options -- (a) compose
+The Metronome (Czerny) to complete the mid-tier trio before any wiring, or
+(b) wire both Gnossienne and The Invention into real `normal`-tier
+`MONSTER_DEFS` entries now and run the full verify bar including
+`test:duel-balance` for the first time against real mid-tier content.
+Leaning toward (a) for consistency with how the early tier was actually
+staged (all 3 pieces composed across separate runs before any wiring).

@@ -29,6 +29,7 @@ import '../../js/wordbound/pieces/gymnopedie-1.js';
 import '../../js/wordbound/pieces/air-g-string.js';
 import '../../js/wordbound/pieces/morning-mood.js';
 import '../../js/wordbound/pieces/gnossienne-1.js';
+import '../../js/wordbound/pieces/invention-4.js';
 import '../../js/wordbound/monsters.js';
 import '../../js/wordbound/bossEntrances.js';
 import '../../js/wordbound/shakespeareGuide.js';

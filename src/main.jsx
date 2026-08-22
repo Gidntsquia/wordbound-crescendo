@@ -42,6 +42,11 @@ import '../js/wordbound/pieces/morning-mood.js';
 // -- not yet referenced by monsters.js, per the same "proof piece before
 // wiring" precedent the early-tier pieces above established.
 import '../js/wordbound/pieces/gnossienne-1.js';
+// invention-4.js (REGULAR ENEMIES ticket, real remaining scope (3)): second
+// of the mid-tier regulars, composed and unit-tested in isolation this run
+// -- not yet referenced by monsters.js, same precedent as gnossienne-1.js
+// directly above.
+import '../js/wordbound/pieces/invention-4.js';
 import '../js/wordbound/monsters.js';
 import '../js/wordbound/bossEntrances.js';
 import '../js/wordbound/shakespeareGuide.js';
