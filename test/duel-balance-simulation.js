@@ -14,27 +14,26 @@
 // turn-based sim.
 //
 // SCOPE, flagged plainly:
-//   - THREE real sequenced pieces exist now: Mountain King ('mid' tier, the
-//     floor-1 boss -- js/wordbound/pieces/mountain-king.js), the Valkyrie
-//     Marshal ('late' tier, the floor-3 boss --
-//     js/wordbound/pieces/valkyrie-marshal.js), and, as of this update, the
-//     final boss's own Beethoven's 5th ('final' tier --
-//     js/wordbound/pieces/beethoven-5th.js). Only 'early' still has no real
-//     piece to simulate against (no early-tier regular has been sequenced
-//     yet -- REGULAR ENEMIES territory), so this script uses a SYNTHETIC
-//     deterministic intensity schedule for that one remaining tier -- a
-//     periodic base level + triangular crescendo pulses, hand-tuned to
-//     match the header COMBAT MODEL's own curve language ("slow, chill
-//     pieces posing little threat"). This is explicitly a proxy for tuning
-//     STAGE_TIER_BASE_PUSH/INTENSITY_PUSH_SCALE sanity, NOT a substitute for
-//     simulating the tier's eventual real piece once one exists -- rerun
-//     this script (or extend TIER_CONFIGS to point at a real piece) once an
-//     early-tier regular gets sequenced. Beethoven's 5th is now wired into a
-//     real, reachable boss def too (boss_maestro, floor 4/"the Podium" --
-//     DUEL-GAUGE COMBAT's floor/def-plumbing run, which also bumped
-//     Floor.TOTAL_FLOORS to 4) -- the final-tier numbers below are real
-//     player-reachable balance data, not just schedulable/simmable-only
-//     numbers.
+//   - ALL FOUR tiers now use real sequenced pieces, no synthetic schedule
+//     left anywhere in this script: Mountain King ('mid' tier, the floor-1
+//     boss -- js/wordbound/pieces/mountain-king.js), the Valkyrie Marshal
+//     ('late' tier, the floor-3 boss -- js/wordbound/pieces/
+//     valkyrie-marshal.js), the final boss's own Beethoven's 5th ('final'
+//     tier -- js/wordbound/pieces/beethoven-5th.js), and, as of the REGULAR
+//     ENEMIES ticket (GOALS.md), Morning Mood ('early' tier, one of
+//     THEME.md's three early-tier regulars now sequenced --
+//     js/wordbound/pieces/morning-mood.js) -- picked as the early-tier
+//     representative specifically because it's the tier's only real piece
+//     with a genuine crescendo marker (Gymnopédie's is a tiny late nudge,
+//     Air on the G String has none at all), making the tier comparison
+//     against mid/late/final meaningful. The other two early regulars
+//     (Gymnopédie, Air on the G String) don't have dedicated sim/unit
+//     coverage yet -- see this run's own PROGRESS.md entry. Beethoven's 5th
+//     is wired into a real, reachable boss def too (boss_maestro, floor
+//     4/"the Podium" -- DUEL-GAUGE COMBAT's floor/def-plumbing run, which
+//     also bumped Floor.TOTAL_FLOORS to 4) -- the final-tier numbers below
+//     are real player-reachable balance data, not just schedulable/
+//     simmable-only numbers.
 //   - Each simulated duel starts fresh at Duel.DEFAULT_HEALTH_BLOCKS (5).
 //     Cross-fight health attrition across a whole run (player.healthBlocks
 //     carried between duels) is explicitly out of scope here -- this
@@ -73,12 +72,16 @@ require('../js/wordbound/music.js');
 require('../js/wordbound/pieces/mountain-king.js');
 require('../js/wordbound/pieces/valkyrie-marshal.js');
 require('../js/wordbound/pieces/beethoven-5th.js');
+// REGULAR ENEMIES ticket (GOALS.md): early tier's real-piece representative
+// -- see the SCOPE note above for why Morning Mood specifically.
+require('../js/wordbound/pieces/morning-mood.js');
 
 const Duel = window.Wordbound.Duel;
 const Music = window.Wordbound.Music;
 const mountainKing = window.Wordbound.Pieces.mountainKing;
 const valkyrieMarshal = window.Wordbound.Pieces.valkyrieMarshal;
 const beethoven5th = window.Wordbound.Pieces.beethoven5th;
+const morningMood = window.Wordbound.Pieces.morningMood;
 
 const TRIALS = parseInt(process.argv[2], 10) || 40;
 const DT_SEC = 0.05;
@@ -104,26 +107,6 @@ function mulberry32(seed) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-// ---- synthetic per-tier intensity schedules ----------------------------
-// Triangular crescendo pulses at k*period (k=1,2,...), base level in
-// between. period/rampDur are chosen so ramps never overlap (rampDur well
-// under period/2 in every tier below).
-
-function makePulseIntensityFn({ base, peakMag, period, rampDur }) {
-  return function (t) {
-    const k = Math.max(1, Math.round(t / period));
-    const d = Math.abs(t - k * period);
-    if (d >= rampDur) return base;
-    return base + (peakMag - base) * (1 - d / rampDur);
-  };
-}
-
-function pulsePeakTimes(period, count) {
-  const arr = [];
-  for (let k = 1; k <= count; k++) arr.push(k * period);
-  return arr;
 }
 
 // ---- real pieces (mid: Mountain King, late: Valkyrie Marshal) ---------
@@ -184,22 +167,14 @@ function realPieceTier(piece) {
 const mkTier = realPieceTier(mountainKing);
 const vmTier = realPieceTier(valkyrieMarshal);
 const b5Tier = realPieceTier(beethoven5th);
+const earlyTier = realPieceTier(morningMood);
 
 // ---- tier setup ---------------------------------------------------------
 
-const TIER_CONFIGS = {
-  // "early-stage enemies have slow, chill pieces posing little threat" --
-  // still the only tier with no real sequenced piece (REGULAR ENEMIES
-  // territory) -- mid/late/final all use REAL pieces (above) now.
-  early: { base: 0.05, peakMag: 0.3, period: 20, rampDur: 3 },
-};
-
-const peakCountFor = (period) => Math.ceil((HORIZON_SEC + 50) / period);
-
 const TIERS = {
   early: {
-    intensityFn: makePulseIntensityFn(TIER_CONFIGS.early),
-    peaks: pulsePeakTimes(TIER_CONFIGS.early.period, peakCountFor(TIER_CONFIGS.early.period)),
+    intensityFn: earlyTier.intensityFn,
+    peaks: earlyTier.peakTimes(Math.ceil((HORIZON_SEC + 50) / earlyTier.loopDurationSec) + 1),
   },
   mid: {
     intensityFn: mkTier.intensityFn,
@@ -333,6 +308,7 @@ function main() {
 
   console.log('\n================ DUEL-GAUGE VIRTUAL-CLOCK BALANCE SIMULATION ================');
   console.log(`trials per combo: ${TRIALS}   dt: ${DT_SEC}s   horizon: ${HORIZON_SEC}s`);
+  console.log(`early-tier real piece: Morning Mood, loop ${earlyTier.loopDurationSec.toFixed(1)}s, ${morningMood.dynamics.crescendos.length} crescendo/loop`);
   console.log(`mid-tier real piece: Mountain King, loop ${mkTier.loopDurationSec.toFixed(1)}s, 1 crescendo/loop`);
   console.log(`late-tier real piece: Valkyrie Marshal, loop ${vmTier.loopDurationSec.toFixed(1)}s, ${valkyrieMarshal.dynamics.crescendos.length} crescendos/loop`);
   console.log(`final-tier real piece: Symphony No. 5 (Beethoven), loop ${b5Tier.loopDurationSec.toFixed(1)}s, ${beethoven5th.dynamics.crescendos.length} crescendos/loop`);

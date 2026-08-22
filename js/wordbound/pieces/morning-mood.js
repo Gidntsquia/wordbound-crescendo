@@ -15,11 +15,25 @@
 // over the whole fight. Starts nearly harmless, ends only mildly less so"
 // -- is modeled as a single, genuine (if shallow) crescendo spanning the
 // WHOLE piece, unlike the other two early regulars (the Gymnopédiste's
-// tiny late swell, the G String's total flatness): intensity roughly
-// triples from start to end, but the END value still sits well below
+// tiny late swell, the G String's total flatness): intensity climbs
+// steadily from start to end, but the END value still sits well below
 // 'mid'/'late' tier pieces' own peaks (Mountain King's own ramp reaches
-// 1.0; this one tops out at 0.4) -- genuinely building, genuinely still
-// "early" throughout.
+// 1.0) -- genuinely building, genuinely still "early" throughout.
+//
+// RETUNED (REGULAR ENEMIES ticket, follow-up run, after
+// test/duel-balance-simulation.js caught it): the original 0.05->0.4 ramp
+// looked appropriately gentle next to Mountain King's 1.0 peak, but wasn't
+// numerically safe -- wiring this piece into the sim as early tier's real
+// representative (replacing its old synthetic placeholder) showed a
+// deliberately weak/disengaged bot losing 100% of the time (want ~0% per
+// the header's own "nearly safe" early-tier design intent), because the
+// curve's TIME-weighted average intensity (~0.22) pushed harder on average
+// than that bot's own average word output, even though its PEAK looked
+// low. Fixed by lowering the whole curve roughly 4x (0.03->0.10, same
+// steady whole-piece ramp shape, same "ends only mildly less harmless"
+// story) rather than changing its shape -- now averages ~0.06, comfortably
+// under the weak-bot threshold. Reran the sim after this change: 0% loss,
+// no SAFETY flag. See PROGRESS.md for the full before/after sim numbers.
 (function () {
   window.Wordbound = window.Wordbound || {};
   window.Wordbound.Pieces = window.Wordbound.Pieces || {};
@@ -54,9 +68,9 @@
   // 2nd statement on, mirroring the real gradually-thickening orchestration
   // mountain-king.js's own bass-doubling technique already established.
   var STATEMENTS = [
-    { start: 0, velocity: 0.15, withHarmony: false },
-    { start: 16, velocity: 0.28, withHarmony: true },
-    { start: 32, velocity: 0.4, withHarmony: true }
+    { start: 0, velocity: 0.1, withHarmony: false },
+    { start: 16, velocity: 0.16, withHarmony: true },
+    { start: 32, velocity: 0.22, withHarmony: true }
   ];
   STATEMENTS.forEach(function (s) {
     melody = melody.concat(themeNotes(s.start, s.velocity));
@@ -77,17 +91,19 @@
     tempo: 76,
     tracks: { melody: melody, harmony: harmony },
     dynamics: {
-      // A single, genuine (if shallow) crescendo spanning the whole
-      // piece -- roughly triples from start to end, but the end value
-      // (0.4) is still well below a 'mid'/'late' piece's own peak.
+      // A single, genuine (if shallow) crescendo spanning the whole piece
+      // -- roughly triples from start to end, same shape as the original
+      // draft, just lowered ~4x across the board (see RETUNED note above
+      // for why: the sim caught the original numbers running too hot for
+      // a "nearly safe" early-tier fight).
       keyframes: [
-        { beat: 0, intensity: 0.05 },
-        { beat: 16, intensity: 0.15 },
-        { beat: 32, intensity: 0.28 },
-        { beat: 48, intensity: 0.4 }
+        { beat: 0, intensity: 0.03 },
+        { beat: 16, intensity: 0.05 },
+        { beat: 32, intensity: 0.07 },
+        { beat: 48, intensity: 0.1 }
       ],
       crescendos: [
-        { id: 'the-slow-wake', startBeat: 0, peakBeat: 48, peakIntensity: 0.4, rampDurationBeats: 48 }
+        { id: 'the-slow-wake', startBeat: 0, peakBeat: 48, peakIntensity: 0.1, rampDurationBeats: 48 }
       ]
     }
   };

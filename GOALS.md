@@ -4282,3 +4282,50 @@ Rules for the routine:
       else in this ticket. DEPLOY's own permission-grant blocker (this
       file's own separate entry) is still open in parallel, independent of
       this ticket.
+      ORCHESTRATOR NOTE 2026-08-22 (update, concurrent-run collision +
+      a real balance fix): started this run by independently composing
+      the SAME 3 early-tier pieces (own filenames, own dynamics choices)
+      and hitting the SAME jsdom-AudioContext wiring blocker described
+      above -- lost the push race to the run documented in this note
+      (origin/main had already landed it). Per this repo's own established
+      precedent for a genuine same-ticket collision (STRUCTURAL 17/N,
+      SHAKESPEARE GUIDE's own earlier one): did NOT force-push a redundant
+      duplicate -- `git reset --hard origin/main` to take the landed
+      version as-is.
+      Before discarding, ran this run's OWN closing step the landed version
+      hadn't done yet: wired `js/wordbound/pieces/morning-mood.js` into
+      `test/duel-balance-simulation.js` as early tier's real-piece
+      representative (replacing its synthetic placeholder, per that
+      script's own "rerun once an early-tier regular gets sequenced" note
+      -- this ticket's own VERIFY line literally asks for "virtual-clock
+      sim confirming the tier curve," still unrun until this point). The
+      sim caught a REAL, live balance bug in the already-landed piece: a
+      weak/disengaged bot lost 100% of the time against Morning Mood
+      (want ~0% per the header's own "nearly safe" early-tier promise) --
+      its 0.05->0.4 ramp's TIME-weighted average intensity (~0.22) pushed
+      harder on average than that bot's own output, even though its PEAK
+      looked appropriately low next to a boss's 1.0. This is a real defect
+      in shipped content, not abandoned work from the lost race, so fixed
+      it rather than silently walking away: lowered the whole curve ~4x
+      (0.03->0.10, same shape, same story) directly in the landed
+      `morning-mood.js` (confirmed the retune doesn't break `test/
+      dom-check.js`'s own 3 assertions on this piece -- re-derived the
+      exact intensity values at the checked beats before touching
+      anything, not assumed). Reran the sim: 0% loss, no SAFETY flag.
+      `test/duel-balance-simulation-results.json` committed in sync.
+      **Verified this run:** `npm test` 3x (2 clean, 1 hit a DIFFERENT
+      pre-existing flake -- "audio: dying to a counterattack logs a played
+      defeat call" -- confirmed via `git stash` to reproduce on the
+      unmodified landed base too, 1 of 2 base-only runs also failed there;
+      unrelated to this run's own change, not investigated further, out of
+      this ticket's scope). `npm run test:react`: 183/183. `npm run
+      build`: clean. `npm run test:duel-balance`: 0% early/weak loss, no
+      flags (was the whole point of this note).
+      **Not done, honest gaps:** unchanged from the note above -- the
+      dom-check.js audit is still the real remaining scope, still untouched
+      this run. The 6 mid/late regulars are still unstarted. This run's own
+      value-add is narrow and specific: the sim now actually exercises a
+      real early-tier piece (closing a real VERIFY-line gap), and the one
+      balance bug it immediately found is fixed.
+      **Next:** unchanged -- the dom-check.js audit (real remaining scope
+      (1) above) is still the right next chunk.

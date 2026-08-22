@@ -8,13 +8,13 @@
       "kind": "regular",
       "profile": "weak",
       "nonDesigned": false,
-      "winRate": 0.8,
+      "winRate": 1,
       "lossRate": 0,
-      "stalemateRate": 0.2,
-      "avgWinDuration": 163.20781250000545,
+      "stalemateRate": 0,
+      "avgWinDuration": 78.54499999999767,
       "avgLossDuration": 0,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 45.025,
+      "avgWordsPlayed": 18.625,
       "parryLandRate": null
     },
     {
@@ -25,11 +25,11 @@
       "winRate": 1,
       "lossRate": 0,
       "stalemateRate": 0,
-      "avgWinDuration": 14.142500000000066,
+      "avgWinDuration": 13.526250000000056,
       "avgLossDuration": 0,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 4.625,
-      "parryLandRate": 0.25
+      "avgWordsPlayed": 4.4,
+      "parryLandRate": null
     },
     {
       "tier": "early",
@@ -39,10 +39,10 @@
       "winRate": 1,
       "lossRate": 0,
       "stalemateRate": 0,
-      "avgWinDuration": 6.292499999999987,
+      "avgWinDuration": 6.167499999999988,
       "avgLossDuration": 0,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 2.925,
+      "avgWordsPlayed": 2.875,
       "parryLandRate": null
     },
     {
@@ -50,13 +50,13 @@
       "kind": "boss",
       "profile": "weak",
       "nonDesigned": true,
-      "winRate": 0,
+      "winRate": 0.775,
       "lossRate": 0,
-      "stalemateRate": 1,
-      "avgWinDuration": 0,
+      "stalemateRate": 0.225,
+      "avgWinDuration": 249.111290322603,
       "avgLossDuration": 0,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 69.9,
+      "avgWordsPlayed": 61.1,
       "parryLandRate": null
     },
     {
@@ -67,11 +67,11 @@
       "winRate": 1,
       "lossRate": 0,
       "stalemateRate": 0,
-      "avgWinDuration": 40.8624999999998,
+      "avgWinDuration": 39.26624999999991,
       "avgLossDuration": 0,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 13.5,
-      "parryLandRate": 0.3409090909090909
+      "avgWordsPlayed": 13.2,
+      "parryLandRate": 0.4583333333333333
     },
     {
       "tier": "early",
@@ -81,11 +81,11 @@
       "winRate": 1,
       "lossRate": 0,
       "stalemateRate": 0,
-      "avgWinDuration": 17.45375000000011,
+      "avgWinDuration": 17.07625000000011,
       "avgLossDuration": 0,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 8.15,
-      "parryLandRate": 1
+      "avgWordsPlayed": 8.025,
+      "parryLandRate": null
     },
     {
       "tier": "mid",
@@ -340,7 +340,5 @@
       "parryLandRate": 0.7155172413793104
     }
   ],
-  "flags": [
-    "early/regular/weak: 20% of trials hit the 300s horizon without resolving (stalemate) -- investigate before trusting this combo's win/loss numbers."
-  ]
+  "flags": []
 }

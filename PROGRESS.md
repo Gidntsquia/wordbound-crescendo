@@ -6780,3 +6780,113 @@ push, then curl-verify — plain branch push, sandbox-token compatible.
 
 **Next:** REGULAR ENEMIES (in flight in a concurrent run) is the last open
 ticket; queue otherwise complete.
+
+---
+
+## 2026-08-22T14:23Z -- REGULAR ENEMIES (concurrent-run collision, lost the
+## race) + a real balance fix on the landed content
+
+**Concurrent-run collision, resolved per this repo's own established
+precedent (STRUCTURAL 17/N, SHAKESPEARE GUIDE's own earlier collision):**
+started this run by independently composing THEME.md's 3 early-tier
+regulars (Gymnopédie No. 1, Air on the G String, Morning Mood) as real,
+PD-vetted piece data + a Vitest suite, hit the SAME jsdom-AudioContext
+wiring hazard a concurrent run also found (confirmed empirically: wiring a
+'weak'-tier duel-mode def into `MONSTER_DEFS` makes floor 1's own
+unavoidable first combat node reachable by it, and several `test/
+dom-check.js` blocks enter a real, randomly-generated first node without
+pinning its defId -- 2 of 4 `npm test` runs failed with the wiring in, one
+an outright `SCRIPT CRASHED` abort). Lost the push race: `git fetch`
+showed `origin/main` had already moved two commits past this run's own
+starting point -- a concurrent run's own version of the exact same ticket
+(`6341881`, thinner filenames but the same 3 pieces/same finding/same
+"deliberately not wired" resolution), AND Jaxon's own DEPLOY closure
+(`cf9d766` -- worth noting: DEPLOY is now genuinely CLOSED, live at
+gidntsquia.github.io/wordbound-crescendo via a gh-pages branch rather than
+the Actions-workflow path this repo's own earlier runs were blocked on --
+the queue's DEPLOY entry is done, not a future run's job anymore). Per this
+repo's own twice-documented precedent for exactly this situation: did NOT
+force-push a redundant duplicate. `git reset --hard origin/main` to take
+the landed version as-is, discarding this run's own (different filenames,
+otherwise equivalent) branch of the same feature.
+
+**A real, live balance bug surfaced and fixed on the LANDED version,
+before treating this as fully resolved:** the concurrent run's own
+PROGRESS.md entry noted its Vitest coverage but never wired a real
+early-tier piece into `test/duel-balance-simulation.js` -- meaning this
+ticket's own VERIFY line ("virtual-clock sim confirming the tier curve")
+was still genuinely unmet even after the landed commit. Did that step:
+wired `js/wordbound/pieces/morning-mood.js` in as early tier's real-piece
+representative (replacing the sim's old synthetic placeholder) and ran it.
+Result: `early/regular/weak` came back 100% LOSS RATE against a
+weak/disengaged bot profile -- a direct violation of the header's own
+"early tier ~nearly safe" design promise, and a real defect sitting live
+in already-shipped content, not something abandoned in the lost race.
+Root cause, same shape as a bug this run independently found and fixed in
+its OWN now-discarded version of this piece: the curve's 0.05->0.4 ramp
+looked appropriately gentle next to Mountain King's 1.0 peak, but its
+TIME-weighted average intensity (~0.22) pushed harder on average than the
+weak bot's own average word output. Fixed directly in the landed
+`morning-mood.js` -- lowered the whole curve ~4x (0.03->0.10), same shape,
+same "wakes up slowly, ends only mildly less harmless" story, just
+numerically safe. Before touching the file, re-derived `Music.
+intensityAt(morningMood, 0/24/48)` by hand to confirm the retune wouldn't
+break `test/dom-check.js`'s own 3 new assertions on this exact piece
+(strictly increasing across those 3 points, peak < 0.5) -- both held after
+the edit (0.03 < 0.06 < 0.1, peak 0.1). Reran the sim: 0% loss, no SAFETY
+flag. `test/duel-balance-simulation-results.json` committed in sync, same
+convention this repo's other sim-touching runs already follow.
+
+**A separate, genuinely PRE-EXISTING flake, confirmed unrelated by
+isolation testing (not investigated further, out of this ticket's
+scope):** `npm test` failed once (of 3 runs) on "audio: dying to a
+counterattack logs a played defeat call" -- a turn-based-combat RNG
+outcome unrelated to anything this run touched (Morning Mood is still not
+wired into any `MONSTER_DEFS` entry). Isolated with `git stash`: reran
+`npm test` twice against the unmodified landed base with none of this
+run's changes present, and it failed there too (1 of 2). Confirmed
+pre-existing, not caused by this run's retune -- flagged here rather than
+chased, since root-causing it is a different ticket's job.
+
+**VERIFIED, this run:**
+- `npm run test:duel-balance`: `early/regular/weak` 0% loss (was 100%
+  before the fix), no SAFETY flags anywhere in the full tier x kind x
+  profile matrix.
+- `npm test` (dom-check.js): 3 runs, 2 clean, 1 hit the separate
+  pre-existing flake above (confirmed unrelated).
+- `npm run test:react` (full Vitest suite): 183/183 passed, unaffected
+  (this run's only code change is inside an already-existing, untested-
+  by-name-elsewhere piece data module).
+- `npm run build`: clean.
+- Hand-verified `Music.intensityAt` at the 3 exact beats `test/
+  dom-check.js`'s own Morning Mood assertion checks, before and after the
+  retune, to confirm no collateral test breakage.
+
+**A genuinely useful thing this run's OWN (discarded) composition
+surfaced, worth keeping even though the code itself didn't land:**
+independently landing on the exact same root cause (an evenly-spread ramp
+"looks gentle by peak, isn't gentle by time-average") on a DIFFERENT
+piece's first draft than the one that shipped is a second, independent
+data point that this specific failure mode -- eyeballing a peak value
+instead of the curve's real time-weighted average -- is an easy trap for
+this kind of piece composition. A future run composing the remaining 6
+regulars (mid/late tier) should compute (or sim-check) the time-weighted
+average intensity as a matter of course, not just the peak, before calling
+a piece's dynamics "done."
+
+**Genuinely-Jaxon-only, flagged rather than blocking:** none this run --
+this was a balance-math fix, not a design call.
+
+**Not done, honest gaps:** unchanged from the concurrent run's own note --
+`js/wordbound/monsters.js` still has zero live regular defs with a
+`.piece` field; the `test/dom-check.js` audit for real-floor-RNG-driven
+combat blocks is still the genuine next step before that can change
+safely. 6 of 9 regulars (mid/late tier) still unstarted. Version NOT
+bumped -- nothing shipped to real gameplay this run, same as the run
+before it.
+
+**Next:** the `test/dom-check.js` audit (GOALS.md's REGULAR ENEMIES entry,
+"real remaining scope (1)") is the right next chunk for a future run --
+small, self-contained, and unblocks wiring these pieces (and any future
+regular) into the live game. DEPLOY is now genuinely closed (see above) --
+no future run needs to revisit it.
