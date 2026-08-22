@@ -1848,6 +1848,61 @@ Rules for the routine:
       real but lower-urgency now that a duel is finally reachable to
       balance against. COMBAT JUICE's damage-landed hook remains available
       as a separate, lower-priority pickup.
+      ORCHESTRATOR NOTE 2026-08-22 (update 6): closed the "win AND loss"
+      real-browser gap update-5's own "Next" note named -- the ticket's
+      VERIFY line explicitly asks for both, and only WIN had ever been
+      proven live before this run. New `test/verify-react-duel-loss.js`
+      (`npm run test:react-duel-loss`, against a real `vite build` output,
+      never the dev server, same bar as every other test:react-* script):
+      two phases against the same real floor-1 Mountain King duel, both
+      driven by forcing the gauge to the edge of GAUGE_MIN via setup (same
+      "force determinism via setup, let the real engine resolve the actual
+      transition" convention `killBossViaRealWord` established for wins in
+      `verify-react-qa-boss-reward.js`) and then letting the REAL per-frame
+      tick loop (`CombatScreen.jsx`'s own rAF effect calling the real
+      `Game.tickDuel`) cross it for real -- nothing here calls
+      `duel.tick`/`loseBlock` directly. Losing a push has no discrete
+      player action to trigger via UI the way winning does (a submitted
+      word), so the continuous music-push tick crossing the gauge for real
+      IS the mechanism under test here, not a stand-in for one.
+      Phase 1 (non-fatal): confirms a real block loss (Verses 5 -> 4), the
+      gauge recentering to ~50, `VolumeGauge`'s `.verse-pip-lost` DOM, the
+      `.volume-gauge-iframe` track class + "Grace period" banner going live
+      for the first time in any real-browser check (built and unit-tested
+      by an earlier run, never before observed live), and that combat
+      stays active (a non-fatal loss doesn't end the fight). Then waits out
+      the real `Duel.IFRAME_DURATION_SEC` and confirms the grace
+      banner/class clear on their own -- proving i-frames are a temporary
+      window, not a permanent state change.
+      Phase 2 (fatal): forces `healthBlocks = 1` (setup, same convention)
+      and repeats the gauge-to-the-edge trick -- the real tick loop's block
+      loss empties healthBlocks, the real `duel.on('player-defeated')`
+      handler in `Game.startDuelFight` fires, `endRun(false)` runs for
+      real, and `RunScreen.jsx`'s own early-return dispatch swaps the whole
+      screen to a real "The Well Ran Dry" GAME_OVER, `combatActive`
+      cleared, `.volume-gauge` gone. This is the first real-browser proof
+      of the full `player-defeated` -> `endRun` -> GAME_OVER chain, not
+      just the isolated `duel.js`/`duelIntegration.test.js` unit-tested math.
+      **Verified:** `npm run test:react-duel-loss`: **ALL CHECKS PASSED, 2
+      consecutive clean runs, zero flakes.** `npm test` (jsdom dom-check):
+      ALL CHECKS PASSED (16/16), unaffected (no engine/game.js change this
+      run -- pure new test script + one `package.json` script entry). `npx
+      vitest run`, 3 consecutive runs: **124/124 every time, zero flakes**.
+      `npm run build`: clean, 44 modules, unchanged. `npm run
+      test:react-build`, `npm run test:react-qa`, `npm run test:mobile`,
+      `npm run test:qa`, `npm run test:music-engine`, `npm run build:itch`
+      + `npm run test:itch-build`: ALL CHECKS PASSED, unaffected.
+      **Not done:** the ticket's VERIFY line's real-browser bar ("full duel
+      win AND loss with zero console errors") is now genuinely met, but the
+      ticket itself stays unchecked -- the crescendo-approaching countdown,
+      the Largo control surface, Second Wind's retarget, the virtual-clock
+      balance sim, and Valkyrie Marshal's/the final boss's own pieces are
+      all still open (unchanged from update-5). **Next:** any of those four
+      independent pieces; the balance sim is the largest and probably the
+      most valuable now that a duel is provably reachable and its win/loss
+      ends are both proven live to balance against. COMBAT JUICE's
+      damage-landed hook remains available as a separate, lower-priority
+      pickup.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

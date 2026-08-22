@@ -30,6 +30,8 @@
     "test:react-build": "node test/verify-react-build.js",
     "pretest:react-qa": "node tools/ensure-deps.js @playwright/test",
     "test:react-qa": "node test/verify-react-qa-boss-reward.js",
+    "pretest:react-duel-loss": "node tools/ensure-deps.js @playwright/test",
+    "test:react-duel-loss": "node test/verify-react-duel-loss.js",
     "pretest:music-engine": "node tools/ensure-deps.js @playwright/test",
     "test:music-engine": "node test/verify-music-engine.js"
   },

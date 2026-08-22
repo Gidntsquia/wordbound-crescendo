@@ -3997,3 +3997,100 @@ sim are real but now lower-urgency than they were pre-cutover, since a
 duel fight is finally reachable to balance against for real. COMBAT
 JUICE's damage-landed hook remains available as a separate, lower-priority
 pickup whenever this queue is otherwise empty.
+
+## 2026-08-22T03:20Z -- DUEL-GAUGE COMBAT: real-browser duel-LOSS check, closing the ticket's "win AND loss" verify gap
+
+Picked up the prior run's own "Next" note exactly as scoped: a real-browser
+duel WIN had been proven (the boss-def cutover run), but the ticket's own
+VERIFY line explicitly asks for "full duel win AND loss with zero console
+errors," and nothing had ever proven a loss live before this run.
+
+**Built:** `test/verify-react-duel-loss.js` (new, `npm run
+test:react-duel-loss`), against a real `vite build` output statically
+served -- same bar every other `test:react-*` script holds itself to,
+never the dev server. Reaches the same real floor-1 Mountain King duel
+`test:react-qa` reaches (jump-to-boss-node, real click to start combat,
+confirms `state.monster.duel === true`), then runs two phases:
+
+- **Phase 1 (non-fatal loss):** forces `state.duel.gauge` to
+  `Duel.GAUGE_MIN + 2` via `page.evaluate` (setup-only, same "force
+  determinism via setup, let the real engine resolve the transition"
+  convention `verify-react-qa-boss-reward.js`'s `killBossViaRealWord`
+  already established for wins), then waits on the REAL per-frame tick
+  loop -- `CombatScreen.jsx`'s own `requestAnimationFrame` effect calling
+  the real `Game.tickDuel` -- to cross it. Nothing in this script calls
+  `duel.tick`/`loseBlock` directly; losing a push has no discrete player
+  action to trigger via UI the way winning does (a submitted word), so the
+  continuous music-push tick crossing the gauge for real IS the mechanism
+  under test. Confirmed: Verses 5 -> 4, gauge recenters to ~50, a real
+  `.verse-pip-lost` renders, `VolumeGauge`'s `.volume-gauge-iframe` track
+  class and "Grace period" banner go live -- the first time either has
+  been observed in a real browser (they were built and Vitest/RTL-tested
+  standalone by an earlier run, but never wired into a reachable fight
+  until the boss-def cutover, and never actually triggered by a real block
+  loss until this run) -- and that combat stays active (a non-fatal loss
+  doesn't end the fight). Then waits out the real
+  `Duel.IFRAME_DURATION_SEC` (read from the live page, not hardcoded) and
+  confirms the grace banner/class clear on their own, proving i-frames are
+  a temporary window rather than a permanent state flip.
+- **Phase 2 (fatal defeat):** forces `state.duel.healthBlocks = 1` (setup,
+  same convention) and repeats the gauge-to-the-edge trick on the SAME
+  duel instance. The real tick loop's block loss empties healthBlocks, the
+  real `duel.on('player-defeated')` handler inside `Game.startDuelFight`
+  fires, a real `endRun(false)` runs, and `RunScreen.jsx`'s own
+  early-return dispatch (GAME_OVER swaps the whole screen before the
+  run-header wrapper, confirmed by an earlier STRUCTURAL run) shows a real
+  "The Well Ran Dry" heading, `combatActive` clears, and `.volume-gauge` is
+  gone. This is the first real-browser proof of the full
+  `player-defeated` -> `endRun` -> GAME_OVER chain end to end -- the prior
+  coverage (`duelIntegration.test.js`, `duel.test.js`) only ever exercised
+  the underlying math/event-wiring in Vitest/jsdom, injecting `state.duel`
+  directly rather than reaching a real, screen-swapping defeat through a
+  real per-frame loop in a real browser.
+
+Between phases 1 and 2, waited for the i-frame window to naturally elapse
+before forcing the second loss -- `duel.tick`'s own `isIframeActive` guard
+would otherwise no-op the forced gauge value indefinitely, since i-frames
+suspend the music push entirely by design (the header HEALTH MODEL's own
+"a brutal passage can never instantly chain away multiple blocks"
+guarantee, now proven to hold for a script-forced edge case too, not just
+the mocked-clock unit tests).
+
+**Verified:**
+- `npm run test:react-duel-loss`: **ALL CHECKS PASSED, 2 consecutive clean
+  runs, zero flakes** -- 19 checks per run (fight entry, initial Verse
+  count, the non-fatal loss + gauge recenter + pip/iframe UI, the grace
+  window clearing on its own, the fatal defeat + GAME_OVER heading +
+  combatActive clearing + the run screen swapping away, zero console
+  errors, zero failed requests).
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED (16/16) -- unaffected,
+  since this run touched no engine/`game.js` file, only a new standalone
+  test script plus one `package.json` script entry
+  (`test:react-duel-loss` + its `pretest:` dep-check twin, same pattern
+  every other `test:react-*` script already uses).
+- `npx vitest run`, 3 consecutive runs: **124/124 every time, zero
+  flakes**.
+- `npm run build`: clean, 44 modules, unchanged (no new import anywhere in
+  the shipped app).
+- `npm run test:react-build`, `npm run test:react-qa`, `npm run
+  test:mobile`, `npm run test:qa`, `npm run test:music-engine`, `npm run
+  build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED, unaffected.
+
+**Not done:** the ticket's own VERIFY line's real-browser bar ("full duel
+win AND loss with zero console errors") is now genuinely satisfied, but
+DUEL-GAUGE COMBAT stays unchecked -- real remaining scope, unchanged from
+the boss-def cutover run: the crescendo-approaching countdown (still
+hardcoded `null` in `CombatScreen.jsx`), the Largo tempo-scale control
+surface, Second Wind's retarget at `healthBlocks` (still a no-op in a duel
+fight), the virtual-clock balance sim (this game's tuning numbers are
+still "named starting points... explicitly flagged retunable"), and
+Valkyrie Marshal's/the final Beethoven's-5th boss's own real sequenced
+pieces (only Mountain King exists today). **Next:** any of those four are
+now independent, no longer blocked on each other or on a reachable duel to
+test against. The virtual-clock balance sim is probably the most valuable
+next pickup -- a duel's win AND loss ends are both proven reachable and
+correct now, so there's finally something real to balance the tuning
+numbers against; the crescendo-approaching countdown and Largo surface are
+smaller, self-contained UI pieces. COMBAT JUICE's damage-landed hook
+remains available as a separate, lower-priority pickup whenever this queue
+is otherwise empty.
