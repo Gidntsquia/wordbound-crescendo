@@ -8957,6 +8957,16 @@ PLAYTEST FINDINGS 2's own still-open gap (Mountain King's boss-duel retune,
 floor 1's real difficulty problem) remains untouched -- still the other
 live open thread above this ticket in the queue.
 
-**Live deploy refresh:** not yet executed this run -- doing it in the same
-commit sequence below, per the standing LIVE DEPLOY rule (this run changed
-game code, so a doc-only skip doesn't apply).
+**Live deploy refresh, actually executed:** built `dist/app/` fresh off
+this run's own commit (`a6defef`, main pushed) in a disposable `git
+worktree`, published its contents + an empty `.nojekyll` as the new root
+of the `gh-pages` branch via a scratch orphan branch, `git push -f origin
+gh-pages-refresh:gh-pages` -- succeeded, confirmed by git's own ref-update
+output (`530ba85...c60445c gh-pages-refresh -> gh-pages (forced update)`).
+Worktree removed after. **Could NOT curl-verify, honestly flagged rather
+than assumed:** `curl -sv https://gidntsquia.github.io/wordbound-crescendo/`
+hit the same pre-existing domain-specific proxy block this repo's prior
+runs have already repeatedly documented -- a `403` on the CONNECT tunnel
+to `gidntsquia.github.io` specifically. The push itself is the actual
+deploy action and it succeeded; this is a known, recurring sandbox
+limitation, not a new one introduced by this run.
