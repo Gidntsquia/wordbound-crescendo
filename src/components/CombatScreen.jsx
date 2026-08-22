@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { VolumeGauge } from './VolumeGauge.jsx';
 
 // React port of wordbound.html's #combat-panel (STRUCTURAL ticket, next
 // sub-step after the node map). Deliberately does NOT call game.js's
@@ -163,6 +164,51 @@ export default function CombatScreen({ state, Game, act }) {
 
   const monster = state.monster;
 
+  // DUEL-GAUGE COMBAT ticket (GOALS.md, integration run): the real-time
+  // loop a duel-mode fight runs on. Deliberately bypasses act()/bump on
+  // every frame -- same "mutate state directly, let the caller decide when
+  // to force a real re-render" pattern the staged-tile drag system already
+  // established (see this file's own header comment on
+  // startStagingDrag/moveStagingDrag) -- ticking the gauge 60x/sec through
+  // the full app-wide act() cycle would be wasteful and would fight this
+  // component's own per-frame render. A local `duelTick` counter forces
+  // just THIS component to re-render each frame (so the mounted
+  // VolumeGauge picks up the latest gauge/health/i-frame state via its own
+  // props); a real act() bump only fires once the duel actually resolves
+  // (healthBlocks hits 0 -> game over), the one moment something OUTSIDE
+  // this component's own props needs to know. Guarded on
+  // `typeof requestAnimationFrame` -- jsdom has no rAF (confirmed directly
+  // against a fresh JSDOM instance), so this is a true no-op under
+  // Vitest/RTL, same as the touch-mode matchMedia guard elsewhere in this
+  // repo; real per-frame behavior is verified by
+  // test/verify-react-build.js against a real browser instead.
+  const [, setDuelTick] = useState(0);
+  const duelLastNowRef = useRef(null);
+  useEffect(() => {
+    if (!monster.duel || !state.duel || typeof requestAnimationFrame !== 'function') return undefined;
+    let rafId = null;
+    duelLastNowRef.current = Game.getDuelClockNow();
+    function frame() {
+      const now = Game.getDuelClockNow();
+      const prev = duelLastNowRef.current != null ? duelLastNowRef.current : now;
+      duelLastNowRef.current = now;
+      Game.tickDuel(now, Math.max(0, now - prev));
+      if (state.duel && state.duel.isTerminal()) {
+        // The duel just resolved (e.g. a lost push emptied healthBlocks,
+        // synchronously calling endRun(false) inside Game.startDuelFight's
+        // own 'player-defeated' handler) -- flush a REAL re-render so React
+        // notices state.screen changed underneath it, then stop the loop.
+        act(() => {});
+        return;
+      }
+      setDuelTick((n) => n + 1);
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+    return () => { if (rafId != null) cancelAnimationFrame(rafId); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monster.duel, state.duel]);
+
   // Combat.playWord mutates state.monster.hp synchronously (confirmed by
   // reading combat.js), so `act()`'s single bump already shows the new HP.
   // But Game.submitWord resolves the monster's COUNTERATTACK (ink loss,
@@ -176,7 +222,11 @@ export default function CombatScreen({ state, Game, act }) {
     if (!state.combatActive || !monster || monster.hp <= 0) return;
     const trimmed = (rawWord || '').trim();
     if (!trimmed) return;
-    act(() => Game.submitWord(trimmed));
+    // Duel-mode fights need the SAME clock reading the tick loop above and
+    // duel.registerCrescendoPeak() use, or a parry that landed by wall-clock
+    // feel would be checked against a different time axis than the one that
+    // registered the peak. Every other (turn-based) fight omits it.
+    act(() => Game.submitWord(trimmed, monster.duel ? Game.getDuelClockNow() : undefined));
     setWord('');
     clearTimeout(pendingResolveRef.current);
     const diedThisPlay = state.monster && state.monster.hp <= 0;
@@ -369,6 +419,23 @@ export default function CombatScreen({ state, Game, act }) {
           </div>
         )}
       </div>
+
+      {monster.duel && state.duel && (
+        // approachingCrescendoSecondsAway is left null here -- deriving it
+        // needs the sequencer's own 'crescendo-approaching' payload (a beat
+        // position) converted to a live seconds-away countdown, which is a
+        // genuinely separate small piece of plumbing (its own local
+        // countdown state, ticked by the same loop above) not yet built.
+        // The gauge itself, i-frames, and pushes-remaining are all real and
+        // live; only the upcoming-crescendo warning banner is still
+        // silent. Known, documented gap -- not a regression, since nothing
+        // showed this warning before this run either.
+        <VolumeGauge
+          duel={state.duel}
+          now={Game.getDuelClockNow()}
+          approachingCrescendoSecondsAway={null}
+        />
+      )}
 
       <div className="rack-display" id="rack-display">
         {state.player.rack.map((tile, index) => {

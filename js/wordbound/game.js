@@ -14,7 +14,7 @@
   window.Wordbound = window.Wordbound || {};
   var Game = (window.Wordbound.Game = {});
 
-  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents, Duel;
+  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents, Duel, DuelCombat, Music;
 
   var audioContext = null;
   var musicOscillators = [];
@@ -762,12 +762,30 @@
     ensureRackIsPlayable();
     state.combatActive = true;
     var isBoss = node.type === 'boss';
-    startBackgroundMusic(isBoss);
+    // DUEL-GAUGE COMBAT ticket (GOALS.md, integration run): a monster whose
+    // def carries a `.piece` (music.js piece data) fights a real-time gauge
+    // duel instead of the turn-based loop -- see Game.startDuelFight's own
+    // header for why this is a TRUE NO-OP today (no monsters.js entry sets
+    // `.piece` yet). state.duel/duelSequencer/duelPiece are reset here
+    // regardless, defensively, so a stray leftover from an aborted previous
+    // fight can never bleed into this one.
+    state.duel = null;
+    state.duelSequencer = null;
+    state.duelPiece = null;
+    if (state.monster.piece) {
+      Game.startDuelFight(state.monster.piece);
+    } else {
+      startBackgroundMusic(isBoss);
+    }
     if (isBoss) playSfx('bossEntrance', null, playBossEntranceSound);
     log(state.monster.name + ' appears!');
     // Telegraphed monster actions (GOALS.md "FUN OVERHAUL 2/8"): pre-roll
-    // what the monster does on ITS first turn before the player acts.
-    state.monster.intent = Intents.rollIntent(state.monster, state.rng);
+    // what the monster does on ITS first turn before the player acts --
+    // skipped for a duel fight, which has no discrete "monster's turn"
+    // (Intents is retired for gauge fights, per this ticket's own decision).
+    if (!state.monster.duel) {
+      state.monster.intent = Intents.rollIntent(state.monster, state.rng);
+    }
     render();
     if (!hasSeenHowToPlay()) {
       Game.openHowToPlay();
@@ -882,7 +900,88 @@
     });
   }
 
-  Game.submitWord = function (rawWord) {
+  // DUEL-GAUGE COMBAT ticket (GOALS.md, integration run): the actual
+  // cutover the ticket's "Next" note called for. Starts a real-time gauge
+  // duel for the CURRENT state.monster against `piece` (a music.js piece
+  // data module) -- creates the live Duel + Music sequencer, wires the
+  // sequencer's 'crescendo-peak' event into the duel's parry window, keeps
+  // state.player.healthBlocks synced (DuelCombat.syncHealthBlocks), and
+  // ends the run on 'player-defeated' the same way the turn-based ink<=0
+  // path already does. Called automatically from startCombat below when
+  // the fought monster carries a `.piece` field -- a TRUE NO-OP today,
+  // since no entry in monsters.js sets one yet (that's REGULAR ENEMIES' /
+  // the boss-piece-assignment work's job, both still open queue items);
+  // this is the forward-compatible wiring so a future run only needs to add
+  // piece data, not touch this integration again.
+  // opts.audioContext/opts.destination are dependency-injection points for
+  // tests (a hand-built fake AudioContext, same convention music.test.js/
+  // duelCombat.test.js already use) -- production calls (from startCombat)
+  // omit both and get the real, lazily-initialized shared audio graph.
+  // Per the ticket's own "don't keep two life systems" call: ink survives
+  // ONLY as a spend resource (Overcharge/Rewrite) in a duel fight -- it is
+  // NOT read as health anywhere on this path.
+  Game.startDuelFight = function (piece, opts) {
+    opts = opts || {};
+    var monster = state.monster;
+    if (!monster || !Duel || !Music || !DuelCombat) return null;
+    monster.duel = true;
+
+    var ctx = opts.audioContext || initAudioContext();
+    var destination = opts.destination || ensureMusicGainNode(ctx);
+    stopBackgroundMusic(); // the sequencer below owns this fight's audio, not the placeholder loop
+
+    var sequencer = Music.createSequencer(ctx, destination, piece);
+    sequencer.play();
+
+    var pushesToDefeat = opts.pushesToDefeat != null ? opts.pushesToDefeat
+      : (monster.pushesToDefeat != null ? monster.pushesToDefeat : (monster.isBoss ? 3 : 1));
+    var duel = Duel.create({
+      stageTier: piece.stageTier,
+      healthBlocks: state.player.healthBlocks,
+      pushesToDefeat: pushesToDefeat
+    });
+    DuelCombat.syncHealthBlocks(state.player, duel);
+    duel.on('player-defeated', function () {
+      sequencer.stop();
+      state.combatActive = false;
+      endRun(false);
+    });
+    sequencer.on('crescendo-peak', function () {
+      duel.registerCrescendoPeak(ctx.currentTime);
+    });
+
+    state.duel = duel;
+    state.duelSequencer = sequencer;
+    state.duelPiece = piece;
+    return duel;
+  };
+
+  // The shared clock a duel-mode fight's tick loop / word submissions run
+  // on -- always the sequencer's own AudioContext time, so the gauge push,
+  // the parry window, and the music's own scheduling never drift apart.
+  // Falls back to 0 outside a duel fight (never actually read there).
+  Game.getDuelClockNow = function () {
+    return audioContext ? audioContext.currentTime : 0;
+  };
+
+  // Called every animation frame by CombatScreen.jsx's own requestAnimation-
+  // Frame loop (per-frame, deliberately NOT run through act()/render() --
+  // same "mutate state directly, let the caller decide when to force a real
+  // re-render" pattern the staged-tile drag system already established) --
+  // advances the gauge by the music's continuous push. No-op outside an
+  // active duel fight, or once the duel has already resolved.
+  Game.tickDuel = function (now, dt) {
+    if (!state.duel || !state.duelSequencer) return;
+    if (state.duel.isTerminal()) return;
+    state.duel.tick(now, dt, state.duelSequencer.getIntensity());
+  };
+
+  // `duelNow` is only meaningful for a duel-mode fight (state.monster.duel):
+  // the shared clock reading (Game.getDuelClockNow()) CombatScreen.jsx
+  // passes so this word's parry check lands on the same time axis as the
+  // duel's own tick()/registerCrescendoPeak() calls. Every existing
+  // (turn-based) call site omits it and is completely unaffected.
+  Game.submitWord = function (rawWord, duelNow) {
     if (!state.combatActive) return;
     // The killing blow holds combatActive true through its death beat (so
     // the combat panel stays visible while monster-info fades) -- block
@@ -913,7 +1012,19 @@
     // this is the one point where an invalid word can't accidentally get
     // charged for, so the check belongs here regardless).
     var overcharging = !!state.overchargeArmed && state.player.ink >= Combat.OVERCHARGE_INK_COST;
-    var result = Combat.playWord(state.player, state.monster, word, state.comboState, { overcharge: overcharging });
+    var isDuelFight = !!(state.monster.duel && state.duel);
+    // DUEL-GAUGE COMBAT ticket: a duel-mode fight resolves the word's damage
+    // through the gauge (DuelCombat.submitWord -- parry + push + decisive-
+    // blow on a won push) instead of Combat.playWord's own direct HP
+    // subtraction. Both return the same result shape (word/tilesUsed/score/
+    // damage/...), so every line below that only reads `result` is shared,
+    // unaffected code -- see the two duel-only branches further down for
+    // the two places that genuinely differ (health-loss handling, and the
+    // post-word counterattack/Intents step, which duel fights don't have).
+    var result = isDuelFight
+      ? DuelCombat.submitWord(state.player, state.monster, state.duel, word, state.comboState,
+          duelNow != null ? duelNow : Game.getDuelClockNow(), { overcharge: overcharging })
+      : Combat.playWord(state.player, state.monster, word, state.comboState, { overcharge: overcharging });
 
     if (hexedTile) {
       state.player.rack.splice(Math.min(hexedTileIndex, state.player.rack.length), 0, hexedTile);
@@ -1037,7 +1148,13 @@
     // same blow would otherwise fall through to the reward screen with a
     // "dead" player still in play. Catch it here, after the log lines above
     // so the player sees what happened, but before either branch runs.
-    if (state.player.ink <= 0) {
+    // DUEL-GAUGE COMBAT ticket ("don't keep two life systems"): a duel
+    // fight's real health is healthBlocks, not ink -- ink dropping to 0 from
+    // a same-turn item hook (e.g. Cursed Quill) is just a spend-resource
+    // side effect there, not a death condition. Genuine duel-mode death
+    // (healthBlocks reaching 0) is instead caught by the 'player-defeated'
+    // handler Game.startDuelFight wires directly to the duel engine.
+    if (!isDuelFight && state.player.ink <= 0) {
       state.combatActive = false;
       endRun(false);
       return;
@@ -1098,6 +1215,18 @@
       // got discarded -- clear it before the monster's action below maybe
       // sets a fresh one on the new rack.
       state.hexedTileId = null;
+
+      // DUEL-GAUGE COMBAT ticket: a duel fight has no discrete "monster's
+      // turn" to resolve here -- the enemy's offense is the music's
+      // CONTINUOUS push, already being applied every animation frame by
+      // CombatScreen.jsx's own loop (Game.tickDuel), independent of word
+      // submission. Intents is retired for gauge fights entirely (GOALS.md,
+      // 2026-08-22 decision note on this ticket) -- surviving this word just
+      // means the rack cycled and the duel carries on.
+      if (isDuelFight) {
+        render();
+        return;
+      }
 
       // Execute the monster's pre-telegraphed intent (GOALS.md
       // "FUN OVERHAUL 2/8") rather than a flat counterattack. Falls back to
@@ -1193,6 +1322,19 @@
   };
 
   function onMonsterDefeated(damageDealt, monsterHpBefore) {
+    // DUEL-GAUGE COMBAT ticket: a duel fight's sequencer owns this fight's
+    // audio (Game.startDuelFight stopped the placeholder loop to start it);
+    // it must be stopped and the duel-scoped state cleared here so the NEXT
+    // fight starts clean regardless of whether it's turn-based or another
+    // duel. True no-op today (state.duel is only ever set by
+    // startDuelFight, itself only reachable via a monster.piece that
+    // doesn't exist yet).
+    if (state.duel) {
+      if (state.duelSequencer) state.duelSequencer.stop();
+      state.duel = null;
+      state.duelSequencer = null;
+      state.duelPiece = null;
+    }
     var goldDrop = [0, 0];
     if (state.monster.isBoss) {
       var bossDef = Monsters.BOSS_DEFS[state.monster.defId];
@@ -1281,7 +1423,14 @@
     // Track achievements
     if (Achievements) {
       if (wasBoss) {
-        Achievements.trackBossDefeatedWithoutDamage(state.monster.defId, state.player.ink < state.player.maxInk);
+        // DUEL-GAUGE COMBAT ticket (GOALS.md "Next" note, item 5): a duel
+        // fight's real health is healthBlocks, not ink -- "took damage"
+        // means lost a Verse, not spent ink (which a duel fight still does
+        // freely via Overcharge/Rewrite without that being damage at all).
+        var tookDamage = state.monster.duel
+          ? state.player.healthBlocks < state.player.maxHealthBlocks
+          : state.player.ink < state.player.maxInk;
+        Achievements.trackBossDefeatedWithoutDamage(state.monster.defId, tookDamage);
       }
       Achievements.trackOverkill(overkill);
       Achievements.trackItemsCollected(state.player.items.length);
@@ -1760,6 +1909,21 @@
     playTone(ctx, master, { type: 'sawtooth', freq: 220, endFreq: 180, duration: 0.35, gain: 0.11, start: now + 0.2 });
   }
 
+  // DUEL-GAUGE COMBAT ticket (GOALS.md, integration run): factored out of
+  // startBackgroundMusic's own lazy-init (identical behavior, just callable
+  // from Game.startDuelFight below too, so a duel-mode fight's real
+  // sequencer plumbs into the SAME shared mute/volume gain node the
+  // placeholder background music already uses, per music.js's own "reuse
+  // the caller's destination GainNode" contract).
+  function ensureMusicGainNode(ctx) {
+    if (!musicGainNode) {
+      musicGainNode = ctx.createGain();
+      musicGainNode.connect(ctx.destination);
+      musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, ctx.currentTime);
+    }
+    return musicGainNode;
+  }
+
   function startBackgroundMusic(isBoss) {
     var requestedMode = isBoss ? 'boss' : 'normal';
     // Review F2 (2026-08-20): startCombat used to unconditionally
@@ -1770,11 +1934,7 @@
     try {
       stopBackgroundMusic();
       var ctx = initAudioContext();
-      if (!musicGainNode) {
-        musicGainNode = ctx.createGain();
-        musicGainNode.connect(ctx.destination);
-        musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, ctx.currentTime);
-      }
+      ensureMusicGainNode(ctx);
 
       currentMusicMode = isBoss ? 'boss' : 'normal';
       isPlayingMusic = true;
@@ -3392,6 +3552,8 @@
     Characters = window.Wordbound.Characters;
     Achievements = window.Wordbound.Achievements;
     Duel = window.Wordbound.Duel;
+    DuelCombat = window.Wordbound.DuelCombat;
+    Music = window.Wordbound.Music;
   };
 
   Game.init = function () {

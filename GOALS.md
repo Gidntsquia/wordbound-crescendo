@@ -1340,6 +1340,134 @@ Rules for the routine:
       real duel is reachable: the Largo control surface, the virtual-clock
       balance sim, and real Playwright duel win/loss checks. COMBAT JUICE
       remains available as lower-priority, opportunistic pickup, unchanged.
+      ORCHESTRATOR NOTE 2026-08-22 (update 4): landed the actual cutover --
+      items (1)-(4) of the "Next" note above, plus most of (5). Full details
+      in PROGRESS.md; summary here:
+      - `js/wordbound/game.js`: `Game.startDuelFight(piece, opts)` (new) sets
+        up a real `Duel.create()` + `Music.createSequencer()` for the
+        CURRENT `state.monster`, wires the sequencer's 'crescendo-peak' into
+        the duel's parry window, calls `DuelCombat.syncHealthBlocks`, and
+        ends the run on 'player-defeated'. `Game.tickDuel(now, dt)` (new) is
+        the thin per-frame wrapper CombatScreen's own loop calls.
+        `Game.submitWord` (item 1) now branches on `state.monster.duel &&
+        state.duel`: `DuelCombat.submitWord` instead of `Combat.playWord`,
+        the Cursed-Quill ink<=0 catch skipped (duel health is healthBlocks,
+        not ink, per the "don't keep two life systems" call), and the
+        post-word survive path (item 2) skips Intents/counterattack
+        entirely for a duel fight -- the continuous music push (ticked every
+        frame, independent of word submission) IS the enemy's whole offense
+        there. `startCombat` now auto-detects a monster def's `.piece`
+        field and calls `Game.startDuelFight` instead of the placeholder
+        `startBackgroundMusic` -- the actual forward-compatible wiring point
+        item (6) asked for, so a future run only needs to add piece data to
+        a monster def, not touch this integration again.
+        `monsters.js`'s `createMonster`/`createBoss` now copy
+        `piece`/`pushesToDefeat` from the def onto the instance if present.
+        `onMonsterDefeated` stops the duel sequencer and clears
+        `state.duel`/`duelSequencer`/`duelPiece` so the next fight (duel or
+        turn-based) always starts clean. Item (5)'s achievement half: `wasBoss`'s
+        `trackBossDefeatedWithoutDamage` call now reads `healthBlocks` vs
+        `maxHealthBlocks` for a duel fight instead of ink. Item (5)'s OTHER
+        half -- retargeting Second Wind (`items.js`, the near-death-save
+        item, hooked into `onPlayerDamaged`) at a duel's block loss --
+        deliberately NOT done this run: duel-mode damage has no discrete
+        `onPlayerDamaged` call to hook (loss happens inside `duel.tick`'s
+        own `loseBlock`, called every animation frame, not from an item-hook
+        call site), so retargeting it is a real, separate hook-shape design
+        call, not a one-line change like the achievement half was. Flagging
+        concretely: Second Wind currently does nothing in a duel fight (an
+        honest gap, not a regression -- it did nothing there before this run
+        either, since duel fights didn't exist as a reachable path at all).
+      - `src/components/CombatScreen.jsx` (items 3-4): a `requestAnimation
+        Frame` loop, active only while `monster.duel && state.duel`,
+        computes `dt` from `Game.getDuelClockNow()` (the sequencer's own
+        `ctx.currentTime`) each frame and calls `Game.tickDuel(now, dt)`
+        directly -- deliberately bypassing `act()`/the app-wide bump on
+        every frame (same pattern the staged-tile drag system already
+        established: mutate state directly per-frame, force a real
+        re-render only at a genuine transition). A local `duelTick` counter
+        forces just this component to re-render each frame so the newly-
+        mounted `VolumeGauge` (built and tested standalone by update-2,
+        wired in for real for the first time this run) shows live gauge/
+        health/i-frame state; `act(() => {})` fires once the duel actually
+        resolves (`state.duel.isTerminal()`), flushing the real screen
+        transition a synchronous 'player-defeated' -> `endRun(false)` chain
+        causes. Guarded on `typeof requestAnimationFrame` -- confirmed
+        directly that jsdom has none, so this is a true no-op under
+        Vitest/RTL (same convention as the touch-mode matchMedia guard
+        elsewhere in this file), real per-frame behavior verified only by
+        `test:react-build` (see below). `submit()` now passes
+        `Game.getDuelClockNow()` as the word's parry-check clock for a
+        duel-mode fight. `VolumeGauge`'s `approachingCrescendoSecondsAway`
+        prop is passed `null` -- deriving a live countdown from the
+        sequencer's 'crescendo-approaching' event is real, separate,
+        genuinely small remaining plumbing, not done this run (documented
+        inline).
+      - Left deliberately OUT of scope, real remaining work: assigning any
+        REAL production monster a `.piece` (still blocked on REGULAR
+        ENEMIES/boss-roster work per THEME.md -- monsters.js still carries
+        the old sibling-derived names, e.g. "The Vowelmaw," not the bible's
+        Mountain King/Death the Fiddler/Valkyrie Marshal/Maestro), the
+        crescendo-approaching countdown, Second Wind's retarget, the Largo
+        control surface, the virtual-clock balance sim, and real Playwright
+        duel win/loss checks (still blocked on a real, reachable production
+        duel existing -- this run's own new tests inject a duel directly via
+        `state.duel = Duel.create(...)`, same "drive the real engine
+        directly" convention every prior isolated slice of this ticket has
+        used, since nothing in the shipped game can reach one yet).
+      **Verified:** 13 new Vitest tests (`src/test/duelIntegration.test.js`)
+      drive the REAL `Game.submitWord`/`Game.tickDuel`/`Game.startDuelFight`
+      against real combat state (`freshRun`/`findAvailableCombatNodeId`/
+      `Game.enterCurrentNode`, same gameHelpers.js convention every other
+      test file uses) -- a won push deals a real decisive blow and reaches
+      TILE_REWARD without ever touching the turn-based counterattack path
+      (confirmed by polling real `state.screen`, not a mock); a survived
+      word never rolls Intents or spends ink; ink hitting 0 never ends a
+      duel fight; `Game.tickDuel` forwards to the real `duel.tick` with the
+      sequencer's live intensity and correctly no-ops outside/after a fight;
+      `Game.startDuelFight` (with an injected FakeAudioContext/FakeGain,
+      same convention `music.test.js` established since jsdom has no real
+      AudioContext, confirmed directly) creates a real playing sequencer,
+      persists `healthBlocks` across the duel, wires the sequencer's real
+      'crescendo-peak' event into the duel's parry window (confirmed by
+      advancing the fake ctx's `currentTime` past the piece's `peakBeat` and
+      calling the sequencer's own `_tick()`), and ends the run on
+      `player-defeated` without touching ink; `startCombat`'s automatic
+      detection is tested by temporarily stubbing `window.AudioContext` and
+      searching real seeds for one whose floor actually rolls a slime combat
+      node (not a vacuous "if it happens to be a slime" skip) to prove the
+      `.piece` -> duel-mode wiring fires for real, and separately that a
+      def without `.piece` (every real one, today) stays turn-based --
+      the actual "true no-op today" claim, proven rather than assumed.
+      Full `npx vitest run`, 3 consecutive runs: **121/121 every time, zero
+      flakes** (up from 108 -- 13 new, all in this run's new file; every
+      pre-existing test unaffected). `npm test` (jsdom dom-check,
+      `wordbound.html`): ALL CHECKS PASSED, confirming every `game.js`/
+      `monsters.js` change is a true no-op there. `npm run build`: clean, 44
+      modules (up from 43 -- `CombatScreen.jsx` now actually imports
+      `VolumeGauge.jsx` for the first time, making it reachable). `npm run
+      test:react-build` (real browser, built output): ALL CHECKS PASSED --
+      the full real-word playthrough, staged/drag/touch-drag mechanics, and
+      touch-mode checks all still pass unchanged, confirming the rAF
+      loop/VolumeGauge mount is inert for every real fight today. `npm run
+      test:react-qa`, `npm run test:mobile`, `npm run test:qa`, `npm run
+      test:music-engine`, `npm run build:itch` + `npm run test:itch-build`:
+      ALL CHECKS PASSED, unaffected.
+      **Not verified:** nothing in a real playthrough ever reaches a duel
+      (confirmed by `test:react-build`'s unchanged playthrough) -- there is
+      still no real duel to look at, feel, or Playwright-verify end-to-end
+      in a real browser; that's now purely blocked on a real monster
+      getting a `.piece` (REGULAR ENEMIES/boss-roster territory) rather than
+      on any remaining integration plumbing. Ticket stays unchecked.
+      **Next:** the cleanest unblock is picking ONE real boss (THEME.md
+      already names Mountain King for floor 1, with `js/wordbound/pieces/
+      mountain-king.js` already built) and giving its monsters.js entry a
+      real `.piece`/reskinned name/`pushesToDefeat` -- at that point a real
+      Playwright duel win/loss check (item 7) becomes possible for the first
+      time, and Jaxon's first real playtest of the mechanic becomes
+      reachable. Second Wind's retarget, the crescendo-approaching
+      countdown, the Largo surface, and the balance sim remain open,
+      smaller, independent pieces after that.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

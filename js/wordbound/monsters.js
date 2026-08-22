@@ -281,7 +281,15 @@
     return {
       defId: defId, name: def.name, hp: def.maxHp, maxHp: def.maxHp,
       attack: def.attack, traitPhases: def.traitPhases, isBoss: false, tier: def.tier,
-      intents: def.intents || [], mendUsed: false, enrageStacks: 0
+      intents: def.intents || [], mendUsed: false, enrageStacks: 0,
+      // DUEL-GAUGE COMBAT ticket (GOALS.md, integration run): carried
+      // through from the def so game.js's startCombat can detect a
+      // duel-mode monster and start a real-time gauge fight
+      // (Game.startDuelFight) instead of the turn-based loop. TRUE NO-OP
+      // today -- no def in this file sets `.piece` yet (that's REGULAR
+      // ENEMIES' job); `undefined` here is the same as the field never
+      // having existed.
+      piece: def.piece, pushesToDefeat: def.pushesToDefeat
     };
   };
 
@@ -291,7 +299,9 @@
     return {
       defId: defId, name: def.name, hp: def.maxHp, maxHp: def.maxHp,
       attack: def.attack, traitPhases: def.traitPhases, isBoss: true,
-      intents: def.intents || [], mendUsed: false, enrageStacks: 0
+      intents: def.intents || [], mendUsed: false, enrageStacks: 0,
+      // See createMonster's own comment above -- same true-no-op wiring.
+      piece: def.piece, pushesToDefeat: def.pushesToDefeat
     };
   };
 })();

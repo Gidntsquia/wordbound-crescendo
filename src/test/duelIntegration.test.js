@@ -1,0 +1,300 @@
+// DUEL-GAUGE COMBAT ticket (GOALS.md, integration run): the actual cutover
+// the ticket's "Next" note asked for -- Game.submitWord's duel-mode branch,
+// Game.startDuelFight (the real Duel+Music sequencer setup), Game.tickDuel
+// (the per-frame gauge-push wrapper CombatScreen.jsx's own rAF loop calls),
+// and startCombat's automatic duel-mode detection off a monster def's
+// `.piece` field. Drives the REAL engine throughout (Game.submitWord,
+// Duel.create, Music.createSequencer, DuelCombat.submitWord) via
+// gameHelpers' freshRun/findAvailableCombatNodeId/Game.enterCurrentNode --
+// no mocks of engine logic, same "drive the real engine" convention every
+// other test file in this repo follows. The one thing genuinely mocked is
+// the AudioContext itself (jsdom has none -- confirmed directly), same
+// FakeAudioContext/FakeGain/FakeOsc convention music.test.js already
+// established for exactly this reason.
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { freshRun, findAvailableCombatNodeId, pickPlayableWord } from './gameHelpers.js';
+
+const Game = window.Wordbound.Game;
+const Duel = window.Wordbound.Duel;
+const Monsters = window.Wordbound.Monsters;
+
+// Same fixed seed + candidate word list CombatScreen.test.jsx/RunScreen.
+// test.jsx already rely on for a real, guaranteed-playable rack -- reused
+// here rather than picking a fresh ad hoc seed per test, several of which
+// turned out to roll unplayable racks against a short generic candidate
+// list (confirmed while writing this file).
+const SEED = 'vitest-fixed-seed-1';
+const CANDIDATE_WORDS = ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE', 'RIDE'];
+
+class FakeGain {
+  constructor() {
+    this.gain = {
+      value: 0,
+      setValueAtTime: (v) => { this.gain.value = v; },
+      exponentialRampToValueAtTime: (v) => { this.gain.value = v; },
+      linearRampToValueAtTime: (v) => { this.gain.value = v; },
+      cancelScheduledValues: () => {},
+    };
+  }
+  connect() {}
+}
+
+class FakeOsc {
+  constructor() {
+    this.type = 'sine';
+    this.frequency = { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} };
+  }
+  connect() {}
+  start() {}
+  stop() {}
+}
+
+class FakeAudioContext {
+  constructor() { this.currentTime = 0; this.state = 'running'; }
+  createOscillator() { return new FakeOsc(); }
+  createGain() { return new FakeGain(); }
+}
+
+function testPiece(overrides) {
+  return Object.assign({
+    id: 'test-piece',
+    stageTier: 'early',
+    lengthBeats: 100,
+    tempo: 60,
+    tracks: {},
+    dynamics: {
+      keyframes: [{ beat: 0, intensity: 0 }, { beat: 100, intensity: 0 }],
+      crescendos: [{ id: 'c1', startBeat: 5, peakBeat: 10, peakIntensity: 1, rampDurationBeats: 5 }],
+    },
+  }, overrides);
+}
+
+// Enters a real combat node and hands back the live state -- the fight
+// stays turn-based (nothing sets `.duel` yet) unless the individual test
+// flips it, matching how startCombat's real auto-detection only fires for a
+// monster def carrying `.piece` (none do today).
+function freshCombat(seed) {
+  const state = freshRun(seed);
+  const nodeId = findAvailableCombatNodeId(state);
+  Game.enterCurrentNode(nodeId);
+  return state;
+}
+
+describe('Game.submitWord -- duel-mode branch', () => {
+  it('pushes the real duel gauge via DuelCombat instead of subtracting monster.hp directly', () => {
+    const state = freshCombat(SEED);
+    state.monster.duel = true;
+    state.duel = Duel.create({ stageTier: 'early', healthBlocks: state.player.healthBlocks, pushesToDefeat: 5 });
+    state.duelSequencer = { getIntensity: () => 0, stop: () => {} };
+    const hpBefore = state.monster.hp;
+    const gaugeBefore = state.duel.gauge;
+
+    const word = pickPlayableWord(state, CANDIDATE_WORDS);
+    Game.submitWord(word, 0);
+
+    expect(state.duel.gauge).toBeGreaterThan(gaugeBefore);
+    expect(state.monster.hp).toBe(hpBefore); // a single ordinary word doesn't win a 5-push boss's gauge
+  });
+
+  it('a won push deals a decisive blow and does not fall through to the turn-based counterattack path', async () => {
+    const state = freshCombat(SEED);
+    state.monster.duel = true;
+    state.duel = Duel.create({ stageTier: 'early', healthBlocks: state.player.healthBlocks, pushesToDefeat: 1 });
+    state.duel.gauge = Duel.GAUGE_MAX - 1; // one point from winning
+    state.duelSequencer = { getIntensity: () => 0, stop: () => {} };
+    const inkBefore = state.player.ink;
+
+    const word = pickPlayableWord(state, CANDIDATE_WORDS);
+    Game.submitWord(word, 0);
+
+    expect(state.monster.hp).toBe(0);
+    // Wait for the deferred kill resolution (TILE_PLAY_ANIM_MS + MONSTER_DEATH_BEAT_MS)
+    // the same way gameHelpers.defeatCurrentMonster does -- polls real state,
+    // no fixed sleep.
+    const start = Date.now();
+    while (state.screen !== 'TILE_REWARD') {
+      if (Date.now() - start > 2000) throw new Error('timed out waiting for TILE_REWARD, screen is ' + state.screen);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    // No monster counterattack ever ran in duel mode -- ink is untouched
+    // (only Overcharge/Rewrite spend it there, neither used here).
+    expect(state.player.ink).toBe(inkBefore);
+  });
+
+  it('surviving a word in duel mode never rolls Intents or a counterattack (ink untouched, no next intent)', async () => {
+    const state = freshCombat(SEED);
+    state.monster.duel = true;
+    state.monster.intent = undefined;
+    state.duel = Duel.create({ stageTier: 'early', healthBlocks: state.player.healthBlocks, pushesToDefeat: 10 });
+    state.duelSequencer = { getIntensity: () => 0, stop: () => {} };
+    const inkBefore = state.player.ink;
+
+    const word = pickPlayableWord(state, CANDIDATE_WORDS);
+    Game.submitWord(word, 0);
+
+    await new Promise((r) => setTimeout(r, 260)); // past TILE_PLAY_ANIM_MS (220ms)
+    expect(state.player.ink).toBe(inkBefore);
+    expect(state.monster.intent).toBeUndefined();
+    expect(state.combatActive).toBe(true);
+  });
+
+  it('a duel fight is never ended by ink hitting 0 (healthBlocks is the real health there)', () => {
+    const state = freshCombat(SEED);
+    state.monster.duel = true;
+    state.duel = Duel.create({ stageTier: 'early', healthBlocks: state.player.healthBlocks, pushesToDefeat: 10 });
+    state.duelSequencer = { getIntensity: () => 0, stop: () => {} };
+    state.player.ink = 0;
+
+    const word = pickPlayableWord(state, CANDIDATE_WORDS);
+    Game.submitWord(word, 0);
+
+    expect(state.screen).not.toBe('GAME_OVER');
+    expect(state.combatActive).toBe(true);
+  });
+});
+
+describe('Game.tickDuel', () => {
+  it('forwards to the real duel.tick with the sequencer\'s live intensity', () => {
+    const state = freshCombat('duel-tick-1');
+    state.monster.duel = true;
+    state.duel = Duel.create({ stageTier: 'early', healthBlocks: 5 });
+    state.duelSequencer = { getIntensity: () => 1, stop: () => {} };
+    const gaugeBefore = state.duel.gauge;
+
+    Game.tickDuel(0, 1);
+    expect(state.duel.gauge).toBeLessThan(gaugeBefore); // music pushes toward the player end
+  });
+
+  it('is a no-op outside an active duel fight', () => {
+    const state = freshCombat('duel-tick-2');
+    expect(state.duel).toBeFalsy();
+    expect(() => Game.tickDuel(0, 1)).not.toThrow();
+  });
+
+  it('is a no-op once the duel has already resolved', () => {
+    const state = freshCombat('duel-tick-3');
+    state.monster.duel = true;
+    state.duel = Duel.create({ stageTier: 'early', healthBlocks: 1 });
+    state.duelSequencer = { getIntensity: () => 1, stop: () => {} };
+    Game.tickDuel(0, 100); // huge dt/intensity: forces the single health block to 0
+    expect(state.duel.isTerminal()).toBe(true);
+    const gaugeAfterDefeat = state.duel.gauge;
+    Game.tickDuel(1, 100);
+    expect(state.duel.gauge).toBe(gaugeAfterDefeat); // untouched -- tick() itself no-ops when terminal
+  });
+});
+
+describe('Game.startDuelFight', () => {
+  it('creates a real Duel + Music sequencer, persists healthBlocks, and marks the monster duel-mode', () => {
+    const state = freshCombat('duel-start-1');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    state.player.healthBlocks = 3;
+
+    const duel = Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest, pushesToDefeat: 2 });
+
+    expect(state.monster.duel).toBe(true);
+    expect(duel.healthBlocks).toBe(3);
+    expect(duel.pushesToDefeat).toBe(2);
+    expect(state.duel).toBe(duel);
+    expect(state.duelSequencer.isPlaying).toBe(true);
+  });
+
+  it('keeps player.healthBlocks live-synced on a real block loss (DuelCombat.syncHealthBlocks wiring)', () => {
+    const state = freshCombat('duel-start-2');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    state.player.healthBlocks = 5;
+
+    Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+    state.duel.tick(0, 100, 1); // huge dt/intensity forces at least one block loss
+
+    expect(state.player.healthBlocks).toBe(state.duel.healthBlocks);
+    expect(state.player.healthBlocks).toBeLessThan(5);
+  });
+
+  it('wires the sequencer\'s crescendo-peak event into the duel\'s parry window', () => {
+    const state = freshCombat('duel-start-3');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+
+    Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+    expect(state.duel.pendingPeakAt).toBeNull();
+
+    ctx.currentTime = 10; // past the test piece's peakBeat=10 at 60bpm (1 beat/sec)
+    state.duelSequencer._tick();
+    expect(state.duel.pendingPeakAt).not.toBeNull();
+  });
+
+  it('ends the run on player-defeated and stops the sequencer, without touching ink', () => {
+    const state = freshCombat('duel-start-4');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    state.player.healthBlocks = 1;
+    const inkBefore = state.player.ink;
+
+    Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+    state.duel.tick(0, 100, 1); // forces the last health block to 0
+
+    expect(state.duel.playerDefeated).toBe(true);
+    expect(state.combatActive).toBe(false);
+    expect(state.screen).toBe('GAME_OVER');
+    expect(state.duelSequencer.isPlaying).toBe(false);
+    expect(state.player.ink).toBe(inkBefore);
+  });
+});
+
+describe('startCombat -- automatic duel-mode detection off a monster def\'s .piece', () => {
+  let realAudioContext;
+  let slimeDef;
+  let originalPiece;
+
+  beforeEach(() => {
+    realAudioContext = window.AudioContext;
+    window.AudioContext = FakeAudioContext;
+    slimeDef = Monsters.MONSTER_DEFS.slime;
+    originalPiece = slimeDef.piece;
+  });
+
+  afterEach(() => {
+    window.AudioContext = realAudioContext;
+    slimeDef.piece = originalPiece;
+  });
+
+  it('a monster def with .piece starts a real duel fight instead of the turn-based loop', () => {
+    slimeDef.piece = testPiece();
+
+    // Find a seed whose first available combat node is actually a slime --
+    // floor.js's monster-picking RNG isn't something this test controls
+    // directly, so search a bounded range of seeds rather than assert
+    // against whichever def a fixed seed happens to roll (which could
+    // silently pass a broken wiring vacuously if it never rolled slime).
+    let state = null;
+    for (let seed = 0; seed < 40; seed++) {
+      const candidate = freshRun('duel-startcombat-seed-' + seed);
+      const available = Game._availableNodeIds();
+      const slimeNodeId = available.find((id) => {
+        const node = candidate.floor.nodes.find((n) => n.id === id);
+        return node && node.type === 'combat' && node.defId === 'slime';
+      });
+      if (slimeNodeId) {
+        Game.enterCurrentNode(slimeNodeId);
+        state = candidate;
+        break;
+      }
+    }
+    if (!state) throw new Error('no seed in the first 40 rolled an available slime combat node -- widen the search range');
+
+    expect(state.monster.defId).toBe('slime');
+    expect(state.monster.duel).toBe(true);
+    expect(state.duel).toBeTruthy();
+    expect(state.duelSequencer.isPlaying).toBe(true);
+  });
+
+  it('a monster def without .piece still starts the ordinary turn-based fight (true no-op, the real production state today)', () => {
+    const state = freshCombat('duel-startcombat-2');
+    expect(state.monster.duel).toBeFalsy();
+    expect(state.duel).toBeFalsy();
+  });
+});
