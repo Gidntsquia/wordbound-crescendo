@@ -1026,6 +1026,36 @@ Rules for the routine:
       Playwright real-browser full duel win AND loss with zero console errors,
       full migrated `npm test` suite. Real feel: Jaxon's playtest — flag when a
       duel is playable end-to-end.
+      ORCHESTRATOR NOTE 2026-08-22 (update 1): built the engine-first slice, same
+      shape MUSIC ENGINE used before it. New `js/wordbound/duel.js` (framework-
+      agnostic, no game.js dependency): the gauge (0=player end/100=enemy end,
+      50=center), continuous music push (`STAGE_TIER_BASE_PUSH` + intensity *
+      `INTENSITY_PUSH_SCALE`), word-score push back (`WORD_PUSH_SCALE`), block
+      loss + full-suspension i-frames (`IFRAME_DURATION_SEC=3`) with gauge
+      recentering, multi-push boss defeat (`pushesToDefeat`), and the parry
+      window (`registerCrescendoPeak`/`attemptParry`, `PARRY_WINDOW_SEC=0.2`,
+      damping via `PARRY_MITIGATION`/`PARRY_DAMPING_DURATION_SEC`). All tuning
+      numbers are named starting points within the ticket's own stated ranges,
+      explicitly flagged retunable, not final balance. 25 new mocked-clock
+      Vitest tests satisfy this VERIFY line's first clause in full (gauge
+      integration math, block loss at the end-state only, i-frame suppression,
+      parry window, tier multipliers) — full details, including the "implementing
+      run's call" on push-win structure and the deliberate "full suspension over
+      damping" i-frame choice, in PROGRESS.md. Wired as a true no-op everywhere
+      (main.jsx/setup.js/wordbound.html imports, itch build deps) — nothing in
+      game.js/CombatScreen.jsx calls into it yet. Verified: `npx vitest run`
+      94/94, 2 consecutive clean runs; `npm test`, `npm run build`, `npm run
+      build:itch` + `test:itch-build`, `test:react-build`, `test:react-qa`,
+      `test:mobile`, `test:qa`, `test:music-engine` all ALL CHECKS PASSED,
+      confirming zero regression to anything existing. Ticket stays unchecked —
+      real remaining scope: the ink-vs-Verses decision (this ticket's own open
+      call, not yet made), integration into game.js/CombatScreen.jsx, the
+      telegraph UI + Largo control surface, real `stageTier`/piece assignment
+      for the Valkyrie Marshal and final boss (Mountain King already has one),
+      the virtual-clock balance sim, and real-browser Playwright duel win/loss
+      checks (blocked on the integration piece existing first). Next run should
+      pick up the ink/Verses audit + CombatScreen wiring — the concrete first
+      step PROGRESS.md's "Next" note lays out.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the
