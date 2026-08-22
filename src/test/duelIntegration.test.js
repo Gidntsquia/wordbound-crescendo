@@ -282,6 +282,86 @@ describe('Game.startDuelFight', () => {
   });
 });
 
+describe('Second Wind\'s duel-mode retarget (onDuelBlockLost)', () => {
+  // GOALS.md's own flagged gap (DUEL-GAUGE COMBAT ticket, update-4/8 notes):
+  // Second Wind's turn-based onPlayerDamaged hook has no duel-mode
+  // equivalent to attach to (a duel fight's health loss is a discrete Verse,
+  // not a per-word damage amount) -- items.js now exposes onDuelBlockLost,
+  // fired by Game.startDuelFight's own 'block-lost' listener, registered
+  // BEFORE DuelCombat.syncHealthBlocks so a revival lands before
+  // player.healthBlocks is read (see both files' own header comments on the
+  // ordering). Drives the real Items.runHook/duel.js/game.js wiring
+  // end to end -- no mocks of any of the three.
+  it('revives a would-be-fatal block loss back to 1 health block and keeps the fight alive', () => {
+    const state = freshCombat('duel-secondwind-1');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    state.player.healthBlocks = 1;
+    state.player.items = ['second_wind'];
+
+    Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+    state.duel.tick(0, 100, 1); // forces what would be the last health block to 0
+
+    expect(state.duel.healthBlocks).toBe(1); // revived, not 0
+    expect(state.duel.isTerminal()).toBe(false);
+    expect(state.duel.playerDefeated).toBe(false);
+    expect(state.player.healthBlocks).toBe(1); // synced to the LIVE (revived) value, not the stale pre-revival payload
+    expect(state.player.usedSecondWind).toBe(true);
+    expect(state.combatActive).toBe(true);
+    expect(state.screen).not.toBe('GAME_OVER');
+  });
+
+  it('still applies i-frames after a Second Wind save (the grace window is set before block-lost fires, unaffected by the revival)', () => {
+    const state = freshCombat('duel-secondwind-2');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    state.player.healthBlocks = 1;
+    state.player.items = ['second_wind'];
+
+    Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+    state.duel.tick(0, 100, 1);
+
+    expect(state.duel.isIframeActive(0)).toBe(true);
+    expect(state.duel.isIframeActive(Duel.IFRAME_DURATION_SEC + 1)).toBe(false);
+  });
+
+  it('only saves once per run -- a second fatal loss after Second Wind is spent ends the run for real', () => {
+    const state = freshCombat('duel-secondwind-3');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    state.player.healthBlocks = 1;
+    state.player.items = ['second_wind'];
+
+    Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+    state.duel.tick(0, 100, 1); // first fatal loss -- Second Wind saves it
+    expect(state.duel.isTerminal()).toBe(false);
+    expect(state.player.usedSecondWind).toBe(true);
+
+    state.duel.tick(state.duel.iframeUntil + 1, 100, 1); // past i-frames, forces the real second loss
+
+    expect(state.duel.healthBlocks).toBe(0);
+    expect(state.duel.isTerminal()).toBe(true);
+    expect(state.duel.playerDefeated).toBe(true);
+    expect(state.combatActive).toBe(false);
+    expect(state.screen).toBe('GAME_OVER');
+  });
+
+  it('without the item, a fatal loss ends the run exactly as before (no regression)', () => {
+    const state = freshCombat('duel-secondwind-4');
+    const ctx = new FakeAudioContext();
+    const dest = new FakeGain();
+    state.player.healthBlocks = 1;
+    state.player.items = [];
+
+    Game.startDuelFight(testPiece(), { audioContext: ctx, destination: dest });
+    state.duel.tick(0, 100, 1);
+
+    expect(state.duel.playerDefeated).toBe(true);
+    expect(state.combatActive).toBe(false);
+    expect(state.screen).toBe('GAME_OVER');
+  });
+});
+
 describe('Game.getLargoEnabled / setLargoEnabled -- the Largo accessibility assist', () => {
   // Largo is a persistent (localStorage-backed), module-level setting --
   // same shape as Game.getAudioSettings -- so tests restore it to whatever

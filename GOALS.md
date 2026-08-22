@@ -2084,7 +2084,130 @@ Rules for the routine:
       retarget is the smaller, independent piece after that. COMBAT
       JUICE's damage-landed hook remains available as a separate,
       lower-priority pickup whenever this queue is otherwise empty.
-      ORCHESTRATOR NOTE 2026-08-22 (update 9): picked up update-8's own
+      ORCHESTRATOR NOTE 2026-08-22 (update 9): picked up update-8's smaller
+      "Next" piece -- Second Wind's retarget at `healthBlocks`, the
+      "genuinely large" balance sim being better suited to its own dedicated
+      run (only one piece/boss exists to balance against today, Mountain
+      King -- REGULAR ENEMIES and the other bosses' pieces are still open
+      queue items, so a full tier-curve sim would be premature; flagging
+      this explicitly for whoever picks up the sim next).
+      **The gap (update-4's own note, unchanged until this run):** Second
+      Wind's turn-based `onPlayerDamaged` hook caps `ctx.damage` before a
+      counterattack lands; a duel fight's health loss is a discrete Verse
+      (`healthBlocks`) decided entirely inside `duel.js`'s own `loseBlock`,
+      with no per-word damage amount to cap and no `onPlayerDamaged` call
+      site on that path -- Second Wind silently did nothing in a duel
+      fight.
+      **Built:** `js/wordbound/items.js` gained a new hook type,
+      `onDuelBlockLost(ctx)` (`ctx = { player, duel, monster }`), documented
+      in the file's own header alongside `onPlayerDamaged` as its duel-mode
+      analog. Second Wind's `hooks` object now implements both: the
+      existing `onPlayerDamaged` unchanged, plus `onDuelBlockLost`, which --
+      if `duel.healthBlocks` is already 0 (this loss would be fatal) and
+      `usedSecondWind` hasn't fired yet -- sets `duel.healthBlocks = 1` and
+      marks the flag used. `js/wordbound/game.js`'s `Game.startDuelFight`
+      wires a new `duel.on('block-lost', ...)` listener calling
+      `Items.runHook('onDuelBlockLost', ...)`, registered BEFORE the
+      pre-existing `DuelCombat.syncHealthBlocks(state.player, duel)` call.
+      **The mechanism, no `duel.js` change needed:** `loseBlock`'s own code
+      is `duel.healthBlocks -= 1; ...; emit('block-lost', ...); if
+      (duel.healthBlocks <= 0) { ...; emit('player-defeated'); }` -- emit()
+      calls every registered listener SYNCHRONOUSLY, in registration order,
+      before returning. A `'block-lost'` listener that mutates
+      `duel.healthBlocks` back to 1 during that synchronous emit is enough
+      to make the POST-emit `if (duel.healthBlocks <= 0)` check (still
+      reading the live, now-revived value) skip the `'player-defeated'`
+      emit entirely -- no hook/callback parameter needed on `duel.js` itself,
+      which stays exactly as ignorant of items as its own header comment
+      says it should be. `iframeUntil` is set BEFORE the `'block-lost'`
+      emit in `loseBlock`, so i-frames still apply after a Second-Wind save
+      -- confirmed, not assumed (see the new i-frame test below).
+      **A real, previously-latent bug caught and fixed while building
+      this, not shipped:** `DuelCombat.syncHealthBlocks`'s existing
+      listener read `payload.healthBlocks` -- a plain number copied into
+      the event payload object AT EMIT-CALL TIME, before any listener runs,
+      so it can never reflect a later listener's mutation to the live
+      `duel.healthBlocks`. Registering the Second Wind listener first would
+      revive the ENGINE's own state correctly, but `syncHealthBlocks`
+      running after it would still copy the STALE pre-revival value (0)
+      into `player.healthBlocks` -- `player.healthBlocks` would read 0
+      (looking dead) while `duel.healthBlocks`/`duel.isTerminal()` correctly
+      said 1/alive, a genuine state desync nothing in the existing test
+      suite would have caught (no prior test ever mutated `duel.healthBlocks`
+      from inside a `'block-lost'` listener). Fixed by changing
+      `syncHealthBlocks` to read `duel.healthBlocks` live at listener-call
+      time instead of the payload snapshot -- a one-line change, documented
+      in both files' own header comments so the ordering dependency
+      (Second Wind's listener MUST register before `syncHealthBlocks`'s)
+      isn't silently broken by a future reorder.
+      **Verified:** 4 new mocked-clock Vitest tests
+      (`src/test/duelIntegration.test.js`, real `Game.startDuelFight` +
+      `Items.runHook` + `duel.js`, no mocks of any of the three): a
+      would-be-fatal loss revives to 1 Verse, stays non-terminal, and
+      `player.healthBlocks` syncs to the LIVE revived value (not the stale
+      payload); i-frames still apply after the save; Second Wind only saves
+      once -- a second fatal loss after the flag is spent ends the run for
+      real; and an unequipped control case confirms zero regression to the
+      pre-existing death path. `npx vitest run`, 3 consecutive full-suite
+      runs: **135/135 every time, zero flakes** (up from 131 -- 4 new, all
+      in this run's own additions). `npm test` (jsdom dom-check): ALL
+      CHECKS PASSED (16/16), unaffected -- `wordbound.html` never reaches
+      `Game.startDuelFight` with `second_wind` in any existing check. `npm
+      run build`: clean, 44 modules, unchanged (no new import -- pure
+      additions to existing modules). New real-browser phase added to
+      `test/verify-react-duel-loss.js` (against the real, already-reachable
+      floor-1 Mountain King duel, real `vite build` output, never the dev
+      server) -- grants `second_wind` via `page.evaluate` (setup only, same
+      convention as forcing `healthBlocks`/`gauge`; no shop/treasure UI
+      exists yet to pick an item up for real), forces the same fatal setup
+      phase 2 already used, and lets the REAL per-frame tick loop
+      (`CombatScreen.jsx`'s own rAF effect calling the real `Game.tickDuel`)
+      cross it -- confirms live: `duel.healthBlocks` stays 1, the duel
+      isn't terminal, combat stays active, `screen` never reaches
+      `GAME_OVER`. The item is stripped afterward so phase 2's own
+      pre-existing fatal-defeat assertions still exercise the real,
+      un-saved death path unchanged. **2 consecutive clean runs, zero
+      flakes**, all pre-existing win/loss/countdown/Largo assertions in
+      that same script stayed green throughout. `npm run test:react-build`,
+      `npm run test:react-qa`, `npm run test:mobile`, `npm run test:qa`,
+      `npm run test:music-engine`, `npm run build:itch` + `npm run
+      test:itch-build`: ALL CHECKS PASSED, unaffected.
+      **Not done:** the virtual-clock balance sim and Valkyrie Marshal's/
+      the final Beethoven's-5th boss's own real sequenced pieces remain
+      open. DUEL-GAUGE COMBAT stays unchecked -- a sub-step, not full
+      completion, per this repo's own convention (no version bump).
+      **Next:** the virtual-clock balance sim is the one piece left this
+      ticket's own VERIFY line asks for, but per this run's own finding
+      above, a meaningful TIER curve sim needs more than one piece/boss to
+      balance against -- either scope it narrowly to what exists today
+      (Mountain King alone, confirming ITS tier is winnable/losable as
+      intended) or sequence at least one more piece/monster first (REGULAR
+      ENEMIES/boss-roster territory, both still open queue items below this
+      one). Whoever picks it up should make that scoping call explicitly
+      rather than starting the harness against a single data point. COMBAT
+      JUICE's damage-landed hook remains available as a separate,
+      lower-priority pickup whenever this queue is otherwise empty.
+      ORCHESTRATOR NOTE 2026-08-22 (update 10 preface, concurrent-run
+      merge): this run's own work (below) was authored concurrently with
+      update-9 above by a separate hourly instance -- same container-level
+      overlap this repo has hit before (STRUCTURAL 17/N, this ticket's own
+      update-3). Reconciled via a real git merge (not a force-push):
+      update-9's Second Wind retarget (`game.js`/`items.js`) and this run's
+      balance sim (`test/duel-balance-simulation.js`, purely additive)
+      touch disjoint files and are fully independent, so both stand as-is,
+      renumbered in sequence. Notably, this run's own scoping call directly
+      answers the exact question update-9's own "Next" note raised
+      ("either scope it narrowly to what exists today (Mountain King
+      alone) or sequence at least one more piece first... whoever picks it
+      up should make that scoping call explicitly") -- resolved here as
+      "both": Mountain King (the one real piece) validated for real, the
+      other three tiers run against clearly-flagged synthetic proxy
+      schedules rather than being skipped entirely, so there's still real
+      signal today without waiting on REGULAR ENEMIES/the boss roster to
+      land first. Originally authored as this run's own "update 9" before
+      the collision was found; renumbered to update 10 here, no content
+      changes below.
+      ORCHESTRATOR NOTE 2026-08-22 (update 10): picked up update-8's own
       "Next" note -- the virtual-clock balance sim, the ticket's own last
       unbuilt VERIFY-line requirement besides real per-tier pieces
       ("virtual-clock duel simulation: deterministic intensity schedule +
@@ -2162,18 +2285,18 @@ Rules for the routine:
       `npx vitest run`: 131/131, unaffected (no `src/` change). `npm run
       build`: clean, 44 modules, unchanged, confirming the new script is a
       true no-op for the shipped app (it's never imported by anything).
-      **Not done:** Second Wind's retarget at `healthBlocks` and Valkyrie
-      Marshal's/the final boss's own real sequenced pieces remain open,
-      unchanged. Ticket stays unchecked -- balance-sim infrastructure is
-      built and gives clean results, but it's still a proxy for 3 of 4
-      tiers. **Next:** Second Wind's retarget is the smaller, independent
-      remaining piece (per update-8's note); once Valkyrie Marshal/the
-      final boss get real pieces, rerun `npm run test:duel-balance` (or
-      wire their real piece into a new `TIER_CONFIGS` entry the way 'mid'
-      already uses Mountain King) to replace their synthetic proxy numbers
-      with real ones. COMBAT JUICE's damage-landed hook remains available
-      as a separate, lower-priority pickup whenever this queue is otherwise
-      empty.
+      **Not done:** Valkyrie Marshal's/the final boss's own real sequenced
+      pieces remain open, unchanged (Second Wind's retarget, listed open at
+      the time this run started, was independently landed by update-9
+      above via the concurrent-run merge -- no longer open as of this
+      merged state). Ticket stays unchecked -- balance-sim infrastructure
+      is built and gives clean results, but it's still a proxy for 3 of 4
+      tiers. **Next:** once Valkyrie Marshal/the final boss get real
+      pieces, rerun `npm run test:duel-balance` (or wire their real piece
+      into a new `TIER_CONFIGS` entry the way 'mid' already uses Mountain
+      King) to replace their synthetic proxy numbers with real ones.
+      COMBAT JUICE's damage-landed hook remains available as a separate,
+      lower-priority pickup whenever this queue is otherwise empty.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

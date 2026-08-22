@@ -39,7 +39,24 @@
 //                            a message here.
 //       onPlayerDamaged(ctx) ctx = { player, monster, damage } -- damage is
 //                            mutable; caller applies ctx.damage, not the
-//                            original amount.
+//                            original amount. Turn-based fights only (a duel
+//                            fight never calls this -- see onDuelBlockLost).
+//       onDuelBlockLost(ctx) ctx = { player, duel, monster } -- the duel-mode
+//                            analog of onPlayerDamaged, fired by
+//                            Game.startDuelFight on the gauge engine's own
+//                            'block-lost' event, AFTER duel.js has already
+//                            decremented duel.healthBlocks for this loss (0
+//                            means this loss would be fatal). A duel fight
+//                            has no per-word "damage amount" to cap, only a
+//                            discrete Verse (health block) loss -- hooks that
+//                            want to save the player mutate
+//                            ctx.duel.healthBlocks directly (e.g. reviving 0
+//                            back to 1); the caller re-checks the LIVE value
+//                            afterward, so a hook here can genuinely cancel a
+//                            pending defeat. Per the "don't keep two life
+//                            systems" decision (GOALS.md, DUEL-GAUGE COMBAT
+//                            ticket), this and onPlayerDamaged never both
+//                            fire for the same fight.
 //       onFloorAdvance(ctx) ctx = { player, floorNumber, messages } -- fires
 //                            once when a floor is cleared and the run
 //                            advances to the next one (game.js
@@ -199,6 +216,19 @@
         if (ctx.player.usedSecondWind) return;
         if (ctx.damage < ctx.player.ink) return;
         ctx.damage = ctx.player.ink - 1;
+        ctx.player.usedSecondWind = true;
+      },
+      // Duel-mode retarget (GOALS.md, DUEL-GAUGE COMBAT ticket's own flagged
+      // gap -- see onDuelBlockLost's header doc above for the mechanism).
+      // ctx.duel.healthBlocks is already the post-loss value here; 0 means
+      // this loss would otherwise end the run. Reviving it to 1 is the
+      // discrete-block equivalent of the turn-based hook's "cap damage to
+      // ink - 1": the player survives this hit on their very last sliver,
+      // not undamaged.
+      onDuelBlockLost: function (ctx) {
+        if (ctx.player.usedSecondWind) return;
+        if (ctx.duel.healthBlocks > 0) return;
+        ctx.duel.healthBlocks = 1;
         ctx.player.usedSecondWind = true;
       }
     }
