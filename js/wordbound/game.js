@@ -14,7 +14,7 @@
   window.Wordbound = window.Wordbound || {};
   var Game = (window.Wordbound.Game = {});
 
-  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents;
+  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents, Duel;
 
   var audioContext = null;
   var musicOscillators = [];
@@ -274,7 +274,16 @@
   function newPlayer(characterDef) {
     var player = {
       ink: 22, maxInk: 22, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
-      bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0
+      bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0,
+      // DUEL-GAUGE COMBAT prep (GOALS.md, ink-audit run): persisted across fights within
+      // a run, same as ink -- the caller creating a Duel instance per fight is meant to
+      // pass this in as Duel.create({healthBlocks: player.healthBlocks}) and read the
+      // instance's own healthBlocks back out when the fight ends, so a Verse lost in one
+      // fight stays lost in the next. Nothing reads/writes this yet (true no-op until the
+      // gauge-combat integration lands); defaults from Duel's own constant rather than a
+      // second hardcoded "5" so the two never drift.
+      healthBlocks: (Duel && Duel.DEFAULT_HEALTH_BLOCKS) || 5,
+      maxHealthBlocks: (Duel && Duel.DEFAULT_HEALTH_BLOCKS) || 5
     };
     if (characterDef && characterDef.startingItems) {
       player.items = characterDef.startingItems.slice();
@@ -3382,6 +3391,7 @@
     RNG = window.Game.RNG;
     Characters = window.Wordbound.Characters;
     Achievements = window.Wordbound.Achievements;
+    Duel = window.Wordbound.Duel;
   };
 
   Game.init = function () {

@@ -2981,3 +2981,120 @@ Valkyrie Marshal and the final Beethoven's-5th boss still need theirs, per THEME
 own roster), (5) the virtual-clock balance sim and real Playwright duel win/loss
 checks, both blocked on (2) existing first. COMBAT JUICE remains available as
 lower-priority, opportunistic pickup, unchanged.
+
+## 2026-08-22T00:49Z — DUEL-GAUGE COMBAT: ink audit + post-Verses decision (orchestrator)
+
+Repo state note before starting: local checkout's `main` branch ref was stale (a
+detached-HEAD leftover pointing at the same commit `origin/main` already had) --
+`git checkout main && git merge --ff-only origin/main` fast-forwarded it cleanly, no
+lost work, no rebase needed.
+
+**Scope decision:** the first unchecked GOALS.md item is COMBAT JUICE, which
+explicitly self-deprioritizes below DUEL-GAUGE COMBAT (same precedent the last two
+runs followed). The prior run's own "Next" note named the ink/Verses audit as the
+concrete first step of DUEL-GAUGE COMBAT's remaining integration work -- picked that
+up directly rather than starting the integration blind.
+
+**What I did:** read every `player.ink`/`maxInk` reference across `js/wordbound/
+game.js`, `combat.js`, `consumables.js`, `events.js`, `intents.js`, `items.js`, and
+`achievements.js` (grep + full read of every hit). Finding, in more detail than
+GOALS.md's summary: ink today plays THREE roles at once, not the one the ticket's
+phrasing ("if ink survives at all it's only as a spend resource") implied might be
+narrow:
+1. **Player HP.** `Combat.monsterAttack` (combat.js:209-213) subtracts `monster.attack`
+   straight from `player.ink`; `game.js`'s `Game.submitWord` checks `ink <= 0` TWICE
+   (once for an on-your-own-turn item self-damage interaction, once after the
+   monster's counterattack) and calls `endRun(false)` on either. This is the entire
+   game-over path today.
+2. **Non-combat event currency.** `events.js` has ~6 separate risk/reward event
+   choices that spend or restore ink directly (e.g. "Strike the deal: Lose 5 ink,
+   gain 20 gold", "Sit and breathe: Recover 3 ink, skip the next fight"), independent
+   of combat.
+3. **Overcharge/Rewrite mana.** The role the ticket's phrasing anticipated --
+   `Combat.OVERCHARGE_INK_COST`/`REWRITE_INK_COST`, unaffected by anything below.
+Items/consumables built around roles 1+2: `consumables.js`'s Errata Slip (heal 8
+ink), `items.js`'s `heavy_ink` (an item literally named for the ink-as-HP role),
+a near-death-save item (items.js ~line 200: if incoming damage >= current ink, cap
+it to `ink - 1` instead of killing) built specifically around role 1, an
+Acquisitions Budget item that grants +maxInk (role 1's ceiling), and
+`achievements.js`'s `trackBossDefeatedWithoutDamage`, which uses `ink < maxInk` as
+its proxy for "took damage this fight" (role 1 again). None of this is dead or
+vestigial -- it's the complete, currently-shipping, extensively-tuned combat system
+(see `newPlayer`'s own pre-existing header comment documenting a THREE-ROUND
+20 -> 24 -> 22 starting-HP rebalance driven by real balance-simulation data). This
+confirmed the scale call already flagged in this ticket's update-1: swapping in the
+gauge is a full combat-resolution rewrite touching several adjacent systems, not a
+narrow "replace one function" change, and not something to force into partial
+existence in one hour against a system this well-tested and tuned.
+
+**Decision made and documented (in GOALS.md's ticket note, not re-copied in full
+here -- see there for the complete list):** `player.healthBlocks`/`maxHealthBlocks`
+(Verses, default `Duel.DEFAULT_HEALTH_BLOCKS` = 5) becomes the HP for Duel-based
+fights, persisted across fights the same way ink is today. Ink is retired from the
+HP role entirely (no more `ink <= 0` game over, no more counterattack-spills-ink)
+but otherwise completely unchanged -- Overcharge/Rewrite costs, the event-currency
+spends, and `maxInk`-granting items all keep working exactly as they do now, since
+none of those are HP. Four concrete follow-up items flagged by name/location in
+GOALS.md so the integration run doesn't have to rediscover them: the
+`monsterAttack`/`ink <= 0` replacement, the near-death-save item's re-target, the
+achievement's re-target, and an explicitly UNDECIDED design call (flagged
+Jaxon-adjacent, feel-affecting) on whether `Intents.js`'s per-turn telegraphed
+counterattack system gets repurposed as periodic disruptive effects on the
+continuous gauge or retired outright -- the continuous model has no discrete
+"monster's turn" for it to hook into as-is.
+
+**Code landed (a true no-op, continuing the engine-first pattern):** rather than
+leave this purely a documentation run, added the one genuinely safe, additive piece
+the decision unblocks: `js/wordbound/game.js` now references `Duel`
+(`window.Wordbound.Duel`) in `_initDependencies`, alongside every other module
+reference, and `newPlayer()` initializes two new fields --
+`healthBlocks`/`maxHealthBlocks`, both defaulting to `Duel.DEFAULT_HEALTH_BLOCKS`
+(falls back to a literal `5` if `Duel` isn't loaded, matching how defensive the rest
+of that function already is) -- rather than a second hardcoded "5" that could drift
+from `duel.js`'s own constant. Nothing reads either field yet; this is scaffolding
+for the integration run to persist health across fights per the decision above, not
+a behavior change. Deliberately did NOT touch `Combat.monsterAttack`, the `ink <= 0`
+checks, `Intents.js`, or any item/achievement -- all four are real, separately-scoped
+integration work now that the decision exists, not something to rush alongside the
+audit itself.
+
+**Verified:**
+- `npm test` (jsdom dom-check, `wordbound.html`): ALL CHECKS PASSED -- confirms the
+  new `Duel` reference and the two new `newPlayer()` fields are true no-ops there.
+- `npx vitest run`, 2 consecutive runs: **94/94 both times, zero flakes** (unchanged
+  count from the prior run -- no new tests needed since nothing new is behaviorally
+  reachable yet; existing suite is the regression check).
+- `npm run build`: clean, 42 modules, same pre-existing chunk-size notice.
+- `npm run test:react-build` (real browser, built output): ALL CHECKS PASSED, full
+  playthrough including staged/drag/touch-drag mechanics, zero console/page errors.
+- `npm run test:react-qa`, `npm run test:mobile`, `npm run test:qa`: ALL CHECKS
+  PASSED.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED -- `duel.js`
+  already present in the zip's dependency list from the prior run, unaffected by
+  this run's `game.js`-only change.
+
+**Not verified / explicitly out of scope:** no behavior actually changed (a pure
+scaffolding/documentation run), so there is nothing new to verify beyond "did the
+existing game stay exactly as it was" -- confirmed above across every gate. The
+gauge-combat integration itself, the Intents design call, the four flagged
+item/achievement re-targets, the telegraph UI, the Largo control surface, monster
+`stageTier`/piece assignment for the remaining bosses, and the balance sim are all
+still completely unbuilt.
+
+**Current state:** `player.healthBlocks`/`maxHealthBlocks` exist on every newly
+created player, unread by anything, alongside the unchanged ink-as-HP system that
+still runs the entire live game. `wordbound.html` and the React app both remain
+fully intact and unaffected. Ticket stays unchecked. **Next:** the integration run
+itself, now working from a documented decision rather than an open question --
+concretely: (1) replace `Combat.monsterAttack` + the two `ink <= 0` game-over checks
+in `game.js` with the gauge's `block-lost`/`player-defeated` events (reading/writing
+`player.healthBlocks` via a per-fight `Duel` instance), (2) resolve the
+Intents-repurposing design call (or explicitly defer it with a documented interim
+behavior) before or during that work, (3) re-target the near-death-save item and
+`trackBossDefeatedWithoutDamage` at `healthBlocks` per GOALS.md's flagged locations,
+(4) wire `CombatScreen.jsx`'s word-submit path to `Duel.applyPlayerPush` +
+`attemptParry` and a per-frame `Duel.tick` loop off `Music.getIntensity()`, (5) only
+after that exists: the telegraph UI, Largo control surface, real `stageTier`/piece
+assignment for the remaining bosses, the balance sim, and real-browser duel win/loss
+checks. COMBAT JUICE remains available as lower-priority, opportunistic pickup,
+unchanged.

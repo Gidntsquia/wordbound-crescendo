@@ -1056,6 +1056,83 @@ Rules for the routine:
       checks (blocked on the integration piece existing first). Next run should
       pick up the ink/Verses audit + CombatScreen wiring — the concrete first
       step PROGRESS.md's "Next" note lays out.
+      ORCHESTRATOR NOTE 2026-08-22 (update 2): picked up the prior run's own "Next"
+      note's first item -- the ink audit + post-Verses decision, before touching any
+      combat-flow integration code. Read every `player.ink`/`maxInk` reference across
+      `game.js`, `combat.js`, `consumables.js`, `events.js`, `intents.js`, `items.js`,
+      `achievements.js` (full list in PROGRESS.md). Finding: ink is NOT a narrow
+      Overcharge/Rewrite-only resource today -- it is the player's actual HP (the
+      turn-based `Combat.monsterAttack`/`Intents`-driven counterattack subtracts
+      straight from `player.ink`; `ink <= 0` is the game-over check, checked twice in
+      `Game.submitWord`), a non-combat event currency (risk/reward event choices
+      spend or restore it directly), AND still the Overcharge/Rewrite mana pool, with
+      a dozen+ items/consumables/achievements built around all three roles (heal-ink
+      consumables, a near-death-save item that caps damage to `ink - 1`, a
+      `maxInk`-granting item, an achievement keyed on `ink < maxInk`). Replacing the
+      turn-based counterattack with the continuous gauge is therefore NOT a drop-in
+      swap -- it's a full combat-resolution rewrite that also touches every one of
+      those systems, on top of a working, extensively-balance-tuned turn-based game
+      (see `newPlayer`'s own header comment on the 20->24->22 HP-tuning history) that
+      remains the only complete way to play the game today. Concluded this is a
+      genuinely large, separate integration effort in its own right -- not something
+      to rush into partial existence this run.
+      **Decision (documented, not yet implemented):** health for Duel-based fights
+      becomes `player.healthBlocks`/`maxHealthBlocks` (Verses, default 5, from
+      `Duel.DEFAULT_HEALTH_BLOCKS`), tracked separately from ink and persisted across
+      fights within a run the same way ink is (a future integration run creates each
+      fight's `Duel` instance with `Duel.create({healthBlocks: player.healthBlocks})`
+      and writes the instance's ending `healthBlocks` back to `player.healthBlocks`
+      when the fight ends). Ink is RETIRED from the HP role entirely once a fight
+      runs on the gauge (no more `ink <= 0` game-over check, no more counterattack
+      spilling ink) but KEPT unchanged for everything else: Overcharge/Rewrite costs,
+      the non-combat event risk/reward spends, and `maxInk`-granting items -- ink
+      becomes a pure in-combat mana + out-of-combat currency resource, never
+      lethal. Concretely flagged for the integration run so it isn't rediscovered:
+      - `game.js` `Combat.monsterAttack`-style counterattacks and the `ink <= 0`
+        checks (submitWord, twice) need replacing with the gauge's own
+        `block-lost`/`player-defeated` events -- NOT a per-turn action anymore, since
+        the continuous gauge has no discrete "monster's turn."
+      - `Intents.js`'s telegraphed-counterattack system is built entirely around a
+        discrete per-turn monster action; the continuous duel model has no such
+        turn. Open design call (feel-affecting, flagging for whoever integrates,
+        Jaxon-adjacent): repurpose intents as periodic special disruptive effects
+        layered on top of the continuous push, or retire the system in favor of
+        pure music-driven push. Not decided here.
+      - `items.js` line ~200 (an item that prevents a lethal counterattack by
+        capping `ctx.damage` to `ctx.player.ink - 1`) is a save-your-life effect
+        that needs re-targeting at `healthBlocks`/the i-frame system instead --
+        listed here so it's changed with intent, not silently left dead code.
+      - `achievements.js`'s `trackBossDefeatedWithoutDamage` reads `ink < maxInk` as
+        its "took damage this fight" proxy; needs redirecting to a block-loss check
+        once ink stops taking damage.
+      - Everything else found (Errata Slip heal, the events.js risk/reward spends,
+        `heavy_ink`/Acquisitions Budget's `maxInk` grant, Vampiric tile heal) reads/
+        writes ink purely as mana/currency and needs NO change under this decision.
+      **Code landed this run (a true no-op, matching the engine-first pattern MUSIC
+      ENGINE and this ticket's own update-1 already established):** `game.js` gained
+      a `Duel` module reference (`_initDependencies`, alongside the others) and
+      `newPlayer()` now initializes `player.healthBlocks`/`maxHealthBlocks` from
+      `Duel.DEFAULT_HEALTH_BLOCKS` -- additive fields nothing reads yet, there for
+      the integration run to persist across fights per the decision above, rather
+      than a second hardcoded "5" drifting from `duel.js`'s own constant.
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED. `npx vitest
+      run`, 2 consecutive runs: 94/94 both times, zero flakes. `npm run build`:
+      clean, 42 modules, unchanged. `npm run test:react-build`, `npm run
+      test:react-qa`, `npm run test:mobile`, `npm run test:qa`, `npm run build:itch`
+      + `npm run test:itch-build`: ALL CHECKS PASSED -- confirms the two new player
+      fields and the new `Duel` module reference are true no-ops across every
+      existing screen/flow, vanilla and React alike.
+      **Not done:** no actual gauge-combat integration -- `Combat.playWord`/
+      `monsterAttack`, `Intents`, and every ink-as-HP code path listed above are
+      completely unchanged and unaffected. No telegraph UI, no Largo control
+      surface, no monster `stageTier`/piece assignment, no balance sim, no
+      real-browser duel win/loss check. Ticket stays unchecked. **Next:** the
+      integration run itself -- now working from a documented decision instead of
+      an open question: wire `Duel` into `CombatScreen.jsx`'s word-submit path
+      (`applyPlayerPush` instead of direct `monster.hp` damage), a per-frame
+      `Duel.tick` loop off `Music.getIntensity()`, retire the turn-based
+      counterattack/ink-death path per the decision above, and resolve the
+      Intents-repurposing design call before or during that work.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the
