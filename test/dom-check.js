@@ -2831,7 +2831,17 @@ async function main() {
     // -- boss entrance --
     state.screen = 'RUN';
     state.combatActive = false;
-    const bossDefId = Object.keys(Monsters.BOSS_DEFS)[0];
+    // Was Object.keys(Monsters.BOSS_DEFS)[0] (boss_vowelmaw) -- pinned to a
+    // still-turn-based boss explicitly (GOALS.md DUEL-GAUGE COMBAT
+    // ORCHESTRATOR DECISION 2026-08-22, "duel fights are React-only"):
+    // boss_vowelmaw now carries a real `.piece` and routes through
+    // Game.startDuelFight, which calls initAudioContext() uncaught (unlike
+    // playSfx's own try/catch) -- a hard jsdom crash (no window.AudioContext
+    // there), not a graceful check failure. This block only needs SOME boss
+    // fight to exercise the generic bossEntrance/counterattack-defeat SFX
+    // wiring, so pointing it at boss_unabridged (floor 2, still turn-based)
+    // preserves the exact same coverage with zero loss.
+    const bossDefId = 'boss_unabridged';
     const audioBossNode = { id: 'audio-test-boss', type: 'boss', defId: bossDefId, cleared: false };
     state.floor.nodes.push(audioBossNode);
     state.currentNodeId = audioBossNode.id;
@@ -3108,19 +3118,39 @@ async function main() {
       if (state.bossRewardOptions) window.Wordbound.Game.skipBossItemReward();
     }
 
-    // (c) a NON-final boss (floor 1): the fight happens, the flag survives it,
-    // and then skips the first regular combat on the following floor.
-    await enterAndKillBoss(1, 'boss_vowelmaw', 'boss-skip/floor1');
-    check('boss-skip/floor1: beating the boss advanced to floor 2', state.floorNumber === 2 && state.screen === 'RUN');
+    // (c) a NON-final boss: the fight happens, the flag survives it, and then
+    // skips the first regular combat on the following floor.
+    // Was floor 1 / boss_vowelmaw -- moved to floor 2 / boss_unabridged
+    // (GOALS.md DUEL-GAUGE COMBAT ORCHESTRATOR DECISION 2026-08-22, "duel
+    // fights are React-only"): boss_vowelmaw now carries a real `.piece` and
+    // routes through Game.startDuelFight, which (a) calls initAudioContext()
+    // uncaught -- a hard jsdom crash, no window.AudioContext there -- before
+    // this helper's own deterministic-kill setup even runs, and (b) even if
+    // it didn't crash, a duel-mode kill needs a WON PUSH (gauge reaching the
+    // enemy end), not a single Combat.playWord hp subtraction, so forcing
+    // hp=1/maxHp=1 and submitting one word is no longer a guaranteed
+    // deterministic kill. This block's actual subject -- a NON-final boss
+    // defeat mid-run-advances the floor (not victory) and the skip flag
+    // survives across that boss fight into the next regular combat -- is
+    // boss-identity-agnostic in the real game.js logic (onMonsterDefeated/
+    // the skip-flag check never branch on which boss), so relocating it to
+    // floor 2's still-turn-based boss preserves the exact same coverage with
+    // zero loss, rather than retiring it. Floor 1's own boss-skip case (a
+    // duel-mode boss defeat mid-run) has no dom-check equivalent left --
+    // that's now real, harness-side territory (duelIntegration.test.js's "a
+    // won push ... reaches TILE_REWARD" test already covers the shared
+    // onMonsterDefeated resolution a duel win drives through).
+    await enterAndKillBoss(2, 'boss_unabridged', 'boss-skip/floor2');
+    check('boss-skip/floor2: beating the boss advanced to floor 3', state.floorNumber === 3 && state.screen === 'RUN');
     // VISUAL (per-floor ambient tint, GOALS.md): <body> should carry exactly
     // one floor-N class, matching the CURRENT floor, and it should already
-    // have flipped from floor-1 to floor-2 now that the boss kill advanced
+    // have flipped from floor-2 to floor-3 now that the boss kill advanced
     // the floor and re-rendered -- proves the wiring in Game.render()/
     // renderRun() actually runs end-to-end, not just in isolation.
-    check('visual: <body> carries floor-2 (not floor-1) after advancing floors',
-      document.body.classList.contains('floor-2') && !document.body.classList.contains('floor-1') && !document.body.classList.contains('floor-3'));
-    check('boss-skip/floor1: the skip flag is STILL pending after the boss fight', state.pendingEventSkipNextCombat === true);
-    // The next regular combat on floor 2 is now skipped by the surviving flag.
+    check('visual: <body> carries floor-3 (not floor-1/floor-2) after advancing floors',
+      document.body.classList.contains('floor-3') && !document.body.classList.contains('floor-1') && !document.body.classList.contains('floor-2'));
+    check('boss-skip/floor2: the skip flag is STILL pending after the boss fight', state.pendingEventSkipNextCombat === true);
+    // The next regular combat on floor 3 is now skipped by the surviving flag.
     state.combatActive = false;
     const followDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
     const followNode = { id: 'skip-test-follow-combat', type: 'combat', defId: followDefId, cleared: false };
@@ -3128,8 +3158,8 @@ async function main() {
     state.currentNodeId = followNode.id;
     window.Wordbound.Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 60));
-    check('boss-skip/floor1: the surviving flag skips the next regular combat', state.combatActive === false && followNode.cleared === true);
-    check('boss-skip/floor1: the flag is finally consumed by that regular skip', state.pendingEventSkipNextCombat === false);
+    check('boss-skip/floor2: the surviving flag skips the next regular combat', state.combatActive === false && followNode.cleared === true);
+    check('boss-skip/floor2: the flag is finally consumed by that regular skip', state.pendingEventSkipNextCombat === false);
 
     // (b) the FINAL boss (floor 3): the fight happens and beating it still
     // triggers VICTORY (the skipped-boss advanceFloor branch was removed, so

@@ -39,13 +39,20 @@
 // clicks that route through RunScreen's real `act()`/bump cycle, landing
 // the map jump into a genuine re-rendered DOM rather than a stale one.
 //
-// Similarly, killing a boss via a real full duel isn't this script's job
-// (that's DUEL-GAUGE COMBAT's future territory, and today's engine has no
-// multi-turn pressure to begin with) -- monster.hp is set to 1 as setup
-// (identical convention to src/test/gameHelpers.js's own
-// `defeatCurrentMonster` helper, already relied on by the Vitest suite),
-// and the actual killing blow is a real word typed and submitted through
-// the real Play Word button, same as every other script in this repo.
+// UPDATE 2026-08-22 (GOALS.md DUEL-GAUGE COMBAT ORCHESTRATOR DECISION,
+// "duel fights are React-only"): floor 1's boss now carries a real `.piece`
+// and fights as a genuine real-time duel -- this script IS now a real,
+// harness-side duel win check (the first one), not just a reward-panel
+// sequencing check. killBossViaRealWord below is duel-aware: it forces the
+// gauge one point from a won push (plus pushesToDefeat:1, so that push
+// deals a full kill) rather than a bare monster.hp=1, since a duel kill
+// needs a WON PUSH, not an hp subtraction -- same "force determinism via
+// setup, real killing blow via a real submitted word" convention as
+// before, adapted for the gauge. Deep gauge-math coverage (tier
+// multipliers, i-frames, parry) stays Vitest's job
+// (src/test/duelIntegration.test.js, duel.test.js) -- this script's own
+// job is still the reward-panel sequencing after a kill, now proven to
+// survive a real duel-mode kill in a real browser too.
 //
 // Run with `npm run test:react-qa` (or `node test/verify-react-qa-boss-reward.js`).
 
@@ -120,8 +127,28 @@ async function jumpToBossNode(page) {
 // defeatCurrentMonster) + a REAL killing blow: finds a word the live rack
 // can actually play (read-only engine query, not a mutation) and submits it
 // through the real word input + real Play Word button click.
+//
+// DUEL-GAUGE COMBAT boss-def cutover (GOALS.md ORCHESTRATOR DECISION
+// 2026-08-22, "duel fights are React-only"): floor 1's boss now carries a
+// real `.piece` and fights as a live duel, so `monster.hp = 1` alone is no
+// longer a deterministic one-word kill -- a duel kill needs a WON PUSH (the
+// gauge reaching Duel.GAUGE_MAX), not a bare hp subtraction. For a duel-mode
+// monster this sets the gauge one point from winning AND forces
+// pushesToDefeat to 1 (so the won push's ceil(maxHp/pushesToDefeat) damage
+// formula deals exactly maxHp, a full kill in one push) -- the duel
+// equivalent of forcing hp=1, not a claim about real boss balance. The
+// actual killing blow is still a real word typed and submitted through the
+// real Play Word button either way.
 async function killBossViaRealWord(page) {
-  await page.evaluate(() => { window.Wordbound.Game._state.monster.hp = 1; });
+  await page.evaluate(() => {
+    const state = window.Wordbound.Game._state;
+    if (state.monster.duel && state.duel) {
+      state.duel.pushesToDefeat = 1;
+      state.duel.gauge = window.Wordbound.Duel.GAUGE_MAX - 1;
+    } else {
+      state.monster.hp = 1;
+    }
+  });
   const word = await page.evaluate((candidates) => {
     const { Combat } = window.Wordbound;
     const state = window.Wordbound.Game._state;
@@ -184,12 +211,23 @@ async function main() {
       'boss combat starts via real click',
       await page.evaluate(() => window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true),
     );
-    check('boss music mode switches to boss on fight start', await page.evaluate(() => window.Wordbound.Game._getMusicMode() === 'boss'));
+    // Was Game._getMusicMode() === 'boss' -- the floor-1 boss now fights as
+    // a real duel (GOALS.md DUEL-GAUGE COMBAT ORCHESTRATOR DECISION
+    // 2026-08-22), and Game.startDuelFight bypasses the placeholder
+    // startBackgroundMusic()/currentMusicMode system entirely in favor of a
+    // real Music sequencer -- _getMusicMode() stays whatever it was before
+    // (never 'boss') for a duel fight, so it's the wrong check here now.
+    // state.monster.duel is the real signal that startCombat's automatic
+    // `.piece` detection actually routed this fight into duel mode.
+    check('boss fight starts in duel mode (real .piece auto-detection)', await page.evaluate(() => window.Wordbound.Game._state.monster.duel === true));
 
     const floorBefore = await page.evaluate(() => window.Wordbound.Game._state.floorNumber);
     const word1 = await killBossViaRealWord(page);
     check(`boss #1 killed via a real submitted word (${word1})`, !!word1);
-    check('boss music mode switches back to normal right after the kill', await page.evaluate(() => window.Wordbound.Game._getMusicMode() === 'normal'));
+    // Was Game._getMusicMode() === 'normal' -- onMonsterDefeated clears
+    // state.duel/duelSequencer on a duel-mode kill (same event this
+    // checks for), the duel-mode equivalent of the music mode reverting.
+    check('duel state is torn down right after the kill', await page.evaluate(() => !window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer));
 
     check('tile-reward panel visible after boss kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
     check('boss-reward panel NOT visible yet (sequential, not stacked)', !(await page.isVisible('.treasure-panel:has-text("hoard")')));

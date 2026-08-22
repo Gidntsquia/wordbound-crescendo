@@ -186,12 +186,35 @@
     // the most headroom of any lever (see the round-4 comment on the
     // normal-tier attack restore above) -- pushing further alongside that
     // restore.
-    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 54, attack: 4, floor: 1, goldDrop: [15, 25],
+    // DUEL-GAUGE COMBAT boss-def cutover (GOALS.md ORCHESTRATOR DECISION
+    // 2026-08-22, "duel fights are React-only"): this def is now the real
+    // Mountain King (THEME.md's floor-1 boss) -- carries the vetted Grieg
+    // piece + a real pushesToDefeat, and routes through startCombat's
+    // existing `.piece` auto-detection into a live duel fight instead of
+    // the turn-based path. `attack`/`intents`/`traitPhases` below are now
+    // DEAD for this def specifically in duel mode (Game.submitWord's duel
+    // branch skips Intents/counterattack entirely, per the ticket's own
+    // Intents-retirement decision) -- left in place, unchanged, rather than
+    // stripped, because wordbound.html's OWN turn-based `Monsters.createBoss`
+    // call sites (e.g. the isolated Mend-intent unit tests in
+    // test/dom-check.js, which construct a boss instance directly and call
+    // Intents.executeIntent without ever going through startCombat/duel
+    // routing at all) still legitimately exercise them as plain data --
+    // removing the fields would break real, still-valid coverage for no
+    // reason. pushesToDefeat:3 matches game.js's own pre-existing
+    // `monster.isBoss ? 3 : 1` default (duel.js:936) -- made explicit here
+    // rather than left implicit, and lines up with the existing 2-phase
+    // traitPhases split (1.0/0.5) reasonably (3 pushes land near
+    // 100%/66%/33%/0% of maxHp, phase flips at the 50% mark in between).
+    id: 'boss_vowelmaw', name: 'The Mountain King', maxHp: 54, attack: 4, floor: 1, goldDrop: [15, 25],
+    piece: window.Wordbound.Pieces.mountainKing, pushesToDefeat: 3,
     // Floor-1 boss, kept to a single defensive signature (Mend) rather than
     // an offensive one -- this ticket's own judgment call, per this file's
     // history of the floor-1 boss already being the hardest fight in the
     // game pre-retune (see the attack-tuning comment above); Hex/Devour/
     // Enrage stack extra pressure on top of a fight that's already tight.
+    // (Dead in duel mode per the note above -- kept for the still-valid
+    // isolated Intents-module unit coverage.)
     intents: ['mend'],
     // Two-phase trait arc (FUN OVERHAUL 3/8, 2026-08-20): vowel-hungry above
     // half HP, then switches to doubled-letter-hungry below it -- flavor

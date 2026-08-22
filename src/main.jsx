@@ -13,6 +13,16 @@ import '../js/wordbound/wordlist.js';
 import '../js/wordbound/lexicon.js';
 import '../js/wordbound/tiles.js';
 import '../js/wordbound/traits.js';
+// MUSIC ENGINE ticket (GOALS.md, 2026-08-21): music.js is standalone, no
+// dependency on game.js. Loaded here, BEFORE monsters.js, because
+// DUEL-GAUGE COMBAT's boss-def cutover (GOALS.md ORCHESTRATOR DECISION
+// 2026-08-22) references the real mountainKing piece data directly inside
+// monsters.js's own boss_vowelmaw def object literal -- the piece module
+// must already have set window.Wordbound.Pieces.mountainKing by the time
+// monsters.js evaluates, so this pair moved ahead of monsters.js as a unit
+// (mirrors wordbound.html's own script order exactly).
+import '../js/wordbound/music.js';
+import '../js/wordbound/pieces/mountain-king.js';
 import '../js/wordbound/monsters.js';
 import '../js/wordbound/intents.js';
 import '../js/wordbound/combat.js';
@@ -22,12 +32,6 @@ import '../js/wordbound/consumables.js';
 import '../js/wordbound/events.js';
 import '../js/wordbound/characters.js';
 import '../js/wordbound/floor.js';
-// MUSIC ENGINE ticket (GOALS.md, 2026-08-21): standalone, no dependency on
-// game.js and nothing consumes it yet (that's DUEL-GAUGE COMBAT's job) --
-// loaded here anyway for the same "every engine module attaches to
-// window.Wordbound.* consistently" reason every other module above does.
-import '../js/wordbound/music.js';
-import '../js/wordbound/pieces/mountain-king.js';
 import '../js/wordbound/duel.js';
 import '../js/wordbound/duelCombat.js';
 import '../js/wordbound/game.js';

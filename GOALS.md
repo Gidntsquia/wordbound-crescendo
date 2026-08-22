@@ -1705,6 +1705,149 @@ Rules for the routine:
       tests the actual product. If Jaxon dislikes React-only duels he can
       say so and the def change reverts cheaply; flagged in the status
       board either way.
+      ORCHESTRATOR NOTE 2026-08-22 (update 5): implemented the ORCHESTRATOR
+      DECISION above exactly as its three numbered steps specify — the
+      first real, player-reachable duel fight now exists in BOTH apps.
+      **Built:** `js/wordbound/monsters.js`'s `boss_vowelmaw` def is now
+      "The Mountain King" (THEME.md's floor-1 boss), carrying
+      `piece: window.Wordbound.Pieces.mountainKing` and `pushesToDefeat: 3`
+      (matching game.js's own pre-existing `monster.isBoss ? 3 : 1`
+      default, made explicit); `attack`/`intents`/`traitPhases` stay on the
+      def unchanged, since they're still legitimately read by direct
+      `Monsters.createBoss('boss_vowelmaw')` unit coverage that never
+      touches duel routing (documented inline on the def so a future
+      reader doesn't assume they're dead everywhere). Referencing the real
+      piece object at def-registration time required a load-order fix
+      (monsters.js previously loaded BEFORE pieces/mountain-king.js
+      everywhere) — moved the music.js + mountain-king.js pair ahead of
+      monsters.js in `wordbound.html`, `src/main.jsx`, and
+      `src/test/setup.js` (all three, kept in sync per their own existing
+      convention); confirmed safe by grepping music.js/mountain-king.js for
+      any dependency on a module that would now load after them (none).
+      **Fixed exactly what broke, nothing more (step 2's "never delete
+      legacy coverage whose behavior the React harness does not yet
+      verify" honored throughout):**
+      - `test/dom-check.js`: `Game.startDuelFight` calls `initAudioContext()`
+        UNCAUGHT (unlike every other sound call site, which wraps it in a
+        try/catch — see `playSfx`), and jsdom (this script's whole
+        environment) has no `window.AudioContext` at all — a hard script
+        crash, not a graceful check failure, the instant any test entered
+        boss_vowelmaw through the real `startCombat` path. Two blocks hit
+        this: the generic "boss entrance/counterattack-defeat SFX" audio
+        check (was `Object.keys(Monsters.BOSS_DEFS)[0]`, which happened to
+        resolve to boss_vowelmaw) and the floor-1 boss-skip scenario (a
+        forced `hp=1` + one submitted word, which also isn't a
+        deterministic duel-mode kill even setting the crash aside — a duel
+        kill needs a WON PUSH crossing the gauge, not an hp subtraction).
+        Neither test is actually ABOUT boss_vowelmaw specifically (both
+        just need "a boss" / "a non-final boss"), so both were repointed at
+        `boss_unabridged` (floor 2, still turn-based) instead of
+        retired — the floor-1 boss-skip scenario is now
+        `boss-skip/floor2`, asserting the identical floor-advance +
+        skip-flag-survival behavior one floor over. Zero net coverage
+        loss, confirmed by an identical `ALL CHECKS PASSED` (16/16) before
+        and after. The two isolated Mend-intent tests (`Monsters.
+        createBoss('boss_vowelmaw')` + `Intents.executeIntent` directly,
+        never touching `startCombat`) and the trait-phase DOM check
+        (reads `BOSS_DEFS['boss_vowelmaw'].traitPhases` as data) were
+        confirmed UNAFFECTED by running the suite before touching
+        anything and checking exactly what crashed — they needed no
+        change at all, correcting this ticket's own prior note (COMBAT
+        JUICE update-1) that named "the two Mend-intent tests" as needing
+        retirement; that was an inaccurate prediction, not verified
+        against a real run before being written down.
+      - `src/components/__tests__/RewardScreens.test.jsx`: the same
+        jsdom-AudioContext crash, one test (`BossRewardScreen`'s "appears
+        after skipping the tile reward from a real boss kill" test, which
+        used `findNodeIdByType(state, 'boss')` — always floor 1's boss on
+        a fresh run). Fixed the same way: pushed a synthetic
+        `boss_unabridged` node directly (the exact technique dom-check's
+        own `enterAndKillBoss` helper already uses) instead of relying on
+        natural floor generation, since this test is genuinely about
+        BossRewardScreen's UI flow after any boss kill, not about which
+        boss.
+      - `test/verify-react-qa-boss-reward.js` and
+        `test/orchestrator-qa-boss-reward.js`: these run in REAL Chromium
+        (real AudioContext exists), so entering boss_vowelmaw genuinely
+        starts a real live duel — no crash, but two things were actually
+        wrong: (1) both asserted `Game._getMusicMode() === 'boss'`/
+        `'normal'`, the placeholder turn-based background-music system's
+        own mode tracker, which `Game.startDuelFight` bypasses entirely in
+        favor of a real Music sequencer — fixed by checking
+        `state.monster.duel === true` (fight starts in duel mode) and
+        `!state.duel && !state.duelSequencer` (torn down after the kill)
+        instead, the actual duel-mode equivalent of what those checks were
+        trying to prove. (2) `verify-react-qa-boss-reward.js`'s
+        `killBossViaRealWord` forced `monster.hp = 1` for a deterministic
+        one-word kill — no longer sufficient for a duel-mode boss (needs a
+        WON PUSH). Made it duel-aware: for a duel-mode monster, forces
+        `duel.pushesToDefeat = 1` and `duel.gauge = Duel.GAUGE_MAX - 1`
+        (one point from winning) instead — the duel equivalent of forcing
+        hp=1, not a claim about real boss balance — so the real killing
+        blow is still a real word typed and submitted through the real
+        Play Word button. `orchestrator-qa-boss-reward.js` needed NO
+        change to its own kill mechanism: it already plays real words in
+        an organic `fightUntilOver(page, 40)` loop, which — with no tick
+        loop in wordbound.html to push back — just kept winning pushes
+        across enough real turns and passed unchanged once the two
+        assertion fixes above landed. This is real, running proof of the
+        decision's own point 3 in production: wordbound.html's floor-1
+        boss fight is now a genuine (if pushback-free, since there's no
+        rAF tick loop there) duel, not a crash.
+      **This closes the real gap the decision's own step 2 required before
+      retiring anything ("equivalent-or-better duel coverage exists
+      harness-side... extend those first if any gap remains") — before
+      this run, ZERO duel fight had ever been reached in a real browser by
+      any script in this repo (confirmed: `test:react-build`'s full
+      playthrough never encounters a boss; `duelIntegration.test.js`
+      injects `state.duel` directly rather than reaching one through real
+      UI). `test:react-qa` and `test:qa` are now both real, passing,
+      real-browser duel WIN proofs end to end (enter -> real words ->
+      real won pushes -> real kill -> real reward-panel flow) — genuinely
+      better coverage than what was retired, not just a replacement.**
+      **Verified:** `npm test` (jsdom dom-check): ALL CHECKS PASSED
+      (16/16), confirmed identical before/after the def change (only the
+      floor/boss-id in 4 check labels changed, per the relocation above).
+      `npx vitest run`, 3 consecutive runs: **124/124 every time, zero
+      flakes**. `npm run build`: clean, 44 modules (unchanged — the
+      load-order reshuffle is a reorder, not a new import). `npm run
+      test:react-build` (real browser, built output): ALL CHECKS PASSED,
+      unaffected (this seed's playthrough doesn't reach a boss). `npm run
+      test:react-qa`: ALL CHECKS PASSED, 2 consecutive clean runs,
+      including the new real duel-win assertions. `npm run test:mobile`:
+      ALL CHECKS PASSED, unaffected. `npm run test:qa` (real browser,
+      `wordbound.html`): ALL CHECKS PASSED — the first real proof
+      wordbound.html's own floor-1 boss fight survives becoming duel-mode.
+      `npm run test:music-engine`: ALL CHECKS PASSED, unaffected. `npm run
+      build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED (zip
+      genuinely contains `pieces/mountain-king.js` and `duel.js`/
+      `duelCombat.js`, confirmed by the packaged listing).
+      **Not done, real remaining scope, per the ticket's own bullets:**
+      the crescendo-approaching countdown (`VolumeGauge`'s
+      `approachingCrescendoSecondsAway` prop is still hardcoded `null` in
+      `CombatScreen.jsx`), the Largo tempo-scale control surface, Second
+      Wind's retarget at `healthBlocks` (still a no-op in a duel fight,
+      documented gap from an earlier update), the virtual-clock balance
+      sim (this ticket's own numbers are still "named starting points...
+      explicitly flagged retunable, not final balance"), Valkyrie
+      Marshal's and the final boss's own real pieces (only Mountain King
+      is sequenced), and — genuinely new, not previously called out — a
+      real-browser Playwright check of a duel LOSS (health block lost,
+      i-frames, eventual player-defeated/GAME_OVER): this run only proved
+      WIN end-to-end; the ticket's VERIFY line asks for "full duel win AND
+      loss." Ticket stays unchecked; no version bump (still a sub-step,
+      not ticket completion, per this repo's own convention). **Next:** a
+      real-browser duel-LOSS check (the cleanest small next step — same
+      technique as this run's win check, but forcing `duel.gauge` toward
+      `Duel.GAUGE_MIN` instead and asserting a health block is lost / the
+      i-frame window is visible / GAME_OVER eventually triggers on
+      healthBlocks reaching 0) is the most direct way to close this
+      ticket's own explicit "win AND loss" verify gap. The
+      crescendo-approaching countdown and Largo surface are smaller,
+      independent UI pieces; Second Wind's retarget and the balance sim are
+      real but lower-urgency now that a duel is finally reachable to
+      balance against. COMBAT JUICE's damage-landed hook remains available
+      as a separate, lower-priority pickup.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

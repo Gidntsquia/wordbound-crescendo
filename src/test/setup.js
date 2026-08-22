@@ -16,6 +16,13 @@ import '../../js/wordbound/wordlist.js';
 import '../../js/wordbound/lexicon.js';
 import '../../js/wordbound/tiles.js';
 import '../../js/wordbound/traits.js';
+// music.js + the mountainKing piece move ahead of monsters.js, mirroring
+// main.jsx's own reordering -- see that file's comment for why (monsters.js's
+// boss_vowelmaw def now references window.Wordbound.Pieces.mountainKing
+// directly at module-eval time, per GOALS.md's DUEL-GAUGE COMBAT boss-def
+// cutover).
+import '../../js/wordbound/music.js';
+import '../../js/wordbound/pieces/mountain-king.js';
 import '../../js/wordbound/monsters.js';
 import '../../js/wordbound/intents.js';
 import '../../js/wordbound/combat.js';
@@ -25,8 +32,6 @@ import '../../js/wordbound/consumables.js';
 import '../../js/wordbound/events.js';
 import '../../js/wordbound/characters.js';
 import '../../js/wordbound/floor.js';
-import '../../js/wordbound/music.js';
-import '../../js/wordbound/pieces/mountain-king.js';
 import '../../js/wordbound/duel.js';
 import '../../js/wordbound/duelCombat.js';
 import '../../js/wordbound/game.js';

@@ -3859,3 +3859,141 @@ since it needs new plumbing in `game.js` itself, not just a React
 component. Separately, DUEL-GAUGE COMBAT's boss-reskin blocker (documented
 in GOALS.md's COMBAT JUICE update-1 note) is unrelated and still needs a
 Jaxon-adjacent design call on which of its three options he'd prefer.
+
+## 2026-08-22T02:58Z -- DUEL-GAUGE COMBAT: implemented the boss-def cutover decision -- the first real, player-reachable duel fight now exists
+
+Picked up the ORCHESTRATOR DECISION logged in GOALS.md's DUEL-GAUGE COMBAT
+ticket (2026-08-22, "duel fights are React-only") over COMBAT JUICE: it's
+the higher-priority ticket per the header's own stated priority, the
+decision itself was already a concrete, well-scoped 3-step plan (not a
+fresh design question), and it had been logged but never actually
+implemented -- a prior run picked COMBAT JUICE's FLIP slide instead of
+acting on it. Read the full DUEL-GAUGE COMBAT ticket history in GOALS.md
+first (all prior updates 1-4) to understand exactly what was already built
+(duel.js, VolumeGauge.jsx, duelCombat.js, the full game.js/CombatScreen.jsx
+integration) vs. what was genuinely still blocked (no real monster had a
+`.piece` yet).
+
+**Step 1 -- convert the def:** `js/wordbound/monsters.js`'s `boss_vowelmaw`
+is now "The Mountain King" (THEME.md's floor-1 boss), with
+`piece: window.Wordbound.Pieces.mountainKing` and `pushesToDefeat: 3`
+(explicit now, matching game.js's pre-existing boss-default of 3).
+`attack`/`intents`/`traitPhases` were deliberately left on the def
+unchanged (documented inline why -- still legitimately read by direct
+`Monsters.createBoss()` unit tests that never touch duel routing).
+Referencing the real piece object at monsters.js's own module-eval time
+required fixing a load-order bug: monsters.js previously loaded BEFORE
+`pieces/mountain-king.js` everywhere (wordbound.html, src/main.jsx,
+src/test/setup.js) -- moved music.js + mountain-king.js ahead of
+monsters.js in all three, kept in sync, after confirming (by grep) neither
+module depends on anything that would now load after it.
+
+**Step 2 -- fix what actually broke, not what was guessed to break:** ran
+the full verification suite BEFORE writing any test fix, to find the real
+blast radius rather than trusting GOALS.md's own prior guess ("the two
+Mend-intent tests" -- which turned out to be wrong; those two tests never
+touch `startCombat`/duel routing at all and were completely unaffected).
+What actually broke:
+- `test/dom-check.js` (jsdom, no `window.AudioContext` at all):
+  `Game.startDuelFight` calls `initAudioContext()` UNCAUGHT (every other
+  sound call site wraps it in try/catch, this one doesn't) -- a hard
+  SCRIPT CRASH the instant any test entered boss_vowelmaw through the real
+  `startCombat` path, not a graceful failure. Two spots hit this: a
+  generic "boss entrance/defeat SFX" audio check that grabbed
+  `Object.keys(Monsters.BOSS_DEFS)[0]` (happened to be boss_vowelmaw), and
+  the floor-1 boss-skip scenario (`enterAndKillBoss(1, 'boss_vowelmaw',
+  ...)`, a forced `hp=1` + one submitted word -- not a deterministic
+  duel-mode kill even setting the crash aside, since a duel kill needs a
+  WON PUSH crossing the gauge, not an hp subtraction). Neither test is
+  actually ABOUT boss_vowelmaw specifically, so both were repointed at
+  `boss_unabridged` (floor 2, still turn-based) -- the boss-skip scenario
+  is now `boss-skip/floor2`, same floor-advance + skip-flag-survival
+  assertions, one floor over. Zero net coverage loss: identical `16/16 ALL
+  CHECKS PASSED` before and after, just relabeled.
+- `src/components/__tests__/RewardScreens.test.jsx`: same jsdom crash, one
+  test (`BossRewardScreen`'s reward-flow test, via
+  `findNodeIdByType(state, 'boss')` -- always floor 1's boss). Fixed by
+  pushing a synthetic `boss_unabridged` node directly, the same technique
+  dom-check's own `enterAndKillBoss` helper already uses, since the test is
+  about BossRewardScreen's UI flow after any kill, not which boss.
+- `test/verify-react-qa-boss-reward.js` + `test/orchestrator-qa-boss-reward.js`
+  (both real Chromium, real AudioContext -- no crash, but a real duel
+  genuinely starts now): both asserted `Game._getMusicMode() === 'boss'`/
+  `'normal'`, the placeholder turn-based background-music system's own
+  tracker, which `startDuelFight` bypasses entirely (a real Music
+  sequencer plays instead) -- fixed by checking `state.monster.duel ===
+  true` and `!state.duel && !state.duelSequencer` instead, the actual
+  duel-mode equivalent. `verify-react-qa-boss-reward.js`'s
+  `killBossViaRealWord` also needed a real fix: `monster.hp = 1` alone no
+  longer guarantees a one-word kill, so for a duel-mode monster it now
+  forces `duel.pushesToDefeat = 1` + `duel.gauge = Duel.GAUGE_MAX - 1`
+  (one point from winning) instead -- the duel equivalent of forcing hp=1,
+  not a balance claim. `orchestrator-qa-boss-reward.js` needed NO change to
+  its own kill mechanism -- it already plays real words in an organic
+  `fightUntilOver(page, 40)` loop, which (with no tick loop in
+  wordbound.html to push back) just kept winning pushes across enough real
+  turns and passed unchanged once the two assertion fixes landed. This is
+  real, running proof of the decision's own step 3: wordbound.html's
+  floor-1 boss fight is now a genuine (pushback-free, no rAF loop there)
+  duel, not a crash -- "stops being load-bearing for duel-era defs," not
+  "breaks."
+
+**Why this satisfies the decision's own bar for retiring anything** ("never
+delete legacy coverage whose behavior the React harness does not yet
+verify... extend those first if any gap remains"): before this run, ZERO
+script in this repo had ever reached a real duel fight through real UI in
+a real browser -- `test:react-build`'s playthrough never meets a boss, and
+`duelIntegration.test.js` injects `state.duel` directly rather than
+reaching one organically. `test:react-qa` and `test:qa` are now both real,
+passing, real-browser duel WIN proofs end to end (enter -> real words ->
+real won pushes -> real kill -> real reward-panel flow) -- strictly better
+coverage than what was relocated/retired, not a downgrade.
+
+**Verified:**
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED (16/16), confirmed
+  identical to the pre-change baseline except the relabeled floor/boss-id
+  in exactly 4 check strings.
+- `npx vitest run`, 3 consecutive runs: **124/124 every time, zero
+  flakes**.
+- `npm run build`: clean, 44 modules (unchanged -- a load-order reorder,
+  not a new import).
+- `npm run test:react-build` (real browser, built output): ALL CHECKS
+  PASSED, unaffected (this seed's playthrough doesn't reach a boss).
+- `npm run test:react-qa`: ALL CHECKS PASSED, **2 consecutive clean
+  runs**, including the new real duel-mode assertions and the real duel
+  win end-to-end (boss fight starts in duel mode -> real word wins a push
+  -> duel torn down -> tile-reward -> boss-item-reward, claim AND skip
+  paths, including a 375px mobile-layout check of the reward panel).
+- `npm run test:mobile`: ALL CHECKS PASSED, unaffected.
+- `npm run test:qa` (real browser, `wordbound.html`): ALL CHECKS PASSED --
+  the first real proof wordbound.html's own floor-1 boss fight survives
+  becoming duel-mode rather than crashing.
+- `npm run test:music-engine`: ALL CHECKS PASSED, unaffected.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED
+  (zip genuinely contains `pieces/mountain-king.js`/`duel.js`/
+  `duelCombat.js`, confirmed by the packaged file listing, not assumed).
+
+**Not done:** the crescendo-approaching countdown (still hardcoded `null`
+in `CombatScreen.jsx`), the Largo tempo-scale control surface, Second
+Wind's retarget at `healthBlocks` (still a no-op in a duel fight), the
+virtual-clock balance sim (this run's `pushesToDefeat: 3` is a structural
+default carried over, not a balance measurement), Valkyrie Marshal's and
+the final boss's own real pieces (only Mountain King is sequenced), and --
+genuinely new scope, not previously flagged -- a real-browser Playwright
+check of a duel LOSS (this run only proved WIN end-to-end; the ticket's own
+VERIFY line explicitly asks for "full duel win AND loss"). DUEL-GAUGE
+COMBAT ticket stays unchecked -- this was a real, verified sub-step
+(closing the boss-def blocker + adding the first real duel-win coverage
+the decision required), not full ticket completion, so no version bump per
+this repo's own convention (bump on completed features). **Next:** a
+real-browser duel-LOSS check is the cleanest, most direct way to close the
+ticket's remaining "win AND loss" verify gap -- same technique as this
+run's win check (force `duel.gauge` toward `Duel.GAUGE_MIN` instead of
+`GAUGE_MAX`), asserting a health block is lost, the i-frame window is
+visible, and GAME_OVER eventually triggers once healthBlocks reaches 0.
+The crescendo-approaching countdown and Largo surface are smaller,
+independent UI pieces after that; Second Wind's retarget and the balance
+sim are real but now lower-urgency than they were pre-cutover, since a
+duel fight is finally reachable to balance against for real. COMBAT
+JUICE's damage-landed hook remains available as a separate, lower-priority
+pickup whenever this queue is otherwise empty.

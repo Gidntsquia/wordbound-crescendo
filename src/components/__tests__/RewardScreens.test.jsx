@@ -134,7 +134,23 @@ describe('TileRewardScreen', () => {
 describe('BossRewardScreen', () => {
   it('appears after skipping the tile reward from a real boss kill, and picking an item advances the floor', async () => {
     const state = freshRun(SEED);
-    window.Wordbound.Game.enterCurrentNode(findNodeIdByType(state, 'boss'));
+    // Was findNodeIdByType(state, 'boss') (the floor's real floor-1 boss) --
+    // pinned to a synthetic boss_unabridged node instead (GOALS.md
+    // DUEL-GAUGE COMBAT ORCHESTRATOR DECISION 2026-08-22, "duel fights are
+    // React-only"): floor 1's real boss (boss_vowelmaw) now carries a real
+    // `.piece` and routes through Game.startDuelFight, which calls
+    // initAudioContext() uncaught -- a hard jsdom crash here too (Vitest's
+    // jsdom environment has no window.AudioContext either, same gap
+    // test/dom-check.js hit) -- and even past that, defeatCurrentMonster's
+    // "force hp=1, submit one word" kill isn't deterministic for a duel-mode
+    // boss (a kill needs a WON PUSH crossing the gauge, not an hp
+    // subtraction). This test's actual subject is BossRewardScreen's UI flow
+    // after ANY boss kill, boss-identity-agnostic, so pointing it at a
+    // synthetic boss_unabridged node (still turn-based, same technique
+    // test/dom-check.js's enterAndKillBoss helper already uses) preserves
+    // the exact same coverage with zero loss.
+    state.floor.nodes.push({ id: 'reward-test-boss', type: 'boss', defId: 'boss_unabridged', cleared: false });
+    window.Wordbound.Game.enterCurrentNode('reward-test-boss');
     expect(state.monster.isBoss).toBe(true);
     await defeatCurrentMonster(state, WORD_CANDIDATES);
     expect(state.pendingAfterTileReward).toBe('bossItemReward');

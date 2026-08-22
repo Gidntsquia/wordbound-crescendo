@@ -239,12 +239,27 @@ async function main() {
   // map. Real Chromium (unlike jsdom, which has no Web Audio API) actually
   // creates an AudioContext, so this is the one place that can verify the
   // internal music-mode variable end to end.
-  check('boss music mode switches to boss on fight start', await page.evaluate('window.Wordbound.Game._getMusicMode() === "boss"'));
+  // UPDATE 2026-08-22 (GOALS.md DUEL-GAUGE COMBAT ORCHESTRATOR DECISION,
+  // "duel fights are React-only"): floor 1's boss now carries a real
+  // `.piece` -- startCombat auto-detects it and calls Game.startDuelFight,
+  // which bypasses the placeholder startBackgroundMusic()/currentMusicMode
+  // system entirely (a real Music sequencer plays instead), so
+  // _getMusicMode() never reports 'boss' for this fight anymore. Checking
+  // state.monster.duel instead confirms the real thing that changed: this
+  // is wordbound.html's own proof (decision point 3, "no duel back-port,
+  // no removal -- it simply keeps whatever turn-based content still
+  // works") that a duel-mode boss fight doesn't crash the legacy page, it
+  // just runs with no enemy pushback (no tick loop here) -- confirmed by
+  // fightUntilOver below still resolving it, organically, in real turns.
+  check('boss fight starts in duel mode (real .piece auto-detection)', await page.evaluate('window.Wordbound.Game._state.monster.duel === true'));
 
   const floorBefore = await page.evaluate('window.Wordbound.Game._state.floorNumber');
   const bossOutcome = await fightUntilOver(page, 40);
   check('boss fight ends at the tile-reward screen (outcome: ' + bossOutcome + ')', bossOutcome === 'TILE_REWARD');
-  check('boss music mode switches back to normal right after the kill', await page.evaluate('window.Wordbound.Game._getMusicMode() === "normal"'));
+  // Was _getMusicMode() === 'normal' -- onMonsterDefeated clears
+  // state.duel/duelSequencer on a duel-mode kill, the duel-mode equivalent
+  // of the music mode reverting (see the comment above).
+  check('duel state is torn down right after the kill', await page.evaluate('!window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer'));
 
   check('tile-reward panel visible after boss kill', await page.isVisible('#tile-reward-panel'));
   check('boss-reward panel NOT visible yet (sequential, not stacked)', await page.isHidden('#boss-reward-panel'));
