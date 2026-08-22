@@ -8536,13 +8536,38 @@ are completely untouched this run.
 shape/color and the floor-1-only tier restriction are balance/UI judgment
 calls, not naming/feel/launch calls.
 
-**Live deploy refresh:** built `dist/app/` fresh off this run's commit (58
-modules, same asset shape as every prior React build) in a disposable git
-worktree, published its contents + an empty `.nojekyll` as the new root of
-the `gh-pages` branch via a scratch orphan branch, force-pushed to
-`gh-pages`. Could not curl-verify -- hit the same pre-existing
+**Live deploy refresh, actually executed:** rebased onto `origin/main`
+first (a concurrent human/orchestrator push landed PLAYTEST FINDINGS 3,
+see below), then built `dist/app/` fresh off the final rebased commit
+(`0a52db1`, 58 modules, same asset shape as every prior React build) in a
+disposable `git worktree`, published its contents + an empty `.nojekyll`
+as the new root of the `gh-pages` branch via a scratch orphan branch,
+`git push -f origin gh-pages-refresh:gh-pages` -- succeeded, confirmed by
+git's own ref-update output (`ba72ab0...3baf7dc gh-pages-refresh ->
+gh-pages (forced update)`). Worktree removed after. Could NOT curl-verify,
+honestly flagged rather than assumed: hit the same pre-existing
 domain-specific proxy 403 on `gidntsquia.github.io` this repo's history
-already documents repeatedly; the push itself is the real deploy action.
+already documents repeatedly (`CONNECT tunnel failed, response 403`); the
+push itself is the real deploy action and it succeeded.
+
+**Concurrent-push note (no code conflict, real priority-order info):**
+`git push` to `main` was initially rejected -- `origin/main` had moved to
+`d2a213a`, a real Jaxon-authored commit (not another autonomous run)
+adding **PLAYTEST FINDINGS 3** ("declutter order": remove consumables/
+deck/log/combos/ink entirely, move Largo + audio controls into a settings
+corner) directly ABOVE PLAYTEST FINDINGS 2 in GOALS.md's queue -- now the
+genuinely first unchecked item. `git pull --rebase origin main` resolved
+cleanly with zero conflicts (Jaxon's commit only touched GOALS.md, in a
+region this run's own GOALS.md edit didn't overlap). Re-ran the full
+verification suite (`npx vitest run`, `npm test`) on the rebased tree
+before pushing -- both still clean -- rather than trusting the pre-rebase
+results. Worth flagging for whoever picks up next: PLAYTEST FINDINGS 3
+explicitly says it "WINS wherever they conflict" with Playtest-2's own
+item 5 (streamline), and its own acceptance bar's combat-screen inventory
+("Volume gauge, enemy segment bar, Verses pips, tile rack + input,
+crescendo warning, and the corner settings button") directly names and
+validates this run's new `.enemy-segments-display` bar as a keeper, not
+something PLAYTEST FINDINGS 3 removes.
 
 **Next:** Mountain King's own boss-duel retune is the direct next step to
 actually close item 2's real intent (a casual player clearing floor 1
