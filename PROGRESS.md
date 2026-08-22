@@ -7259,3 +7259,111 @@ scope remains than has landed (6 of 9 regulars, normal/strong-tier
 `MONSTER_DEFS` retirement work, and a fresh full VERIFY pass each time a
 tier's pool composition changes) -- treat it as an ongoing multi-run
 ticket, not a near-finish.
+
+---
+
+## 2026-08-22T16:23Z -- REGULAR ENEMIES: concurrent-run collision on the
+same wiring step, real test-harness fixes + a new Playwright asset kept
+
+Independently started this same ticket's real remaining scope (2) -- own
+`gymnopediste`/`gstring`/`morningmood` defs, own HP numbers, own glyph for
+the Gymnopédiste, defs inserted at a different point in `monsters.js`, same
+`retiredFromPool` mechanism, same `createMonster`/`createBoss` glyph-
+passthrough fix. `git push` was rejected; `git fetch` showed `origin/main`
+had already landed the equivalent commit (documented directly above this
+entry). Per this repo's own established precedent for exactly this
+situation: did not force-push a duplicate. `git reset --hard origin/main`
+to take the landed version.
+
+**Before treating this as fully resolved, ran this run's own full
+verification suite against the landed tree rather than trusting its "Full
+verification suite run clean" claim untested.** `npm run test:react` passed
+183/183 against the landed tree as claimed -- but isolating just this run's
+OWN `monsters.js`/`floor.js` (same content, different insertion point) onto
+the pre-collision base and rerunning `test:react` reproduced 7 real
+failures (3 files) of the exact "no available non-duel combat start node" /
+real-AudioContext-crash class. Read `floor.js:56`'s `pickCombatDefId` to
+find the actual cause rather than assume: floor 1's combined weak+normal
+pool is ONE array in `MONSTER_DEFS` insertion order, so which specific
+defId a given seed's `rng.choice(pool)` call lands on depends on WHERE in
+that array the 3 duel-mode weak defs happen to sit -- different between the
+two independently-written drafts purely because each inserted its 3
+`mdef()` calls at a different point in the file. The landed commit's own
+"Two pre-existing tests updated" note shows it hit this too (one broken
+seed renamed, 'slime' hardcoded to 'serpent' in the duel-detection test) --
+a real fix, but narrow: correct for the one seed/id it happened to hit, not
+robust to the next one a future reorder or reseed could trip.
+
+**Generalized these fixes and applied them on top of the landed tree**
+(kept landed content as-is, added robustness rather than reverting
+anything):
+- `src/test/duelIntegration.test.js`: the hardcoded 'serpent' reverted to a
+  dynamic `firstPoolableNonDuelDefId()` lookup (first non-`.piece`,
+  non-`retiredFromPool` def) -- future-proof against 'serpent' itself
+  getting duel-ified next, same fix-pattern this ticket's own dom-check.js
+  audit already established (`firstSafeDefId`). Its `freshCombat` helper
+  now retries bounded deterministic seed variants instead of trusting one
+  literal seed to stay safe.
+- `RunScreen.test.jsx`'s node-map click test and `RunSidePanels.test.jsx`'s
+  consumable-mid-combat test both currently pass against the landed tree's
+  specific pool order, but only by luck of that arrangement (confirmed
+  directly: reproduced the identical crash class against them using this
+  run's own pool order) -- both switched to the suite's own safe
+  `findAvailableCombatNodeId` helper instead of a blind index-0 click /
+  `findNodeIdByType`'s untyped pick.
+- `test/dom-check.js`'s `pinNodeAwayFromDuelMode` (this ticket's own prior
+  audit fix) still collapses every weak-tier reroute onto a single monster
+  ('slime') for the rest of dom-check.js's one continuous shared run,
+  regardless of either draft's def ordering (this collapse is about
+  `firstSafeDefId`'s own plain first-match, not pool position) -- given an
+  optional `rng` param, used only at the one call site exercised repeatedly
+  across a whole run, restoring real variety via the run's own live seeded
+  rng. Measured rather than assumed whether this was making
+  dom-check.js's own already-documented ink-timing flake worse: a larger,
+  interleaved, same-conditions 12-run comparison landed at the identical
+  ~17% rate on both trees -- fixed anyway since it's a real, independent
+  coverage regression on its own terms.
+
+**Also added, genuinely new** (the landed commit's own real-browser smoke
+was described as "ad-hoc," never committed): `test/verify-regular-duel-
+smoke.js` (`npm run test:regular-duel-smoke`) -- the first PERMANENT
+real-browser proof that a plain REGULAR's `.piece` auto-detection works end
+to end: a real WIN (gymnopediste, killed via a real submitted word, proves
+the regular TILE_REWARD path never shows the boss-only "hoard" panel) and a
+real LOSS (morningmood, forced onto a second node since the branching DAG's
+next available node after clearing #1 isn't guaranteed combat-typed --
+found and fixed a genuine gotcha here too: a raw `Game.enterCurrentNode(id)`
+call from `page.evaluate` starts the fight for real but never triggers a
+React re-render, so CombatScreen's rAF tick loop -- the loss path's whole
+mechanism -- never runs; fixed by reusing `verify-react-qa-boss-reward.js`'s
+own `jumpToBossNode` "real click round trip to force a re-render" trick).
+
+**VERIFIED this run (against the merged landed+additive tree):**
+- `npm run test:react`: 183/183, twice.
+- `npm test` (dom-check.js): the pre-existing ~17% flake observed once
+  across several runs, otherwise clean -- unchanged rate per the A/B
+  measurement above.
+- `npm run build`: clean.
+- `npm run test:duel-balance`: unaffected, same numbers as the landed run.
+- `npm run test:mobile` / `test:branching-map` / `test:itch-build`: ALL
+  CHECKS PASSED.
+- `npm run test:qa` / `test:react-qa` (real browser, both apps, full
+  victory runs): ALL CHECKS PASSED.
+- `npm run test:regular-duel-smoke` (new): ALL CHECKS PASSED, twice.
+
+**Genuinely-Jaxon-only:** none this run.
+
+**Not done, honest gaps:** unchanged from the landed run's own note -- real
+remaining scope (3) (6 mid/late regulars + normal/strong-tier retirement)
+is fully untouched. This run's value-add is entirely test-harness
+robustness plus one new permanent Playwright asset, not new game content.
+Version unchanged (already bumped to v0.8 by the landed commit). This run
+is test/verification-only, so the LIVE DEPLOY refresh rule does not apply
+(no game code/assets changed beyond what the landed commit already
+deployed).
+
+**Next:** unchanged -- real remaining scope (3), starting with one
+mid-tier piece composed/vetted/tested in isolation before wiring. Whoever
+does that should run this run's own new `test:regular-duel-smoke` script
+alongside the rest of the VERIFY bar going forward -- it's a real
+regression gate for the duel-routing mechanism now, not a one-off check.

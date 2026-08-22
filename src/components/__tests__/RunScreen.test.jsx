@@ -54,7 +54,24 @@ describe('RunScreen -- node map', () => {
     );
     expect(clickableFoePills.length).toBeGreaterThan(0);
 
-    await user.click(clickableFoePills[0]);
+    // REGULAR ENEMIES ticket (real remaining scope (2), 2026-08-22): weak
+    // tier now has real `.piece` regulars, so this seed's row-0 draws can
+    // legitimately be a duel-mode fight -- fine in a real browser (real
+    // AudioContext), but jsdom has none, and clicking index 0 blindly would
+    // crash if this seed happened to roll one first. Click the specific
+    // pill that maps to a real non-duel node instead (same "restricted to a
+    // safe start node" convention gameHelpers.js's findAvailableCombatNodeId
+    // already established), rather than trusting index 0 to stay safe --
+    // this test's own point is proving "clicking an available pill starts a
+    // real fight," not which combat tier answers.
+    const safeNodeId = findAvailableCombatNodeId(state);
+    const combatStartNodeIds = state.floor.nodes
+      .filter((n) => n.type === 'combat' && available.indexOf(n.id) !== -1)
+      .map((n) => n.id);
+    const safeIndex = combatStartNodeIds.indexOf(safeNodeId);
+    expect(safeIndex).toBeGreaterThanOrEqual(0);
+
+    await user.click(clickableFoePills[safeIndex]);
     expect(state.combatActive).toBe(true);
     expect(state.monster).toBeTruthy();
     // Combat screen takes over -- the monster's real name is on its info

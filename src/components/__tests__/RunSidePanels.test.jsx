@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import RunScreen from '../RunScreen.jsx';
-import { freshRun, findNodeIdByType } from '../../test/gameHelpers.js';
+import { freshRun, findAvailableCombatNodeId } from '../../test/gameHelpers.js';
 
 // STRUCTURAL ticket, parity gap found 2026-08-21: nothing in the React tree
 // ever rendered state.player.items, state.deck, state.player.consumables, or
@@ -93,7 +93,13 @@ describe('consumables panel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
-    window.Wordbound.Game.enterCurrentNode(findNodeIdByType(state, 'combat'));
+    // REGULAR ENEMIES ticket (real remaining scope (2), 2026-08-22): weak
+    // tier can now roll a real duel-mode regular, which crashes on
+    // AudioContext under jsdom -- findAvailableCombatNodeId (already the
+    // safe convention every other test in this suite uses) picks a real
+    // non-duel node instead of `findNodeIdByType`'s blind "first combat
+    // node of any kind" pick this used to be.
+    window.Wordbound.Game.enterCurrentNode(findAvailableCombatNodeId(state));
     state.player.ink = 0; // errata_slip heals ink -- make the effect observable
     await user.click(screen.getByRole('button', { name: 'Consumables' }));
     const liveBtn = screen.getByRole('button', { name: new RegExp(Consumables.CONSUMABLE_DEFS.errata_slip.name) });

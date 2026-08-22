@@ -61,10 +61,40 @@ function firstSafeDefId(defs, tier) {
     return !defs[id].piece && (!tier || defs[id].tier === tier);
   });
 }
-function pinNodeAwayFromDuelMode(node, Monsters) {
+// REGULAR ENEMIES ticket (real remaining scope (2), 2026-08-22): with real
+// weak-tier `.piece` regulars now live, the very first pin call below (every
+// row-0 node, right after character-select) needs a reroute for the rest of
+// this file's one continuous shared run -- previously a true no-op (no
+// regular carried `.piece`, so this branch never actually fired). Found by
+// running the full suite repeatedly after wiring the 3 early-tier defs:
+// `firstSafeDefId`'s plain `.find()` always returns the SAME first same-tier
+// safe id ('slime' for every weak-tier reroute), collapsing what used to be
+// a real RNG-driven mix of 4 distinct weak defs (slime/gremlin/wisp/glossary
+// -- different traits, matched attack) onto one single monster fought over
+// and over for the rest of the run (this same pinned node set is reused by
+// every later "next uncleared node" lookup, per this function's own
+// commentary above). Fix: an OPTIONAL third `rng` param -- when passed (only
+// the row-0 call site does, the one actually exercised repeatedly across a
+// whole run), reroute via the SAME live seeded rng every other real RNG
+// decision in this continuous run already uses, picked across the FULL
+// safe-tier list (still deterministic under the file's fixed seed, just no
+// longer collapsed onto one id) -- restores the pre-change variety instead
+// of introducing a new one. Every other call site below pins exactly ONE
+// isolated node for its own self-contained scenario (no variety concern,
+// no `state` reliably in scope) and is left on `firstSafeDefId`'s original
+// deterministic first-match by omitting the param -- unchanged behavior,
+// zero risk to the "'slime' is only safe today" comments those already make.
+function pinNodeAwayFromDuelMode(node, Monsters, rng) {
   if (!node || (node.type !== 'combat' && node.type !== 'elite')) return;
   var def = Monsters.MONSTER_DEFS[node.defId];
-  if (def && def.piece) node.defId = firstSafeDefId(Monsters.MONSTER_DEFS, def.tier);
+  if (!def || !def.piece) return;
+  if (rng) {
+    var safeIds = Object.keys(Monsters.MONSTER_DEFS).filter(function (id) {
+      return !Monsters.MONSTER_DEFS[id].piece && Monsters.MONSTER_DEFS[id].tier === def.tier;
+    });
+    if (safeIds.length > 0) { node.defId = rng.choice(safeIds); return; }
+  }
+  node.defId = firstSafeDefId(Monsters.MONSTER_DEFS, def.tier);
 }
 
 // STOLEN LETTERS META-PROGRESSION ticket (GOALS.md): polls the real state
@@ -1387,7 +1417,7 @@ async function main() {
   // comment above for why this matters.
   const state = window.Wordbound.Game._state;
   if (state.floor && state.floor.nodes) {
-    state.floor.nodes.forEach((n) => pinNodeAwayFromDuelMode(n, window.Wordbound.Monsters));
+    state.floor.nodes.forEach((n) => pinNodeAwayFromDuelMode(n, window.Wordbound.Monsters, state.rng));
   }
 
   // Verify game-over and victory screens are hidden (should never be visible at this point)

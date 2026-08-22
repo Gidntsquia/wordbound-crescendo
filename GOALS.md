@@ -4634,3 +4634,115 @@ Rules for the routine:
       strong-tier `MONSTER_DEFS` retirement + a fresh full VERIFY pass every
       time a tier's pool composition changes), so treat this as a multi-run
       continuation, not a near-finish.
+      ORCHESTRATOR NOTE 2026-08-22T16:23Z (concurrent-run collision on this
+      exact wiring step, real additive findings kept): started this run
+      independently doing the SAME real remaining scope (2) -- own
+      `gymnopediste`/`gstring`/`morningmood` defs (different HP numbers,
+      different Gymnopédiste glyph, defs positioned differently in the
+      file), same `retiredFromPool` mechanism, same glyph-passthrough fix to
+      `createMonster`/`createBoss`. `git push` was rejected (`fetch first`);
+      `git fetch` showed `origin/main` had already landed the commit
+      documented directly above this note. Per this repo's own repeatedly-
+      established precedent for exactly this situation: did NOT force-push a
+      duplicate. `git reset --hard origin/main` to take the landed version.
+      Before discarding, ran this run's OWN full verification suite against
+      the landed tree rather than trusting its own "clean" claim untested --
+      genuinely useful, because it surfaced something the landed version's
+      own commit message didn't catch: **`npm run test:react` breaks for
+      real (3 files, 7 tests) against a from-scratch checkout of this exact
+      pool composition once the specific literal seeds this run happened to
+      pick are used** -- confirmed directly by cherry-picking just this run's
+      OWN `monsters.js`/`floor.js` onto the pre-collision base and rerunning
+      `test:react` (7/7 tests failed, all the same "no available non-duel
+      combat start node" / real-AudioContext-crash class the landed run's
+      own commit message says it found and fixed for ONE seed
+      ('duel-start-4') and one hardcoded id ('slime'->'serpent') --
+      confirming this is a genuine, seed/insertion-order-sensitive hazard
+      class, not something either run's specific fix closes for good. Root
+      cause, confirmed by reading `floor.js:56` `pickCombatDefId`'s pool
+      construction, not assumed: floor 1's combined weak+normal pool mixes
+      BOTH tiers in ONE array in `MONSTER_DEFS` insertion order, so WHICH
+      specific defId a given seed's `rng.choice(pool)` call lands on depends
+      on where in that combined array the 3 duel-mode weak defs happen to
+      sit -- a detail neither this run's nor the landed run's own reasoning
+      accounted for, and different between the two drafts purely because
+      each inserted its 3 new `mdef()` calls at a different point in the
+      file. The landed version's own fix (renaming one broken seed,
+      hardcoding 'serpent' in place of 'slime') is real but narrow --
+      correct for the ONE seed/id it happened to hit, not robust to the next
+      one. Generalized instead, applied ON TOP of the landed tree (kept,
+      not reverted, since it's broader and strictly correct where it
+      already was): (1) `src/test/duelIntegration.test.js`'s hardcoded
+      'serpent' reverted back to a dynamic `firstPoolableNonDuelDefId()`
+      lookup (first non-`.piece`, non-`retiredFromPool` def, whatever it is)
+      -- future-proof against 'serpent' itself getting duel-ified next,
+      exactly the kind of hazard this ticket's own dom-check.js audit
+      already established the fix pattern for (`firstSafeDefId`). (2) its
+      `freshCombat` helper now retries bounded deterministic seed variants
+      instead of trusting one literal seed to stay safe forever -- the SAME
+      fix this run's own (discarded) draft already had, re-applied cleanly.
+      (3) `RunScreen.test.jsx`'s node-map click test and `RunSidePanels.
+      test.jsx`'s consumable-mid-combat test -- both currently PASS against
+      the landed tree's specific pool order, but only by luck of that
+      specific arrangement (confirmed directly: reproduced the exact same
+      real-AudioContext-crash class against them too using THIS run's own
+      pool order) -- both switched to the suite's own safe
+      `findAvailableCombatNodeId` helper instead of a blind index-0 click /
+      `findNodeIdByType`'s untyped-for-duel-mode pick, closing the same
+      latent hazard before a future reorder or reseed reopens it. (4)
+      `test/dom-check.js`'s `pinNodeAwayFromDuelMode` (this ticket's own
+      prior audit fix) still collapses every weak-tier reroute onto a single
+      monster ('slime') for the rest of dom-check.js's one continuous shared
+      run -- unaffected by either draft's def ordering (this collapse is
+      about `firstSafeDefId`'s own plain first-match, not pool position) --
+      given an optional `rng` param, passed only at the one call site
+      exercised repeatedly across a whole run (character-select's initial
+      full-floor pin), restoring real variety via the run's own live seeded
+      rng instead of always the same id. Measured whether this collapse was
+      actually WORSENING dom-check.js's own already-documented "STOLEN
+      LETTERS ... GAME_OVER instead of TILE_REWARD" ink-timing flake before
+      assuming so: an early small sample looked bad, but a larger,
+      interleaved, same-conditions 12-run comparison landed at the IDENTICAL
+      ~17% rate on both trees -- fixed the collapse anyway since it's a real,
+      independent coverage regression on its own terms, not because it was
+      moving that particular number.
+      **Also added, genuinely new (the landed commit's own "ad-hoc" smoke
+      was never committed):** `test/verify-regular-duel-smoke.js` (`npm run
+      test:regular-duel-smoke`) -- the first PERMANENT real-browser
+      (real AudioContext) proof that a plain REGULAR's `.piece`
+      auto-detection works end to end, not just a boss's: a real WIN
+      (gymnopediste, forced one push from winning, killed via a real
+      submitted word, confirms the regular TILE_REWARD path never shows the
+      boss-only "hoard" panel) and a real LOSS (morningmood, on a second
+      node forced directly since the branching DAG's next available node
+      after clearing #1 isn't guaranteed combat-typed -- found and fixed a
+      genuine gotcha here too: a raw `Game.enterCurrentNode(id)` call from
+      `page.evaluate` starts the fight for real underneath but never
+      triggers a React re-render, so CombatScreen's rAF tick loop -- the
+      loss path's whole mechanism -- never runs; fixed by reusing
+      `verify-react-qa-boss-reward.js`'s own `jumpToBossNode` "real click
+      round trip purely to force a re-render" trick first). Confirms the
+      full player-defeated -> GAME_OVER chain fires for a REGULAR exactly
+      like it already does for a boss.
+      **Verified this run (against the merged landed+additive tree):** `npm
+      run test:react`: 183/183, twice. `npm test` (dom-check.js): the
+      pre-existing ~17% flake observed once, all other runs clean --
+      unchanged rate, confirmed above via the A/B measurement. `npm run
+      build`: clean. `npm run test:duel-balance`: unaffected, same numbers.
+      `npm run test:mobile`/`test:branching-map`/`test:itch-build`: ALL
+      CHECKS PASSED. `npm run test:qa`/`test:react-qa` (real browser, both
+      apps, full victory runs): ALL CHECKS PASSED. `npm run
+      test:regular-duel-smoke` (new): ALL CHECKS PASSED, twice.
+      **Genuinely-Jaxon-only:** none this run.
+      **Not done, honest gaps:** unchanged from the landed version's own
+      note above -- real remaining scope (3) (6 mid/late regulars +
+      normal/strong-tier retirement) is still fully untouched. This run's
+      own value-add is entirely test-harness robustness + one new permanent
+      Playwright asset, not new game content. Version unchanged (already
+      bumped to v0.8 by the landed commit this run built on).
+      **Next:** unchanged -- real remaining scope (3), starting with one
+      mid-tier piece composed/vetted/tested in isolation before wiring, per
+      the landed version's own note. Whoever does that should re-run this
+      run's own new `test:regular-duel-smoke` script alongside the rest of
+      the VERIFY bar -- it's now a real regression gate for the duel-routing
+      mechanism itself, not just a one-off check.

@@ -73,12 +73,31 @@ function testPiece(overrides) {
 // Enters a real combat node and hands back the live state -- the fight
 // stays turn-based (nothing sets `.duel` yet) unless the individual test
 // flips it, matching how startCombat's real auto-detection only fires for a
-// monster def carrying `.piece` (none do today).
-function freshCombat(seed) {
-  const state = freshRun(seed);
-  const nodeId = findAvailableCombatNodeId(state);
-  Game.enterCurrentNode(nodeId);
-  return state;
+// monster def carrying `.piece`.
+// REGULAR ENEMIES ticket (real remaining scope (2)): weak tier now has 3
+// real duel-mode regulars and NO turn-based ones left, so a given seed's
+// row-0 (2-3 lanes) can land ALL-weak by chance, leaving
+// findAvailableCombatNodeId with no non-duel option at all -- confirmed real
+// (this file's own 'duel-start-4' hit exactly that the moment the wiring
+// landed, per that seed's own now-renamed '-safe' comment below). Every
+// caller here wants a plain turn-based fight specifically (each test flips
+// `.duel` on deliberately, or tests the "no .piece" no-op path) -- not
+// "whichever fight this literal seed happens to produce" -- so retry with
+// small deterministic seed variants (same bounded-search convention the
+// "automatic duel-mode detection" describe block below already established)
+// instead of hunting down and renaming one broken literal seed at a time,
+// which would just leave the next unlucky seed to be found the hard way.
+function freshCombat(seedBase) {
+  for (let i = 0; i < 10; i++) {
+    const seed = i === 0 ? seedBase : seedBase + '-retry' + i;
+    const state = freshRun(seed);
+    try {
+      const nodeId = findAvailableCombatNodeId(state);
+      Game.enterCurrentNode(nodeId);
+      return state;
+    } catch (e) { /* this seed's row-0 was all duel-mode -- try the next */ }
+  }
+  throw new Error(`no seed derived from "${seedBase}" (10 tried) rolled an available non-duel combat start node`);
 }
 
 describe('Game.submitWord -- duel-mode branch', () => {
@@ -459,18 +478,35 @@ describe('Game.getLargoEnabled / setLargoEnabled -- the Largo accessibility assi
 describe('startCombat -- automatic duel-mode detection off a monster def\'s .piece', () => {
   let realAudioContext;
   let targetDef;
+  let targetDefId;
   let originalPiece;
+
+  // REGULAR ENEMIES ticket (real remaining scope (2)): this hardcoded
+  // 'serpent' briefly (after 'slime' stopped being real-floor-drawable), but
+  // a specific literal id is exactly the class of hazard this ticket's own
+  // dom-check.js audit already fixed once (firstSafeDefId) -- nothing stops
+  // a FUTURE run from wiring a real `.piece` onto 'serpent' itself (it's
+  // normal-tier, the next tier this ticket's own "Next" note says to
+  // duel-ify), which would silently make this test's own monkeypatch
+  // overwrite a real piece instead of adding one, or throw if a duel-mode
+  // 'serpent' can no longer be found un-`.piece`d. Pick the first def that's
+  // BOTH still poolable (not retired) AND not already a real duel-mode
+  // regular instead, so this test stays correct regardless of which specific
+  // defs get duel-ified next.
+  function firstPoolableNonDuelDefId() {
+    var ids = Object.keys(Monsters.MONSTER_DEFS);
+    for (var i = 0; i < ids.length; i++) {
+      var def = Monsters.MONSTER_DEFS[ids[i]];
+      if (!def.piece && !def.retiredFromPool) return ids[i];
+    }
+    return null;
+  }
 
   beforeEach(() => {
     realAudioContext = window.AudioContext;
     window.AudioContext = FakeAudioContext;
-    // 'serpent' (normal-tier, floor-1-drawable) rather than 'slime': the
-    // REGULAR ENEMIES ticket's real remaining scope (2) retired slime (and
-    // the other 3 generic weak defs) from floor.js's real RNG pool in favor
-    // of the real early-tier duel-mode regulars, so a fresh floor draw can
-    // no longer land on 'slime' -- this test needs a def that's still
-    // actually reachable via real floor generation to monkey-patch.
-    targetDef = Monsters.MONSTER_DEFS.serpent;
+    targetDefId = firstPoolableNonDuelDefId();
+    targetDef = Monsters.MONSTER_DEFS[targetDefId];
     originalPiece = targetDef.piece;
   });
 
@@ -482,18 +518,18 @@ describe('startCombat -- automatic duel-mode detection off a monster def\'s .pie
   it('a monster def with .piece starts a real duel fight instead of the turn-based loop', () => {
     targetDef.piece = testPiece();
 
-    // Find a seed whose first available combat node is actually a serpent --
-    // floor.js's monster-picking RNG isn't something this test controls
-    // directly, so search a bounded range of seeds rather than assert
-    // against whichever def a fixed seed happens to roll (which could
-    // silently pass a broken wiring vacuously if it never rolled serpent).
+    // Find a seed whose first available combat node is actually the target
+    // def -- floor.js's monster-picking RNG isn't something this test
+    // controls directly, so search a bounded range of seeds rather than
+    // assert against whichever def a fixed seed happens to roll (which
+    // could silently pass a broken wiring vacuously if it never rolled it).
     let state = null;
     for (let seed = 0; seed < 40; seed++) {
       const candidate = freshRun('duel-startcombat-seed-' + seed);
       const available = Game._availableNodeIds();
       const targetNodeId = available.find((id) => {
         const node = candidate.floor.nodes.find((n) => n.id === id);
-        return node && node.type === 'combat' && node.defId === 'serpent';
+        return node && node.type === 'combat' && node.defId === targetDefId;
       });
       if (targetNodeId) {
         Game.enterCurrentNode(targetNodeId);
@@ -501,9 +537,9 @@ describe('startCombat -- automatic duel-mode detection off a monster def\'s .pie
         break;
       }
     }
-    if (!state) throw new Error('no seed in the first 40 rolled an available serpent combat node -- widen the search range');
+    if (!state) throw new Error('no seed in the first 40 rolled an available ' + targetDefId + ' combat node -- widen the search range');
 
-    expect(state.monster.defId).toBe('serpent');
+    expect(state.monster.defId).toBe(targetDefId);
     expect(state.monster.duel).toBe(true);
     expect(state.duel).toBeTruthy();
     expect(state.duelSequencer.isPlaying).toBe(true);
