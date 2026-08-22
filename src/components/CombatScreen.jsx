@@ -208,6 +208,7 @@ const BLANK_PICKER_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export default function CombatScreen({ state, Game, act }) {
   const Combat = window.Wordbound.Combat;
+  const Items = window.Wordbound.Items;
   const Intents = window.Wordbound.Intents;
   const Traits = window.Wordbound.Traits;
   const Lexicon = window.Wordbound.Lexicon;
@@ -644,8 +645,10 @@ export default function CombatScreen({ state, Game, act }) {
   const activeTraitId = Traits.activeTraitForHpRatio(monster.traitPhases, hpRatio);
   const trait = Traits.TRAITS[activeTraitId];
   const tierClass = monster.isBoss ? 'boss-tier' : (monster.tier ? 'tier-' + monster.tier : '');
-  const canOvercharge = state.player.ink >= Combat.OVERCHARGE_INK_COST;
-  const canRewrite = state.player.ink >= Combat.REWRITE_INK_COST;
+  const overchargeCost = Items.getOverchargeInkCost(state.player);
+  const rewriteCost = Items.getRewriteInkCost(state.player);
+  const canOvercharge = state.player.ink >= overchargeCost;
+  const canRewrite = state.player.ink >= rewriteCost;
   const dead = monster.hp <= 0;
 
   let previewClass = 'damage-preview preview-empty';
@@ -908,7 +911,7 @@ export default function CombatScreen({ state, Game, act }) {
         >
           {state.overchargeArmed
             ? `⚡ Overcharged! (x${Combat.OVERCHARGE_DAMAGE_MULTIPLIER})`
-            : `⚡ Overcharge (-${Combat.OVERCHARGE_INK_COST} ink)`}
+            : `⚡ Overcharge (-${overchargeCost} ink)`}
         </button>
         <button
           type="button"
@@ -917,7 +920,7 @@ export default function CombatScreen({ state, Game, act }) {
           title="Spend ink to discard your rack and draw a fresh one"
           onClick={() => act(Game.rewriteRack)}
         >
-          {`🔄 Rewrite (-${Combat.REWRITE_INK_COST} ink)`}
+          {`🔄 Rewrite (-${rewriteCost} ink)`}
         </button>
       </div>
     </div>

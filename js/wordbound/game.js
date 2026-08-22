@@ -375,6 +375,8 @@
   Game._hideGuideIntro = function () { return hideGuideIntro(); };
   Game._emitPlayerDamaged = function (payload) { return emitPlayerDamaged(payload); }; // COMBAT JUICE ticket: same reasoning, for the ink-flash counterpart
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
+  Game._rollTreasureOptions = function () { return rollTreasureOptions(); }; // SHOPKEEPERS ticket (exclusive items): exposed so tests can assert exclusiveTo items never leak into a Treasure roll, without needing a real Treasure node
+  Game._rollBossRewardOptions = function () { return rollBossRewardOptions(); }; // same reasoning as _rollTreasureOptions above, for the boss-reward pool
   Game._rollShopTileOffer = function () { return rollShopTileOffer(); }; // SHOPKEEPERS ticket: exposed so tests can assert Dickinson's guaranteed-appearance quirk directly, same reasoning as _rollShopOptions above
   Game._rollShopkeeper = function () { return rollShopkeeper(); }; // SHOPKEEPERS ticket: exposed so tests can assert the seeded pick/rarity-focus/line roll directly
   // SHOPKEEPERS ticket: forces a specific author for the current shop visit,
@@ -663,7 +665,14 @@
 
   function rollTreasureOptions() {
     var owned = state.player.items;
-    var pool = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
+    // SHOPKEEPERS ticket: `exclusiveTo` items (e.g. Dickinson's A Certain
+    // Slant of Ink) are gated to ONE author's shop, per that ticket's own
+    // "appear only in their shop" wording -- a Treasure node has no
+    // shopkeeper context at all, so every exclusive is excluded here
+    // unconditionally, not just from the wrong author.
+    var pool = Object.keys(Items.ITEM_DEFS).filter(function (id) {
+      return owned.indexOf(id) === -1 && !Items.ITEM_DEFS[id].exclusiveTo;
+    });
     var shuffled = state.rng.shuffle(pool);
     return shuffled.slice(0, 3);
   }
@@ -676,9 +685,11 @@
   // a second roll of the same odds.
   function rollBossRewardOptions() {
     var owned = state.player.items;
+    // Same exclusiveTo exclusion as rollTreasureOptions above -- a boss
+    // reward has no shopkeeper context either.
     var pool = Object.keys(Items.ITEM_DEFS).filter(function (id) {
       var def = Items.ITEM_DEFS[id];
-      return owned.indexOf(id) === -1 && (def.rarity === 'rare' || def.rarity === 'legendary');
+      return owned.indexOf(id) === -1 && !def.exclusiveTo && (def.rarity === 'rare' || def.rarity === 'legendary');
     });
     var shuffled = state.rng.shuffle(pool);
     return shuffled.slice(0, 3);
@@ -719,10 +730,21 @@
 
   function rollShopOptions() {
     var owned = state.player.items;
+    // SHOPKEEPERS ticket, exclusive items: an `exclusiveTo` item/consumable
+    // is filtered out UNLESS it matches this visit's own state.shopkeeperId
+    // (already rolled by rollShopkeeper() before this runs -- see that
+    // function's own header comment) -- deterministic exclusion, not a
+    // probability weight, so an exclusive can never surface from the wrong
+    // keeper's shop, or (with no keeper rolled at all) from any shop.
     var itemPool = Object.keys(Items.ITEM_DEFS).filter(function (id) {
+      var def = Items.ITEM_DEFS[id];
+      if (def.exclusiveTo && def.exclusiveTo !== state.shopkeeperId) return false;
       return owned.indexOf(id) === -1;
     });
-    var consumablePool = Wordbound.Consumables ? Object.keys(Wordbound.Consumables.CONSUMABLE_DEFS).map(function (id) { return 'c:' + id; }) : [];
+    var consumablePool = Wordbound.Consumables ? Object.keys(Wordbound.Consumables.CONSUMABLE_DEFS).filter(function (id) {
+      var def = Wordbound.Consumables.CONSUMABLE_DEFS[id];
+      return !def.exclusiveTo || def.exclusiveTo === state.shopkeeperId;
+    }).map(function (id) { return 'c:' + id; }) : [];
     var combined = itemPool.concat(consumablePool);
 
     // Pin one slot to the consumable pool: FUN OVERHAUL 4/8's eight new items
@@ -1342,7 +1364,12 @@
     // ink from having dropped in between (there's no such path today, but
     // this is the one point where an invalid word can't accidentally get
     // charged for, so the check belongs here regardless).
-    var overcharging = !!state.overchargeArmed && state.player.ink >= Combat.OVERCHARGE_INK_COST;
+    // SHOPKEEPERS ticket (A Certain Slant of Ink): the effective cost, not
+    // the raw constant -- Items.getOverchargeInkCost/getRewriteInkCost fall
+    // back to Combat's own constant when nothing owned reduces it, so this
+    // is a true no-op for every player who doesn't own Dickinson's item.
+    var overchargeCost = Items.getOverchargeInkCost(state.player);
+    var overcharging = !!state.overchargeArmed && state.player.ink >= overchargeCost;
     var isDuelFight = !!(state.monster.duel && state.duel);
     // DUEL-GAUGE COMBAT ticket: a duel-mode fight resolves the word's damage
     // through the gauge (DuelCombat.submitWord -- parry + push + decisive-
@@ -1373,8 +1400,8 @@
     // single-use per successful play, matching "spend N ink -> amplify
     // damage" on THIS word, not a standing buff.
     if (overcharging) {
-      state.player.ink = Math.max(0, state.player.ink - Combat.OVERCHARGE_INK_COST);
-      log('Overcharged! -' + Combat.OVERCHARGE_INK_COST + ' ink for ' + Math.round((Combat.OVERCHARGE_DAMAGE_MULTIPLIER - 1) * 100) + '% bonus damage.');
+      state.player.ink = Math.max(0, state.player.ink - overchargeCost);
+      log('Overcharged! -' + overchargeCost + ' ink for ' + Math.round((Combat.OVERCHARGE_DAMAGE_MULTIPLIER - 1) * 100) + '% bonus damage.');
     }
     state.overchargeArmed = false;
 
@@ -1643,8 +1670,9 @@
   Game.toggleOvercharge = function () {
     if (!state.combatActive || state.monster.hp <= 0) return;
     if (!state.overchargeArmed) {
-      if (state.player.ink < Combat.OVERCHARGE_INK_COST) {
-        log('Not enough ink to overcharge (need ' + Combat.OVERCHARGE_INK_COST + ').');
+      var overchargeCost = Items.getOverchargeInkCost(state.player);
+      if (state.player.ink < overchargeCost) {
+        log('Not enough ink to overcharge (need ' + overchargeCost + ').');
         render();
         return;
       }
@@ -1663,12 +1691,13 @@
   // comment above), so this exists purely for "I don't like this hand."
   Game.rewriteRack = function () {
     if (!state.combatActive || state.monster.hp <= 0) return;
-    if (state.player.ink < Combat.REWRITE_INK_COST) {
-      log('Not enough ink to rewrite your rack (need ' + Combat.REWRITE_INK_COST + ').');
+    var rewriteCost = Items.getRewriteInkCost(state.player);
+    if (state.player.ink < rewriteCost) {
+      log('Not enough ink to rewrite your rack (need ' + rewriteCost + ').');
       render();
       return;
     }
-    state.player.ink -= Combat.REWRITE_INK_COST;
+    state.player.ink -= rewriteCost;
     state.pile.discardPile = state.pile.discardPile.concat(state.player.rack);
     state.player.rack = [];
     state.selectedTileIds = [];
@@ -1676,7 +1705,7 @@
     state.hexedTileId = null; // the hexed tile itself just got discarded along with the rest of the rack
     refillRack();
     ensureRackIsPlayable();
-    log('You spend ' + Combat.REWRITE_INK_COST + ' ink to rewrite your rack.');
+    log('You spend ' + rewriteCost + ' ink to rewrite your rack.');
     render();
   };
 
@@ -4014,16 +4043,18 @@
     var overchargeBtn = $('btn-overcharge');
     var rewriteBtn = $('btn-rewrite-rack');
     if (!overchargeBtn || !rewriteBtn) return;
-    var canOvercharge = state.player.ink >= Combat.OVERCHARGE_INK_COST;
+    var overchargeCost = Items.getOverchargeInkCost(state.player);
+    var canOvercharge = state.player.ink >= overchargeCost;
     overchargeBtn.disabled = !state.overchargeArmed && !canOvercharge;
     overchargeBtn.classList.toggle('armed', !!state.overchargeArmed);
     overchargeBtn.textContent = state.overchargeArmed
       ? '⚡ Overcharged! (x' + Combat.OVERCHARGE_DAMAGE_MULTIPLIER + ')'
-      : '⚡ Overcharge (-' + Combat.OVERCHARGE_INK_COST + ' ink)';
+      : '⚡ Overcharge (-' + overchargeCost + ' ink)';
 
-    var canRewrite = state.player.ink >= Combat.REWRITE_INK_COST;
+    var rewriteCost = Items.getRewriteInkCost(state.player);
+    var canRewrite = state.player.ink >= rewriteCost;
     rewriteBtn.disabled = !canRewrite;
-    rewriteBtn.textContent = '🔄 Rewrite (-' + Combat.REWRITE_INK_COST + ' ink)';
+    rewriteBtn.textContent = '🔄 Rewrite (-' + rewriteCost + ' ink)';
   }
 
   // GOALS.md FEATURE (staged-word damage preview): show what the currently

@@ -71,6 +71,34 @@
     }
   });
 
+  // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), step 2's
+  // exclusive-items half: Homer's own exclusive, "a word played while it's
+  // active gets a flat bonus, framed as the muse briefly attends you"
+  // (THEME.md). Reuses the EXACT mechanism Index Card Shard above already
+  // established (player.bonusDamageUntilEndOfTurn, resolved by game.js's
+  // Game.submitWord right after a word lands) rather than inventing a
+  // second one -- only the flavor and the number differ. Lives here, not
+  // items.js, because it's a one-time-use consumable (THEME.md's own
+  // wording), not a permanent item; `exclusiveTo` is read by game.js's
+  // rollShopOptions, which filters BOTH the item pool and this consumable
+  // pool by the current shopkeeper before any slot is picked -- see
+  // items.js's own exclusive-items header comment for the full mechanism.
+  def({
+    id: 'wine_dark_litany',
+    name: 'The Wine-Dark Litany',
+    hint: 'A verse recited once, and briefly, the muse attends you. Your next word lands harder.',
+    rarity: 'uncommon',
+    shopPrice: 20,
+    exclusiveTo: 'homer',
+    effect: function (ctx) {
+      ctx.player.bonusDamageUntilEndOfTurn = (ctx.player.bonusDamageUntilEndOfTurn || 0) + 10;
+      return {
+        message: 'The Wine-Dark Litany: the muse attends you -- next word +10 damage!',
+        bonusDamage: 10
+      };
+    }
+  });
+
   // Use a consumable and remove it from inventory
   Consumables.useConsumable = function (consumableId, ctx) {
     var def = CONSUMABLE_DEFS[consumableId];
@@ -85,9 +113,13 @@
     return 0.20;
   };
 
-  // Roll a random consumable drop (uniform among all defs, not rarity-weighted)
+  // Roll a random consumable drop (uniform among all defs, not rarity-weighted).
+  // Excludes `exclusiveTo` consumables (SHOPKEEPERS ticket's Wine-Dark
+  // Litany) -- a monster drop has no shopkeeper context to gate against, and
+  // the ticket's own wording is "appear ONLY in their shop," which a random
+  // drop would violate if it weren't excluded here too.
   Consumables.rollConsumableDrop = function (rng) {
-    var ids = Object.keys(CONSUMABLE_DEFS);
+    var ids = Object.keys(CONSUMABLE_DEFS).filter(function (id) { return !CONSUMABLE_DEFS[id].exclusiveTo; });
     if (ids.length === 0) return null;
     return ids[Math.floor(rng.next() * ids.length)];
   };

@@ -289,6 +289,28 @@ describe('CombatScreen', () => {
     expect(state.player.rack.map((t) => t.id)).not.toEqual(rackBefore);
   });
 
+  // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), exclusive
+  // items: Dickinson's "A Certain Slant of Ink" reduces both ink-spend costs
+  // by 1 (js/wordbound/items.js's Items.getOverchargeInkCost/
+  // getRewriteInkCost) -- this drives it through the REAL component, not
+  // just the getter in isolation, confirming CombatScreen.jsx actually reads
+  // through those getters rather than the raw Combat.* constants it used to.
+  it('shows and charges the reduced Overcharge/Rewrite costs from A Certain Slant of Ink', () => {
+    const Combat = window.Wordbound.Combat;
+    const state = startFight();
+    state.player.items.push('certain_slant_of_ink');
+    render(<Harness />);
+    expect(
+      screen.getByRole('button', { name: `⚡ Overcharge (-${Combat.OVERCHARGE_INK_COST - 1} ink)` }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: `🔄 Rewrite (-${Combat.REWRITE_INK_COST - 1} ink)` }),
+    ).toBeInTheDocument();
+    const inkBefore = state.player.ink;
+    fireEvent.click(screen.getByRole('button', { name: /Rewrite/ }));
+    expect(state.player.ink).toBe(inkBefore - (Combat.REWRITE_INK_COST - 1));
+  });
+
   // COMBAT JUICE ticket (GOALS.md), damage-landed hook: a real word play
   // fires Game.onDamageLanded (game.js) ~220ms later (TILE_PLAY_ANIM_MS,
   // inside Game.submitWord's own setTimeout -- the same deferral vanilla's

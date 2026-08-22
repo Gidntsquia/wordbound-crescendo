@@ -58,7 +58,7 @@ export default function MainMenu({ onNewRun, onHowToPlay }) {
     <div id="screen-main-menu" className="screen">
       <div className="panel main-menu-panel">
         <h1 className="game-title">WORDBOUND: CRESCENDO</h1>
-        <p className="version-info">v0.6</p>
+        <p className="version-info">v0.7</p>
         <p className="tagline">
           Spell your way through the Stacks. Every Loose Word has a weakness — find the word that hits it.
         </p>

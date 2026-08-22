@@ -977,6 +977,140 @@
     }
   });
 
+  // ---- SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), step 2's
+  // exclusive-items half: one exclusive item per author (the ticket's own
+  // "1-2" per author, floor of the range -- see this ticket's own
+  // ORCHESTRATOR NOTE for why), gated to appear ONLY in that author's shop
+  // via the new `exclusiveTo` field, read by game.js's rollShopOptions
+  // (filters both the item pool and the consumable pool before any random
+  // slot is picked -- a deterministic gate, not a probability weight, so an
+  // exclusive can NEVER surface from the wrong keeper's shop). Homer's own
+  // exclusive (The Wine-Dark Litany, a consumable) lives in consumables.js
+  // instead -- see that file for why. Each of these five draws directly on
+  // THEME.md's own "Exclusive item concept(s)" cell for its author, picking
+  // whichever of that author's 1-2 concepts maps onto an EXISTING engine
+  // mechanic most directly (same "small, well-verified chunk over a bigger
+  // speculative one" judgment call this ticket's own quirk-half update
+  // already made) rather than inventing new engine surface for every one.
+
+  def({
+    id: 'ingenious_gentlemans_ledger',
+    name: "The Ingenious Gentleman's Ledger",
+    hint: 'A ledger for tallying ambition -- the longer the word, the larger the sum.',
+    rarity: 'rare',
+    shopPrice: 45,
+    exclusiveTo: 'cervantes',
+    // THEME.md's own concept: "rewards playing an unusually ambitious word
+    // over a short safe one -- a bonus that scales with word length past
+    // the usual length-bonus curve." Lexicon.scoreWord's own lengthBonus
+    // already adds a flat 2pts/letter past length 4 (base score, before any
+    // multiplier) -- this layers a SEPARATE, steeper percent bonus on top,
+    // starting two letters later (past 6) and growing per extra letter, so
+    // it only rewards genuinely long plays, not merely-above-average ones.
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var extraLetters = ctx.word.length - 6;
+        if (extraLetters <= 0) return;
+        var bonus = Items.applyPercentBonus(ctx, extraLetters * 0.1);
+        if (bonus > 0) ctx.messages.push("The Ledger: +" + Math.round(extraLetters * 10) + "% for ambition!");
+      }
+    }
+  });
+
+  def({
+    id: 'an_ideal_word',
+    name: 'An Ideal Word',
+    hint: 'Not every triumph needs a long sentence -- some are perfect exactly as short as they are.',
+    rarity: 'uncommon',
+    shopPrice: 30,
+    exclusiveTo: 'wilde',
+    // THEME.md's own concept: "rewards playing an unusually SHORT word
+    // well -- a small bonus tuned to the opposite end of the curve from
+    // Cervantes' long-word item." Lexicon.scoreWord's lengthBonus never
+    // applies at or below length 4 (its own threshold), so those plays get
+    // nothing extra today -- this hands them a flat, decreasing-with-length
+    // bonus instead, applied as damage (not a percent, since a short word's
+    // base score is already small enough that a percent bonus would be
+    // negligible -- the same reasoning FORTISSIMO's flat 2x, not a percent,
+    // already established for a restriction/payoff pair to feel real).
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (ctx.word.length > 4) return;
+        var bonus = (5 - ctx.word.length) * 3;
+        if (bonus <= 0) return;
+        Items.applyBonusDamage(ctx, bonus);
+        ctx.messages.push('An Ideal Word: +' + bonus + '!');
+      }
+    }
+  });
+
+  def({
+    id: 'truth_universally_acknowledged',
+    name: 'A Truth Universally Acknowledged',
+    hint: 'It is a truth universally acknowledged that the SAME word twice is no triumph at all.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    exclusiveTo: 'austen',
+    // THEME.md's own concept: "a passive that rewards NOT playing the same
+    // word twice -- codifying the existing repeat-word penalty into a bonus
+    // rather than just an absence of penalty." combat.js's REPEAT_WORD_PENALTY
+    // already docks a repeat to x0.4; this instead grants a flat bonus on
+    // every NON-repeat play (ctx.result.isRepeat is the exact field combat.js
+    // sets, same one Encore already reads for its own condition) -- a
+    // genuine reward for novelty, not merely the absence of a cut.
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (!ctx.result || ctx.result.isRepeat) return;
+        var bonus = Items.applyPercentBonus(ctx, 0.1);
+        if (bonus > 0) ctx.messages.push('A Truth Universally Acknowledged: +10%!');
+      }
+    }
+  });
+
+  def({
+    id: 'tell_tale_meter',
+    name: 'The Tell-Tale Meter',
+    hint: "A heartbeat that won't stop -- every blow you land feeds it back to you.",
+    rarity: 'rare',
+    shopPrice: 45,
+    exclusiveTo: 'poe',
+    // THEME.md's own concept: "a Vampiric-style heal-on-play effect, themed
+    // as a heartbeat that won't stop." The existing Vampiric TILE VARIANT
+    // (game.js's VAMPIRIC_HEAL_PER_TILE) heals a flat amount per tile
+    // played, independent of the word's damage -- this is genuinely
+    // Vampiric in the other sense (heal proportional to damage dealt,
+    // "life drain"), a new pattern in this pool, gated to Poe's shop only.
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (!ctx.result || ctx.result.damage <= 0) return;
+        var healed = Math.round(ctx.result.damage * 0.1);
+        if (healed <= 0) return;
+        var before = ctx.player.ink;
+        ctx.player.ink = Math.min(ctx.player.maxInk, ctx.player.ink + healed);
+        if (ctx.player.ink > before) ctx.messages.push('The Tell-Tale Meter: healed ' + (ctx.player.ink - before) + ' ink!');
+      }
+    }
+  });
+
+  def({
+    id: 'certain_slant_of_ink',
+    name: 'A Certain Slant of Ink',
+    hint: 'There\'s a certain Slant of ink -- it makes the Overcharge, and the Rewrite, come cheaper.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    exclusiveTo: 'dickinson',
+    // THEME.md's own concept: "an ink-economy effect, since ink is her
+    // natural pun -- reduced Overcharge/Rewrite cost." Read via the new
+    // Items.getOverchargeInkCost/getRewriteInkCost getters (above) -- every
+    // call site that used to read Combat.OVERCHARGE_INK_COST/
+    // REWRITE_INK_COST directly (game.js's submitWord/toggleOvercharge/
+    // rewriteRack/renderInkSpendButtons, React's CombatScreen.jsx) now reads
+    // through those instead, so this item's -1/-1 reduction is honored
+    // everywhere the cost is charged, checked, or displayed, not just one
+    // of those.
+    statMods: { overchargeCostReduction: 1, rewriteCostReduction: 1 }
+  });
+
   // FLIP_MAP is the "conservative" mapping the ticket itself specifies --
   // only letters with a genuinely clean upside-down glyph get an entry
   // (u<->n, m<->w, b<->q, d<->p; o/s/x/z/i are each already symmetric
@@ -1143,6 +1277,38 @@
       if (d && d.statMods.duelParryWindowBonusSec != null) bonus += d.statMods.duelParryWindowBonusSec;
     });
     return bonus;
+  };
+
+  // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), step 2's
+  // exclusive-items half: Dickinson's "A Certain Slant of Ink" reduces
+  // Combat's two ink-spend costs (Overcharge/Rewrite), summed across every
+  // owned item that sets a reduction (mirrors getDuelIframeBonus's additive
+  // shape) and clamped to a floor of 1 ink each -- a 0-cost spend would be
+  // free forever, a degenerate no-cost loop the ticket's own item concept
+  // never asked for. Reads Combat.* lazily (call-time, not module-load
+  // time) since combat.js's own constants are the single source of truth
+  // this file must never duplicate -- safe because every caller of these
+  // getters runs long after both files have finished loading.
+  Items.getOverchargeInkCost = function (player) {
+    var Combat = window.Wordbound.Combat;
+    var base = Combat ? Combat.OVERCHARGE_INK_COST : 3;
+    var reduction = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.overchargeCostReduction != null) reduction += d.statMods.overchargeCostReduction;
+    });
+    return Math.max(1, base - reduction);
+  };
+
+  Items.getRewriteInkCost = function (player) {
+    var Combat = window.Wordbound.Combat;
+    var base = Combat ? Combat.REWRITE_INK_COST : 4;
+    var reduction = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.rewriteCostReduction != null) reduction += d.statMods.rewriteCostReduction;
+    });
+    return Math.max(1, base - reduction);
   };
 
   // A rack this small can never form a real word at all (Lexicon.

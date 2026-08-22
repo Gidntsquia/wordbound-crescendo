@@ -3167,7 +3167,7 @@ Rules for the routine:
          prominently in PROGRESS.md.
       Scope guard: no CNAME/custom domain, no itch upload — Pages only.
 
-- [ ] SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS (Jaxon, 2026-08-21): the friendly
+- [x] SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS (Jaxon, 2026-08-21): the friendly
       faces of the words side are famous dead authors.
       0. FIRST, AMEND THE BIBLE: THEME.md was completed before this request
          landed, so the design work moved here — add the guide + shopkeeper
@@ -3439,6 +3439,145 @@ Rules for the routine:
       box is checked for real. **Next:** the ITEMS ticket itself is the
       natural next queue item (large, self-contained); once it exists,
       return here to wire the six author exclusives on top of it.
+      ORCHESTRATOR NOTE 2026-08-22 (closing): the ITEMS ticket landed (30
+      items in the pool) and its own "Next" note pointed back here -- landed
+      this ticket's last remaining scope, one exclusive item per author
+      (the ticket's own "1-2," floor of the range -- see judgment call
+      below), and checked the box for real.
+      **What landed** (`js/wordbound/items.js`, `js/wordbound/consumables.js`,
+      `js/wordbound/game.js`, `src/components/CombatScreen.jsx` -- no new
+      file): each exclusive draws directly on THEME.md's own "Exclusive item
+      concept(s)" cell for its author, picking whichever of that author's
+      1-2 concepts maps onto an EXISTING engine mechanic most directly:
+      Cervantes's **The Ingenious Gentleman's Ledger** (rare, `onWordPlayed`
+      percent bonus scaling per letter past length 6 -- nothing at 6, +10%
+      at 7, +20% at 8 -- a real "scales with length" curve, layered on top
+      of Lexicon.scoreWord's own flat lengthBonus rather than duplicating
+      it); Wilde's **An Ideal Word** (uncommon, flat bonus at length <=4,
+      `(5-length)*3`, the deliberate opposite bracket from Cervantes's
+      item); Austen's **A Truth Universally Acknowledged** (uncommon, +10%
+      on any non-repeat play, reading the exact `ctx.result.isRepeat` field
+      combat.js already sets -- "codifies the repeat penalty into a bonus,"
+      per the ticket's own wording, rather than a new mechanic); Poe's
+      **The Tell-Tale Meter** (rare, `onWordPlayed` heals 10% of the
+      word's damage as ink, capped at maxInk -- a genuinely proportional
+      Vampiric-style heal, distinct from the existing flat-per-tile
+      Vampiric TILE VARIANT); Dickinson's **A Certain Slant of Ink**
+      (uncommon, -1 to BOTH Overcharge and Rewrite ink costs, floored at 1).
+      Homer's own exclusive, **The Wine-Dark Litany**, is a CONSUMABLE
+      (consumables.js, not items.js) per THEME.md's own wording -- reuses
+      Index Card Shard's exact `bonusDamageUntilEndOfTurn` mechanism
+      (+10 instead of +15) rather than inventing a second one.
+      **The exclusivity mechanism, genuinely new machinery, not per-item
+      special-casing:** a new `exclusiveTo: <authorId>` field, read by three
+      pool-builders in game.js -- `rollShopOptions` (the actual gate: an
+      exclusive is filtered out unless `def.exclusiveTo === state.
+      shopkeeperId`, checked AFTER `rollShopkeeper()` has already rolled the
+      visit's author, per that function's own pre-existing call-order
+      comment) and, since Treasure/boss-reward rolls have no shopkeeper
+      context at all, `rollTreasureOptions`/`rollBossRewardOptions` now
+      exclude every `exclusiveTo` item unconditionally rather than leaving
+      them reachable through a side door. `Consumables.rollConsumableDrop`
+      (the random enemy-drop path) got the same unconditional exclusion for
+      Wine-Dark Litany -- a drop has no shopkeeper context either, and the
+      ticket's own "appear ONLY in their shop" wording would otherwise be
+      violated by a monster handing it out. This is a deterministic gate,
+      not a probability weight: an exclusive literally cannot exist in the
+      wrong pool, verified by roll counts below, not just code inspection.
+      **A Certain Slant of Ink's own real plumbing, not just a statMod:**
+      Combat.OVERCHARGE_INK_COST/REWRITE_INK_COST were read as raw constants
+      at 8 call sites across game.js (submitWord, toggleOvercharge,
+      rewriteRack, renderInkSpendButtons) and CombatScreen.jsx (cost
+      checks + both button labels) -- every one now reads through two new
+      getters, `Items.getOverchargeInkCost(player)`/`getRewriteInkCost
+      (player)` (sum owned `overchargeCostReduction`/`rewriteCostReduction`
+      statMods, floor of 1 ink each so it can never go free), so the
+      discount is honored everywhere the cost is charged, checked, or
+      displayed -- not just one of those call sites while the others drift.
+      Confirmed a true no-op for every player who doesn't own the item: the
+      getters fall back to `Combat.OVERCHARGE_INK_COST`/`REWRITE_INK_COST`
+      exactly, and every PRE-EXISTING ink-spend test in test/dom-check.js
+      (which asserts against those raw constants directly) still passed
+      unchanged.
+      **Judgment call on scope, documented rather than silently decided:**
+      the ticket asks for "1-2 EXCLUSIVE ITEMS" per author -- landed
+      exactly 1 (the floor), same "depth of verification over item count
+      for a single bounded run" reasoning the ITEMS ticket's own AMENDED-
+      batch note already used for its 4-of-8 duel-gauge items. Each
+      author's OTHER concept from THEME.md's table (Homer's Rhapsode's
+      Girdle -- THEME.md's own cell already says this one is flavor text
+      for the existing guaranteed-consumable-slot logic, not a separate
+      mechanic, so it needed nothing new; Cervantes's Rocinante's Last
+      Furlong; Austen's Persuasion's Turn; Dickinson's I Dwell in
+      Possibility; Poe's Quoth; Wilde's A Portrait in the Attic) remains a
+      real, spec'd-in-the-bible, unbuilt concept -- an additive future
+      expansion, not a broken promise, which is why the box is checked
+      rather than left pending on it. Quoth (a one-time repeat-penalty
+      immunity) was deliberately passed over for Poe's OTHER concept
+      specifically because it would have needed a new option threaded
+      through Combat.playWord's isRepeat detection across both the
+      turn-based and duel combat paths -- a real, separately-scoped engine
+      change, not a small addition alongside the other five.
+      **Verified:**
+      - `npm test` (jsdom dom-check): ALL CHECKS PASSED, +33 new checks --
+        for each of the 6 exclusives: appears in its own author's shop
+        across up to 200 seeded samples, and is confirmed ABSENT from a
+        different author's shop across 100 seeded samples (deterministic
+        exclusion, so a single hit anywhere would fail this); none of the 6
+        appear with no shopkeeper set (100 samples), in Treasure options
+        (100 samples), or in boss-reward options (100 samples -- this is
+        the one that actually exercises the new rollBossRewardOptions
+        filter, since 2 of the 5 items are rare and would otherwise pass its
+        pre-existing rarity gate); each item's own mechanical effect in
+        isolation (Ledger's 3 length brackets, An Ideal Word's 3, Truth's
+        repeat/non-repeat pair, Tell-Tale Meter's heal + overheal-cap +
+        zero-damage no-op, Certain Slant of Ink's getters including an
+        extreme-fake-item floor-at-1 test mirroring Sordino's own 0.9-clamp
+        convention, Wine-Dark Litany's consumable effect + a 200-sample
+        confirmation it never surfaces from the random enemy-drop roll).
+        Every PRE-EXISTING ink-spend test passed unchanged (confirms the
+        getter refactor is a true no-op without the item).
+      - `npx vitest run`: 182/182 (up from 181) -- 1 new CombatScreen test
+        driving A Certain Slant of Ink through the REAL component (button
+        labels show the reduced cost, and a real Rewrite click charges the
+        reduced amount), not just the getter in isolation.
+      - `npm run build`: clean, 51 modules (unchanged -- no new file, only
+        edits to already-listed modules).
+      - `npm run test:mobile`: ALL CHECKS PASSED, unaffected (no CSS/layout
+        touched -- every new item is either invisible/passive or changes
+        button TEXT only, which the pre-existing ink-spend mobile coverage
+        already exercises).
+      - `npm run test:qa`, `test:react-qa`, `test:react-build`,
+        `test:react-duel-loss`, `test:music-engine`, `test:branching-map`,
+        `test:run-header`, `test:audio`, `test:drag-interrupt`: ALL CHECKS
+        PASSED, unaffected (none of these flows touch a shop node or the
+        ink-spend buttons in a way any of this run's changes alter).
+      - `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED,
+        no manifest change needed (no new file).
+      - `npm run test:duel-balance`: same pre-existing early/regular/weak
+        stalemate flag every prior run's own note documents, exit code 0,
+        unrelated (this sim doesn't model items or shops at all).
+      Version bumped v0.6 -> v0.7 (`wordbound.html`, `MainMenu.jsx`, and its
+      Vitest expectation) -- this ticket is now genuinely finished (guide
+      intro, all 6 quirks, all 6 portraits, and now all 6 exclusives) per
+      this file's own "bump minor per completed feature" convention.
+      **Genuinely-Jaxon-only, flagged rather than blocking:** every new
+      numeric value (Ledger's 10%/letter, An Ideal Word's `(5-len)*3`,
+      Truth's flat 10%, Tell-Tale Meter's 10% heal rate, Certain Slant of
+      Ink's -1/-1) is this run's own tuning call, not balance-sim-verified
+      (same pre-existing `test/balance-simulation.js` AudioContext-crash gap
+      every item-adding run in this file already flags). Also flagged: the
+      "pick 1 of 2, mechanically-closest-concept-wins" selection method
+      itself, and whether the 5 deferred concepts (listed above) are worth
+      a future pass.
+      **Not done, honest gaps:** the 5 deferred exclusive-item concepts
+      above; author portraits/guide/quirks needed nothing further (already
+      complete). No shop has yet handed any of these 6 new items/consumable
+      to a real player in an actual run (same "reachable through the
+      existing roll pools, will surface naturally" gap every prior item
+      batch in this file has had at landing time).
+      **Next:** REGULAR ENEMIES (queue's next fully independent item) is
+      the natural next pick -- this ticket and ITEMS are both now closed.
 
 - [x] ITEMS, Jaxon's four + batch: implement Jaxon's four exactly, then round out
       to 8-12 with music-space designs. His four (names are placeholders, use the

@@ -2837,6 +2837,209 @@ async function main() {
     window.Wordbound.Game.closeDeckViewer();
   }
 
+  // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), step 2's
+  // exclusive-items half: one exclusive per author (five items in
+  // items.js + Homer's own consumable in consumables.js), each gated to
+  // appear ONLY in that author's shop via the new `exclusiveTo` field.
+  {
+    const Items = window.Wordbound.Items;
+    const Consumables = window.Wordbound.Consumables;
+    const Combat = window.Wordbound.Combat;
+    const savedItemsX = state.player.items;
+    const savedRngX = state.rng;
+    const savedShopkeeperIdX = state.shopkeeperId;
+    const savedShopkeeperFocusX = state.shopkeeperRarityFocus;
+
+    const EXCLUSIVES = [
+      { authorId: 'cervantes', id: 'ingenious_gentlemans_ledger' },
+      { authorId: 'wilde', id: 'an_ideal_word' },
+      { authorId: 'austen', id: 'truth_universally_acknowledged' },
+      { authorId: 'poe', id: 'tell_tale_meter' },
+      { authorId: 'dickinson', id: 'certain_slant_of_ink' },
+      { authorId: 'homer', id: 'c:wine_dark_litany' }
+    ];
+
+    // Austen's quirk needs a rarity focus roll off state.rng if none is
+    // given -- pass an explicit override everywhere she's forced in this
+    // block so this loop never depends on whatever state.rng happens to be
+    // at that moment (same reasoning the original SHOPKEEPERS test block
+    // above already applies to its own `_setShopkeeperForTesting('austen', 'common')` call).
+    function forceShopkeeper(authorId) {
+      window.Wordbound.Game._setShopkeeperForTesting(authorId, authorId === 'austen' ? 'common' : undefined);
+    }
+
+    state.player.items = [];
+    EXCLUSIVES.forEach(({ authorId, id }) => {
+      forceShopkeeper(authorId);
+      let seenForOwnAuthor = false;
+      for (let i = 0; i < 200 && !seenForOwnAuthor; i++) {
+        state.rng = window.Game.RNG.create('exclusive-own-' + id + '-' + i);
+        if (window.Wordbound.Game._rollShopOptions().indexOf(id) !== -1) seenForOwnAuthor = true;
+      }
+      check(`exclusive items: ${id} appears in ${authorId}'s own shop across up to 200 seeded samples`, seenForOwnAuthor);
+
+      // A different author's shop must NEVER surface it -- deterministic
+      // exclusion (rollShopOptions's own filter, not a low probability), so
+      // even a modest sample proves it: any single hit here is a real bug.
+      const otherAuthor = EXCLUSIVES.find((e) => e.authorId !== authorId).authorId;
+      forceShopkeeper(otherAuthor);
+      let leakedToOtherAuthor = false;
+      for (let i = 0; i < 100; i++) {
+        state.rng = window.Game.RNG.create('exclusive-other-' + id + '-' + i);
+        if (window.Wordbound.Game._rollShopOptions().indexOf(id) !== -1) leakedToOtherAuthor = true;
+      }
+      check(`exclusive items: ${id} never appears in ${otherAuthor}'s shop (100 seeded samples)`, !leakedToOtherAuthor);
+    });
+
+    // No shopkeeper at all (state.shopkeeperId null) -- every exclusive
+    // must be absent too, not just from a mismatched author.
+    state.shopkeeperId = null;
+    state.shopkeeperRarityFocus = null;
+    let leakedWithNoKeeper = false;
+    for (let i = 0; i < 100; i++) {
+      state.rng = window.Game.RNG.create('exclusive-nokeeper-' + i);
+      const opts = window.Wordbound.Game._rollShopOptions();
+      if (EXCLUSIVES.some(({ id }) => opts.indexOf(id) !== -1)) leakedWithNoKeeper = true;
+    }
+    check('exclusive items: none appear when no shopkeeper is set (100 seeded samples)', !leakedWithNoKeeper);
+
+    // Treasure/boss-reward pools have no shopkeeper context at all -- every
+    // exclusive ITEM (not Homer's consumable, which was never in this pool
+    // to begin with) must be excluded unconditionally, across many seeds.
+    const exclusiveItemIds = EXCLUSIVES.filter(({ id }) => id.indexOf('c:') !== 0).map(({ id }) => id);
+    let leakedToTreasure = false, leakedToBossReward = false;
+    for (let i = 0; i < 100; i++) {
+      state.rng = window.Game.RNG.create('exclusive-treasure-' + i);
+      if (window.Wordbound.Game._rollTreasureOptions().some((id) => exclusiveItemIds.indexOf(id) !== -1)) leakedToTreasure = true;
+      state.rng = window.Game.RNG.create('exclusive-bossreward-' + i);
+      if (window.Wordbound.Game._rollBossRewardOptions().some((id) => exclusiveItemIds.indexOf(id) !== -1)) leakedToBossReward = true;
+    }
+    check('exclusive items: none appear in Treasure options (100 seeded samples)', !leakedToTreasure);
+    check('exclusive items: none appear in boss-kill bonus reward options (100 seeded samples)', !leakedToBossReward);
+
+    state.player.items = savedItemsX;
+    state.rng = savedRngX;
+    state.shopkeeperId = savedShopkeeperIdX;
+    state.shopkeeperRarityFocus = savedShopkeeperFocusX;
+
+    // ---- Mechanical hook-level checks, one per exclusive.
+
+    // The Ingenious Gentleman's Ledger (Cervantes): extra percent bonus per
+    // letter past length 6 -- nothing at 6, +10% at 7, +20% at 8.
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['ingenious_gentlemans_ledger'] }, monster, word: 'SIXSIX', result: { damage: 10 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check("The Ledger: no bonus at exactly length 6", monster.hp === 100 && ctx.result.damage === 10);
+    }
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['ingenious_gentlemans_ledger'] }, monster, word: 'SEVENLE', result: { damage: 10 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('The Ledger: +10% at length 7', monster.hp === 100 - 1 && ctx.result.damage === 11);
+      check('The Ledger: proc message logged', ctx.messages.some((m) => m.indexOf('Ledger') !== -1));
+    }
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['ingenious_gentlemans_ledger'] }, monster, word: 'EIGHTLET', result: { damage: 10 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('The Ledger: +20% at length 8', monster.hp === 100 - 2 && ctx.result.damage === 12);
+    }
+
+    // An Ideal Word (Wilde): flat bonus at length <= 4, nothing past it.
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['an_ideal_word'] }, monster, word: 'GO', result: { damage: 5 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('An Ideal Word: length-2 word gets +9', monster.hp === 100 - 9 && ctx.result.damage === 14);
+    }
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['an_ideal_word'] }, monster, word: 'FOUR', result: { damage: 5 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('An Ideal Word: length-4 word gets +3', monster.hp === 100 - 3 && ctx.result.damage === 8);
+      check('An Ideal Word: proc message logged', ctx.messages.some((m) => m.indexOf('An Ideal Word') !== -1));
+    }
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['an_ideal_word'] }, monster, word: 'FIFTH', result: { damage: 5 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('An Ideal Word: no bonus past length 4', monster.hp === 100 && ctx.result.damage === 5);
+    }
+
+    // A Truth Universally Acknowledged (Austen): +10% on any non-repeat,
+    // nothing on a repeat -- reads the exact ctx.result.isRepeat field
+    // combat.js sets (same field Encore's own test already relies on).
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['truth_universally_acknowledged'] }, monster, word: 'NOVEL', result: { damage: 20, isRepeat: false }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('A Truth Universally Acknowledged: +10% on a non-repeat', monster.hp === 100 - 2 && ctx.result.damage === 22);
+      check('A Truth Universally Acknowledged: proc message logged', ctx.messages.some((m) => m.indexOf('Truth') !== -1));
+    }
+    {
+      const monster = { hp: 100, maxHp: 100 };
+      const ctx = { player: { items: ['truth_universally_acknowledged'] }, monster, word: 'NOVEL', result: { damage: 20, isRepeat: true }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, ctx.player);
+      check('A Truth Universally Acknowledged: no bonus on a repeat', monster.hp === 100 && ctx.result.damage === 20);
+    }
+
+    // The Tell-Tale Meter (Poe): heals 10% of the damage just dealt, capped
+    // at maxInk (a genuine Vampiric-style heal, distinct from the flat
+    // per-tile Vampiric TILE VARIANT already in game.js).
+    {
+      const player = { items: ['tell_tale_meter'], ink: 10, maxInk: 20 };
+      const ctx = { player, monster: { hp: 100, maxHp: 100 }, word: 'CAT', result: { damage: 50 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('The Tell-Tale Meter: heals 10% of damage dealt (50 -> +5 ink)', player.ink === 15);
+      check('The Tell-Tale Meter: proc message logged', ctx.messages.some((m) => m.indexOf('Tell-Tale Meter') !== -1));
+    }
+    {
+      const player = { items: ['tell_tale_meter'], ink: 18, maxInk: 20 };
+      const ctx = { player, monster: { hp: 100, maxHp: 100 }, word: 'CAT', result: { damage: 50 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('The Tell-Tale Meter: never overheals past maxInk', player.ink === 20);
+    }
+    {
+      const player = { items: ['tell_tale_meter'], ink: 10, maxInk: 20 };
+      const ctx = { player, monster: { hp: 100, maxHp: 100 }, word: 'CAT', result: { damage: 0 }, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('The Tell-Tale Meter: no heal, no message on zero damage', player.ink === 10 && ctx.messages.length === 0);
+    }
+
+    // A Certain Slant of Ink (Dickinson): reduces both ink-spend costs by 1,
+    // clamped to a floor of 1 (mirrors Sordino's 0.9-resistance clamp
+    // convention, above, via a deliberately extreme temporary fake item).
+    check('A Certain Slant of Ink: no reduction with nothing owned', Items.getOverchargeInkCost({ items: [] }) === Combat.OVERCHARGE_INK_COST && Items.getRewriteInkCost({ items: [] }) === Combat.REWRITE_INK_COST);
+    check('A Certain Slant of Ink: -1 Overcharge cost when owned', Items.getOverchargeInkCost({ items: ['certain_slant_of_ink'] }) === Combat.OVERCHARGE_INK_COST - 1);
+    check('A Certain Slant of Ink: -1 Rewrite cost when owned', Items.getRewriteInkCost({ items: ['certain_slant_of_ink'] }) === Combat.REWRITE_INK_COST - 1);
+    {
+      window.Wordbound.Items.ITEM_DEFS['_test_extreme_ink_discount'] = { id: '_test_extreme_ink_discount', statMods: { overchargeCostReduction: 10, rewriteCostReduction: 10 }, hooks: {} };
+      check('A Certain Slant of Ink: Overcharge cost floors at 1, never free', Items.getOverchargeInkCost({ items: ['_test_extreme_ink_discount'] }) === 1);
+      check('A Certain Slant of Ink: Rewrite cost floors at 1, never free', Items.getRewriteInkCost({ items: ['_test_extreme_ink_discount'] }) === 1);
+      delete window.Wordbound.Items.ITEM_DEFS['_test_extreme_ink_discount'];
+    }
+
+    // The Wine-Dark Litany (Homer, consumable): same bonusDamageUntilEndOfTurn
+    // mechanism Index Card Shard already established, plus confirming it can
+    // never leak out through the random enemy-drop path (which has no
+    // shopkeeper context to gate against).
+    {
+      const player = { bonusDamageUntilEndOfTurn: 0, maxInk: 20, ink: 20 };
+      const result = Consumables.useConsumable('wine_dark_litany', { player });
+      check('The Wine-Dark Litany: grants +10 bonusDamageUntilEndOfTurn', player.bonusDamageUntilEndOfTurn === 10);
+      check('The Wine-Dark Litany: returns a real message', !!result.message && result.message.indexOf('muse') !== -1);
+    }
+    {
+      let leakedIntoDrops = false;
+      for (let i = 0; i < 200; i++) {
+        const rng = window.Game.RNG.create('wine-dark-drop-' + i);
+        if (Consumables.rollConsumableDrop(rng) === 'wine_dark_litany') leakedIntoDrops = true;
+      }
+      check('The Wine-Dark Litany: never rolls as a random enemy drop (200 seeded samples)', !leakedIntoDrops);
+    }
+  }
+
   // FUN OVERHAUL 5/8, second half of the Volatile contract: a cracked tile is
   // gone for the rest of THAT fight only, and comes back for the next one.
   // Driven through a real second combat (Game.enterCurrentNode on the next
