@@ -8396,7 +8396,18 @@ finally closes PLAYTEST FINDINGS item 2 and makes this ticket's remaining
 VERIFY-line items (virtual-clock sim confirming the full tier curve,
 Playwright duel smoke per tier) meaningful to run for the first time.
 
-**Live deploy refresh:** see this entry's own follow-up note below for
-the executed result (built fresh off this run's own commit, per the
-header's standing rule and this ticket's own settled "refresh always, no
-unreachable-code carve-out" convention).
+**Live deploy refresh, actually executed:** built `dist/app/` fresh off
+this run's own commit (`bae5337`, 58 modules, identical asset hashes to
+the pre-commit build already verified above) in a disposable `git
+worktree`, published its contents + an empty `.nojekyll` as the new root
+of the `gh-pages` branch via a scratch orphan branch, `git push -f origin
+gh-pages-refresh:gh-pages` -- succeeded, confirmed by git's own
+ref-update output (`a3144da...ba72ab0 gh-pages-refresh -> gh-pages
+(forced update)`). Worktree removed after. **Could NOT curl-verify,
+honestly flagged rather than assumed:** `curl -sv
+https://gidntsquia.github.io/wordbound-crescendo/` hit the SAME
+pre-existing domain-specific proxy block this repo's prior runs have
+already repeatedly documented -- a `403` on the CONNECT tunnel to
+`gidntsquia.github.io` specifically. The push itself is the actual deploy
+action and it succeeded; this is a known, recurring sandbox limitation,
+not a new one introduced by this run.
