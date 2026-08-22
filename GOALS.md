@@ -2519,6 +2519,125 @@ Rules for the routine:
       four VERIFY-line pieces (real per-tier balance data, win, loss, and
       now a THIRD real duel) are all complete. COMBAT JUICE's damage-landed
       hook remains available as a separate, lower-priority pickup.
+      ORCHESTRATOR NOTE 2026-08-22 (update 13): picked up update-12's own
+      "Next" note's first half exactly as scoped -- composing Beethoven's 5th
+      as a real, sequenced piece, deliberately NOT the floor/def-plumbing
+      half (a real floor-4/"Podium" boss def + `Floor.TOTAL_FLOORS`
+      generation support remains genuinely separate scope, per update-12's
+      own split).
+      **Built:** `js/wordbound/pieces/beethoven-5th.js`. PD vetting
+      (THEME.md's own table, standing rule re-checked): composed 1808,
+      Beethoven died 1827 (199 years as of 2026) -- the most safely
+      public-domain piece in the whole roster. Modeled THEME.md's own brief
+      directly, movement by movement, as FOUR real tempo breakpoints (not a
+      flat bpm like Mountain King/Valkyrie Marshal each use) spanning 112
+      beats: (I) Allegro con brio, the literal Fate motif (G-G-G-Eb, then
+      F-F-F-D a step down, the real symphony's own restatement) developing
+      into one crescendo; (II) Andante con moto, a genuine LOW-INTENSITY
+      LULL with real RESTS in its own melody track data -- the "changes the
+      shape of the pressure, not just its intensity" line taken literally,
+      the structural opposite of Valkyrie Marshal's never-rests ostinato,
+      and the first piece in the roster with a deliberate quiet movement;
+      (III) Scherzo (Allegro), one long near-silent-to-maximum ramp
+      (Mountain King's single-ramp technique, compressed into one movement)
+      crescendoing straight into movement IV's downbeat -- the real
+      symphony's famous attacca transition; (IV) Allegro finale, a
+      triumphant C-major fanfare (the one deliberately MAJOR pattern in the
+      whole piece) with three more crescendo surges plus a quiet callback to
+      the scherzo's own material (the real symphony's actual structure),
+      ending at intensity 1.0 on the literal final beat -- "the finale's
+      triumphant major-key turn as the last phase." FIVE real crescendo
+      markers total (one each in movements I/III, three in IV) -- more than
+      Valkyrie Marshal's four, matching 'final' tier being one step scarier
+      per the header curve decision. `stageTier: 'final'`.
+      **A real design bug caught by a test, not shipped:** the first draft's
+      movement I/II boundary put the crescendo peak AT beat 32 (the exact
+      movement boundary), so `Music.intensityAt`'s linear interpolation kept
+      the loud value bleeding into movement II's own "beat >= 32" range,
+      contradicting THEME.md's own "changes the shape... not just
+      intensity" brief with a lingering tail instead of a real cut. A new
+      Vitest assertion (`beethoven5th.test.js`) caught this directly by
+      measuring movement II's actual peak intensity, not assumed correct.
+      Fixed by moving the crescendo's peak to beat 31 (just before the
+      boundary) and the movement II lull keyframe to land exactly at beat
+      32 -- a genuine hard cut between movements now, not a fade, closer to
+      how the real symphony's movement break actually reads.
+      **Wired as a true no-op everywhere** (same bar every prior piece was
+      held to before its own later integration run): loaded alongside the
+      other two pieces in `wordbound.html`, `src/main.jsx`,
+      `src/test/setup.js`, `tools/build-itch.js`'s dependency list --
+      confirmed present in the packaged itch zip listing directly. Nothing
+      in `monsters.js`/`game.js` references it -- per this run's own scoped
+      decision, deliberately not this run's job.
+      **Balance-sim upgrade, same shape as update-11's own Valkyrie Marshal
+      run:** `test/duel-balance-simulation.js`'s 'final' tier previously ran
+      on the same synthetic triangular-pulse proxy 'early' still uses --
+      replaced with the real piece via the already-generic `realPieceTier()`
+      helper (built by update-11, unchanged). Only 'early' remains
+      synthetic now (no early-tier regular sequenced yet -- REGULAR ENEMIES
+      territory).
+      **Findings, real Beethoven's-5th data (40 trials/combo, full table in
+      `test/duel-balance-simulation-results.json`, replacing the old
+      synthetic final-tier numbers):** final/boss/skilled: 93% win / 8% loss
+      (3.14 avg Verses lost on a win) -- reads almost identically to
+      late/boss/skilled's own 93%/8%/3.08, confirming update-11's own
+      flagged observation (late and final reading similarly harsh to an
+      average/skilled bot) with a second real data point instead of the old
+      synthetic proxy. final/boss/weak and final/boss/average both still
+      read 0% win (100% loss), consistent with "final tier: only the
+      strongest runs and players survive." No new sanity-flag regressions
+      (the script's own DIFFICULTY/SAFETY checks against the header curve
+      decision all pass clean). Deliberately did NOT retune `duel.js`'s push
+      constants off this -- one more real data point, not a mandate,
+      consistent with this ticket's own established practice of documenting
+      a tuning trail.
+      **Verified:** 10 new Vitest tests (`src/test/beethoven5th.test.js`,
+      mirroring `valkyrieMarshal.test.js`'s own `FakeAudioContext`
+      convention): PD vetting, tier/boss tagging, well-formed monotonic
+      keyframes, five crescendo markers (more than Valkyrie Marshal's four),
+      four real tempo breakpoints (movement II genuinely slowest, movement
+      IV genuinely fastest), movement II's own low-intensity lull AND its
+      real melody-track rests, the piece ending at intensity 1.0 on its
+      exact final beat with a real final chord landing there in both
+      melody/bass, and a full real scheduling pass through
+      `Music.createSequencer` across all four tempo breakpoints (using the
+      sequencer's own public `seq.beatToTime()`, exposed by an earlier
+      run, to get the piece's real total duration correctly rather than the
+      flat `lengthBeats*60/tempo` shortcut a single-bpm piece can use).
+      `npx vitest run`, 3 consecutive full-suite runs: **152/152 every time**
+      (up from 142 -- 10 new, all in this run's own file); one separate
+      4-run attempt hit the pre-existing, already-characterized cross-file
+      Vitest timing flake in `duelIntegration.test.js` (a regular-combat
+      test, never touching any boss def or this run's files) -- confirmed
+      unrelated. `npm test` (jsdom dom-check, wordbound.html): ALL CHECKS
+      PASSED (16/16), unaffected -- no `game.js`/monster-def change this
+      run. `npm run build`: clean, 46 modules (up from 45, the one genuinely
+      new module). `npm run test:react-build`, `npm run test:react-qa`,
+      `npm run test:react-duel-loss`, `npm run test:mobile`, `npm run
+      test:qa`, `npm run test:music-engine`: ALL CHECKS PASSED, unaffected
+      (this run touched no boss-def/combat wiring, only added an unreferenced
+      piece module + the balance-sim's own tier config). `npm run build:itch`
+      + `npm run test:itch-build`: ALL CHECKS PASSED, zip listing confirmed
+      to contain `pieces/beethoven-5th.js`. `node
+      test/duel-balance-simulation.js` run twice consecutively, byte-
+      identical output (deterministic, confirmed directly).
+      **Not done:** the final boss still has no real, reachable boss def --
+      `monsters.js` has no floor-4/"Podium" entry, and `Floor.TOTAL_FLOORS`
+      is still 3 -- so these numbers remain schedulable/balance-simmable but
+      not player-reachable, exactly the state Mountain King/Valkyrie Marshal
+      were each in before their own later boss-def cutover runs. DUEL-GAUGE
+      COMBAT stays unchecked. No version bump, per this ticket's own
+      established convention. **Next:** the floor/def-plumbing half of
+      update-12's own split -- design and build a real floor 4 ("the
+      Podium," per THEME.md) with a real Maestro boss def carrying this
+      piece, extending `Floor.TOTAL_FLOORS`/floor-generation support and the
+      VICTORY condition to a real fourth floor (a genuinely bigger design
+      task than the prior two boss-def cutovers, since floors 1-3 all
+      currently assume `TOTAL_FLOORS === 3` in several places -- grep for
+      `TOTAL_FLOORS` before starting). Once that lands, DUEL-GAUGE COMBAT's
+      own four VERIFY-line pieces are all complete for real. COMBAT JUICE's
+      damage-landed hook remains available as a separate, lower-priority
+      pickup whenever this queue is otherwise empty.
 
 - [ ] BOSS ENTRANCE CUTSCENES: each boss gets a short, SKIPPABLE entrance — their
       woodcut portrait plate, 2-3 taunt lines in their distinct voice (from the

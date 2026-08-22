@@ -14,22 +14,27 @@
 // turn-based sim.
 //
 // SCOPE, flagged plainly:
-//   - TWO real sequenced pieces exist now: Mountain King ('mid' tier, the
-//     floor-1 boss -- js/wordbound/pieces/mountain-king.js) and, as of this
-//     update, the Valkyrie Marshal ('late' tier, the floor-3 boss --
-//     js/wordbound/pieces/valkyrie-marshal.js). 'early'/'final' still have
-//     no real piece to simulate against (the final Beethoven's-5th boss is
-//     still "Not done" in GOALS.md's DUEL-GAUGE COMBAT ticket notes, and no
-//     early-tier regular has been sequenced yet -- REGULAR ENEMIES
-//     territory), so this script uses SYNTHETIC deterministic intensity
-//     schedules for those two tiers -- a periodic base level + triangular
-//     crescendo pulses, hand-tuned to match the header COMBAT MODEL's own
-//     curve language (early: rare/gentle, final: frequent/max). These are
-//     explicitly a proxy for tuning STAGE_TIER_BASE_PUSH/
-//     INTENSITY_PUSH_SCALE sanity, NOT a substitute for simulating each
-//     tier's eventual real piece once one exists -- rerun this script (or
-//     extend TIER_CONFIGS to point at a real piece) once an early-tier
-//     regular / the final boss get real sequenced pieces.
+//   - THREE real sequenced pieces exist now: Mountain King ('mid' tier, the
+//     floor-1 boss -- js/wordbound/pieces/mountain-king.js), the Valkyrie
+//     Marshal ('late' tier, the floor-3 boss --
+//     js/wordbound/pieces/valkyrie-marshal.js), and, as of this update, the
+//     final boss's own Beethoven's 5th ('final' tier --
+//     js/wordbound/pieces/beethoven-5th.js). Only 'early' still has no real
+//     piece to simulate against (no early-tier regular has been sequenced
+//     yet -- REGULAR ENEMIES territory), so this script uses a SYNTHETIC
+//     deterministic intensity schedule for that one remaining tier -- a
+//     periodic base level + triangular crescendo pulses, hand-tuned to
+//     match the header COMBAT MODEL's own curve language ("slow, chill
+//     pieces posing little threat"). This is explicitly a proxy for tuning
+//     STAGE_TIER_BASE_PUSH/INTENSITY_PUSH_SCALE sanity, NOT a substitute for
+//     simulating the tier's eventual real piece once one exists -- rerun
+//     this script (or extend TIER_CONFIGS to point at a real piece) once an
+//     early-tier regular gets sequenced. Beethoven's 5th itself is NOT yet
+//     wired into a real, reachable boss def (no floor-4/"Podium" exists in
+//     Floor.TOTAL_FLOORS today) -- these final-tier numbers are
+//     schedulable/balance-simmable but not yet player-reachable, same state
+//     Mountain King/Valkyrie Marshal were each in before their own later
+//     boss-def cutover runs.
 //   - Each simulated duel starts fresh at Duel.DEFAULT_HEALTH_BLOCKS (5).
 //     Cross-fight health attrition across a whole run (player.healthBlocks
 //     carried between duels) is explicitly out of scope here -- this
@@ -65,11 +70,13 @@ require('../js/wordbound/duel.js');
 require('../js/wordbound/music.js');
 require('../js/wordbound/pieces/mountain-king.js');
 require('../js/wordbound/pieces/valkyrie-marshal.js');
+require('../js/wordbound/pieces/beethoven-5th.js');
 
 const Duel = window.Wordbound.Duel;
 const Music = window.Wordbound.Music;
 const mountainKing = window.Wordbound.Pieces.mountainKing;
 const valkyrieMarshal = window.Wordbound.Pieces.valkyrieMarshal;
+const beethoven5th = window.Wordbound.Pieces.beethoven5th;
 
 const TRIALS = parseInt(process.argv[2], 10) || 40;
 const DT_SEC = 0.05;
@@ -174,15 +181,15 @@ function realPieceTier(piece) {
 
 const mkTier = realPieceTier(mountainKing);
 const vmTier = realPieceTier(valkyrieMarshal);
+const b5Tier = realPieceTier(beethoven5th);
 
 // ---- tier setup ---------------------------------------------------------
 
 const TIER_CONFIGS = {
-  // "early-stage enemies have slow, chill pieces posing little threat"
+  // "early-stage enemies have slow, chill pieces posing little threat" --
+  // still the only tier with no real sequenced piece (REGULAR ENEMIES
+  // territory) -- mid/late/final all use REAL pieces (above) now.
   early: { base: 0.05, peakMag: 0.3, period: 20, rampDur: 3 },
-  // mid/late use REAL pieces (above), not this synthetic shape.
-  // "end-stage enemies have frequent, scarily powerful crescendos"
-  final: { base: 0.35, peakMag: 1.0, period: 5, rampDur: 1.5 },
 };
 
 const peakCountFor = (period) => Math.ceil((HORIZON_SEC + 50) / period);
@@ -201,8 +208,8 @@ const TIERS = {
     peaks: vmTier.peakTimes(Math.ceil((HORIZON_SEC + 50) / vmTier.loopDurationSec) + 1),
   },
   final: {
-    intensityFn: makePulseIntensityFn(TIER_CONFIGS.final),
-    peaks: pulsePeakTimes(TIER_CONFIGS.final.period, peakCountFor(TIER_CONFIGS.final.period)),
+    intensityFn: b5Tier.intensityFn,
+    peaks: b5Tier.peakTimes(Math.ceil((HORIZON_SEC + 50) / b5Tier.loopDurationSec) + 1),
   },
 };
 
@@ -326,6 +333,7 @@ function main() {
   console.log(`trials per combo: ${TRIALS}   dt: ${DT_SEC}s   horizon: ${HORIZON_SEC}s`);
   console.log(`mid-tier real piece: Mountain King, loop ${mkTier.loopDurationSec.toFixed(1)}s, 1 crescendo/loop`);
   console.log(`late-tier real piece: Valkyrie Marshal, loop ${vmTier.loopDurationSec.toFixed(1)}s, ${valkyrieMarshal.dynamics.crescendos.length} crescendos/loop`);
+  console.log(`final-tier real piece: Symphony No. 5 (Beethoven), loop ${b5Tier.loopDurationSec.toFixed(1)}s, ${beethoven5th.dynamics.crescendos.length} crescendos/loop`);
 
   for (const tier of tierNames) {
     for (const kind of encounterKinds) {

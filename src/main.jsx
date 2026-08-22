@@ -24,6 +24,12 @@ import '../js/wordbound/traits.js';
 import '../js/wordbound/music.js';
 import '../js/wordbound/pieces/mountain-king.js';
 import '../js/wordbound/pieces/valkyrie-marshal.js';
+// beethoven-5th.js (DUEL-GAUGE COMBAT ticket, update-13): the final boss's
+// piece. Unlike the other two, nothing in monsters.js references it yet
+// (per this run's own scoped-to-composition-only decision -- see the piece
+// file's own header) -- grouped here anyway, alongside the other pieces,
+// for the same "every piece module loads consistently" reason.
+import '../js/wordbound/pieces/beethoven-5th.js';
 import '../js/wordbound/monsters.js';
 import '../js/wordbound/intents.js';
 import '../js/wordbound/combat.js';

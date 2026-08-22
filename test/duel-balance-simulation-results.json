@@ -264,9 +264,9 @@
       "lossRate": 1,
       "stalemateRate": 0,
       "avgWinDuration": 0,
-      "avgLossDuration": 30.651250000000296,
+      "avgLossDuration": 32.36375000000029,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 6.65,
+      "avgWordsPlayed": 7.075,
       "parryLandRate": null
     },
     {
@@ -274,14 +274,14 @@
       "kind": "regular",
       "profile": "average",
       "nonDesigned": false,
-      "winRate": 0.3,
-      "lossRate": 0.7,
+      "winRate": 0.2,
+      "lossRate": 0.8,
       "stalemateRate": 0,
-      "avgWinDuration": 20.92083333333347,
-      "avgLossDuration": 41.87499999999975,
-      "avgBlocksLostOnWin": 2.5,
-      "avgWordsPlayed": 10.85,
-      "parryLandRate": 0.3979591836734694
+      "avgWinDuration": 25.300000000000225,
+      "avgLossDuration": 46.91562499999947,
+      "avgBlocksLostOnWin": 3,
+      "avgWordsPlayed": 13.4,
+      "parryLandRate": 0.42424242424242425
     },
     {
       "tier": "final",
@@ -291,11 +291,11 @@
       "winRate": 1,
       "lossRate": 0,
       "stalemateRate": 0,
-      "avgWinDuration": 11.637500000000028,
+      "avgWinDuration": 16.4787499999999,
       "avgLossDuration": 0,
-      "avgBlocksLostOnWin": 1.1,
-      "avgWordsPlayed": 5.375,
-      "parryLandRate": 0.7473684210526316
+      "avgBlocksLostOnWin": 1.175,
+      "avgWordsPlayed": 7.775,
+      "parryLandRate": 0.8695652173913043
     },
     {
       "tier": "final",
@@ -306,9 +306,9 @@
       "lossRate": 1,
       "stalemateRate": 0,
       "avgWinDuration": 0,
-      "avgLossDuration": 30.4212500000003,
+      "avgLossDuration": 32.17625000000029,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 6.575,
+      "avgWordsPlayed": 7.05,
       "parryLandRate": null
     },
     {
@@ -320,28 +320,27 @@
       "lossRate": 1,
       "stalemateRate": 0,
       "avgWinDuration": 0,
-      "avgLossDuration": 41.61249999999977,
+      "avgLossDuration": 46.58624999999949,
       "avgBlocksLostOnWin": 0,
-      "avgWordsPlayed": 12.6,
-      "parryLandRate": 0.4166666666666667
+      "avgWordsPlayed": 15.075,
+      "parryLandRate": 0.3333333333333333
     },
     {
       "tier": "final",
       "kind": "boss",
       "profile": "skilled",
       "nonDesigned": false,
-      "winRate": 1,
-      "lossRate": 0,
+      "winRate": 0.925,
+      "lossRate": 0.075,
       "stalemateRate": 0,
-      "avgWinDuration": 47.32624999999943,
-      "avgLossDuration": 0,
-      "avgBlocksLostOnWin": 3.075,
-      "avgWordsPlayed": 21.55,
-      "parryLandRate": 0.731651376146789
+      "avgWinDuration": 48.29459459459397,
+      "avgLossDuration": 92.61666666666355,
+      "avgBlocksLostOnWin": 3.135135135135135,
+      "avgWordsPlayed": 23.6,
+      "parryLandRate": 0.7155172413793104
     }
   ],
   "flags": [
-    "INFO (not necessarily a problem): FINAL tier's skilled-bot boss win rate is 100%, but costs an avg 3.1/5 Verses even for this script's idealized 90%-parry-reaction bot -- reads as \"the strongest survive, barely\" rather than trivial, but worth Jaxon's real playtest to confirm it FEELS brutal, not just costly on paper.",
     "early/regular/weak: 20% of trials hit the 300s horizon without resolving (stalemate) -- investigate before trusting this combo's win/loss numbers."
   ]
 }

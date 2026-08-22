@@ -24,6 +24,7 @@ import '../../js/wordbound/traits.js';
 import '../../js/wordbound/music.js';
 import '../../js/wordbound/pieces/mountain-king.js';
 import '../../js/wordbound/pieces/valkyrie-marshal.js';
+import '../../js/wordbound/pieces/beethoven-5th.js';
 import '../../js/wordbound/monsters.js';
 import '../../js/wordbound/intents.js';
 import '../../js/wordbound/combat.js';
