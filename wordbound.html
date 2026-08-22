@@ -177,6 +177,23 @@
     </div>
   </div>
 
+  <!-- SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md): reuses the
+       boss-entrance overlay's own CSS classes (title card + taunt lines +
+       skip button, same step timing) on a separate set of element ids, per
+       that ticket's own "reuse the cutscene presentation layer where it
+       fits" instruction -- game.js's showGuideIntro/hideGuideIntro drive
+       this the same way showBossEntrance/hideBossEntrance drive the one
+       above, just gated on a persistent "seen once ever" flag instead of
+       per-fight state. -->
+  <div id="guide-intro-overlay" class="boss-entrance-overlay hidden">
+    <div class="boss-entrance-plate panel">
+      <div class="boss-entrance-portrait">🪶</div>
+      <h2 id="guide-intro-title" class="boss-entrance-title"></h2>
+      <p id="guide-intro-taunt" class="boss-entrance-taunt"></p>
+      <button id="btn-skip-guide-intro" class="btn btn-secondary boss-entrance-skip">Skip &#9656;</button>
+    </div>
+  </div>
+
   <div id="howto-overlay" class="howto-overlay hidden">
     <div class="howto-panel panel">
       <h2>How to Play</h2>
@@ -208,6 +225,7 @@
 <script src="js/wordbound/pieces/beethoven-5th.js"></script>
 <script src="js/wordbound/monsters.js"></script>
 <script src="js/wordbound/bossEntrances.js"></script>
+<script src="js/wordbound/shakespeareGuide.js"></script>
 <script src="js/wordbound/intents.js"></script>
 <script src="js/wordbound/combat.js"></script>
 <script src="js/wordbound/items.js"></script>

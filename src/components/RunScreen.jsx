@@ -1,7 +1,8 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import CombatScreen from './CombatScreen.jsx';
 import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen, EventScreen, ShredderScreen } from './RewardScreens.jsx';
 import { ItemsOwnedStrip, DeckViewerPanel, ItemInspectorPanel, ConsumablesPanel, RunHeaderActions } from './RunSidePanels.jsx';
+import { BossEntranceOverlay } from './BossEntranceOverlay.jsx';
 
 // Real port of #screen-run's node map (STRUCTURAL ticket, next sub-step after
 // character select). What's genuinely ported this run: Game.startRun is
@@ -37,6 +38,17 @@ export default function RunScreen({ onBackToMenu }) {
   const Monsters = window.Wordbound.Monsters;
   const Traits = window.Wordbound.Traits;
   const state = Game._state;
+
+  // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), GUIDE INTRO
+  // step: React's equivalent of game.js's showGuideIntro/hideGuideIntro --
+  // reuses BossEntranceOverlay.jsx unmodified (same `{name, epithet,
+  // taunts}` shape, see shakespeareGuide.js's own header) rather than
+  // building a second overlay component. Lazy useState initializer reads
+  // the real persisted "seen once ever" flag ONCE, at this RunScreen
+  // instance's first mount for this run (App.jsx fully unmounts/remounts
+  // RunScreen between runs, so this naturally re-evaluates per run without
+  // needing an effect).
+  const [guideIntroOpen, setGuideIntroOpen] = useState(() => !Game.hasSeenGuideIntro());
 
   // COMBAT JUICE ticket (GOALS.md): the ink-display take-damage flash
   // (game.js's animatePlayerDamage) counterpart for the React tree, fired
@@ -102,6 +114,13 @@ export default function RunScreen({ onBackToMenu }) {
 
   return (
     <div className="screen">
+      {guideIntroOpen && (
+        <BossEntranceOverlay
+          entrance={window.Wordbound.ShakespeareGuide.INTRO}
+          onDismiss={() => { Game.markGuideIntroSeen(); setGuideIntroOpen(false); }}
+          portraitGlyph="🪶"
+        />
+      )}
       <div className="run-header">
         <div className="ink-display" ref={inkDisplayRef}>Ink {state.player.ink} / {state.player.maxInk}</div>
         <div className="gold-display">{state.player.gold} 🪙</div>

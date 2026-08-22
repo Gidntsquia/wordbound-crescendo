@@ -13,10 +13,17 @@ import { useEffect, useState } from 'react';
 // `window.Wordbound.BossEntrances.getEntrance` returns -- CombatScreen.jsx
 // only mounts this component at all once it already has a non-null one, so
 // this file never needs to handle "no entrance content for this boss" itself.
+//
+// `portraitGlyph` (SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket, GOALS.md):
+// this component is also reused, unmodified otherwise, for RunScreen.jsx's
+// Shakespeare guide-intro overlay (`window.Wordbound.ShakespeareGuide.INTRO`
+// is the same `{ name, epithet, taunts }` shape on purpose -- see that
+// file's own header) -- defaults to the crown every boss already used, so
+// existing boss-entrance callers need no change.
 const TITLE_STEP_MS = 1800;
 const TAUNT_STEP_MS = 1600;
 
-export function BossEntranceOverlay({ entrance, onDismiss }) {
+export function BossEntranceOverlay({ entrance, onDismiss, portraitGlyph = '👑' }) {
   const [step, setStep] = useState(0);
 
   // The step-advance timer chain. Re-keyed on `entrance` itself (a fresh
@@ -56,7 +63,7 @@ export function BossEntranceOverlay({ entrance, onDismiss }) {
             getTierGlyph gives every boss elsewhere) -- see game.js's
             showBossEntrance / css/wordbound.css's .boss-entrance-portrait
             comment for why this isn't bespoke per-boss illustration yet. */}
-        <div className="boss-entrance-portrait">👑</div>
+        <div className="boss-entrance-portrait">{portraitGlyph}</div>
         <h2 className="boss-entrance-title">
           {entrance.name.toUpperCase()}{isTitleStep ? ' -- ' + entrance.epithet : ''}
         </h2>

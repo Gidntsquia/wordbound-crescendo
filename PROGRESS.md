@@ -5536,3 +5536,139 @@ floor 2's boss (unblocks a real gap in both this ticket and BOSS ENTRANCE
 CUTSCENES at once), and `test/balance-simulation.js`'s AudioContext crash
 (blocks real multi-seed winnability sims for any future balance work, not
 just this ticket).
+
+## 2026-08-22T09:21Z -- SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS: bible section + guide intro (steps 0-1 of 4) -- ticket still open
+
+**Concurrent-run collision, resolved per established precedent first:** this run's own
+independent STOLEN LETTERS META-PROGRESSION implementation lost a push race to another
+hourly instance that had already landed and pushed an equivalent, independently-built
+version (`e9132b9`, "permanent alphabet recovery" -- 8 letters, achievement-recovery for
+the 5 non-hostage ones, which my own build had left explicitly out of scope). Did NOT
+force-push a redundant duplicate, per this repo's own established precedent (BOSS
+ENTRANCE CUTSCENES, STRUCTURAL 17/N, DUEL-GAUGE update-11): `git reset --hard
+origin/main` to take their already-pushed, verified-clean commit as-is, then picked up
+the next unchecked queue item instead of re-doing the same ticket. (My own scoped sim
+script, `test/stolen-letters-sim-check.js`, and the `git-stash`-confirmed discovery
+that `test/balance-simulation.js` now crashes on any run reaching a boss node, are
+lost with the discarded commit -- flagging here since the other run's own PROGRESS.md
+entry independently found and flagged the SAME `balance-simulation.js` gap, which is
+good cross-confirmation it's real, not a fluke of my own environment.)
+
+Picked up SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS, the queue's next item after STOLEN
+LETTERS. A large, explicitly multi-part ticket (bible amendment, guide intro, shopkeeper
+system, portraits) -- treated this run's scope as steps 0-1 (a complete, working,
+verified chunk), leaving 2-3 open with a documented next-step note, per GOALS.md's own
+"multi-run tasks are fine" rule. Full account is in this ticket's own GOALS.md
+ORCHESTRATOR NOTE (2026-08-22); summary here:
+
+**Step 0 (bible amendment):** THEME.md gained a new "The guide and the shopkeepers"
+section (between "Stolen letters" and "Display name"). Shakespeare's voice (grandiose,
+punning, quoting himself) + 3 quest-setting beats for the intro (the theft told as a
+personal outrage, why the player specifically, the send-off as the game's own thesis
+compressed into a boast). A 6-author shopkeeper roster -- Homer, Cervantes, Austen,
+Dickinson, Poe, Wilde -- picked for the widest spread of era/voice the candidate list
+allows (deliberately not six variations on "witty 19th-century novelist"), each with a
+personality paragraph, sample shop lines, ONE mechanical quirk concept (category
+discount, extra stock, guaranteed premium-tile roll, reroll discount, rare-tier
+discount, consumable discount -- one apiece, matching the ticket's own examples), and
+1-2 exclusive-item concepts. Also recommends per-shop (not per-run) seeding, with
+reasoning (a single author for a whole run would make one quirk either dominate the
+run's economy or never appear at all).
+
+**Step 1 (guide intro), both apps:**
+- `js/wordbound/shakespeareGuide.js` (new): `ShakespeareGuide.INTRO`, the `{name,
+  epithet, taunts}` shape `BossEntrances.getEntrance` already uses, content sourced
+  directly from THEME.md's own 3 beats.
+- Vanilla (`wordbound.html`/`game.js`): a new `#guide-intro-overlay`, reusing the
+  boss-entrance overlay's own CSS classes and step timing (title card, then each taunt
+  line, auto-advance or Escape/Enter/Space/Skip-button dismiss) on separate element
+  ids -- NOT a direct call into `showBossEntrance` itself, since this needs its own
+  persistent "seen once ever" flag (`wordbound_seen_guide_intro` in localStorage, same
+  pattern as the pre-existing `HOWTO_SEEN_KEY`) rather than a per-fight
+  `monster._entranceSeen`. Called from `Game.startRun` right after `render()`, so the
+  map is real underneath (matching the boss-entrance convention). Deliberately does
+  NOT gate `Game.submitWord` the way `bossEntranceActive` does -- there's no fight (and
+  no focused `#word-input`) to protect at run start, confirmed by direct reasoning
+  before writing the code, not assumed.
+- **A real design question resolved by direct testing rather than guessing:** this
+  harness's jsdom instance has no `window.localStorage` at all (confirmed by the
+  STOLEN LETTERS ticket's own prior discovery, re-confirmed here), so
+  `hasSeenGuideIntro()` is unconditionally false in `test/dom-check.js` --  meaning
+  EVERY `Game.startRun()` call across that whole 3400+-line suite now triggers
+  `showGuideIntro()`. Rather than assume this was safe, made `showGuideIntro` provably
+  idempotent (clears any still-running timer/listener from a prior un-dismissed call
+  before starting fresh, so repeated `startRun()` calls can't stack duplicate keydown
+  listeners or leak timers), deliberately did NOT gate `submitWord` (so it can never
+  block an existing test's combat interaction), and then ran the FULL `npm test` suite
+  to confirm empirically -- clean, zero regressions, before writing my own new checks.
+- React (`RunScreen.jsx`): reuses `BossEntranceOverlay.jsx` UNMODIFIED (it was already
+  a pure `{entrance, onDismiss}` component with zero combat coupling -- confirmed by
+  reading it before deciding this, not assumed) via a new optional `portraitGlyph` prop
+  (default unchanged, `👑`; Shakespeare gets `🪶`). Local `guideIntroOpen` state via a
+  lazy `useState` initializer reading `Game.hasSeenGuideIntro()` once per RunScreen
+  mount -- correctly re-evaluates per run since `App.jsx` fully unmounts/remounts
+  `RunScreen` between runs. `Game.hasSeenGuideIntro`/`markGuideIntroSeen` newly exposed
+  as public `Game.*` methods (mirroring `Game._showBossEntrance`'s test-exposure
+  pattern) so React can read/write the flag without touching the vanilla-only DOM
+  functions (`showGuideIntro` itself is a no-op in the React tree via the existing
+  `reactTreeActive()` guard).
+
+**Verified:**
+- `npm test` (jsdom dom-check): ALL CHECKS PASSED -- content-module checks, overlay
+  mechanics via new `Game._showGuideIntro`/`_hideGuideIntro` test-only exposures
+  (mirrors `_showBossEntrance`'s reasoning, though this one has no AudioContext hazard
+  to dodge), an idempotent-re-show check (two `_showGuideIntro()` calls before dismiss
+  still fully clears on ONE Escape), and a real end-to-end check that a genuine
+  `Game.startRun()` call shows the overlay (true by construction in this
+  no-real-localStorage harness, made explicit and asserted on rather than left
+  implicit).
+- `npx vitest run`: 4 new tests in `RunScreen.test.jsx` (shows-when-unseen,
+  hidden-when-already-seen, Skip dismisses + persists `hasSeenGuideIntro()`, the real
+  run map is present underneath). Since Vitest's jsdom DOES have real localStorage that
+  persists across every test in a file (confirmed by `MainMenu.test.jsx`'s own prior
+  comment on the same property), added a file-level `beforeEach` that calls
+  `markGuideIntroSeen()` so the OTHER, unrelated RunScreen tests in this file don't
+  suddenly render an unexplained Shakespeare overlay on every existing test's DOM; the
+  new guide-intro describe block has its own nested `beforeEach` that clears the flag
+  back to unseen specifically for its own tests. **4 consecutive full-suite runs:
+  169/169 every time, zero flakes.**
+- `npm run build`: clean, 50 modules (up from 49 -- the new module).
+- `npm run test:mobile`, `npm run test:branching-map`, `npm run test:run-header`,
+  `npm run test:audio`, `npm run test:drag-interrupt`: ALL CHECKS PASSED.
+- `npm run test:qa`, `npm run test:react-qa`, `npm run test:react-build`, `npm run
+  test:react-duel-loss`: ALL CHECKS PASSED -- these all start a real run via real
+  Playwright clicks and click into the node map almost immediately afterward. Confirmed
+  (not assumed) this doesn't hard-block: a real browser DOES respect the overlay's
+  `position:fixed` coverage, but Playwright's own default click actionability check
+  retries until the target becomes clickable, which happens naturally once the ~5s
+  auto-advance (or, in practice, whatever incidental delay the script already has)
+  clears it -- genuine default behavior, not a script accommodation added for this.
+- `npm run test:music-engine`: ALL CHECKS PASSED, unaffected.
+- `npm run test:duel-balance`: same pre-existing stalemate FLAG as before this run
+  (confirmed unrelated), exit code 0.
+- `npm run build:itch` + `npm run test:itch-build`: ALL CHECKS PASSED --
+  `shakespeareGuide.js` confirmed present in the zip listing (checked directly this
+  time, learned from the itch-build-manifest surprise two tickets back).
+
+Version NOT bumped -- partial completion of a multi-run ticket, not a finished
+feature; stays at v0.5 until steps 2-3 land and the box is actually checked.
+
+**Not done, honest gaps (real remaining scope, not corners cut):** step 2 (per-shop
+author quirks + exclusive items -- needs ITEMS ticket coordination for the exclusives
+pool, per this ticket's own instruction) and step 3 (author portraits -- no
+woodcut/illustration asset pipeline exists in this repo yet, the same gap already
+flagged for boss portraits). Neither is implemented; THEME.md's new section is the
+design spec for whichever future run picks them up.
+
+**Genuinely-Jaxon-only, flagged rather than blocking further work:** the exact
+6-author roster pick (Homer/Cervantes/Austen/Dickinson/Poe/Wilde) and each one's quirk/
+exclusive-item concept are this run's own creative call, same "worth Jaxon's read"
+flag every casting/naming decision in this bible gets. Shakespeare's specific intro
+copy is a first pass, not locked.
+
+**Next:** SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS stays the queue's first unchecked
+item (steps 2-3 remain) -- a future run should pick up step 2 (shopkeeper quirks),
+likely in tandem with or right before the ITEMS ticket given the explicit coordination
+requirement, or step 3 if an art pipeline lands first. If skipped for a fresher item,
+the queue's other unchecked tickets are ITEMS (Jaxon's four + batch) and REGULAR
+ENEMIES.

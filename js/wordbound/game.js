@@ -354,6 +354,8 @@
   // get real jsdom coverage despite that constraint.
   Game._showBossEntrance = function (entrance) { return showBossEntrance(entrance); };
   Game._hideBossEntrance = function () { return hideBossEntrance(); };
+  Game._showGuideIntro = function () { return showGuideIntro(); }; // SHAKESPEARE GUIDE ticket: same test-isolation reasoning as _showBossEntrance above, though this one has no AudioContext hazard to dodge -- exposed anyway for a deterministic, dependency-free test of the overlay mechanism itself
+  Game._hideGuideIntro = function () { return hideGuideIntro(); };
   Game._emitPlayerDamaged = function (payload) { return emitPlayerDamaged(payload); }; // COMBAT JUICE ticket: same reasoning, for the ink-flash counterpart
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
@@ -463,6 +465,15 @@
     if (Achievements) Achievements.resetRunState();
     startBackgroundMusic(false);
     render();
+    // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md): the map is
+    // real underneath by the time this shows, same "cutscene draws on top of
+    // an already-live screen" convention showBossEntrance established. A
+    // true no-op once hasSeenGuideIntro() is true (every run after the
+    // player's first). React's equivalent lives in RunScreen.jsx, gated the
+    // same way via the Game.hasSeenGuideIntro/markGuideIntroSeen exposures
+    // below (showGuideIntro itself is a no-op in the React tree, same as
+    // showBossEntrance -- see reactTreeActive()).
+    if (!hasSeenGuideIntro()) showGuideIntro();
   };
 
   function advanceFloor() {
@@ -1784,6 +1795,13 @@
 
   // ---- how to play ---------------------------------------------------------
 
+  // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md): public so
+  // React's RunScreen.jsx (which never touches the vanilla-only
+  // showGuideIntro/hideGuideIntro DOM functions -- see reactTreeActive())
+  // can read/write the same persistent "seen once ever" flag directly.
+  Game.hasSeenGuideIntro = function () { return hasSeenGuideIntro(); };
+  Game.markGuideIntroSeen = function () { return markGuideIntroSeen(); };
+
   Game.openHowToPlay = function () {
     state.howToPlayOpen = true;
     render();
@@ -2001,6 +2019,109 @@
     }
     bossEntranceActive = false;
     if (state.monster) state.monster._entranceSeen = true;
+  }
+
+  // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), GUIDE INTRO
+  // step: William Shakespeare's quest-setting intro, shown once ever on the
+  // player's first-ever run (persisted via localStorage, same "once ever"
+  // pattern as HOWTO_SEEN_KEY above). A near-copy of showBossEntrance/
+  // hideBossEntrance rather than a direct call into them -- this needs its
+  // own persistent "seen" flag (hideBossEntrance instead marks a per-FIGHT
+  // `monster._entranceSeen`, which doesn't apply here: there's no monster
+  // yet, the guide fires at run start) and its own overlay element ids, but
+  // reuses the exact same CSS classes/step timing, per the ticket's own
+  // "reuse the cutscene presentation layer where it fits" instruction.
+  var GUIDE_SEEN_KEY = 'wordbound_seen_guide_intro';
+  function hasSeenGuideIntro() {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      return localStorage.getItem(GUIDE_SEEN_KEY) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+  function markGuideIntroSeen() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(GUIDE_SEEN_KEY, '1');
+    } catch (e) {
+      // localStorage unavailable -- not fatal, just means it may show again
+    }
+  }
+
+  var guideIntroTimer = null;
+  var guideIntroSkipHandler = null;
+
+  function renderGuideIntroStep(entrance, stepIndex) {
+    var titleEl = $('guide-intro-title');
+    var tauntEl = $('guide-intro-taunt');
+    if (stepIndex === 0) {
+      titleEl.textContent = entrance.name.toUpperCase() + ' -- ' + entrance.epithet;
+      tauntEl.textContent = '';
+    } else {
+      titleEl.textContent = entrance.name.toUpperCase();
+      tauntEl.textContent = '"' + entrance.taunts[stepIndex - 1] + '"';
+    }
+  }
+
+  // Idempotent by design (clears any still-running timer/listener from a
+  // previous call before starting fresh) -- unlike a boss entrance, which is
+  // only ever shown once per fight with an explicit dismiss in between,
+  // hasSeenGuideIntro() can legitimately be false across MULTIPLE
+  // Game.startRun() calls in an environment with no real localStorage
+  // (confirmed: jsdom instances built with a file:// url have none at all --
+  // see the STOLEN LETTERS ticket's own PROGRESS.md note on the identical
+  // gap), so this must tolerate being called again before a prior call was
+  // ever dismissed, without leaking timers or stacking duplicate keydown
+  // listeners. Unlike bossEntranceActive, there's no equivalent "must also
+  // block Game.submitWord" concern here -- this fires at run start, before
+  // any node (let alone a fight) has been entered, so #word-input can't even
+  // be focused yet; the overlay's own position:fixed covering the screen is
+  // the whole story.
+  function showGuideIntro() {
+    if (reactTreeActive()) return;
+    var entrance = window.Wordbound.ShakespeareGuide && window.Wordbound.ShakespeareGuide.INTRO;
+    if (!entrance) return;
+    var overlay = $('guide-intro-overlay');
+    if (!overlay) return;
+    if (guideIntroTimer) { clearTimeout(guideIntroTimer); guideIntroTimer = null; }
+    if (guideIntroSkipHandler) { document.removeEventListener('keydown', guideIntroSkipHandler); guideIntroSkipHandler = null; }
+
+    var steps = 1 + entrance.taunts.length;
+    var stepIndex = 0;
+    renderGuideIntroStep(entrance, stepIndex);
+    overlay.classList.remove('hidden');
+
+    function advance() {
+      stepIndex += 1;
+      if (stepIndex >= steps) {
+        hideGuideIntro();
+        return;
+      }
+      renderGuideIntroStep(entrance, stepIndex);
+      guideIntroTimer = setTimeout(advance, TAUNT_STEP_MS);
+    }
+    guideIntroTimer = setTimeout(advance, TITLE_STEP_MS);
+
+    guideIntroSkipHandler = function (e) {
+      if (e.key !== 'Escape' && e.key !== 'Enter' && e.key !== ' ') return;
+      hideGuideIntro();
+    };
+    document.addEventListener('keydown', guideIntroSkipHandler);
+  }
+
+  function hideGuideIntro() {
+    var overlay = $('guide-intro-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    if (guideIntroTimer) {
+      clearTimeout(guideIntroTimer);
+      guideIntroTimer = null;
+    }
+    if (guideIntroSkipHandler) {
+      document.removeEventListener('keydown', guideIntroSkipHandler);
+      guideIntroSkipHandler = null;
+    }
+    markGuideIntroSeen();
   }
 
   // ---- sound effects --------------------------------------------------------
@@ -4044,6 +4165,11 @@
     // so it's bound once here, same as every other static button.
     var skipEntranceBtn = $('btn-skip-boss-entrance');
     if (skipEntranceBtn) skipEntranceBtn.addEventListener('click', hideBossEntrance);
+
+    // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket: same "always exists,
+    // bind once" reasoning as the boss-entrance skip button above.
+    var skipGuideIntroBtn = $('btn-skip-guide-intro');
+    if (skipGuideIntroBtn) skipGuideIntroBtn.addEventListener('click', hideGuideIntro);
 
     // MOBILE INPUT 1/3: detect coarse-pointer (touch) devices and switch to
     // tap-only input. Feature-checked so environments without matchMedia

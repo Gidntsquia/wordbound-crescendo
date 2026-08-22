@@ -3175,6 +3175,47 @@ Rules for the routine:
       only in their author's shop), `npm run test:mobile` (shop layout with
       portrait + dialogue), Playwright smoke: intro click-through + one shop
       visit per author.
+      ORCHESTRATOR NOTE 2026-08-22: steps 0 and 1 done this run, steps 2-3
+      still open. Step 0: THEME.md's new "The guide and the shopkeepers"
+      section (between "Stolen letters" and "Display name") is the bible --
+      Shakespeare's voice + 3 quest-setting beats, and a 6-author roster
+      (Homer, Cervantes, Austen, Dickinson, Poe, Wilde -- widest era/voice
+      spread available from the candidate list, deliberately not six
+      variations on one tone) each with personality, shop lines, ONE quirk
+      concept, and 1-2 exclusive-item concepts, plus a per-shop-not-per-run
+      seeding recommendation with reasoning. Step 1: `js/wordbound/
+      shakespeareGuide.js` (new, content sourced from THEME.md's own beats)
+      + both apps wired -- vanilla's `showGuideIntro`/`hideGuideIntro`
+      (new `#guide-intro-overlay`, reuses the boss-entrance overlay's own
+      CSS classes/step-timing per this ticket's own "reuse the cutscene
+      presentation layer" instruction) called from `Game.startRun` when
+      `hasSeenGuideIntro()` is false (persisted via localStorage, same
+      "once ever" pattern as the existing How-To-Play auto-show); React's
+      `RunScreen.jsx` mounts the SAME `BossEntranceOverlay.jsx` component
+      unmodified (now takes an optional `portraitGlyph` prop, default
+      unchanged) rather than a second overlay component. Verified: `npm
+      test` (module content, overlay mechanics via new `Game._showGuideIntro`/
+      `_hideGuideIntro` test-only hooks, idempotent re-show, and a real
+      `Game.startRun()` call proven to trigger it), `npx vitest run` (4 new
+      RunScreen tests: shows-when-unseen, hidden-when-seen, skip dismisses +
+      persists, real map underneath), `npm run build`/`test:mobile`/
+      `test:qa`/`test:react-qa`/`test:react-build`/`build:itch`+
+      `test:itch-build`/`test:music-engine`/`test:react-duel-loss`/
+      `test:branching-map`/`test:run-header`/`test:audio`/
+      `test:drag-interrupt` all clean -- notably `test:qa`/`test:react-qa`/
+      `test:react-build`/`test:react-duel-loss`/`test:audio` all start a
+      real run via real Playwright clicks and all passed, confirming the
+      overlay's real-browser `position:fixed` coverage doesn't hard-block
+      the node-map click that follows it (Playwright's own actionability
+      retry waits out the ~5s auto-advance/skips past a fast skip
+      click -- not a script accommodation, genuine default behavior).
+      Real remaining scope: step 2 (per-shop author quirks + exclusive
+      items, needs ITEMS ticket coordination for the exclusives pool) and
+      step 3 (author portraits -- same "no woodcut asset pipeline yet" gap
+      already flagged for bosses). Version NOT bumped -- this is a partial
+      completion of a multi-run ticket, not a finished feature; the "bump
+      minor per completed feature" convention applies once steps 2-3 land
+      and the ticket's box is actually checked.
 
 - [ ] ITEMS, Jaxon's four + batch: implement Jaxon's four exactly, then round out
       to 8-12 with music-space designs. His four (names are placeholders, use the

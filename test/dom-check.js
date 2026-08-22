@@ -3471,6 +3471,70 @@ async function main() {
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
   }
 
+  {
+    // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), GUIDE INTRO
+    // step: William Shakespeare's quest-setting intro. Drives the real
+    // overlay/skip mechanism via Game._showGuideIntro/_hideGuideIntro (same
+    // test-isolation pattern as _showBossEntrance/_hideBossEntrance above),
+    // plus one real end-to-end check that Game.startRun() itself triggers it
+    // via the real content module.
+    const ShakespeareGuide = window.Wordbound.ShakespeareGuide;
+    check('shakespeare-guide: content module loaded onto window.Wordbound', !!ShakespeareGuide);
+    check('shakespeare-guide: INTRO has a name, epithet, and at least 2 taunt lines',
+      ShakespeareGuide.INTRO.name === 'William Shakespeare' &&
+      typeof ShakespeareGuide.INTRO.epithet === 'string' && ShakespeareGuide.INTRO.epithet.length > 0 &&
+      Array.isArray(ShakespeareGuide.INTRO.taunts) && ShakespeareGuide.INTRO.taunts.length >= 2);
+
+    const guideOverlay = document.getElementById('guide-intro-overlay');
+    check('shakespeare-guide: overlay starts hidden', guideOverlay.classList.contains('hidden'));
+
+    window.Wordbound.Game._showGuideIntro();
+    check('shakespeare-guide: overlay becomes visible once shown', !guideOverlay.classList.contains('hidden'));
+    check('shakespeare-guide: title card shows "NAME -- epithet"',
+      document.getElementById('guide-intro-title').textContent ===
+        ShakespeareGuide.INTRO.name.toUpperCase() + ' -- ' + ShakespeareGuide.INTRO.epithet);
+    check('shakespeare-guide: no taunt line yet on the title-card step',
+      document.getElementById('guide-intro-taunt').textContent === '');
+
+    window.Wordbound.Game._hideGuideIntro();
+    check('shakespeare-guide: overlay hides again on dismiss', guideOverlay.classList.contains('hidden'));
+
+    // Skippable "with one tap/keypress" -- Escape dismisses immediately.
+    window.Wordbound.Game._showGuideIntro();
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    check('shakespeare-guide: Escape key skips the whole sequence immediately', guideOverlay.classList.contains('hidden'));
+
+    // Idempotent re-show: calling showGuideIntro again before a prior call
+    // was ever dismissed must not leak a duplicate keydown listener or a
+    // stray timer (see showGuideIntro's own header comment on why this
+    // matters in an environment with no real localStorage -- confirmed
+    // below, this harness has none). One Escape press must still fully
+    // dismiss it, not require two.
+    window.Wordbound.Game._showGuideIntro();
+    window.Wordbound.Game._showGuideIntro();
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    check('shakespeare-guide: a second show before dismiss does not require a second Escape to dismiss',
+      guideOverlay.classList.contains('hidden'));
+
+    // Real end-to-end proof: Game.startRun() itself calls showGuideIntro()
+    // when hasSeenGuideIntro() is false -- true in THIS harness always (no
+    // real window.localStorage in a file:// JSDOM instance, confirmed
+    // directly; see the STOLEN LETTERS ticket's own PROGRESS.md note on the
+    // identical gap for achievements.js/stolenLetters.js), so any fresh
+    // Game.startRun() call here is a real, if inadvertent, proof this is
+    // wired in -- made explicit and asserted on rather than left implicit.
+    window.Wordbound.Game._hideGuideIntro();
+    check('shakespeare-guide: hasSeenGuideIntro() is false in this no-real-localStorage harness',
+      window.Wordbound.Game.hasSeenGuideIntro() === false);
+    window.Wordbound.Game.startRun('archivist', 'shakespeare-guide-startrun-check');
+    check('shakespeare-guide: a real Game.startRun() call shows the intro overlay',
+      !guideOverlay.classList.contains('hidden'));
+    window.Wordbound.Game._hideGuideIntro();
+
+    check('shakespeare-guide: produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+  }
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 }

@@ -1,6 +1,6 @@
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import RunScreen from '../RunScreen.jsx';
 import { freshRun, findNodeIdByType, findAvailableCombatNodeId, pickPlayableWord } from '../../test/gameHelpers.js';
 
@@ -10,6 +10,21 @@ import { freshRun, findNodeIdByType, findAvailableCombatNodeId, pickPlayableWord
 // test in this run has generated (see gameHelpers.js's findNodeIdByType for
 // why). So every test below looks a node up by TYPE, never by a literal id.
 const SEED = 'vitest-fixed-seed-1';
+
+// SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md): Vitest's jsdom
+// has REAL localStorage that persists across every test in this FILE (not
+// auto-reset per test -- see MainMenu.test.jsx's own "Fresh jsdom
+// localStorage each test file run" comment for the same property). Without
+// this, `Game.hasSeenGuideIntro()` would stay false for every test below
+// (nothing else in this file ever dismisses the guide overlay), mounting an
+// unrelated Shakespeare cutscene on top of every single RunScreen render in
+// this file -- harmless to jsdom's own click dispatch (no real
+// hit-testing/z-index), but needless noise on every unrelated test's DOM.
+// Marked seen here by default; the dedicated describe block below clears it
+// back to unseen for its own tests specifically.
+beforeEach(() => {
+  window.Wordbound.Game.markGuideIntroSeen();
+});
 
 describe('RunScreen -- node map', () => {
   it('renders the run header and a real generated map for a fresh run', () => {
@@ -230,5 +245,54 @@ describe('RunScreen -- GAME_OVER / VICTORY', () => {
 
     await user.click(screen.getByRole('button', { name: 'Main Menu' }));
     expect(state.screen).toBe('MAIN_MENU');
+  });
+});
+
+describe('RunScreen -- Shakespeare guide intro', () => {
+  // Clears the outer beforeEach's markGuideIntroSeen() back to unseen for
+  // every test in THIS block specifically -- runs after the outer
+  // beforeEach (Vitest nests them in declaration order), so this always
+  // wins.
+  beforeEach(() => {
+    window.localStorage.removeItem('wordbound_seen_guide_intro');
+  });
+
+  it('shows the guide overlay on a fresh run when unseen', () => {
+    freshRun(SEED);
+    render(<RunScreen onBackToMenu={() => {}} />);
+    const ShakespeareGuide = window.Wordbound.ShakespeareGuide;
+    expect(screen.getByText(
+      `${ShakespeareGuide.INTRO.name.toUpperCase()} -- ${ShakespeareGuide.INTRO.epithet}`,
+    )).toBeInTheDocument();
+  });
+
+  it('does not show the guide overlay once already seen', () => {
+    window.Wordbound.Game.markGuideIntroSeen();
+    freshRun(SEED);
+    render(<RunScreen onBackToMenu={() => {}} />);
+    const ShakespeareGuide = window.Wordbound.ShakespeareGuide;
+    expect(screen.queryByText(
+      `${ShakespeareGuide.INTRO.name.toUpperCase()} -- ${ShakespeareGuide.INTRO.epithet}`,
+    )).not.toBeInTheDocument();
+  });
+
+  it('skipping the guide overlay dismisses it and marks it permanently seen', async () => {
+    freshRun(SEED);
+    const user = userEvent.setup();
+    render(<RunScreen onBackToMenu={() => {}} />);
+    expect(window.Wordbound.Game.hasSeenGuideIntro()).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: /Skip/ }));
+    expect(screen.queryByText(/^WILLIAM SHAKESPEARE/)).not.toBeInTheDocument();
+    expect(window.Wordbound.Game.hasSeenGuideIntro()).toBe(true);
+  });
+
+  it('the underlying run map is real and present underneath the overlay', () => {
+    const state = freshRun(SEED);
+    render(<RunScreen onBackToMenu={() => {}} />);
+    // The overlay covers the screen visually (position:fixed, per CSS) but
+    // the real run header underneath is still in the DOM the whole time --
+    // matching showBossEntrance's own "the map is real underneath" note.
+    expect(screen.getByText(`Seed: ${state.runSeed}`)).toBeInTheDocument();
   });
 });
