@@ -4169,6 +4169,45 @@ Rules for the routine:
       REGULAR ENEMIES remains the queue's next fully independent item after
       that.
 
+- [ ] PLAYTEST FINDINGS — JAXON, 2026-08-22 (~17:00 UTC), FIRST HUMAN PLAYTEST.
+      His verbatim report, from the live URL: "There's no duel, there's no
+      classical music, there's still 'ink' instead of health blocks, the game
+      looks basically identical to Wordbound 1." Root cause (orchestrator
+      diagnosis, confirmed in code): the duel system is real but GATED
+      per-enemy-def; when he played, only 2 boss defs carried a `.piece`, so
+      every regular fight ran the classic turn-based/ink path with NO music
+      (music exists only inside duels). Component-level tickets got checked
+      while the product-level pitch — EVERY fight is a duel — stayed
+      undelivered. That is the exact "reads correct, ships wrong" failure
+      this file's header warns about, at the product level instead of the
+      code level. Standing correction, binding on every future run:
+      **PRODUCT ACCEPTANCE = what a player meets in the first 90 seconds,
+      not what a component test proves.** Concretely, in priority order:
+      1. A NEW run's FIRST fight must be a real duel with audible music.
+         Until the whole roster is converted, make floor generation prefer
+         duel-capable defs (piece-carrying) over classic ones wherever both
+         are eligible — a temporary selection bias, removed when conversion
+         completes. Verify with a seeded fresh-run playthrough, not a def
+         audit.
+      2. Finish REGULAR ENEMIES (next ticket) to 100%: NO def without a
+         `.piece` remains reachable in normal play. Do not check that
+         ticket off until a seeded full-run playthrough encounters ZERO
+         classic turn-based fights.
+      3. Make the Verses/health-blocks HP unmistakable in the duel UI
+         (blocks as the "~5 discrete themed" pips of the pitch, front and
+         center). Ink stays ONLY as the item/rewrite currency for now —
+         renaming/retiring ink entirely is Jaxon's call, flagged, not
+         assumed; demote its visual prominence in combat so HP reads as
+         Verses, not ink.
+      4. After ANY change to piece wiring / def conversion / combat
+         routing, the gh-pages deploy refresh (header LIVE DEPLOY rule) is
+         MANDATORY in the same run — Jaxon plays the live URL; code that
+         isn't deployed does not exist for him.
+      Check this box only when 1–4 are done and a seeded live-build
+      playthrough (Playwright against the real built app) proves the
+      first-90-seconds experience: duel gauge visible, music playing,
+      Verses pips as HP, from the first fight of a fresh run.
+
 - [ ] REGULAR ENEMIES: build the 6-10 regulars from the bible — every one a
       DUEL-GAUGE fight (per the header combat decision; no turn-based mode
       exists), with their lesser-known piece sequenced and driving their push
