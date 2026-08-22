@@ -58,6 +58,21 @@ describe('CombatScreen', () => {
     tileButtons.forEach((btn) => expect(btn).toBeInTheDocument());
   });
 
+  // REGULAR ENEMIES ticket (GOALS.md): monster.glyph portrait-placeholder
+  // groundwork -- currently inert (no real def sets it yet, see this
+  // ticket's own note in dom-check.js), but the real React render path is
+  // asserted directly rather than left unverified, same as the vanilla
+  // side's own dom-check.js test.
+  it('shows a monster glyph when the def carries one, and nothing extra when it does not', () => {
+    const state = startFight();
+    state.monster.glyph = '🌅';
+    const { rerender } = render(<Harness />);
+    expect(screen.getByText(new RegExp('🌅.*' + state.monster.name))).toBeInTheDocument();
+    delete state.monster.glyph;
+    rerender(<Harness />);
+    expect(screen.queryByText(/🌅/)).not.toBeInTheDocument();
+  });
+
   // ITEMS ticket (GOALS.md, 2026-08-22): FORTISSIMO's "tiles render at
   // double size" half -- dom-check.js already covers wordbound.html's own
   // #rack-display class toggle + real rack size, this is the React-side

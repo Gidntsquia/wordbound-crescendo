@@ -4427,6 +4427,118 @@ async function main() {
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
   }
 
+  // REGULAR ENEMIES ticket (GOALS.md): the first 3 of 9 planned regulars
+  // (early tier), composed and validated in ISOLATION this run -- same
+  // "proof piece, verified standalone before wiring" precedent the MUSIC
+  // ENGINE ticket's own mountain-king.js already established. Deliberately
+  // NOT wired into any monsters.js def yet: doing so turned out to
+  // immediately break a real, pre-existing chunk of this file (several
+  // blocks enter combat via REAL floor-generation RNG rather than a forced
+  // defId, and unconditionally assume a plain/turn-based/AudioContext-free
+  // fight -- confirmed by a real crash when a duel-mode weak-tier def
+  // entered the pool, not theorized) -- see this ticket's own
+  // ORCHESTRATOR NOTE in GOALS.md for the full finding. Music.intensityAt
+  // is a pure function over dynamics.keyframes (its own doc comment says
+  // so) -- these checks exercise the real piece data directly, no
+  // AudioContext/sequencer needed, unlike verify-music-engine.js's own
+  // Playwright-based real-oscillator checks.
+  {
+    const Music = window.Wordbound.Music;
+    const Pieces = window.Wordbound.Pieces;
+    const EARLY_PIECES = [
+      { key: 'gymnopedie1', title: 'Gymnopédie No. 1', composedYear: 1888, composerDied: 1925 },
+      { key: 'airGString', title: 'Air ("Air on the G String")', composedYear: 1730, composerDied: 1750 },
+      { key: 'morningMood', title: 'Morning Mood', composedYear: 1875, composerDied: 1907 }
+    ];
+
+    EARLY_PIECES.forEach(({ key, title, composedYear, composerDied }) => {
+      const piece = Pieces[key];
+      check(`REGULAR ENEMIES: window.Wordbound.Pieces.${key} is present`, !!piece && typeof piece === 'object');
+      if (!piece) return;
+      check(`REGULAR ENEMIES: ${title} has the right title`, piece.title === title);
+      // PD vetting, re-checked directly against the piece's own fields
+      // rather than trusted from THEME.md's table (same standing rule
+      // every other piece file's own header re-derives).
+      check(`REGULAR ENEMIES: ${title} PD vetting matches its own vetting fields`,
+        piece.vetting.composed === composedYear && piece.vetting.composerDied === composerDied && piece.vetting.publicDomain === true);
+      check(`REGULAR ENEMIES: ${title} composer has been dead 70+ years as of 2026`, (2026 - composerDied) >= 70);
+      check(`REGULAR ENEMIES: ${title} is 'early' stageTier`, piece.stageTier === 'early');
+      check(`REGULAR ENEMIES: ${title} has a non-empty gimmick string`, typeof piece.gimmick === 'string' && piece.gimmick.length > 0);
+      check(`REGULAR ENEMIES: ${title} keyframes are sorted ascending by beat`,
+        piece.dynamics.keyframes.every((kf, i) => i === 0 || kf.beat > piece.dynamics.keyframes[i - 1].beat));
+      check(`REGULAR ENEMIES: ${title} keyframes never exceed lengthBeats`,
+        piece.dynamics.keyframes[piece.dynamics.keyframes.length - 1].beat <= piece.lengthBeats);
+      check(`REGULAR ENEMIES: ${title} every keyframe intensity is within 0..1`,
+        piece.dynamics.keyframes.every((kf) => kf.intensity >= 0 && kf.intensity <= 1));
+      // Every early piece stays well below a 'mid'/'late' piece's own peak
+      // (Mountain King's ramp reaches 1.0) -- "early" should never
+      // threaten like a boss, checked directly against the real curve.
+      const peakIntensity = Math.max(...piece.dynamics.keyframes.map((kf) => kf.intensity));
+      check(`REGULAR ENEMIES: ${title} never reaches a boss-level peak intensity (< 0.5)`, peakIntensity < 0.5);
+    });
+
+    // Each piece's own gimmick, verified against its actual intensity
+    // curve via Music.intensityAt (a pure function, no sequencer/
+    // AudioContext needed) -- not just trusted from the data's own
+    // comments.
+    const gymnopedie = Pieces.gymnopedie1;
+    check("REGULAR ENEMIES: The Gymnopédiste stays mostly flat, then a small late bump ('barely moves')",
+      Music.intensityAt(gymnopedie, 0) < 0.1 &&
+      Music.intensityAt(gymnopedie, 15) < 0.15 &&
+      Music.intensityAt(gymnopedie, 36) > Music.intensityAt(gymnopedie, 15));
+
+    const airGString = Pieces.airGString;
+    check("REGULAR ENEMIES: The G String is essentially flat start-to-end ('telegraphs nothing')",
+      Math.abs(Music.intensityAt(airGString, 40) - Music.intensityAt(airGString, 0)) < 0.05 && !airGString.dynamics.crescendos);
+
+    const morningMood = Pieces.morningMood;
+    check("REGULAR ENEMIES: Morning Mood genuinely builds across its whole length ('wakes up slowly')",
+      Music.intensityAt(morningMood, 0) < Music.intensityAt(morningMood, 24) &&
+      Music.intensityAt(morningMood, 24) < Music.intensityAt(morningMood, 48));
+
+    // Every early piece's own track data is at least internally consistent
+    // (every note lands within the piece's own length, positive duration) --
+    // a cheap, real structural check music.js's sequencer would otherwise
+    // be the first thing to catch, but that needs a real AudioContext.
+    EARLY_PIECES.forEach(({ key, title }) => {
+      const piece = Pieces[key];
+      if (!piece) return;
+      const allNotes = Object.values(piece.tracks).flat();
+      check(`REGULAR ENEMIES: ${title} has at least one note in its tracks`, allNotes.length > 0);
+      check(`REGULAR ENEMIES: ${title} every note starts within [0, lengthBeats) and has positive duration/freq`,
+        allNotes.every((n) => n.beat >= 0 && n.beat < piece.lengthBeats && n.duration > 0 && n.freq > 0));
+    });
+  }
+
+  // REGULAR ENEMIES ticket: the monster-info glyph-rendering groundwork
+  // (game.js's renderCombat) -- purely additive and currently inert (no
+  // real MONSTER_DEFS entry sets `.glyph` yet, deliberately, per the note
+  // above), but worth asserting directly rather than left unverified: a
+  // monster WITH a glyph shows it, one without renders exactly as before.
+  {
+    const savedMonster = state.monster;
+    const savedCombatActive = state.combatActive;
+    const savedScreen = state.screen;
+    state.screen = 'RUN';
+    state.combatActive = true;
+
+    state.monster = { name: 'Test Regular', hp: 10, maxHp: 10, tier: 'weak', glyph: '🌅', traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] };
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    const nameEl = document.querySelector('.monster-name');
+    check('REGULAR ENEMIES: a monster with a glyph shows it in monster-info', !!nameEl && nameEl.textContent.indexOf('🌅') !== -1 && nameEl.textContent.indexOf('Test Regular') !== -1);
+
+    state.monster = { name: 'Test Regular No Glyph', hp: 10, maxHp: 10, tier: 'weak', traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] };
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    const nameElAfter = document.querySelector('.monster-name');
+    check('REGULAR ENEMIES: a monster with no glyph renders unaffected (no stray glyph leaks)', !!nameElAfter && nameElAfter.textContent.indexOf('🌅') === -1);
+
+    state.monster = savedMonster;
+    state.combatActive = savedCombatActive;
+    state.screen = savedScreen;
+  }
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 }

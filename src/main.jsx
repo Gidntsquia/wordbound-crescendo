@@ -30,6 +30,13 @@ import '../js/wordbound/pieces/valkyrie-marshal.js';
 // file's own header) -- grouped here anyway, alongside the other pieces,
 // for the same "every piece module loads consistently" reason.
 import '../js/wordbound/pieces/beethoven-5th.js';
+// REGULAR ENEMIES ticket (GOALS.md): the first 3 of 9 planned regulars
+// (early tier) -- monsters.js's own new weak-tier defs reference these by
+// window.Wordbound.Pieces.* at eval time, same ordering requirement as the
+// boss pieces above.
+import '../js/wordbound/pieces/gymnopedie-1.js';
+import '../js/wordbound/pieces/air-g-string.js';
+import '../js/wordbound/pieces/morning-mood.js';
 import '../js/wordbound/monsters.js';
 import '../js/wordbound/bossEntrances.js';
 import '../js/wordbound/shakespeareGuide.js';

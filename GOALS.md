@@ -4153,3 +4153,105 @@ Rules for the routine:
       VERIFY: migrated `npm test` per-enemy, mobile check, Playwright duel smoke
       per tier (win + loss paths), virtual-clock sim confirming the tier curve,
       PD vetting noted per piece.
+      ORCHESTRATOR NOTE 2026-08-22: 3 of 9 regulars (the whole early tier)
+      composed and verified this run, deliberately NOT wired into any
+      MONSTER_DEFS entry yet -- a real, demonstrated blocker (not
+      theorized) makes that the genuinely open remaining work, detailed
+      below.
+      **A real finding worth correcting first:** this ticket's own header
+      framing ("no turn-based mode exists") is stale. The engine is
+      ALREADY generically ready for regular duel-gauge fights with zero
+      further wiring -- `Game.startDuelFight`'s own `pushesToDefeat`
+      default is `monster.isBoss ? 3 : 1` (game.js), so ANY monster def
+      (boss or regular) with a `piece` field automatically fights via the
+      gauge and dies in one won push, per the DUEL-GAUGE COMBAT ticket's
+      own original design. There is no "atomic cutover" left to build --
+      that phrasing (duelCombat.js's own header, and this ticket's) predates
+      later runs' generic `startCombat`/`Game.startDuelFight` wiring. What's
+      actually missing is pure CONTENT: real pieces + monster defs for the
+      9 regulars THEME.md's own table already names and PD-vets.
+      **What landed:** the 3 early-tier pieces (`js/wordbound/pieces/
+      gymnopedie-1.js`/`air-g-string.js`/`morning-mood.js`, wired into all
+      4 script-load lists: `wordbound.html`, `src/main.jsx`, `src/test/
+      setup.js`, `tools/build-itch.js`'s DEPENDENCIES manifest), each
+      modeling THEME.md's own gimmick line directly in its dynamics curve
+      (Gymnopédie: near-flat + one tiny late bump; Air on the G String:
+      genuinely flat, no `crescendos` entries at all; Morning Mood: a real,
+      if shallow, crescendo across its whole length) and PD-vetted
+      (Satie d.1925, Bach d.1750, Grieg d.1907 -- all well past 70 years).
+      Also landed, purely additive and currently inert: `monster.glyph`
+      portrait-placeholder rendering in both apps' monster-info (game.js's
+      renderCombat, CombatScreen.jsx) -- the same "framed glyph, not a
+      blocked ticket" convention already established for bosses/
+      Shakespeare/shopkeepers, ready for whenever a real regular def sets
+      one; and `MONSTER_DEFS`/`floor.js` doc-comment groundwork for a
+      `retiredFromPool` flag (documented, NOT yet applied -- see the real
+      blocker below).
+      **The real blocker, demonstrated not theorized:** an early draft of
+      this run DID wire all 3 pieces into new weak-tier MONSTER_DEFS
+      entries (with a `retiredFromPool` flag retiring the 4 old generic
+      weak-tier defs from floor.js's real draw pool) and immediately broke
+      `npm test` for real: `SCRIPT CRASHED: TypeError: (window.AudioContext
+      || window.webkitAudioContext) is not a constructor`, because a
+      pre-existing dom-check.js block (the Volatile-tile "next fight"
+      reset, and almost certainly others in this 4000+-line file) enters
+      combat via REAL floor-generation RNG rather than a forced defId, and
+      has always safely assumed every regular encounter is plain/turn-
+      based/AudioContext-free under jsdom -- an assumption every regular
+      monster has satisfied until this run tried to change it. Reverted
+      the MONSTER_DEFS/floor.js wiring rather than ship a broken mandatory
+      gate; kept the pieces themselves (validated via `Music.intensityAt`,
+      a pure function needing no AudioContext, per music.js's own doc) and
+      the inert glyph groundwork, matching the exact "proof piece,
+      verified standalone before wiring" precedent MUSIC ENGINE's own
+      mountain-king.js already established.
+      **Real remaining scope, in order:** (1) audit dom-check.js for every
+      block that enters combat via real floor-generation RNG rather than
+      an explicit defId (the Volatile-tile block is one confirmed example;
+      there are likely more in a file this size) and either pin them to an
+      explicitly-retired-from-pool def, or make them tolerant of landing on
+      a duel-mode regular (skip/adapt rather than assume). This needs to
+      happen BEFORE any regular def gets a real `piece` field, not
+      alongside it. (2) Once that's done, wire these 3 pieces into real
+      weak-tier MONSTER_DEFS entries + the `retiredFromPool` flag on the 4
+      old generic weak defs (slime/gremlin/wisp/glossary) + floor.js's pool
+      filter (the exact diff exists in this run's own history if a future
+      run wants to start from it rather than redo it). (3) Compose the
+      remaining 6 regulars (mid tier: Gnossienne/Invention/Metronome; late
+      tier: Swarm/Sabbath/Organist -- THEME.md's own table already names
+      and PD-vets all of them) and repeat steps 1-2 for 'normal'/'strong'
+      tiers. (4) Only then does this ticket's own VERIFY bar (Playwright
+      duel smoke per tier win+loss, virtual-clock sim confirming the tier
+      curve) become meaningful to run for real.
+      **Verified this run:** `npm test` (jsdom dom-check) -- 3 new
+      per-piece checks each (title/PD-vetting/stageTier/gimmick-string/
+      keyframe-sort-and-bounds/lengthBeats-consistency/peak-intensity-
+      below-boss-level, plus a `Music.intensityAt`-driven check per piece
+      confirming its actual curve matches its own gimmick text, not just
+      trusted from a comment) + 2 checks confirming the monster-info glyph
+      renders when present and stays silent when absent; ALL CHECKS
+      PASSED (the pre-existing STOLEN LETTERS flake noted in this file's
+      own SHAKESPEARE-adjacent entry surfaced again on one repeat run,
+      unrelated). `npx vitest run`: 183/183 (up from 182) -- one new
+      CombatScreen test for the same glyph groundwork on the React side.
+      `npm run build`: clean. `npm run test:mobile`/`test:qa`/
+      `test:react-qa`/`test:react-build`/`test:react-duel-loss`/
+      `test:music-engine`/`test:branching-map`/`test:run-header`/
+      `test:audio`/`test:drag-interrupt`: ALL CHECKS PASSED, unaffected
+      (nothing here touches real gameplay yet). `npm run build:itch` +
+      `npm run test:itch-build`: ALL CHECKS PASSED (confirmed the 3 new
+      piece files are actually present in the zip listing, not assumed;
+      hit the same pre-existing stolen-letters flake once, clean on
+      retry). No Playwright duel-smoke/virtual-clock-sim run yet -- neither
+      is meaningful until step 2 above wires a piece to a real monster.
+      **Not done, honest gaps:** the actual audit-and-fix-or-pin work for
+      dom-check.js's real-floor-RNG-driven combat blocks (real remaining
+      scope (1) above) is untouched -- flagging it as the concrete next
+      step rather than a vague "wire it up later," since this run proved
+      exactly what breaks and why. 6 of 9 regulars unstarted. Version NOT
+      bumped -- nothing shipped to real gameplay this run.
+      **Next:** the dom-check.js audit (real remaining scope (1)) is the
+      right next chunk -- small, self-contained, and unblocks everything
+      else in this ticket. DEPLOY's own permission-grant blocker (this
+      file's own separate entry) is still open in parallel, independent of
+      this ticket.

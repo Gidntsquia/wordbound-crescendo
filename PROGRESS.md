@@ -6686,3 +6686,74 @@ run's own pick, since DEPLOY's remaining scope needs a permission grant
 this run cannot obtain, not more implementation work. A future run should
 re-check whether that permission has been granted before assuming DEPLOY
 is still stuck.
+
+---
+
+## 2026-08-22T13:51Z -- REGULAR ENEMIES: early tier composed + verified,
+## a real wiring blocker found and documented (not shipped broken)
+
+Continued from this run's own DEPLOY work (previous entry) into REGULAR
+ENEMIES, GOALS.md's next queue item. Full reasoning in GOALS.md's own
+ORCHESTRATOR NOTE; this summarizes.
+
+**A stale-assumption correction, found before writing any code:** the
+ticket's own header framing ("no turn-based mode exists") and an older
+duelCombat.js comment about a still-needed "atomic cutover" both predate
+later runs' actual wiring -- `Game.startDuelFight`'s `pushesToDefeat`
+default is already `monster.isBoss ? 3 : 1`, so ANY monster def with a
+`piece` field already fights via the duel gauge today, zero engine changes
+needed. What's actually missing for regulars is pure content: real pieces
++ monster defs, which THEME.md's own "regulars" table already fully
+specs and PD-vets (9 total, 3 per tier).
+
+**What landed:** the 3 early-tier pieces (Gymnopédie No. 1/Satie, Air on
+the G String/Bach, Morning Mood/Grieg -- `js/wordbound/pieces/*.js`, wired
+into all 4 script-load lists), each modeling THEME.md's own gimmick
+directly in its dynamics curve and PD-vetted (composers dead 101-276
+years). Also landed, additive and currently inert: `monster.glyph`
+portrait-placeholder rendering in both apps' monster-info, same "framed
+glyph" convention already used for bosses/Shakespeare/shopkeepers.
+
+**A real bug this run's own attempt caught before shipping, not
+theorized:** an early draft wired all 3 pieces into new weak-tier
+MONSTER_DEFS entries (retiring the 4 old generic weak defs from real
+floor-generation via a new `retiredFromPool` flag) and immediately broke
+`npm test` for real -- `TypeError: (window.AudioContext ||
+window.webkitAudioContext) is not a constructor`, because a pre-existing
+dom-check.js block enters combat via REAL floor-generation RNG (not a
+forced defId) and has always safely assumed every regular fight is plain/
+turn-based/AudioContext-free under jsdom, an assumption every regular
+monster has held until this attempt. Reverted the MONSTER_DEFS/floor.js
+wiring rather than ship a broken mandatory test gate; kept the pieces
+(validated via `Music.intensityAt`, a pure function, no AudioContext
+needed) and the inert glyph groundwork -- the same "proof piece, verified
+standalone before wiring" precedent MUSIC ENGINE's own mountain-king.js
+already established.
+
+**Verified:** `npm test`: +~35 new checks (per-piece PD-vetting/
+structure/keyframe-sanity/peak-intensity-below-boss-level, plus a
+`Music.intensityAt`-driven check per piece confirming its curve actually
+matches its own gimmick text; 2 checks for the glyph groundwork), ALL
+CHECKS PASSED (hit the pre-existing STOLEN LETTERS flake once on a repeat
+run, same one flagged in this file's own SHAKESPEARE-adjacent entry,
+unrelated). `npx vitest run`: 183/183 (up from 182). `npm run build`:
+clean. `npm run test:mobile`/`test:qa`/`test:react-qa`/`test:react-build`/
+`test:react-duel-loss`/`test:music-engine`/`test:branching-map`/
+`test:run-header`/`test:audio`/`test:drag-interrupt`: ALL CHECKS PASSED,
+unaffected (nothing here touches real gameplay yet). `npm run build:itch`
++ `npm run test:itch-build`: ALL CHECKS PASSED (confirmed the 3 new files
+are actually in the zip listing; hit the stolen-letters flake once, clean
+on retry). No Playwright duel-smoke or virtual-clock sim run -- neither is
+meaningful until a piece is wired to a real monster.
+
+**Not done, honest gaps:** the real remaining work is auditing dom-check.js
+for every block that enters combat via real floor-generation RNG and
+either pinning it to an explicitly-retired def or making it tolerant of a
+duel-mode regular -- concrete, scoped, and necessary BEFORE any regular
+gets wired to a real MONSTER_DEFS entry, per this run's own demonstrated
+finding. 6 of 9 regulars (mid/late tiers) unstarted. Version NOT bumped --
+nothing shipped to real gameplay.
+
+**Next:** the dom-check.js real-floor-RNG audit is the right next chunk --
+small, self-contained, unblocks the rest of this ticket. DEPLOY's
+permission-grant blocker (previous entry) remains open in parallel.

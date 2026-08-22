@@ -3914,8 +3914,14 @@
       var intentClass = Intents.isSignatureIntent(m.intent) ? ' intent-signature' : '';
       intentLine = '<div id="monster-intent" class="monster-intent' + intentClass + '">' + escapeHtml(Intents.describeIntent(m.intent)) + '</div>';
     }
+    // REGULAR ENEMIES ticket (GOALS.md): m.glyph is a per-monster identity
+    // portrait placeholder (distinct from tierGlyph's own generic
+    // difficulty icon above) -- same "framed glyph, not a blocked ticket"
+    // convention already established for bosses/Shakespeare/shopkeepers.
+    // Absent on every def that doesn't have one yet (a true no-op).
+    var monsterGlyph = m.glyph ? ' ' + escapeHtml(m.glyph) : '';
     info.innerHTML =
-      '<div class="monster-name ' + tierClass + '">' + tierGlyph + ' ' + escapeHtml(m.name) + '</div>' +
+      '<div class="monster-name ' + tierClass + '">' + tierGlyph + monsterGlyph + ' ' + escapeHtml(m.name) + '</div>' +
       '<div class="monster-hp-bar"><div id="monster-hp-fill" class="monster-hp-fill" style="width:' + Math.max(0, hpRatio * 100) + '%"></div></div>' +
       '<div class="monster-hp-text">' + m.hp + ' / ' + m.maxHp + ' HP</div>' +
       '<div class="monster-weakness">Weakness: ' + escapeHtml(trait.hint) + '</div>' +

@@ -674,7 +674,7 @@ export default function CombatScreen({ state, Game, act }) {
     <div className={'combat-panel' + (monster.isBoss ? ' boss-combat' : '')} ref={combatPanelRef}>
       {showEntrance && <BossEntranceOverlay entrance={entrance} onDismiss={dismissEntrance} />}
       <div className="monster-info">
-        <div className={'monster-name ' + tierClass}>{tierGlyph(monster.isBoss, monster.tier)} {monster.name}</div>
+        <div className={'monster-name ' + tierClass}>{tierGlyph(monster.isBoss, monster.tier)}{monster.glyph ? ' ' + monster.glyph : ''} {monster.name}</div>
         <div className="monster-hp-bar">
           <div className="monster-hp-fill" ref={hpFillRef} style={{ width: Math.max(0, hpRatio * 100) + '%' }} />
         </div>
