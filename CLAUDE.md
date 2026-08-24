@@ -22,7 +22,7 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
   logic, wordbound.html, or rendering/event CSS changes.
 - `npm run test:react` — Vitest + RTL over src/components. MANDATORY for any
   src/components change; drives the real engine modules (window.Wordbound.*),
-  see `src/components/__tests__/gameHelpers.js` for the pattern.
+  see `src/test/gameHelpers.js` for the pattern.
 - `npm run test:mobile` — real-browser 375/414px layout check. MANDATORY for
   CSS layout changes.
 - Targeted Playwright verifies — run the one matching what you touched:
