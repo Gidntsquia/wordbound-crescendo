@@ -27,7 +27,7 @@
   <div id="screen-main-menu" class="screen">
     <div class="panel main-menu-panel">
       <h1 class="game-title">WORDBOUND: CRESCENDO</h1>
-      <p class="version-info">v0.15</p>
+      <p class="version-info">v0.16</p>
       <div id="dictionary-loading-indicator" class="dictionary-loading-indicator">
         <div class="loading-spinner"></div>
         <p>Loading dictionary...</p>
@@ -60,7 +60,6 @@
       <div id="gold-display" class="gold-display"></div>
       <div id="floor-label" class="floor-label"></div>
       <div class="run-header-actions" style="display: flex; gap: 8px; align-items: center;">
-        <button id="btn-view-deck" class="btn btn-secondary run-header-btn">Deck</button>
         <div style="display: flex; align-items: center; gap: 6px;">
           <button id="btn-toggle-music" class="btn btn-secondary music-toggle-btn">🔊</button>
           <input id="music-volume" type="range" min="0" max="100" value="10" style="width: 80px; cursor: pointer;">
@@ -95,22 +94,10 @@
       <div id="treasure-choices" class="treasure-choices"></div>
     </div>
 
-    <div id="tile-reward-panel" class="treasure-panel hidden">
-      <h2>Add a tile to your deck?</h2>
-      <div id="tile-reward-choices" class="treasure-choices treasure-choices-tiles"></div>
-      <button id="btn-skip-tile-reward" class="btn btn-secondary tile-reward-skip">Skip</button>
-    </div>
-
     <div id="boss-reward-panel" class="treasure-panel hidden">
       <h2>The boss's hoard yields a powerful find</h2>
       <div id="boss-reward-choices" class="treasure-choices"></div>
       <button id="btn-skip-boss-reward" class="btn btn-secondary tile-reward-skip">Skip</button>
-    </div>
-
-    <div id="deck-viewer-panel" class="treasure-panel hidden">
-      <h2>Your Deck</h2>
-      <div id="deck-tiles-list" class="treasure-choices"></div>
-      <button id="btn-close-deck-viewer" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
     </div>
 
     <div id="item-inspector-panel" class="treasure-panel hidden">

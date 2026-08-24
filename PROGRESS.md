@@ -1112,3 +1112,79 @@ runs have already repeatedly documented -- a `403` on the CONNECT tunnel
 to `gidntsquia.github.io` specifically. The push itself is the actual
 deploy action and it succeeded; this is a known, recurring sandbox
 limitation, not a new one introduced by this run.
+
+---
+
+## 2026-08-24T03:17Z -- PLAYTEST FINDINGS 3, item 2 (deck view + tile-reward)
+
+Picked the first unchecked GOALS.md item and did the prior run's own scoped
+"Next": item 2. Item 7 (ink) is now the ticket's LAST open sub-item.
+
+**Removed:** the per-kill TILE_REWARD screen entirely (pick/skip/resolve
+actions, `tileRewardOptions`/`pendingAfterTileReward` state, vanilla
+`renderTileReward` + markup, React's `TileRewardScreen`, and the whole dead
+`.treasure-choice-tile`/`.tile-reward-letter` CSS family -- `.tile-reward-skip`
+KEPT, BossRewardScreen still uses it, checked before deleting). Plus the deck
+view: `open/closeDeckViewer`, `deckViewerOpen`, `renderDeckViewer` + markup,
+`DeckViewerPanel`, and the header's Deck button (`RunHeaderActions` is now an
+empty but still-mounted slot, so header layout/callers are untouched).
+
+**Re-point, as scoped:** `resolveTileReward`'s boss branch folded into
+`onMonsterDefeated`'s tail -- boss kill goes straight to BOSS_ITEM_REWARD (or
+`advanceFloor()` if all rare/legendaries are owned), regular kill straight back
+to the map. No new reward invented: gold is already granted unconditionally on
+every kill, so no new balance number needed -- and `test:duel-balance` came
+back byte-identical, confirming it.
+
+**Judgment calls, flagged not silently assumed:** the shop's Premium Tile
+purchase is LEFT IN (a paid gold sink, and the sole target of Dickinson's live
+shopkeeper quirk -- removing it strands a third inert quirk), but it now sells
+a tile the player can't inspect, so it's a real open inconsistency for the next
+shop/economy pass or for Jaxon. The Shredder event is also still deck-shaped UI
+and left alone (tile REMOVAL, not deck-building, and now the only deck-shaping
+lever left). Both flagged in GOALS.md too.
+
+**Harness change worth knowing:** ~40 sites used `openDeckViewer();
+closeDeckViewer();` purely to force a re-render. That idiom died with the
+panel, so it's now an explicit `Game._render()` hook. React scripts needed
+more -- RunScreen's `act()`/bump is a local closure unreachable from
+`page.evaluate`, which is why they clicked Deck at all -- so RunScreen now
+registers its bump via `Game._setReactBump` while mounted and the one hook
+repaints whichever tree is live. Confirmed the hard way that the settings gear
+is NOT a substitute (its state lives inside SettingsCorner, so it re-renders
+that component alone and leaves the node map stale -- a first attempt passed
+some checks then timed out on a never-re-rendered boss pill).
+
+**Real pre-existing bug found + fixed:** duelIntegration.test.js's first duel
+test never awaited its own deferred `submitWord` resolution, so its 220ms timer
+fired against the NEXT test's state -- which sets up a one-point-from-winning
+gauge, so the stale push won it and drove a SECOND `onMonsterDefeated`.
+Harmless while kills parked on TILE_REWARD; a hard crash once kills call
+`advanceMapPosition()` (nulls `currentNodeId`). Fixed at the root (drain the
+timer in the test that creates it), not with a production guard.
+
+**Verified, real not assumed:** `npm test` (dom-check) ALL CHECKS PASSED;
+`npm run test:react` 186/186; `npm run build` clean (57 modules); and ALL CHECKS
+PASSED across `test:mobile`, `test:run-header`, `test:qa`, `test:react-qa`
+(full 4-floor victory, all 4 bosses), `test:react-build`, `test:react-duel-loss`,
+`test:regular-duel-smoke`, `test:branching-map`, `test:audio`,
+`test:drag-interrupt`, `test:music-engine`, `test:itch-build`.
+`test:duel-balance` byte-identical (results.json reverted, not committed). Zero
+flakes this run. Every removed-UI assertion across ~10 test files was rewritten
+to assert the INVERSE (no tile panel in the DOM, no Deck button, removed
+`Game.*` actions `undefined`), never deleted.
+
+**Deleted, orphaned + npm-unwired:** `test/verify-boss-item-reward.js` (its
+whole subject was the removed sequencing) and `test/verify-rng-fix.js` (already
+crashing on main pre-change -- verified by stashing). **Also noted, untouched:**
+`test/balance-simulation.js` (old pre-duel sim, npm-unwired) already crashes on
+main with a duel-cutover AudioContext error -- verified by stashing, not a
+regression here.
+
+Version bumped v0.15 -> v0.16.
+
+**Not done:** item 7 (ink) untouched -- the ticket's acceptance bar is still
+unmet (the run header still shows ink). **Next:** item 7. With consumables and
+tile rewards both gone, its ink surface is smaller than the ticket assumed.
+Homer's missing exclusive item and PLAYTEST FINDINGS 2's Mountain King retune
+remain the other live threads.

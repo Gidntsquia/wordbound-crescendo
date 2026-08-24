@@ -230,15 +230,6 @@ async function playRun(win, anagramMap, strategy, runIndex) {
   while (nodeSteps++ < MAX_NODES_PER_RUN) {
     if (state.screen === 'GAME_OVER' || state.screen === 'VICTORY') break;
 
-    if (state.screen === 'TILE_REWARD') {
-      // Always take a reward -- skipping is strictly worse for a bot with no
-      // deck-thinning strategy, and taking it is what a new player does.
-      const opts = state.tileRewardOptions;
-      if (opts && opts.length) Game.pickTileReward(opts[0].id);
-      else Game.skipTileReward();
-      continue;
-    }
-
     if (state.screen === 'TREASURE') {
       const opts = state.treasureOptions;
       if (opts && opts.length) Game.pickTreasureItem(opts[0]);
@@ -403,7 +394,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
         await sleep(260);
         // Killing blow (47d9239, 2026-08-20): combatActive stays true for an
         // additional MONSTER_DEATH_BEAT_MS (500ms in game.js) death beat
-        // before the screen actually switches to TILE_REWARD. Without
+        // before the kill actually resolves. Without
         // waiting that out too, the loop below re-enters and tries to find
         // another word against the dead monster's transient, un-refilled
         // post-kill rack (which can be tiny or empty), misreading a normal

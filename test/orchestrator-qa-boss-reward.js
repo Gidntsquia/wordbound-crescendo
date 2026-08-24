@@ -204,10 +204,13 @@ async function main() {
     }
     const outcome = await fightUntilOver(page, 15);
     check('organic first combat resolves without stalling (outcome: ' + outcome + ')', outcome !== 'MAX_TURNS' && outcome !== 'NO_WORD_FOUND');
-    if (outcome === 'TILE_REWARD') {
-      check('non-boss kill: boss-reward panel stays hidden during tile reward', await page.isHidden('#boss-reward-panel'));
-      await page.click('#btn-skip-tile-reward');
-      check('non-boss kill: after tile reward, back to node map (no boss item screen)', await page.isVisible('#node-map'));
+    // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): a regular kill used
+    // to land on TILE_REWARD and need a Skip click to get back to the map.
+    // The deck-building loop is gone -- a regular kill resolves straight to
+    // 'RUN' with no reward panel in between.
+    if (outcome === 'RUN') {
+      check('non-boss kill: boss-reward panel stays hidden (regular kills never show it)', await page.isHidden('#boss-reward-panel'));
+      check('non-boss kill: straight back to the node map, no reward step', await page.isVisible('#node-map'));
     }
   } else {
     console.log('INFO first node was type ' + firstNodeState.screen + ', combat smoke-test happens on the boss instead');
@@ -229,14 +232,14 @@ async function main() {
     s.mapPositionNodeId = lastRowNode.id;
     s.currentNodeId = null;
     s.screen = 'RUN';
-    window.Wordbound.Game._state.deckViewerOpen = false;
-    window.Wordbound.Game.returnToMainMenu; // no-op reference, keep render via enter below
   })()`);
   // re-render the node map so the boss pill is the clickable current node
   await page.evaluate('window.Wordbound.Game.showCharacterSelect && void 0'); // no-op
   await page.evaluate('(function(){ var G = window.Wordbound.Game; G._state.screen = "RUN"; })()');
-  // Force a render by toggling a harmless open/close (render() is module-internal)
-  await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();');
+  // Force a render (render() is module-internal -- Game._render is the
+  // exposed test hook; it replaced an openDeckViewer/close toggle when
+  // PLAYTEST FINDINGS 3 item 2 removed the deck viewer)
+  await page.evaluate('window.Wordbound.Game._render();');
 
   const bossPill = await page.evaluate('document.querySelector(".node-pill.node-current") && document.querySelector(".node-pill.node-current").textContent');
   check('boss node pill is the clickable current node and shows a trait hint ("' + (bossPill || '') + '")', !!bossPill && /BOSS/.test(bossPill) && bossPill.indexOf('—') !== -1);
@@ -283,19 +286,18 @@ async function main() {
 
   const floorBefore = await page.evaluate('window.Wordbound.Game._state.floorNumber');
   const bossOutcome = await fightUntilOver(page, 40);
-  check('boss fight ends at the tile-reward screen (outcome: ' + bossOutcome + ')', bossOutcome === 'TILE_REWARD');
+  check('boss fight ends at the boss-reward screen, no tile step (outcome: ' + bossOutcome + ')', bossOutcome === 'BOSS_ITEM_REWARD');
   // Was _getMusicMode() === 'normal' -- onMonsterDefeated clears
   // state.duel/duelSequencer on a duel-mode kill, the duel-mode equivalent
   // of the music mode reverting (see the comment above).
   check('duel state is torn down right after the kill', await page.evaluate('!window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer'));
 
-  check('tile-reward panel visible after boss kill', await page.isVisible('#tile-reward-panel'));
-  check('boss-reward panel NOT visible yet (sequential, not stacked)', await page.isHidden('#boss-reward-panel'));
-
-  await page.click('#tile-reward-choices .treasure-choice'); // real click: take a tile
-  check('after tile pick: boss-reward panel visible', await page.isVisible('#boss-reward-panel'));
-  check('after tile pick: tile-reward panel hidden again', await page.isHidden('#tile-reward-panel'));
-  check('after tile pick: node map hidden while boss reward shows', await page.isHidden('#node-map'));
+  // PLAYTEST FINDINGS 3 item 2: the boss kill lands on its hoard directly
+  // now -- the per-kill tile step it used to pass through first is gone, and
+  // so is its markup.
+  check('boss-reward panel visible immediately after the boss kill', await page.isVisible('#boss-reward-panel'));
+  check('no tile-reward panel exists in the document at all', await page.evaluate('document.getElementById("tile-reward-panel") === null'));
+  check('node map hidden while boss reward shows', await page.isHidden('#node-map'));
 
   const options = await page.evaluate(`(function () {
     var s = window.Wordbound.Game._state;
@@ -325,13 +327,12 @@ async function main() {
     s.currentNodeId = null;
     s.player.ink = 200;
   })()`);
-  await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();');
+  await page.evaluate('window.Wordbound.Game._render();');
   await page.click('.node-pill.node-current');
   const boss2Outcome = await fightUntilOver(page, 40);
-  check('second boss fight (375px viewport) ends at tile reward (outcome: ' + boss2Outcome + ')', boss2Outcome === 'TILE_REWARD');
+  check('second boss fight (375px viewport) ends at the boss reward (outcome: ' + boss2Outcome + ')', boss2Outcome === 'BOSS_ITEM_REWARD');
 
-  await page.click('#btn-skip-tile-reward');
-  check('skip path: boss-reward panel visible after skipping the tile', await page.isVisible('#boss-reward-panel'));
+  check('skip path: boss-reward panel visible immediately after the kill', await page.isVisible('#boss-reward-panel'));
 
   const layout = await page.evaluate(`(function () {
     var overflow = document.documentElement.scrollWidth - document.documentElement.clientWidth;
@@ -374,18 +375,17 @@ async function main() {
     s.currentNodeId = null;
     s.player.ink = 200;
   })()`);
-  await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();');
+  await page.evaluate('window.Wordbound.Game._render();');
   await page.click('.node-pill.node-current');
   check('floor-3 boss combat starts via real click', await page.evaluate('window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true'));
   check('floor-3 boss (Valkyrie Marshal) fights as a real duel too', await page.evaluate('window.Wordbound.Game._state.monster.duel === true'));
 
   const boss3Outcome = await fightUntilOver(page, 40);
-  check('floor-3 boss fight ends at the tile-reward screen (outcome: ' + boss3Outcome + ')', boss3Outcome === 'TILE_REWARD');
+  check('floor-3 boss fight ends at the boss-reward screen (outcome: ' + boss3Outcome + ')', boss3Outcome === 'BOSS_ITEM_REWARD');
   check('duel state is torn down right after the floor-3 kill', await page.evaluate('!window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer'));
 
   const floorBeforeFloor3Claim = await page.evaluate('window.Wordbound.Game._state.floorNumber');
-  await page.click('#tile-reward-choices .treasure-choice'); // real click: take a tile
-  check('after floor-3 tile pick: boss-reward panel visible', await page.isVisible('#boss-reward-panel'));
+  check('floor-3 boss kill goes straight to the boss-reward panel', await page.isVisible('#boss-reward-panel'));
 
   await page.click('#boss-reward-choices .treasure-choice'); // real click: claim the item
   await page.waitForTimeout(150);
@@ -407,17 +407,16 @@ async function main() {
     s.currentNodeId = null;
     s.player.ink = 200;
   })()`);
-  await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();');
+  await page.evaluate('window.Wordbound.Game._render();');
   await page.click('.node-pill.node-current');
   check('floor-4 boss combat starts via real click', await page.evaluate('window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true'));
   check('floor-4 boss (the Maestro) fights as a real duel too', await page.evaluate('window.Wordbound.Game._state.monster.duel === true'));
 
   const boss4Outcome = await fightUntilOver(page, 40);
-  check('floor-4 boss fight ends at the tile-reward screen (outcome: ' + boss4Outcome + ')', boss4Outcome === 'TILE_REWARD');
+  check('floor-4 boss fight ends at the boss-reward screen (outcome: ' + boss4Outcome + ')', boss4Outcome === 'BOSS_ITEM_REWARD');
   check('duel state is torn down right after the floor-4 kill', await page.evaluate('!window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer'));
 
-  await page.click('#tile-reward-choices .treasure-choice'); // real click: take a tile
-  check('after floor-4 tile pick: boss-reward panel visible', await page.isVisible('#boss-reward-panel'));
+  check('floor-4 boss kill goes straight to the boss-reward panel', await page.isVisible('#boss-reward-panel'));
 
   await page.click('#boss-reward-choices .treasure-choice'); // real click: claim the item
   await page.waitForTimeout(150);

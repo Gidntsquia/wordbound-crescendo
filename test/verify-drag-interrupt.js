@@ -31,8 +31,7 @@ async function stageTwoTiles(page) {
     const state = window.Wordbound.Game._state;
     state.selectedTileIds = [];
     document.getElementById('word-input').value = '';
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const rackBtns = Array.from(document.querySelectorAll('#rack-display .letter-tile'))
       .filter((b) => {
         const t = state.player.rack.find((rt) => rt.id === b.getAttribute('data-tile-id'));

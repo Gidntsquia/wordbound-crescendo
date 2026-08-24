@@ -501,6 +501,113 @@ files are re-ingested by every zero-memory run, so their size is a fixed per-run
       7 (ink). Homer's exclusive-item gap and PLAYTEST FINDINGS 2's Mountain
       King boss-duel retune remain the other live open threads.
 
+      ORCHESTRATOR NOTE 2026-08-24T03:17Z (item 2 -- deck view + tile-reward
+      re-point -- DONE; item 7 (ink) is the last one left, box stays
+      unchecked): implemented item 2 exactly as the prior run scoped it.
+      **What came out:** the per-kill TILE_REWARD screen in its entirety --
+      `Game.pickTileReward`/`skipTileReward`/`resolveTileReward`, the
+      `tileRewardOptions`/`pendingAfterTileReward` state fields, vanilla
+      `renderTileReward` + `#tile-reward-panel`/`#btn-skip-tile-reward`
+      markup, React's `TileRewardScreen`, and the whole dead
+      `.treasure-choices-tiles`/`.treasure-choice-tile`/`.tile-reward-letter`
+      CSS family (`.tile-reward-skip` KEPT -- BossRewardScreen still uses that
+      class, confirmed by grep before deleting anything). Also the deck view
+      itself: `Game.openDeckViewer`/`closeDeckViewer`, `state.deckViewerOpen`,
+      vanilla `renderDeckViewer` + `#deck-viewer-panel`/`#btn-view-deck`,
+      React's `DeckViewerPanel` and the run header's Deck button
+      (`RunHeaderActions` is now an empty but still-mounted flex slot -- the
+      header's layout and every caller stay unchanged).
+      **The re-point, as recommended and implemented:** `resolveTileReward`'s
+      boss-branch folded straight into `onMonsterDefeated`'s tail. A boss kill
+      now goes directly to BOSS_ITEM_REWARD (or straight to `advanceFloor()`
+      when every rare/legendary is already owned); a regular kill goes
+      straight back to the map. No replacement reward was invented: every kill
+      already grants gold unconditionally earlier in the same function, so
+      gold simply becomes the whole reward -- no new balance number to
+      simulate-verify, and `npm run test:duel-balance` came back
+      byte-identical to the committed baseline, confirming that.
+      **The Premium Tile shop purchase -- the prior run's flagged undecided
+      call -- deliberately LEFT IN, and this is the honest reasoning, not a
+      dodge:** it is a paid gold sink, not a reward step, and it is the sole
+      target of a live shopkeeper quirk (Dickinson's guaranteed-appearance).
+      Removing it would strand a THIRD shopkeeper quirk with no replacement
+      (Cervantes, Homer and Wilde are already inert) on top of shrinking the
+      shop's only non-item purchase. But it does now sell a tile the player
+      can no longer inspect, so this is a real, live inconsistency, not a
+      settled one -- it belongs to whoever does the next shop/economy pass
+      (or to Jaxon, if he wants it gone under "no deck-building" outright).
+      Flagged, not silently assumed either way, same as the prior run asked.
+      **The Shredder event is also still deck-shaped UI** (its screen lists
+      the deck pickably) and is likewise left alone: it is an EVENT-gated
+      tile-REMOVAL choice, not deck-building, and with tile rewards gone it
+      is the run's only remaining deck-shaping lever -- thinning still
+      improves rack quality. Same flag: undecided, not assumed.
+      **A real structural test-harness change this forced, worth knowing
+      about:** ~40 sites across dom-check.js and the Playwright scripts used
+      `Game.openDeckViewer(); Game.closeDeckViewer();` purely as a
+      force-a-re-render idiom (render() is module-private). That idiom died
+      with the panel, so it is now an explicit `Game._render()` test hook,
+      alongside this file's existing `_state`/`_availableNodeIds`/
+      `_rollShopOptions` test seams. The React scripts needed more: a React
+      component's re-render is driven by RunScreen's local `act()`/bump
+      closure, unreachable from `page.evaluate`, which is exactly why they
+      clicked the Deck button rather than calling the engine. `RunScreen` now
+      registers its own bump with the engine (`Game._setReactBump`, cleared on
+      unmount) for as long as it is mounted, so the single `Game._render()`
+      hook repaints whichever tree is live. Confirmed the hard way that the
+      corner settings gear is NOT a substitute: its open state lives inside
+      `SettingsCorner`, so toggling it re-renders that component alone and
+      leaves the node map stale -- a first attempt using it passed some
+      checks and then timed out waiting for a boss pill that had never been
+      re-rendered.
+      **A REAL PRE-EXISTING BUG found and fixed on the way, not caused by this
+      run:** `src/test/duelIntegration.test.js`'s first duel test called
+      `Game.submitWord` and never awaited its own deferred resolution, so its
+      220ms timer outlived the test and fired against the NEXT test's freshly
+      built state -- and that next test deliberately sets up a
+      one-point-from-winning gauge, so the stale word's late push won it and
+      drove a SECOND kill through `onMonsterDefeated`. Harmless while every
+      kill parked on TILE_REWARD; a real crash the moment kills started
+      calling `advanceMapPosition()` (which nulls `currentNodeId`). Fixed by
+      draining the timer in the test that creates it, root cause rather than
+      a guard in production code.
+      **Verified, real not assumed** (full detail in PROGRESS.md): `npm test`
+      (dom-check): ALL CHECKS PASSED. `npm run test:react`: 186/186. `npm run
+      build`: clean, 57 modules. `npm run test:mobile`, `test:run-header`,
+      `test:qa` (vanilla), `test:react-qa` (full 4-floor victory, all 4
+      bosses), `test:react-build`, `test:react-duel-loss`,
+      `test:regular-duel-smoke`, `test:branching-map`, `test:audio`,
+      `test:drag-interrupt`, `test:music-engine`, `test:itch-build`: ALL
+      CHECKS PASSED across every one. `test:duel-balance`: byte-identical.
+      Every removed-UI assertion across ~10 test files was rewritten to assert
+      the INVERSE (no tile panel exists, no Deck button renders, the removed
+      Game.* actions are `undefined`) rather than deleted.
+      **Two orphaned, npm-unwired scripts deleted:**
+      `test/verify-boss-item-reward.js` (its entire subject was the removed
+      tile-reward -> boss-reward sequencing) and `test/verify-rng-fix.js`
+      (already crashing on main before this run -- verified by stashing --
+      and its subject, gold-on-kill, is covered by dom-check).
+      **Separately noted, NOT touched:** `test/balance-simulation.js` (the old
+      pre-duel sim, also npm-unwired) already crashes on main with an
+      AudioContext error from the duel cutover -- verified by stashing, not
+      a regression from this run. Its TILE_REWARD branch was removed as part
+      of this change but the script remains broken for that older reason.
+      Version bumped v0.15 -> v0.16.
+      **Not done, honest gaps -- box stays unchecked:** item 7 (ink removal)
+      is completely untouched and is now the LAST open sub-item of this
+      ticket. The acceptance bar (combat screen containing ONLY the named 6
+      elements) is still not met: the run header still shows the ink counter.
+      **Genuinely-Jaxon-only:** the Premium Tile and Shredder calls above are
+      flagged as open design questions he may want to settle, but both are
+      defensible as-is -- nothing blocked on him this run.
+      **Next:** item 7 (ink), the last sub-item. Per the ticket's own text it
+      must re-point anything currently priced in ink (rewrites, overcharge,
+      shop stock, shopkeeper ink-discount quirks) to gold or disable it with a
+      documented call. Note that with consumables and tile rewards both gone,
+      the ink surface is smaller than the ticket assumed when written. Homer's
+      missing exclusive item and PLAYTEST FINDINGS 2's Mountain King boss-duel
+      retune remain the other live open threads.
+
 - [ ] PLAYTEST FINDINGS 2 — JAXON, 2026-08-22 (~19:25 UTC), SECOND PLAYTEST.
       His feedback, near-verbatim: enemies shouldn't have an HP number — HP
       bar instead; damaging them should ONLY happen by winning the duel push

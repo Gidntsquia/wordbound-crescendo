@@ -162,13 +162,10 @@ async function main() {
     if (!word) break;
   }
 
-  // tile reward, if the fight ended there (it always does on a normal kill)
-  const afterFight = await page.evaluate('window.Wordbound.Game._state.screen');
-  if (afterFight === 'TILE_REWARD') {
-    await page.waitForTimeout(600);
-    await page.click('#tile-reward-choices .treasure-choice');
-    await page.waitForTimeout(700);
-  }
+  // A tile-reward click used to go here -- PLAYTEST FINDINGS 3 item 2
+  // (2026-08-22) removed that step, so a normal kill drops straight back to
+  // the map. Just let the death beat finish before the next setup step.
+  await page.waitForTimeout(700);
 
   // ---- setup: jump to this floor's boss node (not itself the recorded interaction) ----
   // Branching map (GOALS.md, run 2/N): every node in the floor's last
@@ -186,7 +183,7 @@ async function main() {
     s.player.maxInk = 200;
     s.player.ink = 200;
   })()`);
-  await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();'); // force a render of the new node map
+  await page.evaluate('window.Wordbound.Game._render();'); // force a render of the new node map
   await page.waitForTimeout(500);
 
   // ---- boss entrance: a real click, captures the bossEntrance CSS animation ----

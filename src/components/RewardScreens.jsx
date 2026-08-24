@@ -1,13 +1,15 @@
 // React port of the "choose from a list" panel family (STRUCTURAL ticket,
-// sub-step after the combat panel): treasure-panel/tile-reward-panel/
-// boss-reward-panel from wordbound.html's game.js renderTreasure()/
-// renderShop()/renderTileReward()/renderBossReward(). These four share one
-// shape (a heading, a grid of clickable choice buttons, sometimes a trailing
-// leave/skip button) and every one of their Game.* actions (pickTreasureItem,
-// buyItem, buyShopTile, leaveShop, pickTileReward, skipTileReward,
+// sub-step after the combat panel): treasure-panel/boss-reward-panel from
+// wordbound.html's game.js renderTreasure()/renderShop()/renderBossReward().
+// They share one shape (a heading, a grid of clickable choice buttons,
+// sometimes a trailing leave/skip button) and every one of their Game.*
+// actions (pickTreasureItem, buyItem, buyShopTile, leaveShop,
 // pickBossItemReward, skipBossItemReward) is a synchronous state mutator --
 // same shape as toggleOvercharge/rewriteRack in CombatScreen.jsx, so no
-// setTimeout-bridging is needed here.
+// setTimeout-bridging is needed here. A TileRewardScreen (the per-kill
+// "add a tile to your deck?" step) used to live in this family -- removed
+// with the whole deck-building loop by PLAYTEST FINDINGS 3 item 2
+// (2026-08-22).
 //
 // EventScreen and ShredderScreen (below) are the same family too -- ported
 // in the STRUCTURAL ticket's EVENT/SHREDDER sub-step, direct ports of
@@ -102,45 +104,6 @@ function ShopTileOffer({ state, Game, act, Tiles }) {
   );
 }
 
-export function TileRewardScreen({ state, Game, act }) {
-  const Tiles = window.Wordbound.Tiles;
-  const Lexicon = window.Wordbound.Lexicon;
-
-  return (
-    <div className="treasure-panel">
-      <h2>Add a tile to your deck?</h2>
-      <div className="treasure-choices treasure-choices-tiles">
-        {state.tileRewardOptions.map((tile) => {
-          let bonusClass = '';
-          if (tile.variant) bonusClass = ' has-bonus variant-' + tile.variant;
-          else if (tile.bonus) {
-            bonusClass = ' has-bonus';
-            if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
-            else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
-            else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
-          }
-          const bonusDesc = Tiles.describeVariant(tile.variant) || Tiles.describeBonus(tile.bonus);
-          let val = Lexicon.LETTER_VALUES[tile.letter] || 0;
-          // Same doubled value the rack will show once this tile is in play --
-          // otherwise the reward screen understates what the player is picking.
-          if (tile.variant === Tiles.VARIANTS.VOLATILE) val *= 2;
-          const displayLetter = tile.letter === '?' ? '★' : tile.letter;
-          return (
-            <button key={tile.id} className={'treasure-choice treasure-choice-tile' + bonusClass}
-              onClick={() => act(() => Game.pickTileReward(tile.id))}>
-              <span className="tile-reward-letter">{displayLetter}<sub>{val}</sub></span>
-              {bonusDesc && <span className="tile-reward-bonus">{bonusDesc}</span>}
-            </button>
-          );
-        })}
-      </div>
-      <button className="btn btn-secondary tile-reward-skip" onClick={() => act(Game.skipTileReward)}>
-        Skip
-      </button>
-    </div>
-  );
-}
-
 export function BossRewardScreen({ state, Game, act }) {
   const Items = window.Wordbound.Items;
   return (
@@ -192,7 +155,7 @@ export function EventScreen({ state, Game, act }) {
   );
 }
 
-// Direct port of renderShredder(): the deck-viewer list made pickable, same
+// Direct port of renderShredder(): the deck listed pickably, same
 // remaining-picks math as game.js's shredderRemainingPicks() (not reused
 // directly -- that function is internal to game.js and only exposes a
 // test-only inspection hook, `Game._shredderRemainingPicks`, per its own

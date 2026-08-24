@@ -3,7 +3,7 @@
 //
 // GOALS.md STRUCTURAL ticket, remaining scope (a): `test:qa`
 // (test/orchestrator-qa-boss-reward.js) drives wordbound.html's boss-kill ->
-// tile-reward -> boss-item-reward flow with real Playwright clicks; nothing
+// boss-item-reward flow with real Playwright clicks; nothing
 // exercised that flow against the React/Vite app. This is that equivalent,
 // against a real `vite build` output statically served (same bar as
 // verify-react-build.js, never the dev server).
@@ -14,10 +14,11 @@
 // this script does not re-prove "playing a real word drops real HP" -- it
 // targets the one genuinely uncovered surface, the reward-panel SEQUENCING
 // after a boss kill, via real UI clicks throughout:
-//   1. boss kill -> tile-reward panel (real click pick) -> boss-item-reward
-//      panel (rare/legendary only) -> real click claim -> item chip appears,
-//      floor advances, panels never stacked.
-//   2. Skip path (tile-reward Skip -> straight to boss-item-reward -> Skip)
+//   1. boss kill -> boss-item-reward panel (rare/legendary only) -> real
+//      click claim -> item chip appears, floor advances, panels never
+//      stacked. (The per-kill tile-reward step this used to pass through
+//      first is gone -- PLAYTEST FINDINGS 3 item 2.)
+//   2. Skip path (boss-item-reward -> Skip)
 //      at a 375px mobile viewport, with an overflow/tap-target check on the
 //      boss-reward panel -- the first mobile-layout check of the React
 //      reward-panel family (RewardScreens.jsx's `.treasure-panel` shape has
@@ -40,13 +41,13 @@
 // but that mutation alone does NOT re-render the React tree -- RunScreen.jsx
 // only re-renders when its own `act()` wrapper runs, and that wrapper is a
 // local closure, unreachable from page.evaluate. Calling
-// `Game.openDeckViewer()`/`closeDeckViewer()` directly (the trick the
-// vanilla script uses to force a re-render) would silently no-op here for
-// the same reason. So instead, this script forces every post-mutation
-// re-render with a REAL UI click on the run-header's "Deck" button (open)
-// then "Close" (close) -- both real, on-screen, actionability-checked
-// clicks that route through RunScreen's real `act()`/bump cycle, landing
-// the map jump into a genuine re-rendered DOM rather than a stale one.
+// So this script forces every post-mutation re-render with the engine's
+// `Game._render()` hook, which RunScreen registers its own bump with for as
+// long as it is mounted (see its useEffect) -- one hook that repaints
+// whichever tree is live, landing the map jump into a genuine re-rendered
+// DOM rather than a stale one. Before PLAYTEST FINDINGS 3 item 2 this was
+// a real click on the run header's Deck button, whose act() call did the
+// same thing as a side effect; that button no longer exists.
 //
 // UPDATE 2026-08-22 (GOALS.md DUEL-GAUGE COMBAT ORCHESTRATOR DECISION,
 // "duel fights are React-only"): floor 1's boss now carries a real `.piece`
@@ -123,11 +124,17 @@ async function jumpToBossNode(page) {
     s.currentNodeId = null;
   });
   // Force a real React re-render via real UI clicks (see header comment --
-  // a direct Game.openDeckViewer()/closeDeckViewer() page.evaluate call
+  // a direct Game._render() page.evaluate call
   // would bypass RunScreen's act()/bump cycle and leave the DOM stale).
-  await page.click('button:has-text("Deck")');
-  await page.waitForSelector('.treasure-panel:has-text("Your Deck")');
-  await page.click('button:has-text("Close")');
+  // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): this used to open and
+  // close the run-header's Deck button, whose act() call re-rendered the
+  // tree as a side effect. That button is gone with the deck view, so this
+  // now uses Game._render() -- which RunScreen registers its own bump with
+  // while mounted, so the one hook repaints whichever tree is live. (The
+  // corner settings gear is NOT a substitute, confirmed the hard way: its
+  // open state lives inside SettingsCorner, so toggling it re-renders that
+  // component alone and leaves the node map stale.)
+  await page.evaluate(() => window.Wordbound.Game._render());
   await page.waitForSelector('.node-map');
 }
 
@@ -250,9 +257,18 @@ async function killBossViaRealWord(page) {
   await page.fill('input[placeholder="Type or click letters..."]', word);
   await page.click('button:has-text("Play Word")');
   // CombatScreen.jsx's own killing-blow bump lands ~800ms after the click
-  // (see its header comment) -- wait on the real re-rendered heading text
-  // rather than a fixed sleep.
-  await page.waitForFunction(() => document.body.textContent.includes('Add a tile to your deck?'), { timeout: 5000 });
+  // (see its header comment) -- wait on the real resolved state rather than
+  // a fixed sleep. Was a wait on the "Add a tile to your deck?" heading;
+  // PLAYTEST FINDINGS 3 item 2 removed that screen, and a boss kill now
+  // lands on its hoard directly (or, if every rare/legendary is already
+  // owned, straight on to the next floor) -- so this waits on the fight
+  // itself ending, which is true for both.
+  await page.waitForFunction(() => window.Wordbound.Game._state.combatActive === false, { timeout: 5000 });
+  // The engine flips combatActive a beat before CombatScreen.jsx's own
+  // killing-blow bump repaints the React tree, so also wait for the settled
+  // post-kill DOM: a boss lands on its hoard, unless every rare/legendary is
+  // already owned, in which case it advances straight to the next floor's map.
+  await page.waitForSelector('.treasure-panel:has-text("hoard"), .node-map', { timeout: 5000 });
   return word;
 }
 
@@ -323,13 +339,15 @@ async function main() {
     // checks for), the duel-mode equivalent of the music mode reverting.
     check('duel state is torn down right after the kill', await page.evaluate(() => !window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer));
 
-    check('tile-reward panel visible after boss kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
-    check('boss-reward panel NOT visible yet (sequential, not stacked)', !(await page.isVisible('.treasure-panel:has-text("hoard")')));
-
-    await page.click('.treasure-choice-tile'); // real click: take a tile
-    check('after tile pick: boss-reward panel visible', await page.isVisible('.treasure-panel:has-text("hoard")'));
-    check('after tile pick: tile-reward panel hidden again', !(await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")')));
-    check('after tile pick: node map hidden while boss reward shows', !(await page.isVisible('.node-map')));
+    // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): a boss kill used to
+    // land on the per-kill "Add a tile to your deck?" panel first and only
+    // reach its hoard once that was picked/skipped. The deck-building loop is
+    // gone, so the kill goes straight to the hoard -- these assert that new
+    // sequencing AND that the removed panel genuinely never appears.
+    check('boss-reward panel visible immediately after the boss kill (no tile step)', await page.isVisible('.treasure-panel:has-text("hoard")'));
+    check('no tile-reward panel appears at all', !(await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")')));
+    check('no tile choice buttons exist anywhere', (await page.locator('.treasure-choice-tile').count()) === 0);
+    check('node map hidden while boss reward shows', !(await page.isVisible('.node-map')));
 
     const rarities = await page.evaluate(() => {
       const s = window.Wordbound.Game._state;
@@ -359,8 +377,7 @@ async function main() {
     const word2 = await killBossViaRealWord(page);
     check(`boss #2 killed via a real submitted word (${word2}), 375px viewport`, !!word2);
 
-    await page.click('.tile-reward-skip'); // real click: skip the tile
-    check('skip path: boss-reward panel visible immediately after skipping the tile', await page.isVisible('.treasure-panel:has-text("hoard")'));
+    check('skip path: boss-reward panel visible immediately after the kill', await page.isVisible('.treasure-panel:has-text("hoard")'));
 
     const layout = await page.evaluate(() => {
       const overflow = document.documentElement.scrollWidth - document.documentElement.clientWidth;
@@ -408,10 +425,8 @@ async function main() {
     check(`floor-3 boss killed via a real submitted word (${word3})`, !!word3);
     check('duel state is torn down right after the floor-3 kill', await page.evaluate(() => !window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer));
 
-    check('tile-reward panel visible after the floor-3 boss kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
     const floorBeforeFloor3Claim = await page.evaluate(() => window.Wordbound.Game._state.floorNumber);
-    await page.click('.treasure-choice-tile'); // real click: take a tile
-    check('after floor-3 tile pick: boss-reward panel visible', await page.isVisible('.treasure-panel:has-text("hoard")'));
+    check('floor-3 boss kill goes straight to the boss-reward panel', await page.isVisible('.treasure-panel:has-text("hoard")'));
 
     await page.click('.treasure-panel:has-text("hoard") .treasure-choice'); // real click: claim the item
     await page.waitForFunction((before) => window.Wordbound.Game._state.floorNumber > before, floorBeforeFloor3Claim, { timeout: 3000 });
@@ -425,7 +440,7 @@ async function main() {
     // 5th. This is the first real-browser proof that a THIRD,
     // independently-authored piece drives a real duel correctly, and that
     // beating the run's true LAST floor boss resolves to VICTORY through
-    // the exact same tile-reward -> boss-item-reward plumbing every other
+    // the exact same boss-item-reward plumbing every other
     // boss kill uses (advanceFloor's own `floorNumber > TOTAL_FLOORS`
     // check, no special-cased path).
     await jumpToBossNode(page);
@@ -441,9 +456,7 @@ async function main() {
     check(`floor-4 boss killed via a real submitted word (${word4})`, !!word4);
     check('duel state is torn down right after the floor-4 kill', await page.evaluate(() => !window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer));
 
-    check('tile-reward panel visible after the floor-4 boss kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
-    await page.click('.treasure-choice-tile'); // real click: take a tile
-    check('after floor-4 tile pick: boss-reward panel visible', await page.isVisible('.treasure-panel:has-text("hoard")'));
+    check('floor-4 boss kill goes straight to the boss-reward panel', await page.isVisible('.treasure-panel:has-text("hoard")'));
 
     await page.click('.treasure-panel:has-text("hoard") .treasure-choice'); // real click: claim the item
     await page.waitForFunction(() => window.Wordbound.Game._state.screen === 'VICTORY', { timeout: 3000 });

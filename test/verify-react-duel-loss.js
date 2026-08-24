@@ -99,9 +99,15 @@ async function jumpToBossNode(page) {
     s.mapPositionNodeId = lastRowNode.id;
     s.currentNodeId = null;
   });
-  await page.click('button:has-text("Deck")');
-  await page.waitForSelector('.treasure-panel:has-text("Your Deck")');
-  await page.click('button:has-text("Close")');
+  // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): this used to open and
+  // close the run-header's Deck button, whose act() call re-rendered the
+  // tree as a side effect. That button is gone with the deck view, so this
+  // now uses Game._render() -- which RunScreen registers its own bump with
+  // while mounted, so the one hook repaints whichever tree is live. (The
+  // corner settings gear is NOT a substitute, confirmed the hard way: its
+  // open state lives inside SettingsCorner, so toggling it re-renders that
+  // component alone and leaves the node map stale.)
+  await page.evaluate(() => window.Wordbound.Game._render());
   await page.waitForSelector('.node-map');
 }
 

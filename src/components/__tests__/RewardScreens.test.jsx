@@ -2,7 +2,7 @@ import { useReducer } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen } from '../RewardScreens.jsx';
+import { TreasureOrShopScreen, BossRewardScreen } from '../RewardScreens.jsx';
 import { freshRun, defeatCurrentMonster, findNodeIdByType, findAvailableCombatNodeId } from '../../test/gameHelpers.js';
 
 // See RunScreen.test.jsx's header comment: node ids are looked up by type,
@@ -20,7 +20,6 @@ const WORD_CANDIDATES = ['RADIO', 'ROAD', 'RAID', 'READ', 'RAIN', 'AIDE', 'DINE'
 // of forcing the real component to render its now-stale options as null.
 const SCREEN_FOR = new Map([
   [TreasureOrShopScreen, (s) => s.screen === 'TREASURE' || s.screen === 'SHOP'],
-  [TileRewardScreen, (s) => s.screen === 'TILE_REWARD'],
   [BossRewardScreen, (s) => s.screen === 'BOSS_ITEM_REWARD'],
 ]);
 
@@ -144,43 +143,42 @@ describe('TreasureOrShopScreen -- SHOP', () => {
   });
 });
 
-describe('TileRewardScreen', () => {
-  it('appears after a real kill; picking a tile adds it to the deck and returns to the map', async () => {
+// PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): a `TileRewardScreen`
+// describe block used to sit here, covering the per-kill "add a tile to your
+// deck?" step (that it appeared after a real kill, that picking grew the
+// deck, that Skip didn't). Jaxon removed the whole deck-building loop --
+// "we aren't adding tiles to our deck anymore" -- so the component and its
+// screen no longer exist. The coverage is deliberately inverted rather than
+// dropped: this block now proves, through the SAME real kill the old tests
+// drove, that a regular kill grants gold and goes straight back to the map
+// with the deck untouched and no reward step in between.
+describe('a regular kill resolves with no tile-reward step', () => {
+  it('goes straight back to the map, grants gold, and never grows the deck', async () => {
     const state = freshRun(SEED);
     window.Wordbound.Game.enterCurrentNode(findAvailableCombatNodeId(state)); // regular combat, not a boss
-    await defeatCurrentMonster(state, WORD_CANDIDATES);
-    expect(state.screen).toBe('TILE_REWARD');
     const deckSizeBefore = state.deck.length;
-    const chosenTileId = state.tileRewardOptions[0].id;
+    const goldBefore = state.player.gold;
+    await defeatCurrentMonster(state, WORD_CANDIDATES);
 
-    const user = userEvent.setup();
-    render(<Harness Screen={TileRewardScreen} />);
-    const tileButtons = screen.getAllByRole('button');
-    await user.click(tileButtons[0]);
-
-    expect(state.deck.length).toBe(deckSizeBefore + 1);
-    expect(state.deck.some((t) => t.id === chosenTileId)).toBe(true);
-    // Regular (non-boss) kill resolves straight back to the map, not a boss reward.
     expect(state.screen).toBe('RUN');
+    expect(state.combatActive).toBe(false);
+    expect(state.deck.length).toBe(deckSizeBefore);
+    // Gold is the kill's whole reward now, so it must actually be granted.
+    expect(state.player.gold).toBeGreaterThan(goldBefore);
+    // The pick-a-tile state the removed screen read is gone from state too,
+    // not merely unrendered.
+    expect(state.tileRewardOptions).toBeUndefined();
+    expect(state.pendingAfterTileReward).toBeUndefined();
   });
 
-  it('Skip does not add a tile and still returns to the map', async () => {
-    const state = freshRun(SEED);
-    window.Wordbound.Game.enterCurrentNode(findAvailableCombatNodeId(state));
-    await defeatCurrentMonster(state, WORD_CANDIDATES);
-    const deckSizeBefore = state.deck.length;
-
-    const user = userEvent.setup();
-    render(<Harness Screen={TileRewardScreen} />);
-    await user.click(screen.getByRole('button', { name: 'Skip' }));
-
-    expect(state.deck.length).toBe(deckSizeBefore);
-    expect(state.screen).toBe('RUN');
+  it('does not expose the removed tile-reward actions on Game at all', () => {
+    expect(window.Wordbound.Game.pickTileReward).toBeUndefined();
+    expect(window.Wordbound.Game.skipTileReward).toBeUndefined();
   });
 });
 
 describe('BossRewardScreen', () => {
-  it('appears after skipping the tile reward from a real boss kill, and picking an item advances the floor', async () => {
+  it('appears directly on a real boss kill, and picking an item advances the floor', async () => {
     const state = freshRun(SEED);
     // Was findNodeIdByType(state, 'boss') (the floor's real floor-1 boss) --
     // pinned to a synthetic boss_unabridged node instead (GOALS.md
@@ -201,10 +199,9 @@ describe('BossRewardScreen', () => {
     window.Wordbound.Game.enterCurrentNode('reward-test-boss');
     expect(state.monster.isBoss).toBe(true);
     await defeatCurrentMonster(state, WORD_CANDIDATES);
-    expect(state.pendingAfterTileReward).toBe('bossItemReward');
-
-    // Resolve the tile reward first (Skip) -- boss kills always show it before BOSS_ITEM_REWARD.
-    window.Wordbound.Game.skipTileReward();
+    // PLAYTEST FINDINGS 3 item 2: a boss kill used to stop at the per-kill
+    // tile reward and only reach its item hoard once that was resolved --
+    // it now lands on BOSS_ITEM_REWARD directly.
     expect(state.screen).toBe('BOSS_ITEM_REWARD');
     expect(state.bossRewardOptions.length).toBeGreaterThan(0);
 

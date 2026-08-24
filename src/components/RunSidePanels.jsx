@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
 
 // React port of the run-header's always-available side surfaces (STRUCTURAL
-// ticket, parity gap found 2026-08-21: wordbound.html's #items-owned strip,
-// #deck-viewer-panel and #item-inspector-panel had NO React equivalent at
-// all -- a player who picked up an item in the React app had no way to ever
-// see what they owned or view their deck. Direct ports of game.js's
-// renderItemsOwned()/renderDeckViewer()/renderItemInspector(), reusing the
-// same `.treasure-panel`/`.treasure-choices` shape RewardScreens.jsx's
-// screens already use (game.js's own #deck-viewer-panel/#item-inspector-panel
-// markup reuses that exact class too). A #consumables-panel/ConsumablesPanel
-// used to live in this same family -- removed along with the whole
-// consumable mechanic by PLAYTEST FINDINGS 3 item 1 (2026-08-22).
+// ticket, parity gap found 2026-08-21: wordbound.html's #items-owned strip
+// and #item-inspector-panel had NO React equivalent at all -- a player who
+// picked up an item in the React app had no way to ever see what they
+// owned. Direct ports of game.js's renderItemsOwned()/renderItemInspector(),
+// reusing the same `.treasure-panel`/`.treasure-choices` shape
+// RewardScreens.jsx's screens already use (game.js's own
+// #item-inspector-panel markup reuses that exact class too). Two siblings
+// used to live in this family and are both gone: a #consumables-panel/
+// ConsumablesPanel (removed with the consumable mechanic, PLAYTEST FINDINGS
+// 3 item 1) and a #deck-viewer-panel/DeckViewerPanel (removed with the whole
+// deck-building loop, PLAYTEST FINDINGS 3 item 2), both 2026-08-22.
 //
-// Game.openDeckViewer/openItemInspector are synchronous state mutators (same
-// shape as Game.toggleOvercharge), so no setTimeout bridging is needed here
-// -- same pattern as RewardScreens.jsx.
+// Game.openItemInspector is a synchronous state mutator (same shape as
+// Game.toggleOvercharge), so no setTimeout bridging is needed here -- same
+// pattern as RewardScreens.jsx.
 
 // Direct port of renderItemsOwned(): a chip per owned item, clickable to open
 // the inspector. `state.proccedItemIds` flashes a chip once (FUN OVERHAUL
@@ -52,38 +53,6 @@ export function ItemsOwnedStrip({ state, Game, act }) {
   );
 }
 
-// Direct port of renderDeckViewer(): every tile in the deck (not just the
-// current rack), sorted alphabetically, read-only (no click handler --
-// matches vanilla's `div.style.cursor = 'default'`, these aren't buttons).
-export function DeckViewerPanel({ state, Game, act }) {
-  const Tiles = window.Wordbound.Tiles;
-  const sorted = (state.deck || []).slice().sort((a, b) => a.letter.localeCompare(b.letter));
-  return (
-    <div className="treasure-panel">
-      <h2>Your Deck</h2>
-      <div className="treasure-choices">
-        {sorted.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#b8ac8a' }}>Deck is empty</p>
-        ) : (
-          sorted.map((tile) => {
-            const variantClass = tile.variant ? ' variant-' + tile.variant : '';
-            const bonusDesc = Tiles.describeVariant(tile.variant) || Tiles.describeBonus(tile.bonus);
-            return (
-              <div key={tile.id} className={'treasure-choice' + variantClass} style={{ cursor: 'default' }}>
-                <strong>{tile.letter === '?' ? '★' : tile.letter}</strong>
-                {bonusDesc && (<><br />{bonusDesc}</>)}
-              </div>
-            );
-          })
-        )}
-      </div>
-      <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => act(Game.closeDeckViewer)}>
-        Close
-      </button>
-    </div>
-  );
-}
-
 // Direct port of renderItemInspector(): the clicked chip's name + hint,
 // opened by ItemsOwnedStrip above via Game.openItemInspector.
 export function ItemInspectorPanel({ state, Game, act }) {
@@ -101,29 +70,24 @@ export function ItemInspectorPanel({ state, Game, act }) {
   );
 }
 
-// Direct port of the run-header's Deck button (wordbound.html's
-// `.run-header-actions`). The music mute/volume + Largo assist used to live
-// here too (see SettingsCorner below, PLAYTEST FINDINGS 3 item 3/4) -- moved
-// out into a corner settings panel so the run header itself stays lean.
-// The Consumables button that used to sit alongside Deck is gone -- PLAYTEST
-// FINDINGS 3 item 1 (2026-08-22) removed the consumable mechanic entirely.
-export function RunHeaderActions({ state, Game, act }) {
-  return (
-    <div className="run-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <button className="btn btn-secondary run-header-btn" onClick={() => act(Game.openDeckViewer)}>
-        Deck
-      </button>
-    </div>
-  );
+// wordbound.html's `.run-header-actions` slot. PLAYTEST FINDINGS 3 emptied
+// it out entirely over three runs: the music mute/volume + Largo assist moved
+// into SettingsCorner below (items 3/4), the Consumables button went with the
+// consumable mechanic (item 1), and the Deck button went with the deck view
+// (item 2). Kept as an empty, still-mounted slot rather than deleted so the
+// header's flex layout and every caller stay unchanged -- the next control
+// that belongs in the header goes here.
+export function RunHeaderActions() {
+  return <div className="run-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }} />;
 }
 
 // PLAYTEST FINDINGS 3 (GOALS.md), items 3 + 4: Jaxon didn't know what "Largo"
 // meant (the label failed as UI copy) and wanted mute/volume tucked away
 // instead of sitting in the main run header. Both controls -- plus the
 // renamed Largo assist -- now live behind a single gear button fixed in a
-// bottom screen corner, out of the main combat-loop sightline (the header
-// above still shows only Deck; the duel-loop chrome itself -- Volume gauge,
-// enemy segments, Verses pips, rack -- is untouched by this).
+// bottom screen corner, out of the main combat-loop sightline (the duel-loop
+// chrome itself -- Volume gauge, enemy segments, Verses pips, rack -- is
+// untouched by this).
 // Reads Game.getAudioSettings()/Game.getLargoEnabled() fresh every render for
 // the same reason RunHeaderActions used to: both live in game.js's own
 // closure, not `state`, so every control here routes through `act()` to bump

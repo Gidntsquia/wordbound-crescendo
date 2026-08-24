@@ -19,7 +19,7 @@
 //   1. WIN -- gymnopediste, forced to one push from winning (pushesToDefeat
 //      is 1 for a regular, matching game.js's own `monster.isBoss ? 3 : 1`
 //      default), then a real submitted word finishes it. Confirms the
-//      regular TILE_REWARD path (not the boss-only "hoard" reward panel)
+//      regular back-to-the-map path (not the boss-only "hoard" reward panel)
 //      and glyph/name/tier wiring off the real MONSTER_DEFS entry.
 //   2. LOSS -- morningmood, on a fresh node, healthBlocks forced to 1 and
 //      the gauge forced to the enemy edge -- the real per-frame tick loop
@@ -124,9 +124,15 @@ async function enterForcedRegularDuelAnywhereOnFloor(page, defId) {
     s.mapPositionNodeId = predEdge ? predEdge[0] : null;
     s.currentNodeId = null;
   }, defId);
-  await page.click('button:has-text("Deck")');
-  await page.waitForSelector('.treasure-panel:has-text("Your Deck")');
-  await page.click('button:has-text("Close")');
+  // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): this used to open and
+  // close the run-header's Deck button, whose act() call re-rendered the
+  // tree as a side effect. That button is gone with the deck view, so this
+  // now uses Game._render() -- which RunScreen registers its own bump with
+  // while mounted, so the one hook repaints whichever tree is live. (The
+  // corner settings gear is NOT a substitute, confirmed the hard way: its
+  // open state lives inside SettingsCorner, so toggling it re-renders that
+  // component alone and leaves the node map stale.)
+  await page.evaluate(() => window.Wordbound.Game._render());
   await page.waitForSelector('.node-map');
   await page.click('.node-pill.node-combat.node-current');
 }
@@ -196,7 +202,14 @@ async function winDuelViaRealWord(page) {
   if (!word) return null;
   await page.fill('input[placeholder="Type or click letters..."]', word);
   await page.click('button:has-text("Play Word")');
-  await page.waitForFunction(() => document.body.textContent.includes('Add a tile to your deck?'), { timeout: 5000 });
+  // Was a wait on the "Add a tile to your deck?" heading -- PLAYTEST
+  // FINDINGS 3 item 2 removed that screen, so a regular kill now resolves
+  // straight back to the map. Wait on the fight actually ending instead.
+  await page.waitForFunction(() => window.Wordbound.Game._state.combatActive === false, { timeout: 5000 });
+  // The engine flips combatActive a beat before CombatScreen.jsx's own
+  // killing-blow bump repaints the React tree -- wait for the settled
+  // post-kill DOM (a regular kill goes straight back to the map).
+  await page.waitForSelector('.node-map', { timeout: 5000 });
   return word;
 }
 
@@ -249,12 +262,15 @@ async function main() {
     const word = await winDuelViaRealWord(page);
     check(`regular #1 killed via a real submitted word (${word})`, !!word);
     check('duel state is torn down right after a REGULAR kill (not boss-only)', await page.evaluate(() => !window.Wordbound.Game._state.duel && !window.Wordbound.Game._state.duelSequencer));
-    check('tile-reward panel visible after the regular kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
+    // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): a regular kill used
+    // to stop at the per-kill "Add a tile to your deck?" panel. That step is
+    // gone -- the kill lands straight back on the node map with gold as its
+    // whole reward. Inverted assertions, not dropped coverage.
+    check('no tile-reward panel after the regular kill', !(await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")')));
     check('boss-reward panel never appears for a REGULAR kill (no "hoard" panel)', !(await page.isVisible('.treasure-panel:has-text("hoard")')));
 
-    await page.click('.treasure-choice-tile');
     await page.waitForSelector('.node-map');
-    check('after a regular kill + tile pick: straight back to the node map (no boss-reward detour)', await page.isVisible('.node-map'));
+    check('after a regular kill: straight back to the node map (no reward detour at all)', await page.isVisible('.node-map'));
 
     // ---- LOSS: morningmood, a fresh node on the same floor ----
     await enterForcedRegularDuelAnywhereOnFloor(page, 'morningmood');
@@ -303,8 +319,7 @@ async function main() {
     }));
     const midWord = await winDuelViaRealWord(page);
     check(`mid-tier regular #1 (The Gnossienne) killed via a real submitted word (${midWord})`, !!midWord);
-    check('tile-reward panel visible after the mid-tier regular kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
-    await page.click('.treasure-choice-tile');
+    check('no tile-reward panel after the mid-tier regular kill', !(await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")')));
     await page.waitForSelector('.node-map');
 
     // ---- LOSS: invention (mid tier), a fresh node on the same floor ----
@@ -351,7 +366,7 @@ async function main() {
     }));
     const metronomeWord = await winDuelViaRealWord(page);
     check(`mid-tier regular #3 (The Metronome) killed via a real submitted word (${metronomeWord})`, !!metronomeWord);
-    check('tile-reward panel visible after The Metronome kill', await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")'));
+    check('no tile-reward panel after The Metronome kill; straight back to the map', !(await page.isVisible('.treasure-panel:has-text("Add a tile to your deck?")')) && (await page.isVisible('.node-map')));
 
     check('zero failed requests / 404s across the whole run', failedRequests.length === 0);
     failedRequests.forEach((f) => console.log('  BAD REQUEST:', f));

@@ -101,15 +101,15 @@ export function pickPlayableWord(state, candidates) {
   );
 }
 
-// Game.submitWord resolves a kill's screen transition (TILE_REWARD) inside
-// its own setTimeout (see CombatScreen.jsx's header comment: ~220ms, +500ms
-// more on a killing blow) -- this polls the real state instead of a fixed
-// sleep, so it's exact regardless of which of those constants apply.
-async function waitForScreen(state, screen, timeoutMs = 2000) {
+// Game.submitWord resolves a kill inside its own setTimeout (see
+// CombatScreen.jsx's header comment: ~220ms, +500ms more on a killing blow)
+// -- this polls the real state instead of a fixed sleep, so it's exact
+// regardless of which of those constants apply.
+async function waitFor(state, predicate, describeWait, timeoutMs = 2000) {
   const start = Date.now();
-  while (state.screen !== screen) {
+  while (!predicate()) {
     if (Date.now() - start > timeoutMs) {
-      throw new Error(`timed out waiting for screen "${screen}" -- state.screen is still "${state.screen}"`);
+      throw new Error(`timed out waiting for ${describeWait} -- state.screen is "${state.screen}", combatActive is ${state.combatActive}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
@@ -118,12 +118,21 @@ async function waitForScreen(state, screen, timeoutMs = 2000) {
 // Forces the current fight's monster to 1 HP and plays a real, valid word
 // to land the kill (same shortcut the orchestrator's own Playwright smoke
 // tests used -- see PROGRESS.md's STRUCTURAL 6/N entry), then waits for the
-// real async resolution to land on TILE_REWARD. Requires combat to already
-// be active (call Game.enterCurrentNode on a combat/elite/boss node first).
+// real async resolution to finish. Requires combat to already be active
+// (call Game.enterCurrentNode on a combat/elite/boss node first).
+//
+// PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): this used to wait on
+// `state.screen === 'TILE_REWARD'`, the per-kill add-a-tile step every kill
+// resolved into. That step is gone, and the two kinds of kill now resolve
+// differently -- a boss goes to BOSS_ITEM_REWARD, a regular goes straight
+// back to the map ('RUN', which is ALSO the screen the fight started from,
+// so a screen comparison alone can't tell "resolved" from "not started
+// yet"). Waiting on combatActive flipping false is the one signal that is
+// correct for both.
 export async function defeatCurrentMonster(state, candidates) {
   const Game = window.Wordbound.Game;
   state.monster.hp = 1;
   const word = pickPlayableWord(state, candidates);
   Game.submitWord(word);
-  await waitForScreen(state, 'TILE_REWARD');
+  await waitFor(state, () => state.combatActive === false, 'the kill to resolve (combatActive false)');
 }

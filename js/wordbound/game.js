@@ -179,15 +179,12 @@
     shopkeeperId: null, // SHOPKEEPERS ticket (GOALS.md): the author (shopkeepers.js AUTHOR_DEFS key) running the current shop, rolled fresh from state.rng per visit; null outside a shop
     shopkeeperRarityFocus: null, // only meaningful when shopkeeperId is 'austen' -- the rarity tier her quirk discounts this visit
     shopkeeperLine: '', // a shop line rolled from the current shopkeeper's `lines`, held on state so it doesn't change on every render
-    tileRewardOptions: null,
     bossRewardOptions: null, // rare/legendary item choices offered after a boss kill, see rollBossRewardOptions
-    pendingAfterTileReward: null, // 'bossItemReward' | 'nextNode'
     currentEvent: null, // { id, def: EventDef, name, text, choices }
     pendingEventSkipNextCombat: false, // if true, skip next combat node
     shredderSelection: [], // GOALS.md "FUN OVERHAUL 7/8": tile ids picked for destruction on the Shredder sub-screen, cleared when it resolves
     activeWager: null, // GOALS.md "FUN OVERHAUL 7/8": { stake, payout } while a Wager with the Stacks is live, resolved on the next monster kill
     repeatedWordThisFight: false, // true once any word is replayed this fight -- what loses the wager, reset in startCombat
-    deckViewerOpen: false,
     itemInspectorOpen: false,
     itemInspectorId: null,
     howToPlayOpen: false,
@@ -396,6 +393,22 @@
   };
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
   Game._availableNodeIds = function () { return availableNodeIds(); }; // STRUCTURAL ticket (GOALS.md, React port): exposed so the React map view can compute which node pills are clickable using the exact same logic renderNodeMap() uses, instead of duplicating the traversal in JSX
+  // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): render() is
+  // module-private, and the test scripts used to force a re-render by
+  // opening and immediately closing the deck viewer -- a real UI action with
+  // a render as its side effect. That panel is gone with the deck-building
+  // loop, so the idiom it depended on becomes an explicit hook. It serves
+  // BOTH trees: the vanilla render() plus, when the React app is mounted,
+  // RunScreen's own bump (registered via Game._setReactBump -- a React
+  // component's re-render is driven by its local `act()`/bump closure, which
+  // nothing outside the component can reach, which is exactly why the
+  // scripts needed a real click in the first place).
+  var reactBump = null;
+  Game._setReactBump = function (fn) { reactBump = fn; };
+  Game._render = function () {
+    render();
+    if (reactBump) reactBump();
+  };
   Game._sfxCallLog = function () { return sfxCallLog.slice(); }; // AUDIO ticket (GOALS.md, 2026-08-21): exposed so tests can assert which SFX fired, whether mute suppressed them, and whether the tile-tap debounce ate a burst -- jsdom has no real Web Audio to listen to, this is the substitute
   Game._clearSfxCallLog = function () { sfxCallLog.length = 0; lastSfxAt = {}; }; // AUDIO ticket: reset between test cases so each assertion starts from a clean log/debounce state
 
@@ -539,7 +552,7 @@
     if (victory && Achievements) Achievements.trackRunCompletion();
     // STOLEN LETTERS META-PROGRESSION ticket: clear_a_run only ever unlocks
     // here (onMonsterDefeated's own sync call can't catch it -- a run's
-    // final boss kill resolves to TILE_REWARD first, VICTORY only fires
+    // final boss kill resolves to BOSS_ITEM_REWARD first, VICTORY only fires
     // later once its item is claimed/skipped), so this is the one call
     // site that actually needs its own sync rather than relying on the
     // combat-side one above.
@@ -1781,41 +1794,26 @@
     }
 
     state.player.rack = [];
-    state.pendingAfterTileReward = wasBoss ? 'bossItemReward' : 'nextNode';
-    state.tileRewardOptions = Tiles.rollRewardOptions(state.rng, 3);
-    state.screen = 'TILE_REWARD';
-    render();
-  }
-
-  Game.pickTileReward = function (tileId) {
-    var chosen = null;
-    state.tileRewardOptions.forEach(function (t) { if (t.id === tileId) chosen = t; });
-    if (chosen) {
-      state.deck.push(chosen);
-      var modDesc = Tiles.describeVariant(chosen.variant) || Tiles.describeBonus(chosen.bonus);
-      log('Added ' + chosen.letter + (modDesc ? ' (' + modDesc + ')' : '') + ' to your deck.');
-    }
-    resolveTileReward();
-  };
-
-  Game.skipTileReward = function () {
-    resolveTileReward();
-  };
-
-  function resolveTileReward() {
-    state.tileRewardOptions = null;
-    var pending = state.pendingAfterTileReward;
-    state.pendingAfterTileReward = null;
-    if (pending === 'bossItemReward') {
-      var options = rollBossRewardOptions();
-      if (options.length === 0) {
-        // Every rare/legendary item is already owned -- nothing left to offer,
-        // skip straight to the floor advance rather than show an empty panel.
+    // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): the per-kill
+    // "add a tile to your deck?" reward step is gone -- Jaxon: "we aren't
+    // adding tiles to our deck anymore." Every kill already grants gold
+    // unconditionally (above), so a regular kill goes straight back to the
+    // map and a boss kill goes straight into its item-hoard reward, folding
+    // what used to be resolveTileReward()'s boss-branch logic directly in
+    // here (that function, and the TILE_REWARD screen/pick-a-tile-or-skip
+    // step it gated, no longer exist).
+    if (wasBoss) {
+      var bossRewardOptions = rollBossRewardOptions();
+      if (bossRewardOptions.length === 0) {
+        // Every rare/legendary item is already owned -- nothing left to
+        // offer, skip straight to the floor advance rather than show an
+        // empty panel.
         state.screen = 'RUN';
         advanceFloor();
+        render();
         return;
       }
-      state.bossRewardOptions = options;
+      state.bossRewardOptions = bossRewardOptions;
       state.screen = 'BOSS_ITEM_REWARD';
       render();
       return;
@@ -1842,24 +1840,16 @@
     advanceFloor();
   }
 
-  // ---- deck viewer --------------------------------------------------------
+  // ---- item inspector -----------------------------------------------------
+  // The deck viewer used to live here alongside it (PLAYTEST FINDINGS 3
+  // item 2, 2026-08-22: Jaxon -- "we aren't adding tiles to our deck
+  // anymore", no deck-shaped UI). The deck itself is still the rack's draw
+  // pile, purely an implementation detail now.
 
   function closeAllSidePanels() {
-    state.deckViewerOpen = false;
     state.itemInspectorOpen = false;
     state.itemInspectorId = null;
   }
-
-  Game.openDeckViewer = function () {
-    closeAllSidePanels();
-    state.deckViewerOpen = true;
-    render();
-  };
-
-  Game.closeDeckViewer = function () {
-    state.deckViewerOpen = false;
-    render();
-  };
 
   Game.openItemInspector = function (itemId) {
     closeAllSidePanels();
@@ -3320,32 +3310,28 @@
       : '<div class="message-log-placeholder">The Stacks are quiet.</div>';
     log_.scrollTop = log_.scrollHeight;
 
-    // BUG (QA polish pass, 2026-08-21): deck-viewer-panel/item-inspector-panel
-    // used to be toggled and early-returned on BEFORE the node-map/
-    // combat-panel/overlay-panel toggles below ever ran -- so whichever
-    // screen was visible on the PREVIOUS render (node map, a fight, even a
+    // BUG (QA polish pass, 2026-08-21): item-inspector-panel used to be
+    // toggled and early-returned on BEFORE the node-map/combat-panel/
+    // overlay-panel toggles below ever ran -- so whichever screen was
+    // visible on the PREVIOUS render (node map, a fight, even a
     // treasure/shop screen) stayed visible and stacked behind the
     // newly-opened side panel instead of being replaced by it. Folding
     // sidePanelOpen into every other panel's hidden toggle (computed first,
     // used everywhere below) closes that regardless of which panel opened
-    // first, without touching any of the existing per-screen logic.
-    var sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen;
-    var overlayScreen = state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD' || state.screen === 'EVENT' || state.screen === 'SHREDDER';
+    // first, without touching any of the existing per-screen logic. (The
+    // deck viewer was the other member of this family until PLAYTEST
+    // FINDINGS 3 item 2 removed it.)
+    var sidePanelOpen = state.itemInspectorOpen;
+    var overlayScreen = state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'BOSS_ITEM_REWARD' || state.screen === 'EVENT' || state.screen === 'SHREDDER';
     $('node-map').classList.toggle('hidden', sidePanelOpen || state.combatActive || overlayScreen);
     $('combat-panel').classList.toggle('hidden', sidePanelOpen || !state.combatActive);
     $('combat-panel').classList.toggle('boss-combat', state.combatActive && state.monster && state.monster.isBoss);
     $('treasure-panel').classList.toggle('hidden', sidePanelOpen || (state.screen !== 'TREASURE' && state.screen !== 'SHOP'));
-    $('tile-reward-panel').classList.toggle('hidden', sidePanelOpen || state.screen !== 'TILE_REWARD');
     $('boss-reward-panel').classList.toggle('hidden', sidePanelOpen || state.screen !== 'BOSS_ITEM_REWARD');
     $('event-panel').classList.toggle('hidden', sidePanelOpen || state.screen !== 'EVENT');
     $('shredder-panel').classList.toggle('hidden', sidePanelOpen || state.screen !== 'SHREDDER');
 
-    $('deck-viewer-panel').classList.toggle('hidden', !state.deckViewerOpen);
     $('item-inspector-panel').classList.toggle('hidden', !state.itemInspectorOpen);
-    if (state.deckViewerOpen) {
-      renderDeckViewer();
-      return;
-    }
     if (state.itemInspectorOpen) {
       renderItemInspector();
       return;
@@ -3357,10 +3343,6 @@
     }
     if (state.screen === 'SHOP') {
       renderShop();
-      return;
-    }
-    if (state.screen === 'TILE_REWARD') {
-      renderTileReward();
       return;
     }
     if (state.screen === 'BOSS_ITEM_REWARD') {
@@ -3615,34 +3597,6 @@
     el.appendChild(leaveBtn);
   }
 
-  function renderTileReward() {
-    var el = $('tile-reward-choices');
-    el.innerHTML = '';
-    state.tileRewardOptions.forEach(function (tile) {
-      var btn = document.createElement('button');
-      var bonusClass = '';
-      if (tile.variant) {
-        bonusClass = ' has-bonus variant-' + tile.variant;
-      } else if (tile.bonus) {
-        bonusClass = ' has-bonus';
-        if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
-        else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
-        else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
-      }
-      btn.className = 'treasure-choice treasure-choice-tile' + bonusClass;
-      var bonusDesc = Tiles.describeVariant(tile.variant) || Tiles.describeBonus(tile.bonus);
-      var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
-      // Same doubled value the rack will show once this tile is in play --
-      // otherwise the reward screen understates what the player is picking.
-      if (tile.variant === Tiles.VARIANTS.VOLATILE) val *= 2;
-      var displayLetter = tile.letter === '?' ? '★' : tile.letter;
-      btn.innerHTML = '<span class="tile-reward-letter">' + escapeHtml(displayLetter) + '<sub>' + val + '</sub></span>' +
-        (bonusDesc ? '<span class="tile-reward-bonus">' + escapeHtml(bonusDesc) + '</span>' : '');
-      btn.addEventListener('click', function () { Game.pickTileReward(tile.id); });
-      el.appendChild(btn);
-    });
-  }
-
   function renderBossReward() {
     var el = $('boss-reward-choices');
     el.innerHTML = '';
@@ -3653,27 +3607,6 @@
       btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><br>' + escapeHtml(def.hint);
       btn.addEventListener('click', function () { Game.pickBossItemReward(itemId); });
       el.appendChild(btn);
-    });
-  }
-
-  function renderDeckViewer() {
-    var el = $('deck-tiles-list');
-    el.innerHTML = '';
-    if (!state.deck || state.deck.length === 0) {
-      el.innerHTML = '<p style="text-align: center; color: #b8ac8a;">Deck is empty</p>';
-      return;
-    }
-    var sorted = state.deck.slice().sort(function (a, b) {
-      return a.letter.localeCompare(b.letter);
-    });
-    sorted.forEach(function (tile) {
-      var div = document.createElement('div');
-      var deckVariantClass = tile.variant ? ' variant-' + tile.variant : '';
-      div.className = 'treasure-choice' + deckVariantClass;
-      var bonusDesc = Tiles.describeVariant(tile.variant) || Tiles.describeBonus(tile.bonus);
-      div.innerHTML = '<strong>' + escapeHtml(tile.letter) + '</strong>' + (bonusDesc ? '<br>' + escapeHtml(bonusDesc) : '');
-      div.style.cursor = 'default';
-      el.appendChild(div);
     });
   }
 
@@ -3700,8 +3633,8 @@
     });
   }
 
-  // The Shredder sub-screen (GOALS.md "FUN OVERHAUL 7/8"): the deck-viewer
-  // list made pickable so the player chooses which tiles to destroy.
+  // The Shredder sub-screen (GOALS.md "FUN OVERHAUL 7/8"): the deck listed
+  // pickably so the player chooses which tiles to destroy.
   function renderShredder() {
     var Events = window.Wordbound.Events;
     var remaining = shredderRemainingPicks();
@@ -4081,10 +4014,7 @@
     $('btn-new-run').addEventListener('click', Game.showCharacterSelect);
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);
     $('btn-victory-continue').addEventListener('click', Game.returnToMainMenu);
-    $('btn-skip-tile-reward').addEventListener('click', Game.skipTileReward);
     $('btn-skip-boss-reward').addEventListener('click', Game.skipBossItemReward);
-    $('btn-view-deck').addEventListener('click', Game.openDeckViewer);
-    $('btn-close-deck-viewer').addEventListener('click', Game.closeDeckViewer);
     $('btn-close-item-inspector').addEventListener('click', Game.closeItemInspector);
     $('btn-confirm-shredder').addEventListener('click', Game.confirmShredder);
     $('btn-back-to-menu').addEventListener('click', Game.returnToMainMenu);

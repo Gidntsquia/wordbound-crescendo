@@ -101,7 +101,7 @@ function freshCombat(seedBase) {
 }
 
 describe('Game.submitWord -- duel-mode branch', () => {
-  it('pushes the real duel gauge via DuelCombat instead of subtracting monster.hp directly', () => {
+  it('pushes the real duel gauge via DuelCombat instead of subtracting monster.hp directly', async () => {
     const state = freshCombat(SEED);
     state.monster.duel = true;
     state.duel = Duel.create({ stageTier: 'early', healthBlocks: state.player.healthBlocks, pushesToDefeat: 5 });
@@ -114,6 +114,14 @@ describe('Game.submitWord -- duel-mode branch', () => {
 
     expect(state.duel.gauge).toBeGreaterThan(gaugeBefore);
     expect(state.monster.hp).toBe(hpBefore); // a single ordinary word doesn't win a 5-push boss's gauge
+    // Drain submitWord's own deferred resolution (TILE_PLAY_ANIM_MS, 220ms)
+    // before finishing. Without this the timer outlives the test and fires
+    // against the NEXT test's freshly-built state -- and that next test
+    // deliberately sets up a one-point-from-winning gauge, so this word's
+    // late push would win it and drive a SECOND kill through
+    // onMonsterDefeated after the first already resolved. Real cross-test
+    // corruption, not a style nit.
+    await new Promise((r) => setTimeout(r, 260));
   });
 
   it('a won push deals a decisive blow and does not fall through to the turn-based counterattack path', async () => {
@@ -130,10 +138,14 @@ describe('Game.submitWord -- duel-mode branch', () => {
     expect(state.monster.hp).toBe(0);
     // Wait for the deferred kill resolution (TILE_PLAY_ANIM_MS + MONSTER_DEATH_BEAT_MS)
     // the same way gameHelpers.defeatCurrentMonster does -- polls real state,
-    // no fixed sleep.
+    // no fixed sleep. Polls combatActive rather than a screen name: PLAYTEST
+    // FINDINGS 3 item 2 removed the TILE_REWARD step every kill used to
+    // resolve into, and this regular kill's new destination ('RUN') is also
+    // the screen the fight started from, so only the combat flag actually
+    // distinguishes resolved from not-yet-resolved.
     const start = Date.now();
-    while (state.screen !== 'TILE_REWARD') {
-      if (Date.now() - start > 2000) throw new Error('timed out waiting for TILE_REWARD, screen is ' + state.screen);
+    while (state.combatActive) {
+      if (Date.now() - start > 2000) throw new Error('timed out waiting for the kill to resolve, screen is ' + state.screen);
       await new Promise((r) => setTimeout(r, 20));
     }
     // No monster counterattack ever ran in duel mode -- ink is untouched

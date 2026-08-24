@@ -55,28 +55,28 @@ describe('items-owned strip', () => {
   });
 });
 
-describe('deck viewer', () => {
-  it('opens from the run-header Deck button, lists the real deck, hides the node map, and closes', async () => {
-    const state = freshRun(SEED);
-    const user = userEvent.setup();
+// PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): a 'deck viewer'
+// describe block used to sit here, driving the run-header Deck button
+// through a real click and asserting the panel listed every real deck tile.
+// Jaxon removed the deck view outright, so the coverage is inverted rather
+// than dropped -- these assert, against a real rendered RunScreen, that
+// nothing deck-shaped is reachable from the run header any more.
+describe('deck view (removed)', () => {
+  it('has no Deck button in the run header and no way to open a deck panel', () => {
+    freshRun(SEED);
     render(<RunScreen onBackToMenu={() => {}} />);
 
+    expect(screen.queryByRole('button', { name: 'Deck' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Your Deck' })).toBeNull();
+    // The node map is what stays visible -- nothing replaced the panel.
     expect(document.querySelector('.node-map')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Deck' }));
-    expect(state.deckViewerOpen).toBe(true);
-    expect(screen.getByRole('heading', { name: 'Your Deck' })).toBeInTheDocument();
-    expect(document.querySelector('.node-map')).not.toBeInTheDocument();
+  });
 
-    // Every real deck tile's letter renders somewhere in the panel.
-    const lettersShown = Array.from(document.querySelectorAll('.treasure-choice')).map((el) => el.textContent);
-    state.deck.forEach((tile) => {
-      const displayLetter = tile.letter === '?' ? '★' : tile.letter;
-      expect(lettersShown.some((t) => t.startsWith(displayLetter))).toBe(true);
-    });
-
-    await user.click(screen.getByRole('button', { name: 'Close' }));
-    expect(state.deckViewerOpen).toBe(false);
-    expect(document.querySelector('.node-map')).toBeInTheDocument();
+  it('does not expose the removed deck-viewer actions or state on the engine', () => {
+    const state = freshRun(SEED);
+    expect(window.Wordbound.Game.openDeckViewer).toBeUndefined();
+    expect(window.Wordbound.Game.closeDeckViewer).toBeUndefined();
+    expect(state.deckViewerOpen).toBeUndefined();
   });
 });
 

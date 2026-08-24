@@ -1493,8 +1493,7 @@ async function main() {
       state.monster.isElite = true;
       state.monster.intents = ['hex'];
       state.monster.intent = { type: 'hex' };
-      window.Wordbound.Game.openDeckViewer(); // forces a real re-render (existing test convention)
-      window.Wordbound.Game.closeDeckViewer();
+      window.Wordbound.Game._render(); // forces a real re-render (existing test convention)
 
       const intentEl = document.getElementById('monster-intent');
       check('monster intent: Hex is telegraphed before it fires ("Next: Hex...")', !!intentEl && intentEl.textContent.indexOf('Hex') !== -1);
@@ -1532,8 +1531,7 @@ async function main() {
       state.monster.intents = [];
       state.hexedTileId = null;
       state.monster.intent = { type: 'attack', value: state.monster.attack || 0 };
-      window.Wordbound.Game.openDeckViewer();
-      window.Wordbound.Game.closeDeckViewer();
+      window.Wordbound.Game._render();
     }
   }
 
@@ -1544,8 +1542,7 @@ async function main() {
   {
     state.selectedTileIds = [];
     document.getElementById('word-input').value = '';
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
 
     const rackButtons = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
     // Blanks are a separate no-op case (checked below) -- exclude them here
@@ -1609,8 +1606,7 @@ async function main() {
 
       state.selectedTileIds = [];
       document.getElementById('word-input').value = '';
-      window.Wordbound.Game.openDeckViewer();
-      window.Wordbound.Game.closeDeckViewer();
+      window.Wordbound.Game._render();
 
       // MOBILE INPUT 2/3 Phase 2: drag-reorder + drag-out-to-remove STATE LOGIC.
       // The pointer-event glue (ghost follow, gap, threshold) is browser-only and
@@ -1720,7 +1716,7 @@ async function main() {
           state.selectedTileIds = [];
           state.blankAssignments = {};
           document.getElementById('word-input').value = '';
-          Game.openDeckViewer(); Game.closeDeckViewer(); // force a clean render
+          Game._render(); // force a clean render
           ids.forEach((id) => {
             const b = document.querySelector('#rack-display .letter-tile[data-tile-id="' + id + '"]');
             if (b) b.dispatchEvent(new window.Event('click', { bubbles: true }));
@@ -1798,7 +1794,7 @@ async function main() {
         restage([id0, id1, id2]);
         dragEl = stagedTileEl(id0);
         dragTo(dragEl, 20, 0);
-        Game.openDeckViewer(); Game.closeDeckViewer(); // forces a full re-render
+        Game._render(); // forces a full re-render
         check('stuck-drag: a re-render mid-drag drops the now-orphaned drag state',
           !state.stagingDrag);
         check('stuck-drag: no drag artifact survives that re-render', noDragArtifacts());
@@ -1879,8 +1875,7 @@ async function main() {
 
       state.selectedTileIds = [];
       document.getElementById('word-input').value = '';
-      window.Wordbound.Game.openDeckViewer();
-      window.Wordbound.Game.closeDeckViewer();
+      window.Wordbound.Game._render();
     }
 
     // MOBILE INPUT 3/3 (GOALS.md): input-feel juice. jsdom can't measure the
@@ -1894,7 +1889,7 @@ async function main() {
       state.selectedTileIds = [];
       state.settleTileIds = [];
       document.getElementById('word-input').value = '';
-      Game.openDeckViewer(); Game.closeDeckViewer();
+      Game._render();
 
       const rackBtns = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
       const nb = () => rackBtns().filter((b) => {
@@ -1912,7 +1907,7 @@ async function main() {
           !!stagedEl() && stagedEl().className.indexOf('tile-settle') !== -1);
         check('mobile 3/3: the settle set is cleared after the render that consumed it',
           state.settleTileIds.length === 0);
-        Game.openDeckViewer(); Game.closeDeckViewer(); // force another render
+        Game._render(); // force another render
         check('mobile 3/3: .tile-settle is gone on the next render (one-shot, not sticky)',
           !!stagedEl() && stagedEl().className.indexOf('tile-settle') === -1);
 
@@ -1921,7 +1916,7 @@ async function main() {
         const rackEl = () => document.querySelector('#rack-display .letter-tile[data-tile-id="' + sid + '"]');
         check('mobile 3/3: an unstaged tile settles as it lands back in the rack',
           !!rackEl() && rackEl().className.indexOf('tile-settle') !== -1);
-        Game.openDeckViewer(); Game.closeDeckViewer();
+        Game._render();
         check('mobile 3/3: rack settle is one-shot too (cleared next render)',
           !!rackEl() && rackEl().className.indexOf('tile-settle') === -1);
       }
@@ -1961,15 +1956,14 @@ async function main() {
       state.selectedTileIds = [];
       state.settleTileIds = [];
       document.getElementById('word-input').value = '';
-      Game.openDeckViewer(); Game.closeDeckViewer();
+      Game._render();
     }
 
     // A blank (?) tile has no letter to stage -- clicking it must be a true
     // no-op (review B5's second finding), not a visible-but-empty selection.
     const blankTile = { id: 'test-blank-tile-b5', letter: '?' };
     state.player.rack.push(blankTile);
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const blankBtn = document.querySelector('[data-tile-id="test-blank-tile-b5"]');
     check('blank tile renders in the rack for this check', !!blankBtn);
     if (blankBtn) {
@@ -1984,8 +1978,7 @@ async function main() {
     state.player.rack = state.player.rack.filter((t) => t.id !== 'test-blank-tile-b5');
     state.selectedTileIds = [];
     document.getElementById('word-input').value = '';
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
   }
 
   // MOBILE INPUT 1/3 (GOALS.md, Jaxon 2026-08-20): on coarse-pointer (touch)
@@ -2024,7 +2017,7 @@ async function main() {
     state.selectedTileIds = [];
     state.blankAssignments = {};
     input.value = '';
-    Game.openDeckViewer(); Game.closeDeckViewer();
+    Game._render();
 
     const rackBtns = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
     const nonBlank = () => rackBtns().filter((b) => {
@@ -2069,7 +2062,7 @@ async function main() {
 
       state.selectedTileIds = [];
       input.value = '';
-      Game.openDeckViewer(); Game.closeDeckViewer();
+      Game._render();
     }
 
     // --- blank letter picker: tap a blank -> picker opens -> pick -> staged as that letter ---
@@ -2079,7 +2072,7 @@ async function main() {
     focusCalls = 0;
     const blank = { id: 'test-touch-blank', letter: '?' };
     state.player.rack.push(blank);
-    Game.openDeckViewer(); Game.closeDeckViewer();
+    Game._render();
     const blankBtn = document.querySelector('[data-tile-id="test-touch-blank"]');
     check('mobile 1/3: a blank tile renders in the rack for the picker check', !!blankBtn);
     if (blankBtn) {
@@ -2134,7 +2127,7 @@ async function main() {
     state.selectedTileIds = [];
     state.blankAssignments = {};
     input.value = '';
-    Game.openDeckViewer(); Game.closeDeckViewer();
+    Game._render();
   }
 
   // Multi-phase boss traits (GOALS.md "FUN OVERHAUL 3/8"), live-DOM check:
@@ -2156,16 +2149,14 @@ async function main() {
     state.monster.traitPhases = bossPhases;
     state.monster.maxHp = 100;
     state.monster.hp = 100; // full HP -> phase 0
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     let weaknessEl = document.querySelector('.monster-weakness');
     const phase0Hint = Traits.TRAITS[bossPhases[0].traitId].hint;
     const phase1Hint = Traits.TRAITS[bossPhases[1].traitId].hint;
     check('boss phases (live): full HP shows phase 0 weakness text', !!weaknessEl && weaknessEl.textContent.indexOf(phase0Hint) !== -1);
 
     state.monster.hp = 30; // 0.3 ratio, below the 0.5 threshold -> phase 1
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     weaknessEl = document.querySelector('.monster-weakness');
     check('boss phases (live): below-threshold HP switches to phase 1 weakness text', !!weaknessEl && weaknessEl.textContent.indexOf(phase1Hint) !== -1);
     check('boss phases (live): the two phase hints are actually different text', phase0Hint !== phase1Hint);
@@ -2173,8 +2164,7 @@ async function main() {
     state.monster.traitPhases = originalTraitPhases;
     state.monster.hp = originalHp;
     state.monster.maxHp = originalMaxHp;
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
   }
 
   // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20), live-DOM check: the three
@@ -2238,8 +2228,7 @@ async function main() {
       const goldBefore = state.player.gold;
       const inkBefore = state.player.ink;
 
-      window.Wordbound.Game.openDeckViewer(); // forces a real re-render (existing test convention)
-      window.Wordbound.Game.closeDeckViewer();
+      window.Wordbound.Game._render(); // forces a real re-render (existing test convention)
 
       // Badges must actually reach the rendered rack -- a variant the player
       // can't see is a variant that doesn't exist as a decision.
@@ -2300,8 +2289,7 @@ async function main() {
       variantTiles[1].variant = null;
       state.monster.maxHp = survivalMaxHp;
       state.monster.hp = survivalHp;
-      window.Wordbound.Game.openDeckViewer();
-      window.Wordbound.Game.closeDeckViewer();
+      window.Wordbound.Game._render();
     }
   }
 
@@ -2380,7 +2368,7 @@ async function main() {
   // Killing-blow feedback (review B3/F1): force the monster down to a sliver
   // of HP so the next damage-dealing word is a killing blow, and confirm the
   // death path still shows a damage number + HP-bar flash during its beat
-  // instead of hard-cutting straight to the tile-reward screen.
+  // instead of hard-cutting straight back to the map.
   if (state.combatActive) {
     const hpRatio2 = state.monster.maxHp > 0 ? state.monster.hp / state.monster.maxHp : 0;
     const activeTraitId2 = Traits.activeTraitForHpRatio(state.monster.traitPhases, hpRatio2);
@@ -2417,24 +2405,22 @@ async function main() {
       const monsterInfoDuringBeat = document.getElementById('monster-info');
       check('killing blow: monster-info panel got the death-beat fade class', !!monsterInfoDuringBeat && monsterInfoDuringBeat.className.indexOf('monster-defeated') !== -1);
 
+      // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): this used to
+      // assert the per-kill TILE_REWARD "add a tile to your deck?" screen
+      // arrived here. That whole step is gone -- Jaxon: "we aren't adding
+      // tiles to our deck anymore" -- so a REGULAR kill now resolves
+      // straight back to the map, with the kill's gold (granted
+      // unconditionally in onMonsterDefeated) as its only reward. These
+      // assertions are the deliberate inverse of the old ones, not dropped
+      // coverage: they prove the removal actually happened in the live DOM,
+      // and that the flow still lands somewhere sane afterwards.
+      const deckSizeAtKill = state.deck.length;
       await new Promise((r) => setTimeout(r, 500)); // past MONSTER_DEATH_BEAT_MS (500ms)
-      check('killing blow: tile-reward screen arrives after the death beat', state.screen === 'TILE_REWARD');
-
-      // Tile-reward restyle (GOALS.md POLISH review F4.5): choices should
-      // render as letter-tile-shaped buttons (big letter + point-value sub,
-      // bonus text underneath), not the old full-width text bars.
-      if (state.screen === 'TILE_REWARD') {
-        const tileChoiceButtons = Array.from(document.querySelectorAll('#tile-reward-choices .treasure-choice-tile'));
-        check('tile reward: one .treasure-choice-tile button per offered option', tileChoiceButtons.length === (state.tileRewardOptions || []).length && tileChoiceButtons.length > 0);
-        const firstLetterEl = tileChoiceButtons[0] && tileChoiceButtons[0].querySelector('.tile-reward-letter');
-        check('tile reward: choice button contains a .tile-reward-letter element', !!firstLetterEl);
-        const firstSub = firstLetterEl && firstLetterEl.querySelector('sub');
-        check('tile reward: .tile-reward-letter has a point-value <sub>', !!firstSub && firstSub.textContent.trim() !== '');
-        const deckSizeBefore = state.deck.length;
-        tileChoiceButtons[0].dispatchEvent(new window.Event('click', { bubbles: true }));
-        check('tile reward: clicking a tile choice adds it to the deck', state.deck.length === deckSizeBefore + 1);
-        check('tile reward: picking a tile resolves off the TILE_REWARD screen', state.screen !== 'TILE_REWARD');
-      }
+      check('killing blow: a regular kill resolves straight back to the map, no reward step', state.screen === 'RUN' && state.combatActive === false);
+      check('killing blow: no TILE_REWARD screen exists to reach any more', state.screen !== 'TILE_REWARD');
+      check('killing blow: no tile-reward panel is in the document at all', document.getElementById('tile-reward-panel') === null);
+      check('killing blow: the kill added no tiles to the deck', state.deck.length === deckSizeAtKill);
+      check('killing blow: the node map is visible again after the kill', document.getElementById('node-map').classList.contains('hidden') === false);
     }
   }
 
@@ -2442,7 +2428,7 @@ async function main() {
   // bookkeeping (state.runStats), and the stats block rendered on the
   // game-over/victory screens. By this point in the script at least one
   // word has been played and the one monster on this run has been killed
-  // (tile-reward flow above), so these should all be populated.
+  // (killing-blow flow above), so these should all be populated.
   {
     const rs = state.runStats;
     check('run stats: wordsPlayed tracked the words submitted so far', !!rs && rs.wordsPlayed > 0);
@@ -2457,8 +2443,7 @@ async function main() {
     // the underlying state updated.
     const savedScreen = state.screen;
     state.screen = 'GAME_OVER';
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const gameOverStatsBlock = document.getElementById('game-over-run-stats');
     check('game-over stats block rendered with rows', !!gameOverStatsBlock && gameOverStatsBlock.children.length > 0);
     check('game-over stats block shows the words-spelled count', !!gameOverStatsBlock && gameOverStatsBlock.textContent.indexOf(String(rs.wordsPlayed)) !== -1);
@@ -2466,15 +2451,13 @@ async function main() {
     check('game-over stats block has a Loose Words Defeated row', !!gameOverStatsBlock && gameOverStatsBlock.textContent.indexOf('Loose Words Defeated') !== -1);
 
     state.screen = 'VICTORY';
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const victoryStatsBlock = document.getElementById('victory-run-stats');
     check('victory stats block rendered with rows', !!victoryStatsBlock && victoryStatsBlock.children.length > 0);
     check('victory stats block has a Gold Earned row', !!victoryStatsBlock && victoryStatsBlock.textContent.indexOf('Gold Earned') !== -1);
 
     state.screen = savedScreen;
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
   }
 
   // The "useConsumable death guard" check that used to live here (GOALS.md
@@ -2642,8 +2625,7 @@ async function main() {
     state.shopOptions = state.shopOptions && state.shopOptions.length ? state.shopOptions : ['thick_skin'];
     state.shopTileOffer = premiumTile;
     state.player.gold = 100;
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
 
     const shopButtons = Array.from(document.querySelectorAll('#treasure-choices .treasure-choice'));
     const tileButton = shopButtons.find((b) => b.textContent.indexOf('Premium Tile') !== -1);
@@ -2666,8 +2648,7 @@ async function main() {
     // negative-gold purchase.
     state.player.gold = 5;
     state.shopTileOffer = premiumTile;
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const poorButton = Array.from(document.querySelectorAll('#treasure-choices .treasure-choice')).find((b) => b.textContent.indexOf('Premium Tile') !== -1);
     check('shop variant tile: the row is disabled when the player cannot afford it', !!poorButton && poorButton.disabled === true);
 
@@ -2677,8 +2658,7 @@ async function main() {
     state.player.gold = savedGold;
     state.combatActive = savedCombatActive;
     state.deck = state.deck.filter((t) => t.id !== premiumTile.id);
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
   }
 
   // SHOPKEEPERS ticket (GOALS.md, SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS
@@ -2793,8 +2773,7 @@ async function main() {
     state.screen = 'SHOP';
     state.shopOptions = window.Wordbound.Game._rollShopOptions();
     state.shopTileOffer = null;
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const bannerEl = document.getElementById('shop-keeper-banner');
     check('shopkeepers: the shop banner is visible for a real shop screen', bannerEl && !bannerEl.classList.contains('hidden'));
     check('shopkeepers: the shop banner names the keeper', !!bannerEl && bannerEl.textContent.indexOf('Oscar Wilde') !== -1);
@@ -2806,8 +2785,7 @@ async function main() {
     // never leak a stale shopkeeper banner from a prior shop visit.
     state.screen = 'TREASURE';
     state.treasureOptions = window.Wordbound.Items ? Object.keys(window.Wordbound.Items.ITEM_DEFS).slice(0, 3) : [];
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     check('shopkeepers: a TREASURE screen hides the shop keeper banner', bannerEl.classList.contains('hidden'));
 
     state.screen = savedScreenForBanner;
@@ -2818,8 +2796,7 @@ async function main() {
     state.shopkeeperId = savedShopkeeperId;
     state.shopkeeperRarityFocus = savedShopkeeperRarityFocus;
     state.shopkeeperLine = savedShopkeeperLine;
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
   }
 
   // SHAKESPEARE GUIDE + AUTHOR SHOPKEEPERS ticket (GOALS.md), step 2's
@@ -3327,15 +3304,16 @@ async function main() {
 
     // (4) item-chip-proc flash on render: renderItemsOwned reads
     // state.proccedItemIds, flashes exactly those chips for ONE render, then
-    // clears the list. Driven through a real re-render (openDeckViewer/close,
-    // the existing test convention) rather than calling the private renderer.
+    // clears the list. Driven through two real re-renders (Game._render(),
+    // the test hook that replaced the old openDeckViewer/close idiom when
+    // PLAYTEST FINDINGS 3 item 2 removed the deck viewer).
     {
       const savedItems = state.player.items;
       state.player.items = ['consonant_cluster', 'foreword'];
       state.proccedItemIds = ['consonant_cluster'];
-      // renderItemsOwned runs (and consumes the flash) on the FIRST render --
-      // openDeckViewer's render -- so read the strip before closing again.
-      window.Wordbound.Game.openDeckViewer();
+      // renderItemsOwned runs (and consumes the flash) on the FIRST render,
+      // so read the strip before rendering a second time.
+      window.Wordbound.Game._render();
       const chips = Array.from(document.querySelectorAll('#items-owned .item-chip'));
       const proccedChip = chips.find((c) => c.textContent === Items.ITEM_DEFS['consonant_cluster'].name);
       const otherChip = chips.find((c) => c.textContent === Items.ITEM_DEFS['foreword'].name);
@@ -3345,7 +3323,7 @@ async function main() {
         !!otherChip && otherChip.className.indexOf('item-chip-proc') === -1);
       check('8/8 chip-flash: proccedItemIds is cleared after that one render', state.proccedItemIds.length === 0);
       // Next render: the flash is gone (one-shot).
-      window.Wordbound.Game.closeDeckViewer();
+      window.Wordbound.Game._render();
       const chip2 = Array.from(document.querySelectorAll('#items-owned .item-chip')).find((c) => c.textContent === Items.ITEM_DEFS['consonant_cluster'].name);
       check('8/8 chip-flash: the flash is gone on the following render (one-shot)',
         !!chip2 && chip2.className.indexOf('item-chip-proc') === -1);
@@ -3549,10 +3527,9 @@ async function main() {
 
     // Pre-entry warning: while still on the map (BEFORE entering), the elite's
     // node pill shows its resistance trait hint. Force a RUN-screen render via
-    // the deck-viewer close path (render() is module-private) so the freshly
+    // the Game._render() test hook (render() is module-private) so the freshly
     // spliced node is drawn, then read the pill text.
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const eliteHint = Traits.TRAITS['alphabetic'].hint;
     const nodePillText = Array.from(document.querySelectorAll('#node-map .node-pill')).map((p) => p.textContent).join(' | ');
     check('elite: the node-map pill warns with the resistance trait hint before entry', nodePillText.indexOf(eliteHint) !== -1);
@@ -3701,7 +3678,6 @@ async function main() {
     await new Promise((r) => setTimeout(r, 800));
     check('audio: killing the monster for gold logs a played goldGain call',
       Game._sfxCallLog().some((e) => e.name === 'goldGain' && e.played === true));
-    if (state.screen === 'TILE_REWARD') Game.skipTileReward();
     if (state.bossRewardOptions) Game.skipBossItemReward();
 
     // -- shop purchase --
@@ -3930,21 +3906,21 @@ async function main() {
     state.player.items = savedItems;
   }
 
-  // BUG (QA polish pass, GOALS.md 2026-08-21): render()'s deck-viewer-panel/
-  // item-inspector-panel toggles used to early-return BEFORE the node-map/
-  // combat-panel/overlay-panel toggles below them ever ran, so whichever
-  // screen was visible on the PREVIOUS render (the node map, or a live
-  // fight) stayed visible and stacked behind the newly opened side panel --
-  // a real-browser screenshot pass caught the node map pills bleeding in
-  // above the deck viewer's tile list. Fixed by folding a single
-  // sidePanelOpen flag into every other panel's hidden toggle so it applies
-  // regardless of open order. Real Game.openDeckViewer()/openItemInspector()
-  // calls, not synthetic class edits, and checked against BOTH contexts the
-  // bug reproduced in (idle on the node map, and mid-combat). A third panel,
-  // #consumables-panel, used to share this same fix -- removed along with
-  // the whole consumable mechanic by PLAYTEST FINDINGS 3 item 1
-  // (2026-08-22); the mid-combat case below now exercises the item
-  // inspector instead, which still shares the identical sidePanelOpen path.
+  // BUG (QA polish pass, GOALS.md 2026-08-21): render()'s side-panel toggles
+  // used to early-return BEFORE the node-map/combat-panel/overlay-panel
+  // toggles below them ever ran, so whichever screen was visible on the
+  // PREVIOUS render (the node map, or a live fight) stayed visible and
+  // stacked behind the newly opened side panel -- a real-browser screenshot
+  // pass caught the node map pills bleeding in above the open panel. Fixed
+  // by folding a single sidePanelOpen flag into every other panel's hidden
+  // toggle so it applies regardless of open order. Real
+  // Game.openItemInspector() calls, not synthetic class edits, and checked
+  // against BOTH contexts the bug reproduced in (idle on the node map, and
+  // mid-combat). Two other panels used to share this same fix and are both
+  // gone: #consumables-panel (PLAYTEST FINDINGS 3 item 1) and
+  // #deck-viewer-panel (item 2), both 2026-08-22 -- the item inspector is
+  // the last member of the family, and it is the identical sidePanelOpen
+  // path, so both cases below now exercise it.
   {
     const Game = window.Wordbound.Game;
     const Monsters = window.Wordbound.Monsters;
@@ -3952,13 +3928,12 @@ async function main() {
     // (a) idle on the node map (not in combat).
     state.screen = 'RUN';
     state.combatActive = false;
-    state.deckViewerOpen = false;
-    Game.openDeckViewer();
-    check('panel-stacking: opening the deck viewer from the node map hides node-map',
+    Game.openItemInspector('spare_satchel');
+    check('panel-stacking: opening the item inspector from the node map hides node-map',
       document.getElementById('node-map').classList.contains('hidden') === true &&
-      document.getElementById('deck-viewer-panel').classList.contains('hidden') === false);
-    Game.closeDeckViewer();
-    check('panel-stacking: closing the deck viewer restores the node map',
+      document.getElementById('item-inspector-panel').classList.contains('hidden') === false);
+    Game.closeItemInspector();
+    check('panel-stacking: closing the item inspector restores the node map',
       document.getElementById('node-map').classList.contains('hidden') === false);
 
     // (b) mid-combat -- the bug also reproduced here, not just on the node map.
@@ -4056,14 +4031,14 @@ async function main() {
     const bossNode = { id: 'stolen-letters-test-boss', type: 'boss', defId: 'boss_unabridged', cleared: false };
     state.floor.nodes.push(bossNode);
     state.currentNodeId = bossNode.id;
-    state.screen = 'RUN'; // real fix, not defensive: without this, state.screen stays whatever the LAST resolved screen was (e.g. still 'TILE_REWARD' from an earlier kill in this same block), and waitForScreen below would return instantly against stale state instead of actually waiting for this kill to resolve
+    state.screen = 'COMBAT_PENDING'; // real fix, not defensive: without this, state.screen stays whatever the LAST resolved screen was (e.g. still 'RUN' from an earlier kill in this same block), and waitForScreen below would return instantly against stale state instead of actually waiting for this kill to resolve. A sentinel value no screen ever uses, so the wait is genuine either way
     state.combatActive = false;
     window.Wordbound.Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 30));
     state.monster.hp = 1;
     state.player.rack = ['C', 'A', 'T'].map((l) => window.Wordbound.Tiles.createTile(l, null));
     window.Wordbound.Game.submitWord('CAT');
-    await waitForScreen(state, 'TILE_REWARD');
+    await waitForScreen(state, 'BOSS_ITEM_REWARD'); // a boss kill now goes straight to its item hoard -- PLAYTEST FINDINGS 3 item 2 removed the tile-reward step it used to stop at first
     StolenLetters.recoverByBossDefId = realRecoverByBossDefId; // restore before any later block relies on the real mapping
 
     check('stolen-letters: onMonsterDefeated\'s real wiring recovers the hostage letter on a real boss kill', !StolenLetters.isStolen('K'));
@@ -4084,14 +4059,14 @@ async function main() {
     const regularNode = { id: 'stolen-letters-test-regular', type: 'combat', defId: regularDefId, cleared: false };
     state.floor.nodes.push(regularNode);
     state.currentNodeId = regularNode.id;
-    state.screen = 'RUN'; // see the boss-kill setup above for why this matters -- otherwise still 'TILE_REWARD' from that earlier kill
+    state.screen = 'COMBAT_PENDING'; // see the boss-kill setup above for why this matters -- otherwise still whatever screen that earlier kill resolved to
     state.combatActive = false;
     window.Wordbound.Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 30));
     state.monster.hp = 1;
     state.player.rack = ['C', 'A', 'T'].map((l) => window.Wordbound.Tiles.createTile(l, null));
     window.Wordbound.Game.submitWord('CAT');
-    await waitForScreen(state, 'TILE_REWARD');
+    await waitForScreen(state, 'RUN'); // a regular kill now resolves straight back to the map -- PLAYTEST FINDINGS 3 item 2
     check('stolen-letters: an unlocked achievement recovers its paired letter (C) on the next kill sync', !StolenLetters.isStolen('C'));
 
     // Persistence: real localStorage round-tripping cannot be verified here
@@ -4180,8 +4155,9 @@ async function main() {
       // Killing blow runs onMonsterDefeated after TILE_PLAY_ANIM_MS (220) +
       // MONSTER_DEATH_BEAT_MS (500).
       await new Promise((r) => setTimeout(r, 800));
-      // Drive through the boss's tile-reward, then its item-reward, screens.
-      if (state.screen === 'TILE_REWARD') window.Wordbound.Game.skipTileReward();
+      // Drive through the boss's item-reward screen (the per-kill tile
+      // reward it used to pass through first is gone -- PLAYTEST FINDINGS 3
+      // item 2).
       if (state.bossRewardOptions) window.Wordbound.Game.skipBossItemReward();
     }
 
@@ -4204,9 +4180,9 @@ async function main() {
     // floor 2's still-turn-based boss preserves the exact same coverage with
     // zero loss, rather than retiring it. Floor 1's own boss-skip case (a
     // duel-mode boss defeat mid-run) has no dom-check equivalent left --
-    // that's now real, harness-side territory (duelIntegration.test.js's "a
-    // won push ... reaches TILE_REWARD" test already covers the shared
-    // onMonsterDefeated resolution a duel win drives through).
+    // that's now real, harness-side territory (duelIntegration.test.js's
+    // won-push kill test already covers the shared onMonsterDefeated
+    // resolution a duel win drives through).
     await enterAndKillBoss(2, 'boss_unabridged', 'boss-skip/floor2');
     check('boss-skip/floor2: beating the boss advanced to floor 3', state.floorNumber === 3 && state.screen === 'RUN');
     // VISUAL (per-floor ambient tint, GOALS.md): <body> should carry exactly
@@ -4761,14 +4737,12 @@ async function main() {
     state.combatActive = true;
 
     state.monster = { name: 'Test Regular', hp: 10, maxHp: 10, tier: 'weak', glyph: '🌅', traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] };
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const nameEl = document.querySelector('.monster-name');
     check('REGULAR ENEMIES: a monster with a glyph shows it in monster-info', !!nameEl && nameEl.textContent.indexOf('🌅') !== -1 && nameEl.textContent.indexOf('Test Regular') !== -1);
 
     state.monster = { name: 'Test Regular No Glyph', hp: 10, maxHp: 10, tier: 'weak', traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] };
-    window.Wordbound.Game.openDeckViewer();
-    window.Wordbound.Game.closeDeckViewer();
+    window.Wordbound.Game._render();
     const nameElAfter = document.querySelector('.monster-name');
     check('REGULAR ENEMIES: a monster with no glyph renders unaffected (no stray glyph leaks)', !!nameElAfter && nameElAfter.textContent.indexOf('🌅') === -1);
 

@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import CombatScreen from './CombatScreen.jsx';
-import { TreasureOrShopScreen, TileRewardScreen, BossRewardScreen, EventScreen, ShredderScreen } from './RewardScreens.jsx';
-import { ItemsOwnedStrip, DeckViewerPanel, ItemInspectorPanel, RunHeaderActions, SettingsCorner } from './RunSidePanels.jsx';
+import { TreasureOrShopScreen, BossRewardScreen, EventScreen, ShredderScreen } from './RewardScreens.jsx';
+import { ItemsOwnedStrip, ItemInspectorPanel, RunHeaderActions, SettingsCorner } from './RunSidePanels.jsx';
 import { BossEntranceOverlay } from './BossEntranceOverlay.jsx';
 
 // Real port of #screen-run's node map (STRUCTURAL ticket, next sub-step after
@@ -14,7 +14,6 @@ import { BossEntranceOverlay } from './BossEntranceOverlay.jsx';
 // The combat panel is real too (CombatScreen.jsx) -- see its own header
 // comment for what that does and doesn't cover. And so is the "choose from
 // a list" reward/shop family (RewardScreens.jsx): TREASURE, SHOP,
-// TILE_REWARD (reachable after literally every fight, not just bosses'),
 // BOSS_ITEM_REWARD, EVENT (choices carry a live `disabledReason(state)`
 // check), and SHREDDER (multi-select-then-confirm, held by an EVENT choice's
 // `{ hold: 'SHREDDER' }` effect -- see RewardScreens.jsx's ShredderScreen).
@@ -77,6 +76,19 @@ export default function RunScreen({ onBackToMenu }) {
     bump();
   }
 
+  // PLAYTEST FINDINGS 3 item 2 (GOALS.md, 2026-08-22): headless test scripts
+  // mutate Game._state directly for setup and then need the tree to actually
+  // repaint. `bump` is a local closure nothing outside this component can
+  // reach, so register it with the engine's Game._render hook for as long as
+  // this screen is mounted -- one hook that re-renders whichever tree is
+  // live. The scripts used to get this as a side effect of clicking the run
+  // header's Deck button, which no longer exists.
+  useEffect(() => {
+    Game._setReactBump(bump);
+    return () => Game._setReactBump(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function backToMenu() {
     // Abandons the run (see Game.startRun's defensive combatActive/monster
     // reset -- this is a new escape hatch the vanilla UI never had, since it
@@ -100,17 +112,18 @@ export default function RunScreen({ onBackToMenu }) {
   }
 
   const rewardOrShopScreen = state.screen === 'TREASURE' || state.screen === 'SHOP'
-    || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD'
+    || state.screen === 'BOSS_ITEM_REWARD'
     || state.screen === 'EVENT' || state.screen === 'SHREDDER';
   const otherUnportedNode = !state.combatActive && !rewardOrShopScreen
     && state.screen !== 'RUN' && state.screen !== 'MAIN_MENU';
-  // Direct port of renderRun()'s `sidePanelOpen`: the deck viewer/item
-  // inspector are opened from the always-visible run-header
-  // (RunHeaderActions/ItemsOwnedStrip below), independent of state.screen
-  // and even mid-combat, and replace whatever would otherwise be showing --
-  // same "one side panel wins over everything else" rule game.js enforces
-  // via that shared boolean.
-  const sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen;
+  // Direct port of renderRun()'s `sidePanelOpen`: the item inspector is
+  // opened from the always-visible items strip (ItemsOwnedStrip below),
+  // independent of state.screen and even mid-combat, and replaces whatever
+  // would otherwise be showing -- same "one side panel wins over everything
+  // else" rule game.js enforces via that shared boolean. The deck viewer
+  // was the other member of this family until PLAYTEST FINDINGS 3 item 2
+  // removed it.
+  const sidePanelOpen = state.itemInspectorOpen;
 
   // PLAYTEST FINDINGS (GOALS.md, item 3): Jaxon's report singled out ink
   // reading as HP. Ink genuinely IS still HP in a turn-based fight (a
@@ -141,7 +154,7 @@ export default function RunScreen({ onBackToMenu }) {
         </div>
         <div className="gold-display">{state.player.gold} 🪙</div>
         <div className="floor-label">Floor {state.floorNumber} / {Floor.TOTAL_FLOORS}</div>
-        <RunHeaderActions state={state} Game={Game} act={act} />
+        <RunHeaderActions />
       </div>
       <ItemsOwnedStrip state={state} Game={Game} act={act} />
       <div className="run-seed-display">Seed: {state.runSeed}</div>
@@ -152,11 +165,7 @@ export default function RunScreen({ onBackToMenu }) {
       <SettingsCorner state={state} Game={Game} act={act} />
 
       {sidePanelOpen ? (
-        state.deckViewerOpen ? (
-          <DeckViewerPanel state={state} Game={Game} act={act} />
-        ) : (
-          <ItemInspectorPanel state={state} Game={Game} act={act} />
-        )
+        <ItemInspectorPanel state={state} Game={Game} act={act} />
       ) : state.combatActive ? (
         <>
           <CombatScreen state={state} Game={Game} act={act} />
@@ -166,8 +175,6 @@ export default function RunScreen({ onBackToMenu }) {
         </>
       ) : state.screen === 'TREASURE' || state.screen === 'SHOP' ? (
         <TreasureOrShopScreen state={state} Game={Game} act={act} />
-      ) : state.screen === 'TILE_REWARD' ? (
-        <TileRewardScreen state={state} Game={Game} act={act} />
       ) : state.screen === 'BOSS_ITEM_REWARD' ? (
         <BossRewardScreen state={state} Game={Game} act={act} />
       ) : state.screen === 'EVENT' ? (
