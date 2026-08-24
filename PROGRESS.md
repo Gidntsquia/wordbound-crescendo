@@ -1212,3 +1212,20 @@ ink is still the turn-based fight's entire health model, so removing it is a
 real design change (what replaces HP on the non-duel path wordbound.html still
 uses?), not a small follow-on -- it deserves its own dedicated run, same
 convention this repo already applies to balance/economy work.
+
+## 2026-08-24T03:55Z — orchestrator state-hygiene pass (no game code touched)
+- GOALS.md restructured for per-fire token cost: the four open tickets'
+  inline ORCHESTRATOR NOTES (~1,900 lines of run narration) moved verbatim
+  to GOALS_ARCHIVE.md ("Rotated run notes" section); each ticket now ends
+  with one compact STATE block (done/open items, next chunk, open flags).
+  Binding ticket text and the header are unchanged. GOALS.md drops from
+  2,200 lines (~154KB) to 368 lines — a ~5x cut in what every
+  zero-memory fire re-reads.
+- New STATE HYGIENE rule in the header: no inline run narratives in
+  tickets; rewrite the STATE block in place each run, rotate superseded
+  text to GOALS_ARCHIVE.md in the same commit.
+- Routine prompt updated to match (trigger currently disabled by Jaxon —
+  takes effect on resume).
+- Doc-only change: no tests or deploy required per the header's own rules.
+- Next: queue order unchanged — PLAYTEST FINDINGS 3 item 7 (ink removal,
+  the ticket's last sub-item) is the first unchecked chunk.
