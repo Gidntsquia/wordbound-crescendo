@@ -1188,3 +1188,27 @@ unmet (the run header still shows ink). **Next:** item 7. With consumables and
 tile rewards both gone, its ink surface is smaller than the ticket assumed.
 Homer's missing exclusive item and PLAYTEST FINDINGS 2's Mountain King retune
 remain the other live threads.
+
+**Live deploy refresh, actually executed:** built `dist/app/` fresh off this
+run's own pushed commit (`7073fbf`) in a disposable `git worktree`, published
+its contents + an empty `.nojekyll` as the new root of `gh-pages` via a scratch
+orphan branch, `git push -f origin gh-pages-refresh:gh-pages` -- succeeded,
+confirmed by git's own ref-update output (`4fc8bf0...09c2baa
+gh-pages-refresh -> gh-pages (forced update)`). Worktree removed after.
+**Could NOT curl-verify, flagged rather than assumed:** `curl` to
+https://gidntsquia.github.io/ hit the same pre-existing domain-specific proxy
+block prior runs have repeatedly documented -- a 403 on the CONNECT tunnel to
+that host. The push is the actual deploy action and it succeeded; known
+recurring sandbox limitation, not new.
+
+**Note on a concurrent run:** `git push` was rejected non-fast-forward -- a
+concurrent run had added CLAUDE.md (the repo map, which did not exist when this
+run started and orienting had to skip). No overlap with this run's files;
+rebased cleanly. Fixed one inaccuracy in it while there (`gameHelpers.js` is at
+`src/test/`, not `src/components/__tests__/`).
+
+**Stopped here deliberately rather than starting item 7 (ink) in the same run:**
+ink is still the turn-based fight's entire health model, so removing it is a
+real design change (what replaces HP on the non-duel path wordbound.html still
+uses?), not a small follow-on -- it deserves its own dedicated run, same
+convention this repo already applies to balance/economy work.
