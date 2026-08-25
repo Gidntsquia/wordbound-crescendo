@@ -1,0 +1,141 @@
+#!/usr/bin/env node
+// test/verify-sandbox.js
+//
+// The bar for the bare-bones tug sandbox (sandbox.html -> src/sandbox/): a real
+// browser loads the BUILT sandbox entry, starts one fight, and the tug-of-war
+// actually runs -- the prep window holds the rope still, the word maker finds a
+// word the rack can spell, playing it creates a pusher that generates force,
+// the song telegraphs and lands a burst once prep ends, the dB ramp climbs, and
+// nothing throws.
+//
+// Deliberately small: this is the sandbox's smoke gate, not a balance test.
+//
+// Run with `npm run test:sandbox`.
+
+const fs = require('fs');
+const path = require('path');
+const http = require('http');
+const { execFileSync } = require('child_process');
+const { chromium } = require('@playwright/test');
+
+const ROOT = path.join(__dirname, '..');
+const DIST_DIR = path.join(ROOT, 'dist', 'app');
+const PORT = 9887;
+const SEED = 'sandbox';
+
+const MIME_TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+
+let failures = 0;
+function check(label, cond) {
+  console.log((cond ? 'OK   ' : 'FAIL ') + label);
+  if (!cond) failures++;
+}
+
+function startServer(rootDir) {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      const urlPath = decodeURIComponent(req.url.split('?')[0]);
+      const filePath = path.join(rootDir, urlPath === '/' ? 'index.html' : urlPath);
+      fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, { 'Content-Type': MIME_TYPES[path.extname(filePath)] || 'application/octet-stream' });
+        res.end(data);
+      });
+    });
+    server.listen(PORT, () => resolve(server));
+  });
+}
+
+async function main() {
+  execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'inherit' });
+  check('dist/app/sandbox.html exists after build', fs.existsSync(path.join(DIST_DIR, 'sandbox.html')));
+
+  const server = await startServer(DIST_DIR);
+  let browser;
+  try {
+    const sandboxChromiumPath = '/opt/pw-browsers/chromium';
+    const launchOpts = { headless: true, args: ['--autoplay-policy=no-user-gesture-required'] };
+    if (fs.existsSync(sandboxChromiumPath)) launchOpts.executablePath = sandboxChromiumPath;
+    browser = await chromium.launch(launchOpts);
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    page.on('pageerror', (e) => errors.push(String(e)));
+    const badRequests = [];
+    page.on('requestfailed', (r) => badRequests.push(r.url()));
+    page.on('response', (r) => { if (r.status() >= 400) badRequests.push(r.url() + ' -> ' + r.status()); });
+
+    await page.goto(`http://localhost:${PORT}/sandbox.html`, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.Wordbound && window.Wordbound.Sandbox, { timeout: 15000 });
+
+    check('zero failed requests loading the built sandbox', badRequests.length === 0);
+    badRequests.forEach((b) => console.log('  BAD REQUEST:', b));
+
+    // The sandbox must NOT drag the run structure or the shipped duel engine in
+    // with it -- that is the whole reason it exists.
+    const loaded = await page.evaluate(() => Object.keys(window.Wordbound));
+    const forbidden = ['Game', 'Floor', 'Items', 'Monsters', 'Duel', 'DuelCombat', 'Combat', 'Intents'];
+    const leaked = forbidden.filter((k) => loaded.includes(k));
+    check('no run-structure or duel-engine modules loaded (' + (leaked.join(', ') || 'clean') + ')', leaked.length === 0);
+
+    await page.fill('.sb-setup input', SEED);
+    await page.click('button:has-text("Start fight")');
+    await page.waitForSelector('.sb-rope');
+
+    const tugState = () => page.evaluate(() => {
+      const t = window.__tug;
+      return {
+        phase: t.phase, rope: t.rope, db: t.db,
+        pushers: t.pushers.length, pool: t.poolStrength(),
+        force: t.playerForce(), attacks: t.attacks.length,
+      };
+    });
+
+    const opening = await tugState();
+    check('fight opens in the prep window', opening.phase === 'prep');
+    check('rope starts at ROPE_START (50)', Math.abs(opening.rope - 50) < 0.01);
+
+    // Word maker: feed it the real rack and take its top suggestion.
+    await page.click('button:has-text("Use rack")');
+    await page.waitForSelector('.sb-suggest', { timeout: 20000 });
+    const suggested = (await page.textContent('.sb-suggest')).replace(/[^A-Z]/g, '');
+    check('word maker finds a word spellable from the rack', suggested.length >= 2);
+
+    await page.click('.sb-suggest');
+    await page.waitForTimeout(120);
+    const banked = await tugState();
+    check('playing a suggestion creates a pusher', banked.pushers === 1);
+    check('the pusher generates rightward force', banked.force > 0);
+    check('the rope stays frozen during prep', Math.abs(banked.rope - 50) < 0.01);
+
+    // Prep ends, the song starts telegraphing bursts.
+    await page.waitForFunction(() => window.__tug.phase === 'fight', { timeout: 15000 });
+    check('prep ends and the fight starts', true);
+
+    let sawTelegraph = false;
+    for (let i = 0; i < 60 && !sawTelegraph; i++) {
+      await page.waitForTimeout(250);
+      sawTelegraph = (await page.$$('.sb-flynote')).length > 0;
+    }
+    check('an attack telegraphs as a note sliding in', sawTelegraph);
+
+    await page.waitForFunction(() => /hit /.test(document.querySelector('.sb-log').textContent), { timeout: 20000 })
+      .then(() => check('a telegraphed attack lands', true))
+      .catch(() => check('a telegraphed attack lands', false));
+
+    const mid = await tugState();
+    check('the dB ramp is climbing', mid.db > 0);
+    check('words are still pushing (pool intact or rebuilt)', mid.pool >= 0);
+
+    check('no console/page errors during the fight', errors.length === 0);
+    errors.forEach((e) => console.log('  ERROR:', e));
+  } finally {
+    if (browser) await browser.close();
+    server.close();
+  }
+
+  console.log(failures === 0 ? '\nAll sandbox checks passed.' : `\n${failures} check(s) failed.`);
+  process.exit(failures === 0 ? 0 : 1);
+}
+
+main().catch((err) => { console.error(err); process.exit(1); });

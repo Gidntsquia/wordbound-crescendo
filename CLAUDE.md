@@ -30,9 +30,15 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
   `test:react-duel-loss`, `test:regular-duel-smoke`, `test:drag-interrupt`,
   `test:qa`, `test:itch-build`.
 - `npm run test:duel-balance` — headless duel-balance simulation.
-- Deploy (LIVE DEPLOY rule, GOALS.md header): `npm run build`, then publish the
-  CONTENTS of `dist/app/` plus an empty `.nojekyll` as the root of the
-  `gh-pages` branch (orphan/replace commit, `git push -f origin gh-pages`).
+- `npm run dev:sandbox` / `npm run test:sandbox` — the bare-bones TUG SANDBOX
+  (see below): one fight, no run. MANDATORY gate for any src/sandbox/ or
+  music.js change.
+- Deploy (LIVE DEPLOY rule, GOALS.md header): `npm run build:site` stages
+  `dist/app/` into `dist/site/` with the SANDBOX as the root `index.html` (the
+  full app moves to `/app.html`) plus an empty `.nojekyll`; publish the CONTENTS
+  of `dist/site/` as the root of the `gh-pages` branch (orphan/replace commit,
+  `git push -f origin gh-pages`). The public link points at the sandbox on
+  purpose — that is the thing being iterated on.
 
 ## Map
 
@@ -52,6 +58,19 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
   `items.js` / `intents.js` / `traits.js`, `stolenLetters.js`
   (meta-progression), `bossEntrances.js`, `shakespeareGuide.js`,
   `shopkeepers.js`, `achievements.js`, `events.js`.
+- `sandbox.html` + `src/sandbox/` — TUG SANDBOX, a second Vite entry and the
+  current focus of work: ONE fight, no menus, no map, no rewards, no
+  items/intents/shops/events/achievements/stolen letters, and no
+  game.js/floor.js/monsters.js/combat.js/duel.js. Loads only namespace, rng,
+  wordlist, lexicon, tiles, music + pieces. Combat is a TUG OF WAR owned by
+  `src/sandbox/tugOfWar.js` — a rope on 0..100, words become permanent
+  ramping-in "pushers" shoving right, the song answers with telegraphed burst
+  attacks plus a hidden dB ramp — and it deliberately does NOT use
+  js/wordbound/duel.js, so tuning it cannot break the shipped app.
+  `src/sandbox/wordFinder.js` is the word-maker helper (anagram map over
+  WORDLIST). `src/sandbox/TugSandbox.jsx` is the whole UI, with a live tuning
+  panel over every constant. Add an engine module back to
+  `src/sandbox/main.jsx` only when tuning the mechanic it owns.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation;
   remains the `npm test` target until the React port reaches full parity (see
   GOALS.md header).

@@ -10,6 +10,16 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist/app',
+    // Two entries: the real app (index.html) and the bare-bones one-fight
+    // duel sandbox (sandbox.html -> src/sandbox/). The sandbox exists so the
+    // duel mechanics can be tuned without loading the whole run structure;
+    // see src/sandbox/DuelSandbox.jsx's header.
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        sandbox: 'sandbox.html',
+      },
+    },
   },
   // Vitest + React Testing Library (GOALS.md STRUCTURAL sub-step 3): reads
   // this same config. jsdom environment + globals so RTL's automatic
