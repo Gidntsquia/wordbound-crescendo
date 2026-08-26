@@ -22,6 +22,16 @@ the sibling.
   use audio recordings (licensing risk + no-external-assets convention). Owning the
   note data is also what makes crescendo timing exact enough to build the
   attack/parry mechanic on.
+  - ONE EXPLICIT EXCEPTION, granted by Jaxon 2026-08-25: the TUG SANDBOX's opening
+    opponent plays a RECORDING of Für Elise (public/audio/fur-elise.mp3, Pixabay
+    Content License -- the composition is PD, the recording is not), because the
+    synthesized transcription still did not sound like a real performance. It is
+    confined to src/sandbox/ (recordedFurElise.js + audioPiece.js); js/wordbound/
+    music.js and the main app stay synthesized-only, so do NOT generalise this.
+    The rule's crescendo-timing reasoning still holds and is honoured by
+    extracting an intensity envelope + surge list from the audio offline
+    (tools/analyze-audio-piece.js) rather than by giving up telegraphed attacks.
+    Do not delete the mp3 as a rule violation -- it is a logged decision.
 - PUBLIC-DOMAIN VETTING IS MANDATORY for every piece: composition published before
   1930 AND composer dead 70+ years. (Explicit trap to avoid: Carmina Burana /
   "O Fortuna" is 1936, Orff died 1982 — NOT public domain. Vet each piece and note

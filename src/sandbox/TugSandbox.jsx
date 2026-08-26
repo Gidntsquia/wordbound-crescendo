@@ -25,8 +25,13 @@ const STAFF_LINES = [0, 2, 4, 6, 8].map((slot) => STAFF_TOP + slot * STAFF_STEP)
 // Opponents lifted from js/wordbound/monsters.js so the sandbox doesn't need
 // monsters.js (which drags intents/loot/traits wiring with it). Only the piece
 // matters here -- there is no enemy HP, the rope is the win condition.
+// `recorded: true` means the piece is an audio file rather than sequenced note
+// data, and is played by src/sandbox/audioPiece.js instead of the sequencer.
+// That is a sandbox-only exception to the synthesized-only rule -- see the
+// header of src/sandbox/recordedFurElise.js.
 const OPPONENTS = [
-  { id: 'bagatelle', name: 'The Bagatelle', glyph: '\u{1F339}', piece: 'furElise' },
+  { id: 'bagatelle', name: 'The Bagatelle', glyph: '\u{1F339}', recorded: 'recordedFurElise' },
+  { id: 'bagatelle-synth', name: 'The Bagatelle (synth)', glyph: '\u{1F3B9}', piece: 'furElise' },
   { id: 'gymnopediste', name: 'The Gymnopédiste', glyph: '\u{1FA70}', piece: 'gymnopedie1' },
   { id: 'gstring', name: 'The G String', glyph: '\u{1F3BB}', piece: 'airGString' },
   { id: 'morningmood', name: 'Morning Mood', glyph: '\u{1F305}', piece: 'morningMood' },
@@ -102,6 +107,12 @@ export default function TugSandbox() {
       SB.warmWordMaker();
       setIndexing(false);
     }, 60);
+    // Start pulling the recorded opponent's audio down now, so a fight that
+    // starts in a few seconds does not open in silence waiting on the fetch.
+    OPPONENTS.forEach((o) => {
+      const p = o.recorded && SB[o.recorded];
+      if (p && p.audio) SB.prefetchAudio(p.audio).catch(() => { /* the fight still runs */ });
+    });
     return () => clearTimeout(id);
   }, [SB]);
 
@@ -113,9 +124,13 @@ export default function TugSandbox() {
   }, [say]);
 
   const start = useCallback(() => {
-    if (fight.current) fight.current.seq.stop();
+    if (fight.current) {
+      // dispose, not just stop: the audio player owns a setInterval.
+      if (fight.current.seq.dispose) fight.current.seq.dispose();
+      else fight.current.seq.stop();
+    }
     const def = OPPONENTS.find((o) => o.id === opponentId);
-    const piece = W.Pieces[def.piece];
+    const piece = def.recorded ? SB[def.recorded] : W.Pieces[def.piece];
     const rng = window.Game.RNG.create(seed);
 
     const ctx = fight.current?.ctx || new (window.AudioContext || window.webkitAudioContext)();
@@ -128,11 +143,14 @@ export default function TugSandbox() {
     const pile = { drawPile: W.Tiles.shuffleIntoDrawPile(deck, rng), discardPile: [] };
     const rack = W.Tiles.draw(pile, RACK_SIZE, rng);
 
-    // A piece can name an instrument per track (see Music.VOICES); anything it
-    // doesn't name falls back to the struck-string piano voice.
-    const seq = W.Music.createSequencer(ctx, gain, piece, {
-      voices: piece.voices || {},
-    });
+    // A recorded piece is played back; a sequenced one is synthesized. Both
+    // expose the same play/stop/on/setTempoScale/getIntensity/beatToTime
+    // surface, so nothing below this line has to know which it got.
+    const seq = piece.audio
+      ? SB.createAudioPiece(ctx, gain, piece)
+      // A piece can name an instrument per track (see Music.VOICES); anything
+      // it doesn't name falls back to the struck-string piano voice.
+      : W.Music.createSequencer(ctx, gain, piece, { voices: piece.voices || {} });
     const tug = SB.createTug({ tune });
 
     tug.on('fight-start', () => say('The pit comes in.'));
@@ -169,9 +187,12 @@ export default function TugSandbox() {
     };
     seq.play();
     if (tempo !== 1) seq.setTempoScale(tempo);
-    // Test hook: verify-sandbox.js reads rope/force/db straight off the model
-    // instead of scraping formatted numbers out of the DOM.
+    // Test hooks: verify-sandbox.js reads rope/force/db straight off the model
+    // instead of scraping formatted numbers out of the DOM, and reads the
+    // player to prove which KIND of piece is actually sounding.
     window.__tug = tug;
+    window.__seq = seq;
+    window.__piece = piece;
     setLog([]);
     setWord('');
     setSuggestions([]);

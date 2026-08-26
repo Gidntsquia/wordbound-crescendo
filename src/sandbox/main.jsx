@@ -30,6 +30,10 @@ import '../../js/wordbound/pieces/mountain-king.js';
 
 import './tugOfWar.js';
 import './wordFinder.js';
+// A recorded piece and the player that fronts it behind the sequencer's own
+// surface. Sandbox-only: js/wordbound/music.js stays synthesized-only.
+import './audioPiece.js';
+import './recordedFurElise.js';
 
 import TugSandbox from './TugSandbox.jsx';
 

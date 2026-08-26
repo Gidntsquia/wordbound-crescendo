@@ -69,22 +69,38 @@ async function main() {
     page.on('response', (r) => {
       if (r.status() >= 400 && !isFontHost(r.url())) badRequests.push(r.url() + ' -> ' + r.status());
     });
+    // The opening opponent is a RECORDING, so the mp3 actually reaching the
+    // page is part of the fight working at all.
+    const audioResponses = [];
+    page.on('response', (r) => {
+      if (/\.mp3(\?|$)/.test(r.url())) audioResponses.push(r.status());
+    });
 
     await page.goto(`http://localhost:${PORT}/sandbox.html`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => window.Wordbound && window.Wordbound.Sandbox, { timeout: 15000 });
 
     check('zero failed requests loading the built sandbox', badRequests.length === 0);
-    const furElise = await page.evaluate(() => {
-      const p = window.Wordbound.Pieces.furElise;
+    // The recorded piece carries the envelope the tug needs, because an mp3
+    // cannot tell the fight what it is about to do. See recordedFurElise.js.
+    const rec = await page.evaluate(() => {
+      const p = window.Wordbound.Sandbox.recordedFurElise;
       if (!p) return null;
+      const d = p.dynamics || {};
+      const ints = (d.keyframes || []).map((k) => k.intensity);
       return {
-        title: p.title, beats: p.lengthBeats,
-        tracks: Object.keys(p.tracks), notes: p.tracks.melody.length,
-        pd: p.vetting && p.vetting.publicDomain,
+        audio: p.audio, duration: p.durationSec,
+        keyframes: (d.keyframes || []).length, surges: (d.surges || []).length,
+        minInt: Math.min.apply(null, ints), maxInt: Math.max.apply(null, ints),
+        monotonic: (d.keyframes || []).every((k, i, a) => i === 0 || k.sec > a[i - 1].sec),
+        licensedHonestly: !!(p.licensing && /public domain/i.test(p.licensing.composition)
+          && /NOT public domain/i.test(p.licensing.recording)),
       };
     });
-    check('Für Elise is sequenced and public-domain vetted',
-      !!furElise && furElise.pd === true && furElise.notes > 40 && furElise.beats > 100);
+    check('the recorded Für Elise carries an intensity envelope and surge list',
+      !!rec && rec.keyframes > 40 && rec.surges > 5 && rec.monotonic
+      && rec.minInt >= 0.1 && rec.maxInt <= 0.75);
+    check('the recording is labelled PD composition / non-PD recording (not PD-vetted)',
+      !!rec && rec.licensedHonestly);
     badRequests.forEach((b) => console.log('  BAD REQUEST:', b));
 
     // The sandbox must NOT drag the run structure or the shipped duel engine in
@@ -111,8 +127,39 @@ async function main() {
     check('fight opens in the prep window', opening.phase === 'prep');
     check('rope starts at ROPE_START (50)', Math.abs(opening.rope - 50) < 0.01);
 
-    check('the opening fight is playing Für Elise',
+    check('the opening fight names Für Elise',
       (await page.textContent('.sb-pit-piece')).includes('Für Elise'));
+    // Title alone proves nothing -- the sequenced piece is also called
+    // "Für Elise". Assert the piece actually sounding is the RECORDING.
+    const playing = await page.evaluate(() => {
+      const s = window.__seq, p = window.__piece;
+      return { isRecording: !!(p && p.audio), playing: !!(s && s.isPlaying), pos: s ? s.currentBeat() : -1 };
+    });
+    check('the piece actually sounding is the recording, not the sequencer',
+      playing.isRecording === true);
+    check('the mp3 was fetched and served (' + (audioResponses.join(',') || 'none') + ')',
+      audioResponses.length > 0 && audioResponses.every((s) => s === 200 || s === 206));
+    // Not "is it playing this instant" -- several MB have to arrive and decode.
+    // The requirement is that the fight does not sit in silence, so give it a
+    // bounded window and report how long it actually took.
+    const startedAt = Date.now();
+    let started = true;
+    await page.waitForFunction(() => window.__seq && window.__seq.isPlaying, { timeout: 10000 })
+      .catch(() => { started = false; });
+    check('the recording starts sounding promptly (' + (Date.now() - startedAt) + 'ms after start)',
+      started);
+
+    // The envelope must actually drive the fight: the position advances in
+    // real time and intensity moves with it, inside the documented band.
+    await page.waitForTimeout(2500);
+    const later = await page.evaluate(() => {
+      const s = window.__seq;
+      return { pos: s.currentBeat(), i: s.getIntensity() };
+    });
+    check('the recording advances in real time (' + playing.pos.toFixed(2)
+      + 's -> ' + later.pos.toFixed(2) + 's)', later.pos > playing.pos + 1);
+    check('intensity is read from the envelope, in band (' + later.i.toFixed(3) + ')',
+      later.i >= 0.1 && later.i <= 0.75);
 
     // Word maker: feed it the real rack and take its top suggestion.
     await page.click('button:has-text("Use rack")');

@@ -69,7 +69,11 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
   js/wordbound/duel.js, so tuning it cannot break the shipped app.
   `src/sandbox/wordFinder.js` is the word-maker helper (anagram map over
   WORDLIST). `src/sandbox/TugSandbox.jsx` is the whole UI, with a live tuning
-  panel over every constant. Add an engine module back to
+  panel over every constant. `src/sandbox/audioPiece.js` +
+  `recordedFurElise.js` play a RECORDED piece (public/audio/fur-elise.mp3)
+  behind the sequencer's own surface -- the one logged exception to the
+  synthesized-only rule, sandbox-only, see the GOALS.md header. Regenerate its
+  intensity envelope with `node tools/analyze-audio-piece.js`. Add an engine module back to
   `src/sandbox/main.jsx` only when tuning the mechanic it owns.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation;
   remains the `npm test` target until the React port reaches full parity (see
