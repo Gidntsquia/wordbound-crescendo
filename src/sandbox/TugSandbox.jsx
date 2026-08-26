@@ -96,6 +96,9 @@ export default function TugSandbox() {
   const [tune, setTune] = useState(() => ({ ...SB.TUG_DEFAULTS }));
   const [suggestions, setSuggestions] = useState([]);
   const [indexing, setIndexing] = useState(false);
+  // Observation mode: nobody can be finished off, so a fight runs as long as
+  // you want to watch it. Toggling it mid-fight takes effect immediately.
+  const [invincible, setInvincible] = useState(false);
   const inputRef = useRef(null);
 
   const say = useCallback((line) => {
@@ -156,6 +159,7 @@ export default function TugSandbox() {
       // it doesn't name falls back to the struck-string piano voice.
       : W.Music.createSequencer(ctx, gain, piece, { voices: piece.voices || {} });
     const tug = SB.createTug({ tune });
+    tug.invincible = invincible;
 
     tug.on('fight-start', () => say('The pit comes in.'));
     tug.on('attack-telegraphed', (a) => {
@@ -204,7 +208,7 @@ export default function TugSandbox() {
     setPhase('live');
     say(def.name + ' takes up ' + piece.title + '.');
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [opponentId, seed, tempo, volume, tune, say, halt, W, SB]);
+  }, [opponentId, seed, tempo, volume, tune, say, halt, W, SB, invincible]);
 
   // Per-frame loop: the barline integrates against the piece's live intensity.
   useEffect(() => {
@@ -365,6 +369,19 @@ export default function TugSandbox() {
           {phase === 'idle' ? 'Start fight' : 'Restart'}
         </button>
         {live && <button type="button" onClick={() => halt('idle', 'Stopped.')}>Stop</button>}
+        <button type="button"
+          className={'sb-invuln' + (invincible ? ' is-on' : '')}
+          aria-pressed={invincible}
+          title="Neither side can be finished off, so the round runs until you stop it."
+          onClick={() => {
+            const v = !invincible;
+            setInvincible(v);
+            if (fight.current) fight.current.tug.invincible = v;
+            say(v ? 'Da capo senza fine — nobody can be finished off.'
+                  : 'Back to a real fight.');
+          }}>
+          {invincible ? 'Endless: on' : 'Endless: off'}
+        </button>
       </section>
 
       {f && (
@@ -457,6 +474,7 @@ export default function TugSandbox() {
               )}
               {phase === 'won' && <div className="sb-outcome sb-win">The words hold.</div>}
               {phase === 'lost' && <div className="sb-outcome sb-lose">The song wins.</div>}
+              {invincible && live && <div className="sb-endless">endless</div>}
             </div>
 
             <div className="sb-readout">

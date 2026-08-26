@@ -28,23 +28,40 @@ const PORT = 9893;
 
 // Tuning for the reduction. Changing these changes the fight's feel.
 const SMOOTH_SEC = 0.6;   // loudness is smoothed over this before normalising
+// Peak-picking gets its OWN, much lighter smoothing. 0.6 s is right for the
+// intensity curve the tug reads continuously, but it flattens the piece to one
+// local maximum every ~2 s, which caps how often the song can possibly attack
+// no matter how lenient the test gets. Detection looks at a sharper copy.
+const PEAK_SMOOTH_SEC = 0.18;
 const MIN_INT = 0.12;     // the intensity band the sequenced pieces occupy,
 const MAX_INT = 0.70;     //   matched so tug balance carries over unchanged
 const KEYFRAME_TOL = 0.012; // drop a point this close to the line through its neighbours
 const SURGE_LOOKBACK = 3; // a surge's climb is measured over this many seconds
-// The surge test gets LENIENT as the piece goes on, so the song attacks more
-// and more often the deeper into it you are. Early on only a real swell
-// counts; by the end a modest lift is enough and they may crowd together.
-// Both values interpolate linearly on position within the recording.
-const SURGE_RISE_START = 0.14;  // climb required at the very top of the piece
-const SURGE_RISE_END = 0.015;   // ...and at the very end
-const SURGE_GAP_START = 5.5;    // seconds two surges must be apart, at the top
-const SURGE_GAP_END = 1.0;      // ...and at the end
+// The surge test gets LENIENT fast, so the song goes from picking its moments
+// to hammering within the first half-minute. The ramp is measured in SECONDS
+// of the recording, not in fraction of it: the escalation the player feels
+// should be the same whether the piece runs three minutes or thirty.
+//
+// RAMP_FROM is the prep window (tugOfWar's PREP_SEC), because attacks are
+// dropped until the fight actually starts -- so the strict end of the ramp
+// lines up with the fight's first second rather than being spent on silence.
+const SURGE_RAMP_FROM = 5;      // seconds: strictest here...
+const SURGE_RAMP_TO = 18;       // ...fully lenient here, and stays there
+const SURGE_RISE_START = 0.14;  // climb required at the strict end
+const SURGE_RISE_END = 0.015;   // ...and once the ramp has topped out
+const SURGE_GAP_START = 5.5;    // seconds two surges must be apart, strict end
+const SURGE_GAP_END = 0.55;     // ...and once the ramp has topped out
 
-(async () => {
-  if (!fs.existsSync(IN)) {
-    console.error('no such audio file: ' + IN);
-    process.exit(1);
+// Decoding is the slow part (headless Chromium, several seconds) and it never
+// changes while the mp3 does not, so the raw envelope is cached. NOT beside the
+// audio: public/ is copied verbatim into the build, and a few thousand floats
+// of scratch data have no business being deployed. Pass --fresh to re-decode.
+const CACHE = path.join(ROOT, '.cache', path.basename(IN) + '.env.json');
+
+async function decodeEnvelope() {
+  if (!args.includes('--fresh') && fs.existsSync(CACHE)
+      && fs.statSync(CACHE).mtimeMs >= fs.statSync(IN).mtimeMs) {
+    return JSON.parse(fs.readFileSync(CACHE, 'utf8'));
   }
   const { chromium } = require(path.join(ROOT, 'node_modules/playwright'));
   const dir = path.dirname(IN);
@@ -83,7 +100,17 @@ const SURGE_GAP_END = 1.0;      // ...and at the end
 
   await browser.close();
   server.close();
+  fs.mkdirSync(path.dirname(CACHE), { recursive: true });
+  fs.writeFileSync(CACHE, JSON.stringify(raw));
+  return raw;
+}
 
+(async () => {
+  if (!fs.existsSync(IN)) {
+    console.error('no such audio file: ' + IN);
+    process.exit(1);
+  }
+  const raw = await decodeEnvelope();
   const { env, hopSec, duration } = raw;
   const W = Math.round(SMOOTH_SEC / hopSec);
   const sm = env.map((_, i) => {
@@ -111,29 +138,50 @@ const SURGE_GAP_END = 1.0;      // ...and at the end
   }
   keep.push(pts[pts.length - 1]);
 
+  // Peaks are picked off a sharper copy than the one the keyframes come from.
+  const peakNorm = (() => {
+    const Wp = Math.round(PEAK_SMOOTH_SEC / hopSec);
+    const s2 = env.map((_, i) => {
+      let a = 0, n = 0;
+      for (let j = Math.max(0, i - Wp); j <= Math.min(env.length - 1, i + Wp); j++) { a += env[j]; n++; }
+      return a / n;
+    });
+    const so = [...s2].sort((a, b) => a - b);
+    const hi = so[Math.floor(so.length * 0.95)], lo = so[Math.floor(so.length * 0.05)];
+    return s2.map((v) => {
+      const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+      return +(MIN_INT + t * (MAX_INT - MIN_INT)).toFixed(3);
+    });
+  })();
+
   const back = Math.round(SURGE_LOOKBACK / hopSec);
-  // Eased, not linear: the first half stays near the strict end so the opening
-  // still feels sparse, and the leniency arrives mostly in the back half.
+  // Eased slightly OUTWARD, not inward: the loosening has to be audible while
+  // it is happening, so most of it lands in the first half of the ramp and the
+  // tail just tops it off.
   const lerp = (a, b, t) => {
-    const e = Math.pow(Math.max(0, Math.min(1, t)), 1.8);
+    const e = Math.pow(Math.max(0, Math.min(1, t)), 0.85);
     return a + (b - a) * e;
   };
   const surges = [];
-  for (let i = back; i < norm.length - 1; i++) {
-    if (!(norm[i] >= norm[i - 1] && norm[i] > norm[i + 1])) continue;
-    const progress = i / (norm.length - 1);
+  for (let i = back; i < peakNorm.length - 1; i++) {
+    if (!(peakNorm[i] >= peakNorm[i - 1] && peakNorm[i] > peakNorm[i + 1])) continue;
+    const progress = (i * hopSec - SURGE_RAMP_FROM) / (SURGE_RAMP_TO - SURGE_RAMP_FROM);
     const needRise = lerp(SURGE_RISE_START, SURGE_RISE_END, progress);
     const needGap = lerp(SURGE_GAP_START, SURGE_GAP_END, progress);
     let lo = Infinity;
-    for (let j = i - back; j < i; j++) lo = Math.min(lo, norm[j]);
-    if (norm[i] - lo < needRise) continue;
+    for (let j = i - back; j < i; j++) lo = Math.min(lo, peakNorm[j]);
+    if (peakNorm[i] - lo < needRise) continue;
+    // Detection used the sharp copy; the numbers the fight reads come from the
+    // same smoothed curve as the keyframes, so a surge's intensity always
+    // agrees with the envelope around it.
     const t = +(i * hopSec).toFixed(2);
+    const hit = { sec: t, intensity: norm[i], rise: +(peakNorm[i] - lo).toFixed(3) };
     const prev = surges[surges.length - 1];
     if (prev && t - prev.sec < needGap) {
-      if (norm[i] > prev.intensity) surges[surges.length - 1] = { sec: t, intensity: norm[i], rise: +(norm[i] - lo).toFixed(3) };
+      if (hit.intensity > prev.intensity) surges[surges.length - 1] = hit;
       continue;
     }
-    surges.push({ sec: t, intensity: norm[i], rise: +(norm[i] - lo).toFixed(3) });
+    surges.push(hit);
   }
 
   const existing = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
@@ -177,10 +225,16 @@ ${surges.map((s) => `        { sec: ${s.sec}, intensity: ${s.intensity}, rise: $
   console.log('analysed ' + path.basename(IN));
   console.log('  duration   ' + duration + 's, peak ' + raw.peak);
   console.log('  keyframes  ' + keep.length + ' (from ' + pts.length + ' sampled)');
-  const third = duration / 3;
-  const perThird = [0, 0, 0];
-  surges.forEach((s2) => { perThird[Math.min(2, Math.floor(s2.sec / third))]++; });
-  console.log('  surges     ' + surges.length
-    + ' (by third of the piece: ' + perThird.join(' / ') + ')');
+  // Reported in 10-second buckets over the first minute, because the ramp is
+  // measured in seconds and that is the stretch it is actually shaping.
+  const buckets = [0, 0, 0, 0, 0, 0];
+  let early = 0;
+  surges.forEach((s2) => {
+    if (s2.sec < 60) { buckets[Math.floor(s2.sec / 10)]++; early++; }
+  });
+  console.log('  surges     ' + surges.length + ' total, '
+    + (surges.length / duration * 60).toFixed(1) + '/min overall');
+  console.log('  first 60s  ' + buckets.join(' / ')
+    + '  (per 10s bucket, ' + early + ' in the first minute)');
   console.log('  wrote      ' + path.relative(ROOT, OUT));
 })();

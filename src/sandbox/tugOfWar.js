@@ -76,6 +76,12 @@
     var tug = {
       tune: tune,
       phase: 'prep',          // prep | fight | won | lost
+      // OBSERVATION MODE. Neither side can be finished off: the rope still
+      // moves and still pins at the ends, but no 'won'/'lost' is ever
+      // declared. It exists to watch a fight for as long as you like -- the
+      // song's whole attack pattern, a word's ramp-in and wear-off -- without
+      // the round ending underneath you. Live-togglable mid-fight.
+      invincible: false,
       rope: tune.ROPE_START,
       pushers: [],
       attacks: [],
@@ -309,7 +315,10 @@
 
       tug.rope += (tug.playerForce() - tug.enemyForce()) * dt;
 
-      if (tug.rope >= 100) {
+      if (tug.invincible) {
+        // Pinned, not finished. A hopeless fight still reads as hopeless.
+        tug.rope = Math.max(0, Math.min(100, tug.rope));
+      } else if (tug.rope >= 100) {
         tug.rope = 100;
         tug.phase = 'won';
         emit('won', null);

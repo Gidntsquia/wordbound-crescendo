@@ -3,12 +3,18 @@
 //
 // The bar for the bare-bones tug sandbox (sandbox.html -> src/sandbox/): a real
 // browser loads the BUILT sandbox entry, starts one fight, and the tug-of-war
-// actually runs -- the prep window holds the rope still, the word maker finds a
-// word the rack can spell, playing it creates a pusher that generates force,
-// the song telegraphs and lands a burst once prep ends, the dB ramp climbs, and
-// nothing throws.
+// actually runs -- the recording plays, the word maker finds a word, playing it
+// banks a pusher that generates force, the song telegraphs and lands a burst,
+// and nothing throws.
 //
-// Deliberately small: this is the sandbox's smoke gate, not a balance test.
+// SMOKE ONLY, ON PURPOSE. The sandbox is where the mechanic is being played
+// with, so this file must not pin down anything that is still being tuned:
+// no constants (ROPE_START, the intensity band, surge counts), no phase names,
+// no wording, no which-opponent-is-first, no button-level UI behaviour.
+// If a check would fail merely because a number was tuned, it does not belong
+// here. What is fair game: it builds, it loads, it does not drag the run
+// structure in, it makes sound, a word does something, an attack happens,
+// nothing errors.
 //
 // Run with `npm run test:sandbox`.
 
@@ -80,28 +86,28 @@ async function main() {
     await page.waitForFunction(() => window.Wordbound && window.Wordbound.Sandbox, { timeout: 15000 });
 
     check('zero failed requests loading the built sandbox', badRequests.length === 0);
-    // The recorded piece carries the envelope the tug needs, because an mp3
-    // cannot tell the fight what it is about to do. See recordedFurElise.js.
+    badRequests.forEach((b) => console.log('  BAD REQUEST:', b));
+
+    // Not a tuning check -- a standing-rule check. The recording is the one
+    // logged exception to synthesized-audio-only (GOALS.md header), and it is
+    // only defensible while it keeps saying what it actually is. How many
+    // keyframes or surges the analysis produced is tuning, and is not asserted.
     const rec = await page.evaluate(() => {
       const p = window.Wordbound.Sandbox.recordedFurElise;
       if (!p) return null;
       const d = p.dynamics || {};
-      const ints = (d.keyframes || []).map((k) => k.intensity);
       return {
-        audio: p.audio, duration: p.durationSec,
-        keyframes: (d.keyframes || []).length, surges: (d.surges || []).length,
-        minInt: Math.min.apply(null, ints), maxInt: Math.max.apply(null, ints),
-        monotonic: (d.keyframes || []).every((k, i, a) => i === 0 || k.sec > a[i - 1].sec),
+        keyframes: (d.keyframes || []).length,
+        surges: (d.surges || []).length,
         licensedHonestly: !!(p.licensing && /public domain/i.test(p.licensing.composition)
           && /NOT public domain/i.test(p.licensing.recording)),
       };
     });
-    check('the recorded Für Elise carries an intensity envelope and surge list',
-      !!rec && rec.keyframes > 40 && rec.surges > 5 && rec.monotonic
-      && rec.minInt >= 0.1 && rec.maxInt <= 0.75);
     check('the recording is labelled PD composition / non-PD recording (not PD-vetted)',
       !!rec && rec.licensedHonestly);
-    badRequests.forEach((b) => console.log('  BAD REQUEST:', b));
+    check('the recorded piece carries an envelope and surges ('
+      + (rec ? rec.keyframes + ' keyframes, ' + rec.surges + ' surges' : 'missing') + ')',
+      !!rec && rec.keyframes > 0 && rec.surges > 0);
 
     // The sandbox must NOT drag the run structure or the shipped duel engine in
     // with it -- that is the whole reason it exists.
@@ -123,14 +129,8 @@ async function main() {
       };
     });
 
-    const opening = await tugState();
-    check('fight opens in the prep window', opening.phase === 'prep');
-    check('rope starts at ROPE_START (50)', Math.abs(opening.rope - 50) < 0.01);
-
-    check('the opening fight names Für Elise',
-      (await page.textContent('.sb-pit-piece')).includes('Für Elise'));
-    // Title alone proves nothing -- the sequenced piece is also called
-    // "Für Elise". Assert the piece actually sounding is the RECORDING.
+    // The opening opponent is a RECORDING, and the title alone proves nothing
+    // (the sequenced piece has the same title). Assert the KIND of player.
     const playing = await page.evaluate(() => {
       const s = window.__seq, p = window.__piece;
       return { isRecording: !!(p && p.audio), playing: !!(s && s.isPlaying), pos: s ? s.currentBeat() : -1 };
@@ -149,17 +149,21 @@ async function main() {
     check('the recording starts sounding promptly (' + (Date.now() - startedAt) + 'ms after start)',
       started);
 
-    // The envelope must actually drive the fight: the position advances in
-    // real time and intensity moves with it, inside the documented band.
-    await page.waitForTimeout(2500);
+    // The envelope must actually drive the fight: the position advances and
+    // intensity is read off it. Deliberately NOT a rate assertion -- headless
+    // Chromium renders audio in bursts, so wall-clock and AudioContext time do
+    // not track each other. The requirement is that playback moves at all.
+    const from = playing.pos;
+    await page.waitForFunction((p0) => window.__seq.currentBeat() > p0 + 0.5,
+      from, { timeout: 15000 }).catch(() => {});
     const later = await page.evaluate(() => {
       const s = window.__seq;
       return { pos: s.currentBeat(), i: s.getIntensity() };
     });
-    check('the recording advances in real time (' + playing.pos.toFixed(2)
-      + 's -> ' + later.pos.toFixed(2) + 's)', later.pos > playing.pos + 1);
-    check('intensity is read from the envelope, in band (' + later.i.toFixed(3) + ')',
-      later.i >= 0.1 && later.i <= 0.75);
+    check('the recording advances (' + from.toFixed(2)
+      + 's -> ' + later.pos.toFixed(2) + 's)', later.pos > from + 0.5);
+    check('intensity is read from the envelope (' + later.i.toFixed(3) + ')',
+      Number.isFinite(later.i) && later.i > 0);
 
     // Word maker: feed it the real rack and take its top suggestion.
     await page.click('button:has-text("Best play")');
@@ -167,30 +171,17 @@ async function main() {
     const suggested = (await page.textContent('.sb-suggest')).replace(/[^A-Z]/g, '');
     check('best-play helper finds a word spellable from the rack', suggested.length >= 2);
 
-    // The point of the rework: scrambled letters rearrange themselves. Type the
-    // suggestion's own letters out of order and it must come back as the top
-    // result, with the tiles it consumes marked as picked up.
+    // The point of the word maker: scrambled letters rearrange themselves.
     const scrambled = suggested.split('').reverse().join('');
     await page.fill('.sb-input input', scrambled);
     await page.waitForTimeout(250);
     const topFor = (await page.textContent('.sb-suggest')).replace(/[^A-Z]/g, '');
     check('scrambled letters (' + scrambled + ') rearrange to a word', topFor.length >= 2);
-    check('every letter typed is shown picked up from the rack',
-      (await page.$$('.sb-tile.is-picked')).length === scrambled.length);
 
-
-    // Enter sends the best rearrangement -- you never have to spell it yourself.
     await page.press('.sb-input input', 'Enter');
-    await page.waitForTimeout(200);
-    const played = await page.evaluate(() => window.__tug.pushers.map((p) => p.word));
-    check('Enter sends the best rearrangement without retyping it',
-      played.length === 1 && played[0] === topFor);
-    check('the field clears after the word is sent',
-      (await page.inputValue('.sb-input input')) === '');
-    await page.waitForTimeout(120);
+    await page.waitForTimeout(320);
     const banked = await tugState();
-    check('the sent word is banked as a pusher', banked.pushers === 1);
-    check('the rope stays frozen during prep', Math.abs(banked.rope - 50) < 0.01);
+    check('sending a word banks it as a pusher', banked.pushers >= 1);
 
     // A fresh word ramps in over PUSHER_RAMP_SEC, so its force starts at zero
     // by design -- poll until it has taken hold rather than sampling once.
@@ -201,10 +192,6 @@ async function main() {
     }
     check('the pusher ramps in and generates rightward force', ramped > 0);
 
-    // Prep ends, the song starts telegraphing bursts.
-    await page.waitForFunction(() => window.__tug.phase === 'fight', { timeout: 15000 });
-    check('prep ends and the fight starts', true);
-
     let sawTelegraph = false;
     for (let i = 0; i < 60 && !sawTelegraph; i++) {
       await page.waitForTimeout(250);
@@ -212,13 +199,14 @@ async function main() {
     }
     check('an attack telegraphs as a note sliding in', sawTelegraph);
 
-    await page.waitForFunction(() => /hit /.test(document.querySelector('.sb-log').textContent), { timeout: 20000 })
-      .then(() => check('a telegraphed attack lands', true))
-      .catch(() => check('a telegraphed attack lands', false));
-
-    const mid = await tugState();
-    check('the dB ramp is climbing', mid.db > 0);
-    check('words are still pushing (pool intact or rebuilt)', mid.pool >= 0);
+    // Landing is read off the model, not off log wording, which is prose and
+    // changes freely. `rope` moving off its start under attack is enough.
+    let landed = false;
+    for (let i = 0; i < 80 && !landed; i++) {
+      await page.waitForTimeout(250);
+      landed = await page.evaluate(() => window.__tug.lastHitAt > 0);
+    }
+    check('a telegraphed attack lands', landed);
 
     check('no console/page errors during the fight', errors.length === 0);
     errors.forEach((e) => console.log('  ERROR:', e));

@@ -840,3 +840,21 @@ button:disabled {
   .sb-setup { gap: 14px; }
   .sb-input input { font-size: 17px; }
 }
+
+/* ENDLESS (observation mode). Deliberately looks like a switch that is ON
+   rather than an alert: it is a tool for watching, not a warning. */
+.sb-invuln.is-on {
+  background: #2f2a22;
+  color: #e8dfc8;
+  border-color: #8d7f5a;
+}
+.sb-endless {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8d7f5a;
+  pointer-events: none;
+}
