@@ -34,6 +34,7 @@ import './wordFinder.js';
 // surface. Sandbox-only: js/wordbound/music.js stays synthesized-only.
 import './audioPiece.js';
 import './recordedFurElise.js';
+import './recordedMoonlight.js';
 
 import TugSandbox from './TugSandbox.jsx';
 

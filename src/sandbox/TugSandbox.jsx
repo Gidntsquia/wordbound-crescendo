@@ -44,6 +44,7 @@ const STAFF_LINES = [0, 2, 4, 6, 8].map((slot) => STAFF_TOP + slot * STAFF_STEP)
 // header of src/sandbox/recordedFurElise.js.
 const OPPONENTS = [
   { id: 'bagatelle', name: 'The Bagatelle', glyph: '\u{1F339}', recorded: 'recordedFurElise' },
+  { id: 'nocturne', name: 'The Nocturne', glyph: '\u{1F319}', recorded: 'recordedMoonlight' },
   { id: 'bagatelle-synth', name: 'The Bagatelle (synth)', glyph: '\u{1F3B9}', piece: 'furElise' },
   { id: 'gymnopediste', name: 'The Gymnopédiste', glyph: '\u{1FA70}', piece: 'gymnopedie1' },
   { id: 'gstring', name: 'The G String', glyph: '\u{1F3BB}', piece: 'airGString' },
@@ -138,14 +139,21 @@ export default function TugSandbox() {
       SB.warmWordMaker();
       setIndexing(false);
     }, 60);
-    // Start pulling the recorded opponent's audio down now, so a fight that
-    // starts in a few seconds does not open in silence waiting on the fetch.
-    OPPONENTS.forEach((o) => {
-      const p = o.recorded && SB[o.recorded];
-      if (p && p.audio) SB.prefetchAudio(p.audio).catch(() => { /* the fight still runs */ });
-    });
     return () => clearTimeout(id);
   }, [SB]);
+
+  // Start pulling the SELECTED opponent's audio down as soon as it is picked,
+  // so a fight started a few seconds later does not open in silence waiting on
+  // the fetch. Only the selected one: the recordings run to several MB each,
+  // and warming all of them on mount spends the whole set's bandwidth to play
+  // one of them. prefetchAudio caches per URL, so switching back is free.
+  useEffect(() => {
+    const def = OPPONENTS.find((o) => o.id === opponentId);
+    const piece = def && def.recorded && SB[def.recorded];
+    if (piece && piece.audio) {
+      SB.prefetchAudio(piece.audio).catch(() => { /* the fight still runs */ });
+    }
+  }, [opponentId, SB]);
 
   const halt = useCallback((outcome, line) => {
     const f = fight.current;

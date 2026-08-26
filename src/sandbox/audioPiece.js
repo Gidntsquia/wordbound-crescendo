@@ -15,10 +15,25 @@
   window.Wordbound = window.Wordbound || {};
   var Sandbox = (window.Wordbound.Sandbox = window.Wordbound.Sandbox || {});
 
-  // The recording is normalised to peak 1.0; the synthesized pieces sit near
-  // 0.28. Without this trim the recording would be roughly 10 dB louder than
-  // everything else in the set.
+  // What a recording should SOUND like next to the synthesized pieces, which
+  // sit near 0.28. Expressed as a target RMS rather than a fixed trim because
+  // recordings arrive at wildly different levels: the Fur Elise track is
+  // normalised to full scale, the Moonlight one peaks at about a tenth of
+  // that, and a single trim would leave one of them nearly inaudible.
+  var TARGET_RMS = 0.055;
+  // Fallback for a piece whose analysis predates `loudness`.
   var LEVEL = 0.32;
+  // Ceiling on the resulting gain, so a near-silent file cannot be amplified
+  // into a wall of noise floor.
+  var MAX_GAIN = 12;
+
+  // Level-match on loudness, then pull back if that would clip the peak.
+  function trimFor(piece) {
+    if (!piece.loudness) return LEVEL;
+    var g = Math.min(MAX_GAIN, TARGET_RMS / piece.loudness);
+    if (piece.peak) g = Math.min(g, 0.98 / piece.peak);
+    return +g.toFixed(4);
+  }
   // How far ahead of a surge to announce it. This IS the attack's flight time:
   // the tug lands the burst exactly on the peak, so the warning has to go out
   // this long before it. Kept deliberately long. At 1.8 s the note appeared at
@@ -68,7 +83,7 @@
     var buffer = null;
     var source = null;
     var trim = ctx.createGain();
-    trim.gain.value = opts.level != null ? opts.level : LEVEL;
+    trim.gain.value = opts.level != null ? opts.level : trimFor(piece);
     trim.connect(destination);
 
     var playing = false;

@@ -1229,3 +1229,40 @@ convention this repo already applies to balance/economy work.
 - Doc-only change: no tests or deploy required per the header's own rules.
 - Next: queue order unchanged — PLAYTEST FINDINGS 3 item 7 (ink removal,
   the ticket's last sub-item) is the first unchecked chunk.
+
+## 2026-08-26T03:58Z -- SANDBOX: Moonlight Sonata added as a second recorded opponent
+
+Jaxon supplied a Moonlight Sonata mp3 and asked for it in the tug sandbox.
+
+PD VETTING (composition): Piano Sonata No. 14 in C-sharp minor, Op. 27
+No. 2, first movement -- composed 1801, published 1802; Beethoven died
+1827 (199 years as of 2026). Clears both bars (pre-1930 publication AND
+composer 70+ years dead). The RECORDING is NOT PD: user-supplied, filename
+carries a Pixabay-style track id, so it is labelled on the same footing as
+the Fur Elise track and must never be called PD-vetted. GOALS.md's logged
+synthesized-only exception was widened from "the Fur Elise track" to
+"sandbox recorded opponents", still sandbox-only, still Jaxon's call to add
+another.
+
+Two things had to change to take a second recording at all:
+- tools/analyze-audio-piece.js used to hardcode Fur Elise's metadata in its
+  output template, so running it on anything else would have rewritten the
+  piece as Fur Elise. It now splices only a marked GENERATED block; title,
+  licensing and prose are hand-owned and never touched.
+- The tracks arrive at wildly different levels (Fur Elise normalised to
+  full scale, Moonlight peaking at 0.108). audioPiece.js level-matched them
+  with a single fixed trim, which would have left the Moonlight nearly
+  inaudible. The analysis now records `peak` and `loudness` and playback
+  targets a common RMS, clamped off clipping. Measured: both land at RMS
+  0.055, peaks 0.193 and 0.274.
+
+Also fixed: the sandbox prefetched EVERY recorded opponent's audio on
+mount. Fine at one 5 MB track, 14 MB at two. Now prefetches only the
+selected opponent.
+
+VERIFIED in a real browser against the built bundle: piece loads
+(280.06s, 226 surges), plays, attacks swarm 27 -> 21 -> 36/min over the
+first minute with power 9.0..25.5, zero bad requests, zero errors.
+npm run test:sandbox 17/17.
+
+NOT verified: how it sounds. Deploy audio is now 14 MB.

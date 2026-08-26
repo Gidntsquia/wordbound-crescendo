@@ -92,22 +92,28 @@ async function main() {
     // logged exception to synthesized-audio-only (GOALS.md header), and it is
     // only defensible while it keeps saying what it actually is. How many
     // keyframes or surges the analysis produced is tuning, and is not asserted.
-    const rec = await page.evaluate(() => {
-      const p = window.Wordbound.Sandbox.recordedFurElise;
-      if (!p) return null;
-      const d = p.dynamics || {};
-      return {
-        keyframes: (d.keyframes || []).length,
-        surges: (d.surges || []).length,
-        licensedHonestly: !!(p.licensing && /public domain/i.test(p.licensing.composition)
-          && /NOT public domain/i.test(p.licensing.recording)),
-      };
+    // Every recorded piece, not just the first one -- a second recording that
+    // quietly skipped the honest label would be the exact thing this guards.
+    const recs = await page.evaluate(() => {
+      const S = window.Wordbound.Sandbox;
+      return Object.keys(S).filter((k) => /^recorded/.test(k)).map((k) => {
+        const p = S[k];
+        const d = p.dynamics || {};
+        return {
+          key: k,
+          keyframes: (d.keyframes || []).length,
+          surges: (d.surges || []).length,
+          licensedHonestly: !!(p.licensing && /public domain/i.test(p.licensing.composition)
+            && /NOT public domain/i.test(p.licensing.recording)),
+        };
+      });
     });
-    check('the recording is labelled PD composition / non-PD recording (not PD-vetted)',
-      !!rec && rec.licensedHonestly);
-    check('the recorded piece carries an envelope and surges ('
-      + (rec ? rec.keyframes + ' keyframes, ' + rec.surges + ' surges' : 'missing') + ')',
-      !!rec && rec.keyframes > 0 && rec.surges > 0);
+    check('at least one recorded piece is present (' + recs.length + ')', recs.length > 0);
+    check('every recording is labelled PD composition / non-PD recording (not PD-vetted)',
+      recs.length > 0 && recs.every((r) => r.licensedHonestly));
+    check('every recorded piece carries an envelope and surges ('
+      + recs.map((r) => r.key + ': ' + r.keyframes + 'kf/' + r.surges + 's').join(', ') + ')',
+      recs.length > 0 && recs.every((r) => r.keyframes > 0 && r.surges > 0));
 
     // The sandbox must NOT drag the run structure or the shipped duel engine in
     // with it -- that is the whole reason it exists.
