@@ -1,20 +1,31 @@
 // TUG SANDBOX -- one fight, nothing else.
 //
-// The whole app is this screen: pick an enemy, hit start, spell words. There is
-// no menu, no map, no run, no rewards, no items/intents/shops/events/
-// achievements/stolen letters. See src/sandbox/main.jsx for the (short) list of
-// engine modules that get loaded, and src/sandbox/tugOfWar.js for the combat
-// model, which is sandbox-owned and does not touch js/wordbound/duel.js.
+// The whole app is this screen: pick an opponent, start, spell words. No menu,
+// no map, no run, no rewards, no items/intents/shops/events/achievements/
+// stolen letters. See src/sandbox/main.jsx for the short list of engine modules
+// it loads, and src/sandbox/tugOfWar.js for the combat model, which is
+// sandbox-owned and never touches js/wordbound/duel.js.
+//
+// VISUAL DIRECTION (see sandbox.css): the fight is words against music, so the
+// screen is made of those two crafts. Left is a TYPECASE -- each word you spell
+// is a slug of set type. Right is the PIT. Between them the tug bar is a
+// five-line STAFF, printed in ink on paper where your words hold it and lit in
+// brass where the pit holds it. Attacks are note heads riding that staff,
+// pitched by weight. The hidden dB ramp is stated as a dynamics marking.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const RACK_SIZE = 7;
-const NOTE_GLYPHS = ['♪', '♫', '♩', '♬'];
 
-// Stat lines lifted from js/wordbound/monsters.js so the sandbox doesn't need
-// monsters.js (which drags intents/loot/traits wiring in with it). Only the
-// piece matters to a tug fight -- there is no enemy HP here, the rope is the
-// win condition -- so this is just a piece picker with names on it.
-const ENEMIES = [
+// Where the five staff lines sit, as a % of the bar's height. Note heads ride
+// the same grid: nine slots from the top line to the bottom one.
+const STAFF_TOP = 20;
+const STAFF_STEP = 7.5;
+const STAFF_LINES = [0, 2, 4, 6, 8].map((slot) => STAFF_TOP + slot * STAFF_STEP);
+
+// Opponents lifted from js/wordbound/monsters.js so the sandbox doesn't need
+// monsters.js (which drags intents/loot/traits wiring with it). Only the piece
+// matters here -- there is no enemy HP, the rope is the win condition.
+const OPPONENTS = [
   { id: 'gymnopediste', name: 'The Gymnopédiste', glyph: '\u{1FA70}', piece: 'gymnopedie1' },
   { id: 'gstring', name: 'The G String', glyph: '\u{1F3BB}', piece: 'airGString' },
   { id: 'morningmood', name: 'Morning Mood', glyph: '\u{1F305}', piece: 'morningMood' },
@@ -24,30 +35,40 @@ const ENEMIES = [
   { id: 'vowelmaw', name: 'The Vowelmaw', glyph: '\u{1F451}', piece: 'mountainKing' },
 ];
 
+// The dB ramp is hidden from the player in the real game. Here it is stated the
+// way a score states loudness, which is both honest and legible at a glance.
+const DYNAMICS = [
+  [1.5, 'pp'], [3, 'p'], [4.5, 'mp'], [6, 'mf'], [8, 'f'], [10, 'ff'],
+];
+function dynamicMark(db) {
+  for (let i = 0; i < DYNAMICS.length; i++) if (db < DYNAMICS[i][0]) return DYNAMICS[i][1];
+  return 'fff';
+}
+
 const TUNE_LABELS = {
-  PREP_SEC: 'Prep time (s)',
-  ROPE_START: 'Rope start (0-100)',
-  WORD_VALUE_WEIGHT: 'Word: letter-value weight',
-  WORD_LENGTH_WEIGHT: 'Word: length weight',
-  WORD_LENGTH_EXP: 'Word: length exponent',
-  PUSHER_RAMP_SEC: 'Word ramp-in (s)',
+  PREP_SEC: 'Tacet before the pit comes in (s)',
+  ROPE_START: 'Barline starts at (0-100)',
+  WORD_VALUE_WEIGHT: 'Word · letter-value weight',
+  WORD_LENGTH_WEIGHT: 'Word · length weight',
+  WORD_LENGTH_EXP: 'Word · length exponent',
+  PUSHER_RAMP_SEC: 'Type takes hold over (s)',
   PLAYER_FORCE_SCALE: 'Push per pool point (/s)',
-  ENEMY_DRONE: 'Enemy drone (/s @ int 1)',
+  ENEMY_DRONE: 'Pit drone (/s at full intensity)',
   ATTACK_INTERVAL_BASE: 'Attack interval base (s)',
   ATTACK_POWER_BASE: 'Attack power base',
   ATTACK_TRAVEL_SEC: 'Telegraph lead (s)',
-  ATTACK_IMPULSE_SCALE: 'Shove per power',
-  ATTACK_CHIP_FACTOR: 'Pool chip per power',
+  ATTACK_IMPULSE_SCALE: 'Barline shove per power',
+  ATTACK_CHIP_FACTOR: 'Type destroyed per power',
   CRESCENDO_POWER_MULT: 'Crescendo power ×',
-  DB_RATE: 'dB ramp (dB/s)',
-  DB_MAX: 'dB cap',
+  DB_RATE: 'Loudness ramp (dB/s)',
+  DB_MAX: 'Loudness cap (dB)',
 };
 const TUNE_STEPS = {
   PREP_SEC: 0.5, ROPE_START: 5, WORD_VALUE_WEIGHT: 0.1, WORD_LENGTH_WEIGHT: 0.1,
-  WORD_LENGTH_EXP: 0.1, PUSHER_RAMP_SEC: 0.5, PLAYER_FORCE_SCALE: 0.005, ENEMY_DRONE: 0.1,
-  ATTACK_INTERVAL_BASE: 0.5, ATTACK_POWER_BASE: 0.5, ATTACK_TRAVEL_SEC: 0.1,
-  ATTACK_IMPULSE_SCALE: 0.05, ATTACK_CHIP_FACTOR: 0.05, CRESCENDO_POWER_MULT: 0.1,
-  DB_RATE: 0.01, DB_MAX: 1,
+  WORD_LENGTH_EXP: 0.1, PUSHER_RAMP_SEC: 0.5, PLAYER_FORCE_SCALE: 0.005,
+  ENEMY_DRONE: 0.1, ATTACK_INTERVAL_BASE: 0.5, ATTACK_POWER_BASE: 0.5,
+  ATTACK_TRAVEL_SEC: 0.1, ATTACK_IMPULSE_SCALE: 0.05, ATTACK_CHIP_FACTOR: 0.05,
+  CRESCENDO_POWER_MULT: 0.1, DB_RATE: 0.01, DB_MAX: 1,
 };
 
 export default function TugSandbox() {
@@ -58,7 +79,7 @@ export default function TugSandbox() {
   const [phase, setPhase] = useState('idle'); // idle | live | won | lost
   const [log, setLog] = useState([]);
   const [word, setWord] = useState('');
-  const [enemyId, setEnemyId] = useState(ENEMIES[0].id);
+  const [opponentId, setOpponentId] = useState(OPPONENTS[0].id);
   const [seed, setSeed] = useState('sandbox');
   const [tempo, setTempo] = useState(1);
   const [volume, setVolume] = useState(0.4);
@@ -81,7 +102,7 @@ export default function TugSandbox() {
 
   const start = useCallback(() => {
     if (fight.current) fight.current.seq.stop();
-    const def = ENEMIES.find((e) => e.id === enemyId);
+    const def = OPPONENTS.find((o) => o.id === opponentId);
     const piece = W.Pieces[def.piece];
     const rng = window.Game.RNG.create(seed);
 
@@ -98,25 +119,24 @@ export default function TugSandbox() {
     const seq = W.Music.createSequencer(ctx, gain, piece);
     const tug = SB.createTug({ tune });
 
-    tug.on('fight-start', () => say('THE SONG STARTS -- attacks incoming'));
+    tug.on('fight-start', () => say('The pit comes in.'));
     tug.on('attack-telegraphed', (a) => {
-      if (a.kind === 'crescendo') say('CRESCENDO building... (' + a.power.toFixed(1) + ')');
+      if (a.kind === 'crescendo') say('Crescendo building — ' + a.power.toFixed(1));
     });
     tug.on('attack-landed', (a) => say(
-      (a.kind === 'crescendo' ? 'CRESCENDO HIT' : 'hit')
-      + ' ' + a.power.toFixed(1)
-      + ' -> rope ' + tug.rope.toFixed(1)));
-    tug.on('pusher-lost', (p) => say('SILENCED: ' + p.word));
-    tug.on('won', () => halt('won', 'THE WORDS HOLD -- victory'));
-    tug.on('lost', () => halt('lost', 'THE SONG WINS'));
+      (a.kind === 'crescendo' ? 'Crescendo hit ' : 'Beat hit ')
+      + a.power.toFixed(1) + ' — barline at ' + tug.rope.toFixed(1)));
+    tug.on('pusher-lost', (p) => say(p.word + ' silenced.'));
+    tug.on('won', () => halt('won', 'The words hold.'));
+    tug.on('lost', () => halt('lost', 'The song wins.'));
 
     seq.on('crescendo-approaching', (c) => {
       const f = fight.current;
       if (!f) return;
       f.tug.telegraphCrescendo(seq.beatToTime(c.peakBeat), f.ctx.currentTime);
     });
-    // Loop the piece: a tug fight can outlast a single performance and a silent
-    // enemy is not a fight.
+    // Loop the piece: a tug fight can outlast one performance, and a silent
+    // opponent is not a fight.
     seq.on('piece-ended', () => {
       const f = fight.current;
       if (!f || !f.running) return;
@@ -140,11 +160,11 @@ export default function TugSandbox() {
     setWord('');
     setSuggestions([]);
     setPhase('live');
-    say('TUG: ' + def.name + ' / ' + piece.title + ' -- ' + tune.PREP_SEC + 's to build your pushers');
+    say(def.name + ' takes up ' + piece.title + '.');
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [enemyId, seed, tempo, volume, tune, say, halt, W, SB]);
+  }, [opponentId, seed, tempo, volume, tune, say, halt, W, SB]);
 
-  // Per-frame loop: the rope integrates against the piece's live intensity.
+  // Per-frame loop: the barline integrates against the piece's live intensity.
   useEffect(() => {
     if (phase !== 'live') return undefined;
     let raf = 0;
@@ -168,9 +188,9 @@ export default function TugSandbox() {
     const upper = String(raw || '').trim().toUpperCase();
     setWord('');
     if (!upper) return;
-    if (!W.Lexicon.isValidWord(upper)) { say(upper + ' -- not a word'); return; }
+    if (!W.Lexicon.isValidWord(upper)) { say(upper + ' isn’t in the dictionary.'); return; }
     const form = W.Lexicon.canFormFromRack(upper, f.rack);
-    if (!form.possible) { say(upper + ' -- not in your rack'); return; }
+    if (!form.possible) { say(upper + ' needs letters you don’t have.'); return; }
 
     W.Lexicon.removeTiles(f.rack, form.tilesUsed);
     f.pile.discardPile.push(...form.tilesUsed);
@@ -179,18 +199,18 @@ export default function TugSandbox() {
 
     const pusher = f.tug.addWord(upper);
     setSuggestions([]);
-    say('+ ' + upper + ' pushing ' + pusher.strength.toFixed(1)
-      + ' (pool ' + f.tug.poolStrength().toFixed(1) + ')');
+    say(upper + ' set — ' + pusher.strength.toFixed(1) + ' push, pool '
+      + f.tug.poolStrength().toFixed(1) + '.');
   }, [phase, say, W]);
 
-  const rewrite = useCallback(() => {
+  const newRack = useCallback(() => {
     const f = fight.current;
     if (!f || phase !== 'live') return;
     f.pile.discardPile.push(...f.rack);
     f.rack.length = 0;
     f.rack.push(...W.Tiles.draw(f.pile, RACK_SIZE, f.rng));
     setSuggestions([]);
-    say('rack rewritten (free in sandbox)');
+    say('New rack drawn — free in the sandbox.');
   }, [phase, say, W]);
 
   const rackLetters = fight.current ? fight.current.rack.map((t) => t.letter).join('') : '';
@@ -205,8 +225,7 @@ export default function TugSandbox() {
       setHelperBusy(true);
       // Let the "building" state paint before the ~200k-word index blocks.
       setTimeout(() => {
-        const out = SB.findWords(letters, scoreOf, 10);
-        setSuggestions(out);
+        setSuggestions(SB.findWords(letters, scoreOf, 10));
         setHelperBusy(false);
       }, 16);
       return;
@@ -224,10 +243,12 @@ export default function TugSandbox() {
   const tug = f ? f.tug : null;
   const now = f ? f.ctx.currentTime : 0;
   const rope = tug ? tug.rope : tune.ROPE_START;
-  const prepLeft = tug && tug.phase === 'prep' ? Math.max(0, tune.PREP_SEC - tug.elapsed) : 0;
-  const hitFlash = tug ? now - tug.lastHitAt < 0.25 : false;
+  const db = tug ? tug.db : 0;
+  const tacetLeft = tug && tug.phase === 'prep' ? Math.max(0, tune.PREP_SEC - tug.elapsed) : 0;
+  const struck = tug ? now - tug.lastHitAt < 0.26 : false;
+  const intensity = tug ? Math.min(1, tug.smoothIntensity) : 0;
 
-  const sortedPushers = useMemo(() => {
+  const slugs = useMemo(() => {
     if (!tug) return [];
     return tug.pushers.slice().sort((a, b) => b.hp - a.hp);
   }, [tug, tug ? tug.pushers.length : 0, rope]);
@@ -235,20 +256,26 @@ export default function TugSandbox() {
   return (
     <div className="sb">
       <header className="sb-head">
-        <h1>Wordbound &mdash; Tug Sandbox</h1>
-        <span className="sb-note">words push right forever &middot; the song hits in bursts</span>
+        <div className="sb-wordmark">
+          <span className="sb-eyebrow">Duel sandbox · one fight</span>
+          <h1>Wordbound<span className="sb-amp">·</span>Crescendo</h1>
+        </div>
+        <div className="sb-dyn">
+          <span className="sb-dyn-label">Stage volume</span>
+          <span className="sb-dyn-mark" title={db.toFixed(1) + ' dB'}>{dynamicMark(db)}</span>
+        </div>
       </header>
 
       <section className="sb-setup">
-        <label>Enemy
-          <select value={enemyId} onChange={(e) => setEnemyId(e.target.value)}>
-            {ENEMIES.map((e) => <option key={e.id} value={e.id}>{e.glyph} {e.name}</option>)}
+        <label>Opponent
+          <select value={opponentId} onChange={(e) => setOpponentId(e.target.value)}>
+            {OPPONENTS.map((o) => <option key={o.id} value={o.id}>{o.glyph} {o.name}</option>)}
           </select>
         </label>
         <label>Seed
-          <input value={seed} onChange={(e) => setSeed(e.target.value)} size={8} />
+          <input value={seed} onChange={(e) => setSeed(e.target.value)} size={9} />
         </label>
-        <label>Tempo &times;{tempo.toFixed(2)}
+        <label>Tempo ×{tempo.toFixed(2)}
           <input type="range" min={0.4} max={1.6} step={0.05} value={tempo}
             onChange={(e) => {
               const v = Number(e.target.value);
@@ -259,7 +286,7 @@ export default function TugSandbox() {
               }
             }} />
         </label>
-        <label>Vol
+        <label>Volume
           <input type="range" min={0} max={1} step={0.05} value={volume}
             onChange={(e) => {
               const v = Number(e.target.value);
@@ -267,71 +294,119 @@ export default function TugSandbox() {
               if (fight.current) fight.current.gain.gain.value = v;
             }} />
         </label>
-        <button type="button" onClick={start}>{phase === 'idle' ? 'Start fight' : 'Restart'}</button>
-        {live && <button type="button" onClick={() => halt('idle', 'stopped')}>Stop</button>}
+        <button type="button" className="sb-go" onClick={start}>
+          {phase === 'idle' ? 'Start fight' : 'Restart'}
+        </button>
+        {live && <button type="button" onClick={() => halt('idle', 'Stopped.')}>Stop</button>}
       </section>
 
       {f && (
         <section className="sb-field">
-          <div className="sb-pool">
-            <div className="sb-pool-head">
-              <span>PUSHERS</span>
-              <span className="sb-pool-total">{tug.poolStrength().toFixed(1)}</span>
+          <aside className="sb-typecase">
+            <div className="sb-panel-head">
+              <span className="sb-eyebrow">The typecase</span>
+              <span className="sb-figure sb-pool-total">{tug.poolStrength().toFixed(0)}</span>
             </div>
-            <div className="sb-pool-list">
-              {sortedPushers.length === 0 && <div className="sb-pool-empty">spell a word</div>}
-              {sortedPushers.map((p) => (
-                <div key={p.id} className={'sb-pusher' + (p.hp < p.strength ? ' is-hurt' : '')}>
-                  <span className="sb-pusher-bar" style={{ width: (100 * p.hp / p.strength) + '%' }} />
-                  <span className="sb-pusher-word">{p.word}</span>
-                  <span className="sb-pusher-str">
-                    {tug.pusherRamp(p) < 1
-                      ? 'warming ' + (100 * tug.pusherRamp(p)).toFixed(0) + '%'
-                      : p.hp.toFixed(1)}
-                  </span>
-                </div>
-              ))}
+            <div className="sb-slugs">
+              {slugs.length === 0 && <p className="sb-empty">Spell a word to start pushing.</p>}
+              {slugs.map((p) => {
+                const ramp = tug.pusherRamp(p);
+                return (
+                  <div key={p.id} className={'sb-slug' + (p.hp < p.strength ? ' is-hurt' : '')}>
+                    <span className="sb-slug-set" style={{ width: (100 * ramp) + '%' }} />
+                    <span className="sb-slug-word">{p.word}</span>
+                    <span className="sb-slug-str">{ramp < 1 ? 'setting' : p.hp.toFixed(1)}</span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="sb-pool-force">+{tug.playerForce().toFixed(2)}/s</div>
-          </div>
+          </aside>
 
           <div className="sb-arena">
-            <div className={'sb-rope' + (hitFlash ? ' is-hit' : '')}>
-              <div className="sb-rope-words" style={{ width: rope + '%' }} />
-              <div className="sb-rope-mark" style={{ left: rope + '%' }} />
+            <div className={'sb-rope' + (struck ? ' is-hit' : '')}>
+              <div className="sb-paper" style={{ width: rope + '%' }}>
+                {tug.pushers.length > 0 && (
+                  <div className="sb-imprint">
+                    {tug.pushers.map((p, i) => (
+                      <span key={p.id}>
+                        {i > 0 && ' · '}
+                        {i === tug.pushers.length - 1 ? <b>{p.word}</b> : p.word}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="sb-staff sb-staff--pit">
+                {STAFF_LINES.map((top) => (
+                  <span key={top} className="sb-staff-line" style={{ top: top + '%' }} />
+                ))}
+              </div>
+              <div className="sb-staff sb-staff--ink"
+                style={{ clipPath: 'inset(0 ' + (100 - rope) + '% 0 0)' }}>
+                {STAFF_LINES.map((top) => (
+                  <span key={top} className="sb-staff-line" style={{ top: top + '%' }} />
+                ))}
+              </div>
+
               {tug.attacks.map((a) => {
                 const span = Math.max(0.001, a.landAt - a.spawnAt);
                 const progress = Math.max(0, Math.min(1, (now - a.spawnAt) / span));
-                const left = rope + (100 - rope) * (1 - progress);
+                const left = rope + (98.5 - rope) * (1 - progress);
                 const big = a.kind === 'crescendo';
+                // Heavier hits sit lower on the staff, the way a bass note does.
+                const slot = Math.max(0, Math.min(8, Math.round((a.power / 26) * 8)));
+                const top = STAFF_TOP + slot * STAFF_STEP;
+                const hairpin = 26 + 54 * progress;
                 return (
-                  <span key={a.id}
-                    className={'sb-flynote' + (big ? ' is-big' : '')}
-                    style={{ left: left + '%', opacity: 0.45 + 0.55 * progress }}>
-                    {big ? '♬' : NOTE_GLYPHS[a.id % NOTE_GLYPHS.length]}
+                  <span key={a.id}>
+                    {big && (
+                      <svg className="sb-hairpin" width={hairpin} height={34}
+                        style={{ left: left + '%', top: top + '%' }} aria-hidden="true">
+                        <line x1="0" y1="17" x2={hairpin} y2="2" />
+                        <line x1="0" y1="17" x2={hairpin} y2="32" />
+                      </svg>
+                    )}
+                    <span className={'sb-flynote' + (big ? ' is-big' : '')}
+                      style={{ left: left + '%', top: top + '%', opacity: 0.5 + 0.5 * progress }} />
                   </span>
                 );
               })}
+
+              <div className="sb-barline" style={{ left: rope + '%' }} />
+
               {tug.phase === 'prep' && (
-                <div className="sb-prep">PREP {prepLeft.toFixed(1)}s</div>
+                <div className="sb-tacet">
+                  <span className="sb-tacet-word">tacet</span>
+                  <span className="sb-tacet-count">{tacetLeft.toFixed(1)}s before the pit comes in</span>
+                </div>
               )}
+              {phase === 'won' && <div className="sb-outcome sb-win">The words hold.</div>}
+              {phase === 'lost' && <div className="sb-outcome sb-lose">The song wins.</div>}
             </div>
+
             <div className="sb-readout">
-              <span>rope {rope.toFixed(1)}</span>
-              <span>words +{tug.playerForce().toFixed(2)}/s</span>
-              <span>song &minus;{tug.enemyForce().toFixed(2)}/s</span>
-              <span>intensity {tug.smoothIntensity.toFixed(2)}</span>
-              <span className="sb-db">{tug.db.toFixed(1)} dB (&times;{tug.dbMultiplier().toFixed(2)})</span>
-              <span>{tug.fightElapsed.toFixed(0)}s</span>
+              <span><b>Barline</b>{rope.toFixed(1)}</span>
+              <span className="sb-words"><b>Words</b>+{tug.playerForce().toFixed(2)}/s</span>
+              <span className="sb-song"><b>Song</b>−{tug.enemyForce().toFixed(2)}/s</span>
+              <span><b>Intensity</b>{intensity.toFixed(2)}</span>
+              <span><b>Elapsed</b>{tug.fightElapsed.toFixed(0)}s</span>
             </div>
           </div>
 
-          <div className="sb-enemy">
-            <span className="sb-glyph">{f.def.glyph}</span>
-            <div className="sb-name">{f.def.name}</div>
-            <div className="sb-sub">{f.piece.title}</div>
-            <div className="sb-int"><span style={{ height: (100 * Math.min(1, tug.smoothIntensity)) + '%' }} /></div>
-          </div>
+          <aside className="sb-pit">
+            <div className="sb-panel-head"><span className="sb-eyebrow">The pit</span></div>
+            <div className="sb-glyph">{f.def.glyph}</div>
+            <div className="sb-pit-name">{f.def.name}</div>
+            <div className="sb-pit-piece">{f.piece.title}</div>
+            {/* A live hairpin: it opens as the piece gets louder. */}
+            <svg className="sb-hairpin-live" viewBox="0 0 100 26" width="100%" height="26"
+              preserveAspectRatio="none" aria-hidden="true">
+              <line x1="2" y1="13" x2="98" y2={13 - (2 + 10 * intensity)} />
+              <line x1="2" y1="13" x2="98" y2={13 + (2 + 10 * intensity)} />
+            </svg>
+            <div className="sb-pit-foot">+{db.toFixed(1)} dB · ×{tug.dbMultiplier().toFixed(2)}</div>
+          </aside>
         </section>
       )}
 
@@ -346,14 +421,15 @@ export default function TugSandbox() {
               </button>
             ))}
           </div>
+
           <div className="sb-input">
             <input ref={inputRef} value={word} disabled={!live}
-              placeholder="spell a word, Enter to push"
+              placeholder="Spell a word"
               onChange={(e) => setWord(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') playWord(word); }} />
-            <button type="button" onClick={() => playWord(word)} disabled={!live}>Push</button>
+            <button type="button" className="sb-go" onClick={() => playWord(word)} disabled={!live}>Push</button>
             <button type="button" onClick={() => setWord('')} disabled={!live}>Clear</button>
-            <button type="button" onClick={rewrite} disabled={!live}>Rewrite rack</button>
+            <button type="button" onClick={newRack} disabled={!live}>New rack</button>
           </div>
 
           <div className="sb-maker">
@@ -364,24 +440,24 @@ export default function TugSandbox() {
             </label>
             <button type="button" onClick={() => findWords()}>Find</button>
             <button type="button" onClick={() => findWords(rackLetters)}>Use rack</button>
-            {helperBusy && <span className="sb-note">building index&hellip;</span>}
-            <div className="sb-suggests">
-              {suggestions.map((s) => (
-                <button key={s.word} type="button" className="sb-suggest"
-                  onClick={() => playWord(s.word)} disabled={!live}>
-                  {s.word}<em>{s.score.toFixed(1)}</em>
-                </button>
-              ))}
-            </div>
           </div>
 
-          {phase === 'won' && <div className="sb-outcome sb-win">VICTORY</div>}
-          {phase === 'lost' && <div className="sb-outcome sb-lose">DEFEAT</div>}
+          <div className="sb-suggests">
+            {helperBusy && <span className="sb-hint">Indexing the dictionary…</span>}
+            {!helperBusy && suggestions.length === 0
+              && <span className="sb-hint">Type the letters you hold. Results rank by push.</span>}
+            {suggestions.map((s) => (
+              <button key={s.word} type="button" className="sb-suggest"
+                onClick={() => playWord(s.word)} disabled={!live}>
+                {s.word}<em>{s.score.toFixed(0)}</em>
+              </button>
+            ))}
+          </div>
         </section>
       )}
 
-      <section className="sb-tune">
-        <h2>Tuning (live)</h2>
+      <details className="sb-tune">
+        <summary>Tuning · every constant, live</summary>
         <div className="sb-tune-grid">
           {Object.keys(SB.TUG_DEFAULTS).map((key) => (
             <label key={key}>{TUNE_LABELS[key] || key}
@@ -390,12 +466,12 @@ export default function TugSandbox() {
             </label>
           ))}
         </div>
-        <p className="sb-note">
-          Edits apply to the running fight on the next frame (ROPE_START and PREP_SEC
-          need a restart). Nothing is saved &mdash; copy numbers you like into
-          src/sandbox/tugOfWar.js.
+        <p className="sb-tune-note">
+          Changes reach the running fight on the next frame. Barline start and tacet
+          length take effect on the next restart. Nothing is saved — copy the numbers
+          you want to keep into src/sandbox/tugOfWar.js.
         </p>
-      </section>
+      </details>
 
       <section className="sb-log">
         {log.map((line, i) => <div key={log.length - i}>{line}</div>)}

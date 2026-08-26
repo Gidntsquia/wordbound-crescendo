@@ -61,9 +61,14 @@ async function main() {
     const errors = [];
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     page.on('pageerror', (e) => errors.push(String(e)));
+    // The webfonts are a third-party host; whether they resolve depends on the
+    // machine's network, not on the build, so they don't gate the smoke test.
     const badRequests = [];
-    page.on('requestfailed', (r) => badRequests.push(r.url()));
-    page.on('response', (r) => { if (r.status() >= 400) badRequests.push(r.url() + ' -> ' + r.status()); });
+    const isFontHost = (url) => /fonts\.(googleapis|gstatic)\.com/.test(url);
+    page.on('requestfailed', (r) => { if (!isFontHost(r.url())) badRequests.push(r.url()); });
+    page.on('response', (r) => {
+      if (r.status() >= 400 && !isFontHost(r.url())) badRequests.push(r.url() + ' -> ' + r.status());
+    });
 
     await page.goto(`http://localhost:${PORT}/sandbox.html`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => window.Wordbound && window.Wordbound.Sandbox, { timeout: 15000 });
@@ -105,8 +110,16 @@ async function main() {
     await page.waitForTimeout(120);
     const banked = await tugState();
     check('playing a suggestion creates a pusher', banked.pushers === 1);
-    check('the pusher generates rightward force', banked.force > 0);
     check('the rope stays frozen during prep', Math.abs(banked.rope - 50) < 0.01);
+
+    // A fresh word ramps in over PUSHER_RAMP_SEC, so its force starts at zero
+    // by design -- poll until it has taken hold rather than sampling once.
+    let ramped = banked.force;
+    for (let i = 0; i < 20 && !(ramped > 0); i++) {
+      await page.waitForTimeout(200);
+      ramped = (await tugState()).force;
+    }
+    check('the pusher ramps in and generates rightward force', ramped > 0);
 
     // Prep ends, the song starts telegraphing bursts.
     await page.waitForFunction(() => window.__tug.phase === 'fight', { timeout: 15000 });
