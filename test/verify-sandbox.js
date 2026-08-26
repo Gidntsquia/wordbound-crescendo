@@ -74,6 +74,17 @@ async function main() {
     await page.waitForFunction(() => window.Wordbound && window.Wordbound.Sandbox, { timeout: 15000 });
 
     check('zero failed requests loading the built sandbox', badRequests.length === 0);
+    const furElise = await page.evaluate(() => {
+      const p = window.Wordbound.Pieces.furElise;
+      if (!p) return null;
+      return {
+        title: p.title, beats: p.lengthBeats,
+        tracks: Object.keys(p.tracks), notes: p.tracks.melody.length,
+        pd: p.vetting && p.vetting.publicDomain,
+      };
+    });
+    check('Für Elise is sequenced and public-domain vetted',
+      !!furElise && furElise.pd === true && furElise.notes > 40 && furElise.beats > 100);
     badRequests.forEach((b) => console.log('  BAD REQUEST:', b));
 
     // The sandbox must NOT drag the run structure or the shipped duel engine in
@@ -100,16 +111,37 @@ async function main() {
     check('fight opens in the prep window', opening.phase === 'prep');
     check('rope starts at ROPE_START (50)', Math.abs(opening.rope - 50) < 0.01);
 
+    check('the opening fight is playing Für Elise',
+      (await page.textContent('.sb-pit-piece')).includes('Für Elise'));
+
     // Word maker: feed it the real rack and take its top suggestion.
     await page.click('button:has-text("Use rack")');
     await page.waitForSelector('.sb-suggest', { timeout: 20000 });
     const suggested = (await page.textContent('.sb-suggest')).replace(/[^A-Z]/g, '');
     check('word maker finds a word spellable from the rack', suggested.length >= 2);
 
-    await page.click('.sb-suggest');
+    // The point of the rework: scrambled letters rearrange themselves. Type the
+    // suggestion's own letters out of order and it must come back as the top
+    // result, with the tiles it consumes marked as picked up.
+    const scrambled = suggested.split('').reverse().join('');
+    await page.fill('.sb-input input', scrambled);
+    await page.waitForTimeout(250);
+    const topFor = (await page.textContent('.sb-suggest')).replace(/[^A-Z]/g, '');
+    check('scrambled letters (' + scrambled + ') rearrange to a word', topFor.length >= 2);
+    check('every letter typed is shown picked up from the rack',
+      (await page.$$('.sb-tile.is-picked')).length === scrambled.length);
+
+    // Enter sends the best rearrangement -- you never have to spell it yourself.
+    await page.press('.sb-input input', 'Enter');
+    await page.waitForTimeout(200);
+    const played = await page.evaluate(() => window.__tug.pushers.map((p) => p.word));
+    check('Enter sends the best rearrangement without retyping it',
+      played.length === 1 && played[0] === topFor);
+    check('the field clears after the word is sent',
+      (await page.inputValue('.sb-input input')) === '');
     await page.waitForTimeout(120);
     const banked = await tugState();
-    check('playing a suggestion creates a pusher', banked.pushers === 1);
+    check('the sent word is banked as a pusher', banked.pushers === 1);
     check('the rope stays frozen during prep', Math.abs(banked.rope - 50) < 0.01);
 
     // A fresh word ramps in over PUSHER_RAMP_SEC, so its force starts at zero

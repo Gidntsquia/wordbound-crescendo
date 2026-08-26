@@ -19,6 +19,7 @@ import '../../js/wordbound/wordlist.js';
 import '../../js/wordbound/lexicon.js';
 import '../../js/wordbound/tiles.js';
 import '../../js/wordbound/music.js';
+import '../../js/wordbound/pieces/fur-elise.js';
 import '../../js/wordbound/pieces/gymnopedie-1.js';
 import '../../js/wordbound/pieces/air-g-string.js';
 import '../../js/wordbound/pieces/morning-mood.js';

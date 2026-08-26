@@ -140,8 +140,7 @@ body {
   margin-bottom: 22px;
 }
 
-.sb-setup label,
-.sb-maker label {
+.sb-setup label {
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -616,6 +615,16 @@ button:disabled {
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
 }
 
+.sb-tile.is-picked {
+  color: var(--ink);
+  background: var(--brass-hot);
+  border-color: var(--brass-hot);
+  transform: translateY(-6px);
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.45);
+}
+
+.sb-tile.is-picked sub { color: rgba(26, 23, 16, 0.6); }
+
 .sb-tile:hover:not(:disabled) {
   color: var(--ink);
   background: var(--brass-hot);
@@ -637,7 +646,12 @@ button:disabled {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+}
+
+.sb-input input.is-unformable {
+  border-color: var(--brass);
+  color: var(--brass-hot);
 }
 
 .sb-input input {
@@ -648,20 +662,6 @@ button:disabled {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   padding: 6px 12px;
-}
-
-.sb-maker {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.sb-maker input {
-  width: 168px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .sb-suggests {
@@ -680,6 +680,14 @@ button:disabled {
   padding: 6px 10px;
 }
 
+.sb-suggest.is-best {
+  color: var(--ink);
+  background: var(--leaf);
+  border-color: var(--leaf);
+}
+
+.sb-suggest.is-best em { color: rgba(26, 23, 16, 0.6); }
+
 .sb-suggest em {
   font-family: var(--figure);
   font-style: normal;
@@ -692,6 +700,11 @@ button:disabled {
   font-size: 11px;
   color: var(--leaf-dim);
   font-style: italic;
+}
+
+.sb-warn-line {
+  margin: 10px 0 0;
+  color: var(--brass);
 }
 
 /* ---- tuning + log ----------------------------------------------------- */

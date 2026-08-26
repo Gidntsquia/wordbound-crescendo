@@ -26,6 +26,7 @@ const STAFF_LINES = [0, 2, 4, 6, 8].map((slot) => STAFF_TOP + slot * STAFF_STEP)
 // monsters.js (which drags intents/loot/traits wiring with it). Only the piece
 // matters here -- there is no enemy HP, the rope is the win condition.
 const OPPONENTS = [
+  { id: 'bagatelle', name: 'The Bagatelle', glyph: '\u{1F339}', piece: 'furElise' },
   { id: 'gymnopediste', name: 'The Gymnopédiste', glyph: '\u{1FA70}', piece: 'gymnopedie1' },
   { id: 'gstring', name: 'The G String', glyph: '\u{1F3BB}', piece: 'airGString' },
   { id: 'morningmood', name: 'Morning Mood', glyph: '\u{1F305}', piece: 'morningMood' },
@@ -84,14 +85,25 @@ export default function TugSandbox() {
   const [tempo, setTempo] = useState(1);
   const [volume, setVolume] = useState(0.4);
   const [tune, setTune] = useState(() => ({ ...SB.TUG_DEFAULTS }));
-  const [helperLetters, setHelperLetters] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [helperBusy, setHelperBusy] = useState(false);
+  const [indexing, setIndexing] = useState(false);
   const inputRef = useRef(null);
 
   const say = useCallback((line) => {
     setLog((prev) => [line, ...prev].slice(0, 60));
   }, []);
+
+  // Build the anagram index once, off the critical path, so the first letter
+  // typed already has rearrangements waiting for it.
+  useEffect(() => {
+    if (SB.isWordMakerReady()) return undefined;
+    setIndexing(true);
+    const id = setTimeout(() => {
+      SB.warmWordMaker();
+      setIndexing(false);
+    }, 60);
+    return () => clearTimeout(id);
+  }, [SB]);
 
   const halt = useCallback((outcome, line) => {
     const f = fight.current;
@@ -116,7 +128,13 @@ export default function TugSandbox() {
     const pile = { drawPile: W.Tiles.shuffleIntoDrawPile(deck, rng), discardPile: [] };
     const rack = W.Tiles.draw(pile, RACK_SIZE, rng);
 
-    const seq = W.Music.createSequencer(ctx, gain, piece);
+    // music.js gives one oscillator per note, so waveform choice is the only
+    // timbre control there is: triangle for the played lines (odd harmonics,
+    // closer to a struck string than a bare sine) and sine for the octave
+    // doubling that stands in for a piano's overtones.
+    const seq = W.Music.createSequencer(ctx, gain, piece, {
+      voiceTypes: { melody: 'triangle', bass: 'triangle', shimmer: 'sine' },
+    });
     const tug = SB.createTug({ tune });
 
     tug.on('fight-start', () => say('The pit comes in.'));
@@ -203,6 +221,18 @@ export default function TugSandbox() {
       + f.tug.poolStrength().toFixed(1) + '.');
   }, [phase, say, W]);
 
+  // Enter plays what you typed if it is already a word; otherwise it sends the
+  // strongest rearrangement of the same letters. Either way one key ends the
+  // turn -- you never have to spell it correctly yourself.
+  const sendBest = useCallback(() => {
+    const f = fight.current;
+    if (!f || phase !== 'live') return;
+    const typed = word.trim().toUpperCase();
+    if (typed && W.Lexicon.isValidWord(typed)) { playWord(typed); return; }
+    if (suggestions.length > 0) { playWord(suggestions[0].word); return; }
+    if (typed) say('Nothing spells out of ' + typed + '.');
+  }, [word, suggestions, phase, playWord, say, W]);
+
   const newRack = useCallback(() => {
     const f = fight.current;
     if (!f || phase !== 'live') return;
@@ -214,24 +244,37 @@ export default function TugSandbox() {
   }, [phase, say, W]);
 
   const rackLetters = fight.current ? fight.current.rack.map((t) => t.letter).join('') : '';
+  const letters = word.toUpperCase().replace(/[^A-Z?]/g, '');
 
-  const findWords = useCallback((lettersArg) => {
-    const letters = (lettersArg != null ? lettersArg : helperLetters) || rackLetters;
-    setHelperLetters(letters);
+  // Live rearrangements of exactly the letters currently selected. Type DISTGE
+  // and DIGEST is waiting under the field; Enter sends the best one.
+  useEffect(() => {
+    if (!letters || indexing) { setSuggestions([]); return; }
     const scoreOf = fight.current
       ? (w) => fight.current.tug.wordStrength(w)
       : (w) => w.length;
-    if (!SB.isWordMakerReady()) {
-      setHelperBusy(true);
-      // Let the "building" state paint before the ~200k-word index blocks.
-      setTimeout(() => {
-        setSuggestions(SB.findWords(letters, scoreOf, 10));
-        setHelperBusy(false);
-      }, 16);
+    setSuggestions(SB.findWords(letters, scoreOf, 10));
+  }, [letters, indexing, SB]);
+
+  // Which rack tiles the current letters consume, so the rack can show what is
+  // picked up and clicking a picked tile can put it back.
+  const pickedIds = (() => {
+    const fc = fight.current;
+    if (!fc || !letters) return new Set();
+    const form = W.Lexicon.canFormFromRack(letters, fc.rack);
+    return form.possible ? new Set(form.tilesUsed.map((t) => t.id)) : new Set();
+  })();
+  const formable = !letters || pickedIds.size === letters.length;
+
+  const toggleTile = (tile) => {
+    const letter = tile.letter === '?' ? '?' : tile.letter;
+    if (pickedIds.has(tile.id)) {
+      const at = word.toUpperCase().lastIndexOf(letter);
+      if (at >= 0) setWord(word.slice(0, at) + word.slice(at + 1));
       return;
     }
-    setSuggestions(SB.findWords(letters, scoreOf, 10));
-  }, [helperLetters, rackLetters, SB]);
+    setWord(word + letter);
+  };
 
   const setConst = (key, value) => {
     setTune((t) => ({ ...t, [key]: value }));
@@ -414,8 +457,9 @@ export default function TugSandbox() {
         <section className="sb-play">
           <div className="sb-rack">
             {f.rack.map((t) => (
-              <button key={t.id} type="button" className="sb-tile" disabled={!live}
-                onClick={() => setWord((w) => w + (t.letter === '?' ? '' : t.letter))}>
+              <button key={t.id} type="button" disabled={!live}
+                className={'sb-tile' + (pickedIds.has(t.id) ? ' is-picked' : '')}
+                onClick={() => toggleTile(t)}>
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
               </button>
@@ -424,35 +468,32 @@ export default function TugSandbox() {
 
           <div className="sb-input">
             <input ref={inputRef} value={word} disabled={!live}
-              placeholder="Spell a word"
+              className={formable ? '' : 'is-unformable'}
+              placeholder="Pick tiles or type letters"
               onChange={(e) => setWord(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') playWord(word); }} />
-            <button type="button" className="sb-go" onClick={() => playWord(word)} disabled={!live}>Push</button>
+              onKeyDown={(e) => { if (e.key === 'Enter') sendBest(); }} />
+            <button type="button" className="sb-go" onClick={sendBest} disabled={!live}>Push</button>
             <button type="button" onClick={() => setWord('')} disabled={!live}>Clear</button>
+            <button type="button" onClick={() => setWord(rackLetters)} disabled={!live}>Use rack</button>
             <button type="button" onClick={newRack} disabled={!live}>New rack</button>
           </div>
 
-          <div className="sb-maker">
-            <label>Word maker
-              <input value={helperLetters} placeholder={rackLetters || 'letters'}
-                onChange={(e) => setHelperLetters(e.target.value.toUpperCase())}
-                onKeyDown={(e) => { if (e.key === 'Enter') findWords(); }} />
-            </label>
-            <button type="button" onClick={() => findWords()}>Find</button>
-            <button type="button" onClick={() => findWords(rackLetters)}>Use rack</button>
-          </div>
-
           <div className="sb-suggests">
-            {helperBusy && <span className="sb-hint">Indexing the dictionary…</span>}
-            {!helperBusy && suggestions.length === 0
-              && <span className="sb-hint">Type the letters you hold. Results rank by push.</span>}
-            {suggestions.map((s) => (
-              <button key={s.word} type="button" className="sb-suggest"
+            {indexing && <span className="sb-hint">Reading the dictionary…</span>}
+            {!indexing && !letters
+              && <span className="sb-hint">Pick tiles or type letters. Every word they spell shows up here, strongest first.</span>}
+            {!indexing && letters && suggestions.length === 0
+              && <span className="sb-hint">Nothing spells out of {letters}.</span>}
+            {!indexing && suggestions.map((s, i) => (
+              <button key={s.word} type="button"
+                className={'sb-suggest' + (i === 0 ? ' is-best' : '')}
                 onClick={() => playWord(s.word)} disabled={!live}>
                 {s.word}<em>{s.score.toFixed(0)}</em>
               </button>
             ))}
           </div>
+          {!formable && letters
+            && <p className="sb-hint sb-warn-line">{letters} needs letters that aren’t in your rack.</p>}
         </section>
       )}
 
