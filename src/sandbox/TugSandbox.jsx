@@ -88,14 +88,21 @@ const TUNE_LABELS = {
   PUSHER_FADE_SEC: 'Type wears off over (s)',
   PLAYER_FORCE_SCALE: 'Push per pool point (/s)',
   ENEMY_DRONE: 'Pit drone (/s at full intensity)',
-  ATTACK_INTERVAL_BASE: 'Attack interval base (s)',
   ATTACK_POWER_BASE: 'Attack power base',
+  CRESCENDO_MIN_MULT: 'Smallest swell in a piece ×',
+  CRESCENDO_MAX_MULT: 'Biggest swell in a piece ×',
+  ESCALATION_PER_MIN: 'Swell span stretches per minute',
+  ESCALATION_MAX: 'Swell span stretch, ceiling',
+  ATTACK_GATE_START: 'Smallest swell that swings, opening',
+  ATTACK_GATE_END: 'Smallest swell that swings, late',
+  ATTACK_GATE_SEC: 'Seconds to open the gate fully',
+  ATTACK_MAX_QUIET_SEC: 'Gate may not silence the pit for (s)',
+  CADENCE_SILENCE_SEC: 'Swing anyway if the piece is silent for (s)',
   ATTACK_TRAVEL_SEC: 'Telegraph lead (s)',
   ATTACK_EARLY_SEC: 'Hit lands before the peak (s)',
   ATTACK_MAX_LATE_SEC: 'Skip a swell announced later than (s)',
   ATTACK_IMPULSE_SCALE: 'Barline shove per power',
   ATTACK_CHIP_FACTOR: 'Type destroyed per power',
-  CRESCENDO_POWER_MULT: 'Crescendo power ×',
   DB_RATE: 'Loudness ramp (dB/s)',
   DB_MAX: 'Loudness cap (dB)',
   ENDLESS_RECENTRE_SEC: 'Endless · recentre barline every (s)',
@@ -104,10 +111,14 @@ const TUNE_STEPS = {
   PREP_SEC: 0.5, ROPE_START: 5, WORD_VALUE_WEIGHT: 0.1, WORD_LENGTH_WEIGHT: 0.1,
   WORD_LENGTH_EXP: 0.1, PUSHER_RAMP_SEC: 0.5, PLAYER_FORCE_SCALE: 0.005,
   PUSHER_LIFE_BASE: 1, PUSHER_LIFE_PER_LETTER: 0.5, PUSHER_FADE_SEC: 0.5,
-  ENEMY_DRONE: 0.1, ATTACK_INTERVAL_BASE: 0.5, ATTACK_POWER_BASE: 0.5,
+  ENEMY_DRONE: 0.1, ATTACK_POWER_BASE: 0.5,
+  CRESCENDO_MIN_MULT: 0.1, CRESCENDO_MAX_MULT: 0.1,
+  ESCALATION_PER_MIN: 0.05, ESCALATION_MAX: 0.1,
+  ATTACK_GATE_START: 0.05, ATTACK_GATE_END: 0.05, ATTACK_GATE_SEC: 5,
+  ATTACK_MAX_QUIET_SEC: 0.5, CADENCE_SILENCE_SEC: 1,
   ATTACK_TRAVEL_SEC: 0.1, ATTACK_EARLY_SEC: 0.02, ATTACK_MAX_LATE_SEC: 0.02,
-  ATTACK_IMPULSE_SCALE: 0.05, ATTACK_CHIP_FACTOR: 0.05,
-  CRESCENDO_POWER_MULT: 0.1, DB_RATE: 0.01, DB_MAX: 1,
+  ATTACK_IMPULSE_SCALE: 0.02, ATTACK_CHIP_FACTOR: 0.02,
+  DB_RATE: 0.01, DB_MAX: 1,
   ENDLESS_RECENTRE_SEC: 0.5,
 };
 
@@ -121,6 +132,10 @@ export default function TugSandbox() {
   const [word, setWord] = useState('');
   const [opponentId, setOpponentId] = useState(OPPONENTS[0].id);
   const [seed, setSeed] = useState('sandbox');
+  // Which letters this fight draws from (src/sandbox/tileBags.js). Read at
+  // Start, like the seed: swapping the bag under a running fight would leave
+  // the rack half from one case and half from another.
+  const [bagId, setBagId] = useState('normal');
   const [tempo, setTempo] = useState(1);
   const [volume, setVolume] = useState(0.4);
   const [tune, setTune] = useState(() => ({ ...SB.TUG_DEFAULTS }));
@@ -204,26 +219,32 @@ export default function TugSandbox() {
       return;
     }
 
-    const deck = W.Tiles.createStarterDeck();
+    // NOT Tiles.createStarterDeck(): that is the shipped game's fixed opening
+    // deck, meant to be added to between fights, and the sandbox has no
+    // between-fights. A bag is the knob this screen actually needs -- how good
+    // the letters are, held steady for a whole fight.
+    const deck = SB.createBagDeck(bagId);
     const pile = { drawPile: W.Tiles.shuffleIntoDrawPile(deck, rng), discardPile: [] };
     const rack = W.Tiles.draw(pile, RACK_SIZE, rng);
 
     // A recorded piece is played back; a sequenced one is synthesized. Both
     // expose the same play/stop/on/setTempoScale/getIntensity/beatToTime
     // surface, so nothing below this line has to know which it got.
+    // Both kinds of opponent are fronted by something that announces the
+    // piece's swells the same way and the same distance ahead, in SECONDS: a
+    // beat-counted warning is a different warning in every piece and changes
+    // again with the tempo control.
+    //
+    // A SEQUENCED piece goes through createSequencedPiece rather than straight
+    // to Music.createSequencer, because a stock sequencer only announces
+    // `dynamics.crescendos` -- two or three hand-written markers per piece, and
+    // for six of the eight sequenced opponents the first one is past 26 s or
+    // absent outright. It wraps a stock sequencer and announces a swell list
+    // derived from the piece's own notes instead (sequencedSurges.js), so the
+    // pit answers a synthesized opponent as often as it answers a recording.
     const seq = piece.audio
       ? SB.createAudioPiece(ctx, gain, piece)
-      // A piece can name an instrument per track (see Music.VOICES); anything
-      // it doesn't name falls back to the struck-string piano voice.
-      : W.Music.createSequencer(ctx, gain, piece, {
-        voices: piece.voices || {},
-        // In SECONDS, not the default four beats. A beat-counted warning is a
-        // different warning in every piece and changes again with the tempo
-        // control, so a sequenced opponent gave a fraction of the notice a
-        // recorded one did -- the note appeared as the swell became audible
-        // instead of bearing down on it.
-        crescendoLeadSec: SB.TELEGRAPH_LEAD_SEC,
-      });
+      : SB.createSequencedPiece(ctx, gain, piece, { leadSec: SB.TELEGRAPH_LEAD_SEC });
     const tug = SB.createTug({ tune });
     tug.invincible = invincible;
 
@@ -280,7 +301,7 @@ export default function TugSandbox() {
     tug.start(now);
     fight.current = {
       ctx, gain, rng, pile, rack, tug, seq, piece, def,
-      tempo, lastNow: now, running: true,
+      bagId, tempo, lastNow: now, running: true,
     };
     seq.play();
     if (tempo !== 1) seq.setTempoScale(tempo);
@@ -297,7 +318,7 @@ export default function TugSandbox() {
     setRunId((n) => n + 1);
     say(def.name + ' takes up ' + piece.title + '.');
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [opponentId, seed, tempo, volume, tune, say, halt, W, SB, invincible]);
+  }, [opponentId, seed, bagId, tempo, volume, tune, say, halt, W, SB, invincible]);
 
   // Per-frame loop: the barline integrates against the piece's live intensity.
   //
@@ -489,6 +510,13 @@ export default function TugSandbox() {
         <label>Opponent
           <select value={opponentId} onChange={(e) => setOpponentId(e.target.value)}>
             {OPPONENTS.map((o) => <option key={o.id} value={o.id}>{o.glyph} {o.name}</option>)}
+          </select>
+        </label>
+        <label title={SB.getTileBag(bagId).blurb}>Tile bag
+          <select value={bagId} onChange={(e) => setBagId(e.target.value)}>
+            {SB.TILE_BAGS.map((b) => (
+              <option key={b.id} value={b.id} title={b.blurb}>{b.label}</option>
+            ))}
           </select>
         </label>
         <label>Seed
@@ -713,20 +741,44 @@ export default function TugSandbox() {
             <button type="button" onClick={newRack} disabled={!live}>New rack</button>
           </div>
 
-          <div className="sb-suggests">
-            {indexing && <span className="sb-hint">Reading the dictionary…</span>}
-            {!indexing && !letters
-              && <span className="sb-hint">Pick tiles or type letters. Every word they spell shows up here, strongest first.</span>}
-            {!indexing && letters && suggestions.length === 0
-              && <span className="sb-hint">Nothing spells out of {letters}.</span>}
-            {!indexing && suggestions.map((s, i) => (
-              <button key={s.word} type="button"
-                className={'sb-suggest' + (i === 0 ? ' is-best' : '')}
-                onClick={() => playWord(s.word)} disabled={!live}>
-                {s.word}<em>{s.score.toFixed(0)}</em>
-              </button>
-            ))}
-          </div>
+          {/* THE WORD LIST, PUT AWAY. Ten rearrangements of your letters
+              standing open under the field is a solved puzzle sitting where the
+              puzzle should be, and it pushed the fight itself off the screen on
+              a short window. Collapsed, the summary still carries the one thing
+              you need at a glance -- how many words are in there and what the
+              best one is worth -- and Enter still sends that word without ever
+              opening the drawer. Uncontrolled <details>: this component
+              re-renders every animation frame, and React only drives `open`
+              when it is passed as a prop, so leaving it off is what lets the
+              drawer stay open across sixty renders a second. */}
+          <details className="sb-suggests-drop">
+            <summary>
+              <span className="sb-suggests-title">Words</span>
+              {indexing && <span className="sb-hint">reading the dictionary…</span>}
+              {!indexing && !letters
+                && <span className="sb-hint">pick tiles or type letters</span>}
+              {!indexing && letters && suggestions.length === 0
+                && <span className="sb-hint">nothing spells out of {letters}</span>}
+              {!indexing && suggestions.length > 0 && (
+                <span className="sb-suggests-count">
+                  {suggestions.length}
+                  <b>{suggestions[0].word}</b>
+                  <em>{suggestions[0].score.toFixed(0)}</em>
+                </span>
+              )}
+            </summary>
+            <div className="sb-suggests">
+              {!indexing && suggestions.map((s, i) => (
+                <button key={s.word} type="button"
+                  className={'sb-suggest' + (i === 0 ? ' is-best' : '')}
+                  onClick={() => playWord(s.word)} disabled={!live}>
+                  {s.word}<em>{s.score.toFixed(0)}</em>
+                </button>
+              ))}
+              {!indexing && suggestions.length === 0
+                && <span className="sb-hint">Every word your letters spell shows up here, strongest first. Enter sends the best one.</span>}
+            </div>
+          </details>
           {!formable && letters
             && <p className="sb-hint sb-warn-line">{letters} needs letters that aren’t in your rack.</p>}
         </section>

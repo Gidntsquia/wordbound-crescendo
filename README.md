@@ -1,5 +1,7 @@
 # Wordbound: Crescendo
 
+Play: https://gidntsquia.github.io/wordbound-crescendo/
+
 A "words vs music" browser game: an evil music faction has stolen the alphabet, and
 you spell words to fight musical enemies and win it back. Bosses are backed by
 famous public-domain classical/opera pieces synthesized live via the Web Audio API,

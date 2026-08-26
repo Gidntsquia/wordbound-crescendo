@@ -380,3 +380,42 @@ files are re-ingested by every zero-memory run, so their size is a fixed per-run
       proof-piece runs. Czerny 299 is slated for REPLACEMENT by PF2
       item 4 (recognizability) — coordinate before composing more around
       The Metronome.
+
+- [ ] CRESCENDO WARNING IS DEAD FOR MOST PIECES (SHIPPED APP) — found
+      2026-08-26 while fixing the sandbox's "the pit never attacks" bug.
+      `js/wordbound/music.js:654` only ever announces
+      `crescendo-approaching` for entries hand-written in
+      `piece.dynamics.crescendos`, and most pieces barely have any.
+      Counted, per piece: air-g-string 0, czerny-299 0,
+      flight-bumblebee 0, gymnopedie-1 1, morning-mood 1,
+      mountain-king 1, fur-elise 2, gnossienne-1 3, invention-4 3,
+      valkyrie-marshal 4, beethoven-5th 5. Converted to seconds through
+      each piece's own tempo map, gymnopedie/morning-mood/mountain-king's
+      single marker peaks within a second of the END of the piece.
+      Consequence in the SHIPPED game (not the sandbox):
+      `js/wordbound/game.js:1229` wires this event into
+      `Game.getApproachingCrescendoSecondsAway`, which is the only thing
+      driving the VolumeGauge's incoming-swell warning. So against three
+      of eleven opponents the warning NEVER fires, and against three more
+      it fires once, at the end. The duel's music pressure is real but
+      unannounced — the player is told to watch for a swell that the
+      game never says is coming.
+      FIX ALREADY PROTOTYPED, sandbox-side: `src/sandbox/sequencedSurges.js`
+      derives a swell list from a piece's OWN note data (velocity-weighted
+      onset windows x intensity, smoothed, local maxima, percentile-ranked)
+      and gets 20-44 telegraphed swells/min out of the same pieces. Port
+      that derivation into music.js as an OPT-IN sequencer option
+      (`opts.surges === true`, WeakMap-cached, ~6ms cold for all pieces,
+      hand-written `dynamics.crescendos` still force-included at top rank)
+      so the shipped duel can turn it on without changing any piece data.
+      Measured in the sandbox: derivation is cheap and the announce-once
+      bookkeeping is the same shape music.js already uses.
+      VERIFY: `npm test`, `npm run test:music-engine`, `npm run test:react`
+      (duelIntegration.test.js:293 pins the countdown wiring — extend it,
+      don't weaken it), plus a seeded live-build playthrough against
+      air-g-string or czerny-299 showing the gauge warning firing more than
+      zero times. Check the box only when a piece with ZERO hand-written
+      crescendos telegraphs in the shipped combat screen.
+      NOTE: leave `src/sandbox/sequencedSurges.js` in place when porting —
+      the sandbox wraps the sequencer for its own reasons (it must NOT
+      forward music.js's own announcement or every burst double-hits).

@@ -226,7 +226,17 @@
             // 0..1. The fight sizes the hit off it and gates the small ones
             // out early, so leaving it behind here silently downgrades both
             // to a guess from peak level.
-            mag: s.mag
+            mag: s.mag,
+            // A recording's swells are ranked against each other and nothing
+            // else, so its size and its rank ARE the same number. A SEQUENCED
+            // piece separates them (see sequencedSurges.js) -- stated here so
+            // the two kinds of piece hand the fight the same shape of payload.
+            rank: s.mag,
+            // This list is the DENSE one -- a hundred-odd swells per recording,
+            // down to phrase peaks -- so the fight's attack gate curates it.
+            // A derived sequenced list is already curated and says so by
+            // leaving this off. See tugOfWar.js telegraphCrescendo.
+            dense: true
           });
         });
         if (duration && pos >= duration && !endedFired) {

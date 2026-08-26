@@ -30,11 +30,17 @@ import '../../js/wordbound/pieces/mountain-king.js';
 
 import './tugOfWar.js';
 import './wordFinder.js';
+// Which letters a fight draws from -- three bags, weak/normal/strong.
+import './tileBags.js';
 // A recorded piece and the player that fronts it behind the sequencer's own
 // surface. Sandbox-only: js/wordbound/music.js stays synthesized-only.
 import './audioPiece.js';
 import './recordedFurElise.js';
 import './recordedMoonlight.js';
+// ...and the same swell list, derived from a SEQUENCED piece's own notes, so a
+// synthesized opponent telegraphs as often as a recorded one. Loaded after
+// audioPiece.js, which is where TELEGRAPH_LEAD_SEC is defined.
+import './sequencedSurges.js';
 
 import TugSandbox from './TugSandbox.jsx';
 

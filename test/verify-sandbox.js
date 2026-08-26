@@ -130,6 +130,17 @@ async function main() {
     const leaked = forbidden.filter((k) => loaded.includes(k));
     check('no run-structure or duel-engine modules loaded (' + (leaked.join(', ') || 'clean') + ')', leaked.length === 0);
 
+    // Three tile bags, and every one of them bigger than a rack -- a bag the
+    // size of the rack would deal the same seven tiles every cycle. Not a
+    // tuning check: the COUNTS are being tuned freely, the shape is not.
+    const bags = await page.evaluate(() => {
+      const S = window.Wordbound.Sandbox;
+      return (S.TILE_BAGS || []).map((b) => ({ id: b.id, size: S.createBagDeck(b.id).length }));
+    });
+    check('three tile bags, each bigger than a rack ('
+      + bags.map((b) => b.id + ':' + b.size).join(', ') + ')',
+      bags.length === 3 && bags.every((b) => b.size > 7));
+
     await page.fill('.sb-setup input', SEED);
     await page.click('button:has-text("Start fight")');
     await page.waitForSelector('.sb-rope');
@@ -180,7 +191,13 @@ async function main() {
       Number.isFinite(later.i) && later.i > 0);
 
     // Word maker: feed it the real rack and take its top suggestion.
+    //
+    // The list lives in a <details> that starts CLOSED, and Chromium reports a
+    // closed details' contents as not-visible -- so waitForSelector's default
+    // state:'visible' would sit there until it timed out. Open the drawer,
+    // which is what a player does, and everything below reads as it always did.
     await page.click('button:has-text("Best play")');
+    await page.click('.sb-suggests-drop > summary');
     await page.waitForSelector('.sb-suggest', { timeout: 20000 });
     const suggested = (await page.textContent('.sb-suggest')).replace(/[^A-Z]/g, '');
     check('best-play helper finds a word spellable from the rack', suggested.length >= 2);
@@ -221,6 +238,21 @@ async function main() {
       landed = await page.evaluate(() => window.__tug.lastHitAt > 0);
     }
     check('a telegraphed attack lands', landed);
+
+    // AND IT LANDS EARLY. The complaint this guards is "the enemy doesn't
+    // attack for the first 10 seconds or so" -- which it did not, for every
+    // opponent: the tacet swallowed each swell announced during it, the size
+    // gate turned away everything the opening had, and a sequenced piece had
+    // barely any marked crescendos to announce in the first place. Read off the
+    // model's own clock rather than wall time, and bounded generously: this is
+    // a regression guard against a silent opening, not a pin on any constant.
+    const opening = await page.evaluate(() => {
+      const t = window.__tug;
+      return t.firstHitAt > 0 ? t.firstHitAt - t.startedAt : -1;
+    });
+    check('the pit comes in inside the first 10 seconds ('
+      + (opening < 0 ? 'never' : opening.toFixed(1) + 's') + ')',
+      opening > 0 && opening < 10);
 
     check('no console/page errors during the fight', errors.length === 0);
     errors.forEach((e) => console.log('  ERROR:', e));

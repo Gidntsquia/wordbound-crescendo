@@ -672,12 +672,63 @@ button:disabled {
   padding: 6px 12px;
 }
 
+/* THE WORD LIST, IN A DRAWER. Styled to match .sb-tune, the sandbox's other
+   collapsed panel, so the screen has one idea of what "put away" looks like --
+   with the summary carrying the count and the best word, because those are the
+   two things worth knowing without opening it. */
+.sb-suggests-drop {
+  border-top: 1px solid var(--rule);
+  padding-top: 10px;
+}
+
+.sb-suggests-drop summary {
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.sb-suggests-drop summary:hover .sb-suggests-title { color: var(--brass-hot); }
+
+.sb-suggests-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--leaf-dim);
+}
+
+/* The count, then the best word, then what it is worth -- the summary of a
+   list you have not opened. */
+.sb-suggests-count {
+  font-family: var(--figure);
+  font-size: 11px;
+  color: var(--leaf-dim);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sb-suggests-count b {
+  font-family: var(--display);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  color: var(--leaf);
+}
+
+.sb-suggests-count em {
+  font-style: normal;
+  color: var(--brass);
+}
+
 .sb-suggests {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
   min-height: 30px;
+  padding-top: 10px;
 }
 
 .sb-suggest {
