@@ -31,9 +31,15 @@ const SMOOTH_SEC = 0.6;   // loudness is smoothed over this before normalising
 const MIN_INT = 0.12;     // the intensity band the sequenced pieces occupy,
 const MAX_INT = 0.70;     //   matched so tug balance carries over unchanged
 const KEYFRAME_TOL = 0.012; // drop a point this close to the line through its neighbours
-const SURGE_RISE = 0.10;  // a surge must climb this far above the recent floor
-const SURGE_LOOKBACK = 3; // ...measured over this many seconds
-const SURGE_GAP = 4;      // and surges nearer than this collapse to the loudest
+const SURGE_LOOKBACK = 3; // a surge's climb is measured over this many seconds
+// The surge test gets LENIENT as the piece goes on, so the song attacks more
+// and more often the deeper into it you are. Early on only a real swell
+// counts; by the end a modest lift is enough and they may crowd together.
+// Both values interpolate linearly on position within the recording.
+const SURGE_RISE_START = 0.14;  // climb required at the very top of the piece
+const SURGE_RISE_END = 0.015;   // ...and at the very end
+const SURGE_GAP_START = 5.5;    // seconds two surges must be apart, at the top
+const SURGE_GAP_END = 1.0;      // ...and at the end
 
 (async () => {
   if (!fs.existsSync(IN)) {
@@ -106,15 +112,24 @@ const SURGE_GAP = 4;      // and surges nearer than this collapse to the loudest
   keep.push(pts[pts.length - 1]);
 
   const back = Math.round(SURGE_LOOKBACK / hopSec);
+  // Eased, not linear: the first half stays near the strict end so the opening
+  // still feels sparse, and the leniency arrives mostly in the back half.
+  const lerp = (a, b, t) => {
+    const e = Math.pow(Math.max(0, Math.min(1, t)), 1.8);
+    return a + (b - a) * e;
+  };
   const surges = [];
   for (let i = back; i < norm.length - 1; i++) {
     if (!(norm[i] >= norm[i - 1] && norm[i] > norm[i + 1])) continue;
+    const progress = i / (norm.length - 1);
+    const needRise = lerp(SURGE_RISE_START, SURGE_RISE_END, progress);
+    const needGap = lerp(SURGE_GAP_START, SURGE_GAP_END, progress);
     let lo = Infinity;
     for (let j = i - back; j < i; j++) lo = Math.min(lo, norm[j]);
-    if (norm[i] - lo < SURGE_RISE) continue;
+    if (norm[i] - lo < needRise) continue;
     const t = +(i * hopSec).toFixed(2);
     const prev = surges[surges.length - 1];
-    if (prev && t - prev.sec < SURGE_GAP) {
+    if (prev && t - prev.sec < needGap) {
       if (norm[i] > prev.intensity) surges[surges.length - 1] = { sec: t, intensity: norm[i], rise: +(norm[i] - lo).toFixed(3) };
       continue;
     }
@@ -162,6 +177,10 @@ ${surges.map((s) => `        { sec: ${s.sec}, intensity: ${s.intensity}, rise: $
   console.log('analysed ' + path.basename(IN));
   console.log('  duration   ' + duration + 's, peak ' + raw.peak);
   console.log('  keyframes  ' + keep.length + ' (from ' + pts.length + ' sampled)');
-  console.log('  surges     ' + surges.length);
+  const third = duration / 3;
+  const perThird = [0, 0, 0];
+  surges.forEach((s2) => { perThird[Math.min(2, Math.floor(s2.sec / third))]++; });
+  console.log('  surges     ' + surges.length
+    + ' (by third of the piece: ' + perThird.join(' / ') + ')');
   console.log('  wrote      ' + path.relative(ROOT, OUT));
 })();

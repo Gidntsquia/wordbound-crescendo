@@ -39,6 +39,13 @@
     WORD_LENGTH_EXP: 1.8,
     PLAYER_FORCE_SCALE: 0.025,// rope units/sec per point of pool strength
     PUSHER_RAMP_SEC: 8,       // a fresh word takes this long to reach full push
+    // ...and then it wears off. A word holds full push for LIFE_BASE plus
+    // LIFE_PER_LETTER per letter, then bleeds out over FADE_SEC. Long words
+    // are the ones worth holding the rack for: they take the same time to
+    // ramp in but stay standing far longer.
+    PUSHER_LIFE_BASE: 8,      // seconds of full push before any word starts to go
+    PUSHER_LIFE_PER_LETTER: 4,// extra seconds of life per letter
+    PUSHER_FADE_SEC: 6,       // seconds from start of fade to silent
 
     // Song -> enemy force.
     ENEMY_DRONE: 1.6,         // rope units/sec at intensity 1.0, 0 dB
@@ -112,6 +119,46 @@
       return Math.min(1, (tug.elapsed - pusher.bornAt) / tug.tune.PUSHER_RAMP_SEC);
     };
 
+    // How long this word holds before it starts to fade. Length is the whole
+    // story -- a 3-letter word gets 20s, a 7-letter word 36s.
+    tug.pusherLife = function (pusher) {
+      return tug.tune.PUSHER_LIFE_BASE
+        + tug.tune.PUSHER_LIFE_PER_LETTER * pusher.word.length;
+    };
+
+    // 1 while the word still holds, sliding to 0 across PUSHER_FADE_SEC once
+    // its life is spent. Reported separately from hp so the UI can show a word
+    // going quiet without pretending it was chipped by an attack.
+    tug.pusherFade = function (pusher) {
+      var over = (tug.elapsed - pusher.bornAt) - tug.pusherLife(pusher);
+      if (over <= 0) return 1;
+      var fade = tug.tune.PUSHER_FADE_SEC;
+      if (fade <= 0) return 0;
+      return Math.max(0, 1 - over / fade);
+    };
+
+    // Wearing off is applied to hp itself, not layered on top as another
+    // multiplier, so pool strength, chip-damage ordering and push force all
+    // stay consistent with one another without each needing to remember it.
+    function wearOff(dt) {
+      if (!tug.pushers.length) return;
+      var survivors = [];
+      for (var i = 0; i < tug.pushers.length; i++) {
+        var p = tug.pushers[i];
+        var over = (tug.elapsed - p.bornAt) - tug.pusherLife(p);
+        if (over > 0) {
+          var fade = Math.max(0.1, tug.tune.PUSHER_FADE_SEC);
+          // Rate is scaled by the word's ORIGINAL strength so fading always
+          // takes PUSHER_FADE_SEC, whether the word is big or small.
+          p.hp -= (p.strength / fade) * dt;
+          p.fading = true;
+        }
+        if (p.hp > 0.01) survivors.push(p);
+        else emit('pusher-spent', p);
+      }
+      tug.pushers = survivors;
+    }
+
     tug.playerForce = function () {
       var total = 0;
       for (var i = 0; i < tug.pushers.length; i++) {
@@ -153,7 +200,8 @@
         word: String(word || '').toUpperCase(),
         strength: strength,
         hp: strength,
-        bornAt: tug.elapsed
+        bornAt: tug.elapsed,
+        fading: false
       };
       tug.pushers.push(pusher);
       emit('pusher-added', pusher);
@@ -242,6 +290,7 @@
 
       tug.fightElapsed += dt;
       tug.db = Math.min(tug.tune.DB_MAX, tug.tune.DB_RATE * tug.fightElapsed);
+      wearOff(dt);
 
       if (now >= tug.nextAttackAt) {
         var power = tug.tune.ATTACK_POWER_BASE

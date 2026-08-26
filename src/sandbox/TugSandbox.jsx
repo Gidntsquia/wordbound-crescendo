@@ -58,6 +58,9 @@ const TUNE_LABELS = {
   WORD_LENGTH_WEIGHT: 'Word · length weight',
   WORD_LENGTH_EXP: 'Word · length exponent',
   PUSHER_RAMP_SEC: 'Type takes hold over (s)',
+  PUSHER_LIFE_BASE: 'Type holds for (s)',
+  PUSHER_LIFE_PER_LETTER: 'Type holds, extra per letter (s)',
+  PUSHER_FADE_SEC: 'Type wears off over (s)',
   PLAYER_FORCE_SCALE: 'Push per pool point (/s)',
   ENEMY_DRONE: 'Pit drone (/s at full intensity)',
   ATTACK_INTERVAL_BASE: 'Attack interval base (s)',
@@ -72,6 +75,7 @@ const TUNE_LABELS = {
 const TUNE_STEPS = {
   PREP_SEC: 0.5, ROPE_START: 5, WORD_VALUE_WEIGHT: 0.1, WORD_LENGTH_WEIGHT: 0.1,
   WORD_LENGTH_EXP: 0.1, PUSHER_RAMP_SEC: 0.5, PLAYER_FORCE_SCALE: 0.005,
+  PUSHER_LIFE_BASE: 1, PUSHER_LIFE_PER_LETTER: 0.5, PUSHER_FADE_SEC: 0.5,
   ENEMY_DRONE: 0.1, ATTACK_INTERVAL_BASE: 0.5, ATTACK_POWER_BASE: 0.5,
   ATTACK_TRAVEL_SEC: 0.1, ATTACK_IMPULSE_SCALE: 0.05, ATTACK_CHIP_FACTOR: 0.05,
   CRESCENDO_POWER_MULT: 0.1, DB_RATE: 0.01, DB_MAX: 1,
@@ -161,6 +165,7 @@ export default function TugSandbox() {
       (a.kind === 'crescendo' ? 'Crescendo hit ' : 'Beat hit ')
       + a.power.toFixed(1) + ' — barline at ' + tug.rope.toFixed(1)));
     tug.on('pusher-lost', (p) => say(p.word + ' silenced.'));
+    tug.on('pusher-spent', (p) => say(p.word + (p.fading ? ' wears off.' : ' silenced.')));
     tug.on('won', () => halt('won', 'The words hold.'));
     tug.on('lost', () => halt('lost', 'The song wins.'));
 
@@ -373,11 +378,18 @@ export default function TugSandbox() {
               {slugs.length === 0 && <p className="sb-empty">Spell a word to start pushing.</p>}
               {slugs.map((p) => {
                 const ramp = tug.pusherRamp(p);
+                const fade = tug.pusherFade(p);
+                // Two different ways a word stops pushing, and they should not
+                // look alike: chipped by an attack, or simply spent.
+                const cls = 'sb-slug'
+                  + (fade < 1 ? ' is-spent' : (p.hp < p.strength ? ' is-hurt' : ''));
                 return (
-                  <div key={p.id} className={'sb-slug' + (p.hp < p.strength ? ' is-hurt' : '')}>
-                    <span className="sb-slug-set" style={{ width: (100 * ramp) + '%' }} />
+                  <div key={p.id} className={cls}>
+                    <span className="sb-slug-set" style={{ width: (100 * ramp * fade) + '%' }} />
                     <span className="sb-slug-word">{p.word}</span>
-                    <span className="sb-slug-str">{ramp < 1 ? 'setting' : p.hp.toFixed(1)}</span>
+                    <span className="sb-slug-str">
+                      {ramp < 1 ? 'setting' : fade < 1 ? 'wearing off' : p.hp.toFixed(1)}
+                    </span>
                   </div>
                 );
               })}
@@ -493,7 +505,17 @@ export default function TugSandbox() {
               onKeyDown={(e) => { if (e.key === 'Enter') sendBest(); }} />
             <button type="button" className="sb-go" onClick={sendBest} disabled={!live}>Push</button>
             <button type="button" onClick={() => setWord('')} disabled={!live}>Clear</button>
-            <button type="button" onClick={() => setWord(rackLetters)} disabled={!live}>Use rack</button>
+            <button type="button" onClick={() => {
+              const scoreOf = fight.current
+                ? (w) => fight.current.tug.wordStrength(w)
+                : (w) => w.length;
+              const best = SB.bestFromRack(rackLetters, scoreOf, 1);
+              // Fill with the winning word's letters, not the whole rack: the
+              // field is an exact-letters field now, so handing it seven tiles
+              // that spell nothing would just show "no word".
+              if (best.length) setWord(best[0].word);
+              else say('Nothing spells out of this rack.');
+            }} disabled={!live}>Best play</button>
             <button type="button" onClick={newRack} disabled={!live}>New rack</button>
           </div>
 

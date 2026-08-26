@@ -333,6 +333,13 @@ button:disabled {
 .sb-slug.is-hurt { border-left-color: var(--brass); }
 .sb-slug.is-hurt .sb-slug-set { background: #b8a98c; }
 
+/* Spent is not the same as hurt: the word was not shot down, its type has
+   simply worn off the page. Reads as fading ink rather than damage. */
+.sb-slug.is-spent { border-left-color: transparent; opacity: 0.55; }
+.sb-slug.is-spent .sb-slug-word { text-decoration: line-through; text-decoration-thickness: 1px; }
+.sb-slug.is-spent .sb-slug-set { background: #8d8577; }
+.sb-slug.is-spent .sb-slug-str { font-style: italic; letter-spacing: 0.04em; }
+
 /* -- the staff ---------------------------------------------------------- */
 .sb-arena {
   display: flex;

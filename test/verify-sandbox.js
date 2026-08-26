@@ -162,10 +162,10 @@ async function main() {
       later.i >= 0.1 && later.i <= 0.75);
 
     // Word maker: feed it the real rack and take its top suggestion.
-    await page.click('button:has-text("Use rack")');
+    await page.click('button:has-text("Best play")');
     await page.waitForSelector('.sb-suggest', { timeout: 20000 });
     const suggested = (await page.textContent('.sb-suggest')).replace(/[^A-Z]/g, '');
-    check('word maker finds a word spellable from the rack', suggested.length >= 2);
+    check('best-play helper finds a word spellable from the rack', suggested.length >= 2);
 
     // The point of the rework: scrambled letters rearrange themselves. Type the
     // suggestion's own letters out of order and it must come back as the top
@@ -177,6 +177,7 @@ async function main() {
     check('scrambled letters (' + scrambled + ') rearrange to a word', topFor.length >= 2);
     check('every letter typed is shown picked up from the rack',
       (await page.$$('.sb-tile.is-picked')).length === scrambled.length);
+
 
     // Enter sends the best rearrangement -- you never have to spell it yourself.
     await page.press('.sb-input input', 'Enter');

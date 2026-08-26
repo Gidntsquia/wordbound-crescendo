@@ -1,10 +1,17 @@
-// WORD MAKER -- "here are my letters, what can I actually spell?"
+// WORD MAKER -- "rearrange EXACTLY these letters into a word."
 //
-// Brute-forcing 200k dictionary words against a rack on every keystroke is far
-// too slow, so this uses the same trick lexicon.js uses for its softlock check:
-// sorting a word's letters is order-independent, so an anagram map keyed by
-// sorted letters turns "can I spell something with these tiles" into a handful
-// of Set lookups. A 7-tile rack has only 2^7 subsets to test.
+// Sorting a word's letters is order-independent, so an anagram map keyed by
+// sorted letters turns "what do these letters spell" into a single lookup.
+//
+// findWords is an ANAGRAM SOLVER, not a best-play finder: it uses every letter
+// given or returns nothing. DISTGE -> DIGEST; DISGETZ -> nothing, because no
+// word uses that Z. Leftover letters are a miss, not a smaller answer. (An
+// earlier version enumerated all 2^n subsets and returned the best word it
+// could build from part of the input, which quietly ignored letters the player
+// had actually selected.)
+//
+// bestFromRack is the separate "what could I play at all?" helper, and IS a
+// subset search -- see its own note.
 //
 // The map is built once, lazily, on the first search (~200k string sorts, a
 // couple hundred ms) and cached for the rest of the session.
@@ -33,16 +40,9 @@
   Sandbox.isWordMakerReady = function () { return !!anagramMap; };
   Sandbox.warmWordMaker = function () { buildMap(); };
 
-  // letters: a string like "DELISTG" ('?' = blank wildcard).
-  // score: optional (word) -> number ranking function; defaults to length.
-  // Returns [{ word, score }] best-first, at most `limit` entries.
-  Sandbox.findWords = function (letters, score, limit) {
-    var map = buildMap();
-    var scoreOf = score || function (w) { return w.length; };
-    var max = limit || 8;
-
+  function splitLetters(letters) {
     var chars = String(letters || '').toUpperCase().replace(/[^A-Z?]/g, '').split('');
-    if (chars.length > 10) chars = chars.slice(0, 10); // 2^10 subsets is the ceiling
+    if (chars.length > 12) chars = chars.slice(0, 12);
     var fixed = [];
     var blanks = 0;
     for (var i = 0; i < chars.length; i++) {
@@ -50,32 +50,82 @@
       else fixed.push(chars[i]);
     }
     if (blanks > 2) blanks = 2; // 26^3 substitutions is not worth it
+    return { fixed: fixed, blanks: blanks };
+  }
+
+  // letters: a string like "DISTGE" ('?' = blank wildcard).
+  // score: optional (word) -> number ranking function; defaults to length.
+  // Returns [{ word, score }] best-first, at most `limit` entries.
+  //
+  // EVERY letter must be used. A blank stands in for one letter of the answer,
+  // so it is still consumed -- "?IGEST" spells DIGEST, but "DIGESTZ" spells
+  // nothing at all.
+  Sandbox.findWords = function (letters, score, limit) {
+    var map = buildMap();
+    var scoreOf = score || function (w) { return w.length; };
+    var max = limit || 8;
+    var split = splitLetters(letters);
+    var fixed = split.fixed;
+    if (fixed.length + split.blanks < 2) return [];
 
     var found = new Map();
-
-    function consider(subset) {
-      if (subset.length < 2) return;
-      var bucket = map.get(subset.slice().sort().join(''));
+    function consider(set) {
+      var bucket = map.get(set.slice().sort().join(''));
       if (!bucket) return;
       for (var b = 0; b < bucket.length; b++) {
         if (!found.has(bucket[b])) found.set(bucket[b], scoreOf(bucket[b]));
       }
     }
 
-    // Every subset of the real letters, each optionally padded out with one
-    // substitution per blank tile.
+    if (split.blanks === 0) {
+      consider(fixed);
+    } else if (split.blanks === 1) {
+      for (var a = 0; a < 26; a++) consider(fixed.concat([ALPHABET[a]]));
+    } else {
+      for (var b1 = 0; b1 < 26; b1++) {
+        for (var b2 = b1; b2 < 26; b2++) consider(fixed.concat([ALPHABET[b1], ALPHABET[b2]]));
+      }
+    }
+
+    var out = [];
+    found.forEach(function (value, key) { out.push({ word: key, score: value }); });
+    out.sort(function (x, y) { return y.score - x.score || x.word.localeCompare(y.word); });
+    return out.slice(0, max);
+  };
+
+  // The other question: "given this whole rack, what is the best thing I can
+  // play?" That one IS a subset search -- a rack is a hand to choose from, not
+  // a set of letters to consume. The UI uses it to FILL the field with the
+  // winning word's own letters, so what the player then sees selected still
+  // spells that word exactly and findWords above still agrees.
+  Sandbox.bestFromRack = function (letters, score, limit) {
+    var map = buildMap();
+    var scoreOf = score || function (w) { return w.length; };
+    var max = limit || 8;
+    var split = splitLetters(letters);
+    var fixed = split.fixed;
+    if (fixed.length > 10) fixed = fixed.slice(0, 10); // 2^10 subsets is the ceiling
+
+    var found = new Map();
+    function consider(set) {
+      if (set.length < 2) return;
+      var bucket = map.get(set.slice().sort().join(''));
+      if (!bucket) return;
+      for (var b = 0; b < bucket.length; b++) {
+        if (!found.has(bucket[b])) found.set(bucket[b], scoreOf(bucket[b]));
+      }
+    }
+
     var n = fixed.length;
     for (var mask = 0; mask < (1 << n); mask++) {
       var subset = [];
-      for (var bit = 0; bit < n; bit++) {
-        if (mask & (1 << bit)) subset.push(fixed[bit]);
-      }
+      for (var bit = 0; bit < n; bit++) if (mask & (1 << bit)) subset.push(fixed[bit]);
       consider(subset);
-      if (blanks >= 1) {
+      if (split.blanks >= 1) {
         for (var a = 0; a < 26; a++) {
           var one = subset.concat([ALPHABET[a]]);
           consider(one);
-          if (blanks >= 2) {
+          if (split.blanks >= 2) {
             for (var c = a; c < 26; c++) consider(one.concat([ALPHABET[c]]));
           }
         }
