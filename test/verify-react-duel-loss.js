@@ -50,7 +50,10 @@ const { chromium } = require('@playwright/test');
 
 const ROOT = path.join(__dirname, '..');
 const DIST_DIR = path.join(ROOT, 'dist', 'app');
-const PORT = 9884;
+// Port is overridable so tools/run-gates.js can run the gates in PARALLEL
+// without two of them fighting over the same one -- several of these files
+// were written with the same hard-coded default.
+const PORT = Number(process.env.WB_PORT) || 9884;
 const SEED = 'vitest-fixed-seed-1'; // same known-good seed the rest of the React suite relies on
 const CHARACTER_NAME = 'The Archivist';
 
@@ -113,7 +116,12 @@ async function jumpToBossNode(page) {
 
 async function main() {
   console.log('Building the Vite/React app fresh...');
-  execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'inherit' });
+  // tools/run-gates.js builds ONCE and hands every gate the same dist/, so
+  // six gates no longer run six identical `vite build`s. Running this file
+  // on its own still builds -- WB_SKIP_BUILD is only set by the runner.
+  if (!process.env.WB_SKIP_BUILD) {
+    execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'inherit' });
+  }
   check('dist/app/index.html exists after build', fs.existsSync(path.join(DIST_DIR, 'index.html')));
 
   const server = await startServer(DIST_DIR);

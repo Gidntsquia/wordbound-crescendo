@@ -38,7 +38,10 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('@playwright/test');
 
-const PORT = 9881;
+// Port is overridable so tools/run-gates.js can run the gates in PARALLEL
+// without two of them fighting over the same one -- several of these files
+// were written with the same hard-coded default.
+const PORT = Number(process.env.WB_PORT) || 9881;
 const ROOT = path.join(__dirname, '..');
 let server;
 

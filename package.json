@@ -40,7 +40,11 @@
     "pretest:sandbox": "node tools/ensure-deps.js @playwright/test",
     "test:sandbox": "node test/verify-sandbox.js",
     "pretest:regular-duel-smoke": "node tools/ensure-deps.js @playwright/test",
-    "test:regular-duel-smoke": "node test/verify-regular-duel-smoke.js"
+    "test:regular-duel-smoke": "node test/verify-regular-duel-smoke.js",
+    "test:gates": "node tools/run-gates.js all",
+    "test:gates:fast": "node tools/run-gates.js fast",
+    "test:gates:slow": "node tools/run-gates.js slow",
+    "test:react:changed": "vitest run --changed origin/main"
   },
   "dependencies": {
     "react": "^19.2.8",
