@@ -475,6 +475,14 @@
     var tickMs = opts.tickMs || 25;
     var lookaheadSec = opts.lookaheadSec != null ? opts.lookaheadSec : 0.15;
     var crescendoLeadBeats = opts.crescendoLeadBeats != null ? opts.crescendoLeadBeats : 4;
+    // ...or the same warning stated in SECONDS, which is what a warning
+    // actually is: how long the player has to see the thing coming. Beats make
+    // it depend on tempo -- four beats is two seconds in one piece and under
+    // one in another, and it changes again the moment the tempo control moves,
+    // so the same crescendo gives different warning in different performances
+    // of it. When this is set it wins, and the beats figure is ignored.
+    // Opt-in: unset, the beat-counted path below is untouched.
+    var crescendoLeadSec = opts.crescendoLeadSec != null ? opts.crescendoLeadSec : null;
     var autoTick = opts.autoTick !== false;
     var voiceTypes = opts.voiceTypes || {};
     var voices = opts.voices || {};
@@ -488,6 +496,10 @@
     var scheduledNodes = [];
     var intervalId = null;
     var endedFired = false;
+    // Which crescendos have already had their warning go out, for the
+    // seconds-lead path (see crescendoLeadSec). Cleared on stop and on a
+    // restart from the top.
+    var announcedCrescendos = {};
 
     var seq = {
       isPlaying: false,
@@ -570,6 +582,8 @@
       if (seq.isPlaying) return seq;
       seq.isPlaying = true;
       endedFired = false;
+      // A fresh pass over the piece announces its crescendos again.
+      if (seq.pausedBeat === 0) announcedCrescendos = {};
       seq.anchorBeat = Math.min(seq.pausedBeat, piece.lengthBeats);
       seq.anchorTime = ctx.currentTime;
       seq.lastScheduledBeat = seq.anchorBeat;
@@ -591,6 +605,7 @@
       seq.isPlaying = false;
       seq.pausedBeat = 0;
       seq.lastScheduledBeat = 0;
+      announcedCrescendos = {};
       if (intervalId != null) { clearInterval(intervalId); intervalId = null; }
       clearScheduledNodes(true);
       return seq;
@@ -622,9 +637,26 @@
         });
 
         var crescendos = (piece.dynamics && piece.dynamics.crescendos) || [];
-        crescendos.forEach(function (c) {
-          var approachBeat = Math.max(c.startBeat != null ? c.startBeat : 0, c.peakBeat - crescendoLeadBeats);
-          if (approachBeat >= from && approachBeat < scheduleUntilBeat) emit('crescendo-approaching', c);
+        crescendos.forEach(function (c, ci) {
+          if (crescendoLeadSec != null) {
+            // A seconds-lead can reach back past the crescendo's own start, and
+            // past the start of the PIECE -- which is the point: the note wants
+            // to be on screen while the music is still quiet. That also means
+            // the announcement beat can fall outside the scheduling window
+            // entirely (before it at the first tick, or skipped over by a tempo
+            // the player just pushed up), so this path cannot lean on the
+            // windows tiling the way the beat-counted one below does. Each
+            // crescendo is announced once, tracked, and never dropped.
+            var approachT = beatToTime(c.peakBeat) - crescendoLeadSec;
+            if (!announcedCrescendos[ci] && c.peakBeat >= from
+                && nowT + lookaheadSec >= approachT) {
+              announcedCrescendos[ci] = true;
+              emit('crescendo-approaching', c);
+            }
+          } else {
+            var approachBeat = Math.max(c.startBeat != null ? c.startBeat : 0, c.peakBeat - crescendoLeadBeats);
+            if (approachBeat >= from && approachBeat < scheduleUntilBeat) emit('crescendo-approaching', c);
+          }
           if (c.peakBeat >= from && c.peakBeat < scheduleUntilBeat) emit('crescendo-peak', c);
         });
       }

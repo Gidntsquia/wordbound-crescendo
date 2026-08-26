@@ -215,7 +215,15 @@ export default function TugSandbox() {
       ? SB.createAudioPiece(ctx, gain, piece)
       // A piece can name an instrument per track (see Music.VOICES); anything
       // it doesn't name falls back to the struck-string piano voice.
-      : W.Music.createSequencer(ctx, gain, piece, { voices: piece.voices || {} });
+      : W.Music.createSequencer(ctx, gain, piece, {
+        voices: piece.voices || {},
+        // In SECONDS, not the default four beats. A beat-counted warning is a
+        // different warning in every piece and changes again with the tempo
+        // control, so a sequenced opponent gave a fraction of the notice a
+        // recorded one did -- the note appeared as the swell became audible
+        // instead of bearing down on it.
+        crescendoLeadSec: SB.TELEGRAPH_LEAD_SEC,
+      });
     const tug = SB.createTug({ tune });
     tug.invincible = invincible;
 

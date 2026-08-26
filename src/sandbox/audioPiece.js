@@ -51,6 +51,11 @@
   // it slept through onto the barline in one frame.
   var CATCHUP_SEC = 0.5;
 
+  // Shared with the SEQUENCED opponents, which take the same warning through
+  // music.js's crescendoLeadSec. Both kinds of piece telegraph the same way or
+  // the fight teaches two different reflexes.
+  Sandbox.TELEGRAPH_LEAD_SEC = LEAD_SEC;
+
   var bufferCache = {};  // url -> Promise<AudioBuffer>, decoded once
   var bytesCache = {};   // url -> Promise<ArrayBuffer>, fetched once
 
