@@ -484,6 +484,10 @@ button:disabled {
 
 .is-hit .sb-barline { animation: barline-judder 240ms ease-out; }
 
+/* Endless recentring: the barline is being PUT back, not knocked back, so it
+   reads as a lift-and-place rather than the brass judder of a hit. */
+.is-recentred .sb-barline { animation: barline-recentre 420ms ease-out; }
+
 /* Tacet: the pit is silent for these bars. */
 .sb-tacet {
   position: absolute;
@@ -773,6 +777,12 @@ button:disabled {
   0%, 100% { transform: translateX(0); }
   30% { transform: translateX(5px); }
   65% { transform: translateX(-2px); }
+}
+
+@keyframes barline-recentre {
+  0% { opacity: 0.15; transform: scaleY(0.82); }
+  45% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
 }
 
 @keyframes fade-up {

@@ -96,6 +96,7 @@ const TUNE_LABELS = {
   CRESCENDO_POWER_MULT: 'Crescendo power ×',
   DB_RATE: 'Loudness ramp (dB/s)',
   DB_MAX: 'Loudness cap (dB)',
+  ENDLESS_RECENTRE_SEC: 'Endless · recentre barline every (s)',
 };
 const TUNE_STEPS = {
   PREP_SEC: 0.5, ROPE_START: 5, WORD_VALUE_WEIGHT: 0.1, WORD_LENGTH_WEIGHT: 0.1,
@@ -104,6 +105,7 @@ const TUNE_STEPS = {
   ENEMY_DRONE: 0.1, ATTACK_INTERVAL_BASE: 0.5, ATTACK_POWER_BASE: 0.5,
   ATTACK_TRAVEL_SEC: 0.1, ATTACK_IMPULSE_SCALE: 0.05, ATTACK_CHIP_FACTOR: 0.05,
   CRESCENDO_POWER_MULT: 0.1, DB_RATE: 0.01, DB_MAX: 1,
+  ENDLESS_RECENTRE_SEC: 1,
 };
 
 export default function TugSandbox() {
@@ -124,6 +126,12 @@ export default function TugSandbox() {
   // Observation mode: nobody can be finished off, so a fight runs as long as
   // you want to watch it. Toggling it mid-fight takes effect immediately.
   const [invincible, setInvincible] = useState(false);
+  // Bumped by every start. The frame loop keys off this as well as `phase`,
+  // so pressing Restart ALWAYS spins up a fresh loop -- restarting while the
+  // phase was already 'live' used to change no dependency at all, which is
+  // why a fight that had stopped for any reason could only be fixed by
+  // reloading the tab.
+  const [runId, setRunId] = useState(0);
   const inputRef = useRef(null);
 
   const say = useCallback((line) => {
@@ -172,11 +180,26 @@ export default function TugSandbox() {
     const piece = def.recorded ? SB[def.recorded] : W.Pieces[def.piece];
     const rng = window.Game.RNG.create(seed);
 
-    const ctx = fight.current?.ctx || new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === 'suspended') ctx.resume();
-    const gain = fight.current?.gain || ctx.createGain();
-    gain.gain.value = volume;
-    if (!fight.current) gain.connect(ctx.destination);
+    // The audio context is reused across fights, so it is also the thing that
+    // can go stale while the tab sits: a closed one can never be revived and
+    // every later fight built on it would be dead on arrival, so replace it.
+    // A merely suspended one is asked to resume -- this runs inside the click,
+    // which is the gesture browsers want to see.
+    let ctx = fight.current?.ctx;
+    let gain = fight.current?.gain;
+    try {
+      if (ctx && ctx.state === 'closed') { ctx = null; gain = null; }
+      if (!ctx) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        gain = ctx.createGain();
+        gain.connect(ctx.destination);
+      }
+      if (ctx.state !== 'running') ctx.resume().catch(() => { /* the loop keeps asking */ });
+      gain.gain.value = volume;
+    } catch (err) {
+      say('Could not open the audio device: ' + (err && err.message ? err.message : err));
+      return;
+    }
 
     const deck = W.Tiles.createStarterDeck();
     const pile = { drawPile: W.Tiles.shuffleIntoDrawPile(deck, rng), discardPile: [] };
@@ -200,6 +223,12 @@ export default function TugSandbox() {
     tug.on('attack-landed', (a) => say(
       (a.kind === 'crescendo' ? sizeWord(a.mag) : 'Stray swing')
       + ' hits ' + a.power.toFixed(1) + ' — barline at ' + tug.rope.toFixed(1)));
+    // Endless puts the barline back rather than letting it park on an end, so
+    // say which of the two just happened -- a jump nobody caused needs a line.
+    tug.on('rope-recentred', (e) => say(
+      e.reason === 'cycle' ? 'Da capo — barline back to centre.'
+        : e.reason === 'top' ? 'The words ran it off the end — barline back to centre.'
+          : 'The song ran it off the end — barline back to centre.'));
     tug.on('pusher-lost', (p) => say(p.word + ' silenced.'));
     tug.on('pusher-spent', (p) => say(p.word + (p.fading ? ' wears off.' : ' silenced.')));
     tug.on('won', () => halt('won', 'The words hold.'));
@@ -212,6 +241,11 @@ export default function TugSandbox() {
       // piece's peakIntensity), which is what sets how hard the hit lands.
       f.tug.telegraphCrescendo(seq.beatToTime(c.peakBeat), f.ctx.currentTime, c);
     });
+    // A recording that never arrived used to leave the fight running in total
+    // silence with nothing on screen to say why.
+    seq.on('load-failed', (err) => say(
+      'The recording did not load (' + (err && err.message ? err.message : err)
+      + ') — Restart to try again.'));
     // Loop the piece: a tug fight can outlast one performance, and a silent
     // opponent is not a fight.
     seq.on('piece-ended', () => {
@@ -240,27 +274,74 @@ export default function TugSandbox() {
     setWord('');
     setSuggestions([]);
     setPhase('live');
+    setRunId((n) => n + 1);
     say(def.name + ' takes up ' + piece.title + '.');
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [opponentId, seed, tempo, volume, tune, say, halt, W, SB, invincible]);
 
   // Per-frame loop: the barline integrates against the piece's live intensity.
+  //
+  // TWO WAYS THIS USED TO DIE FOR GOOD, both of which read as "the sandbox
+  // stopped working until I refreshed the tab":
+  //   - one throw inside a frame ended the loop, because the next frame was
+  //     only ever scheduled by the line after the work;
+  //   - the AudioContext coming back suspended froze ctx.currentTime, and the
+  //     whole fight is integrated against that clock.
+  // Neither can end a fight now: the frame catches, reports once and keeps
+  // going, and a stalled clock is asked to resume every second until it does.
   useEffect(() => {
     if (phase !== 'live') return undefined;
     let raf = 0;
+    let reported = false;
+    let askedResumeAt = -99;
     const step = () => {
       const f = fight.current;
-      if (!f || !f.running) return;
-      const now = f.ctx.currentTime;
-      const dt = Math.max(0, now - f.lastNow);
-      f.lastNow = now;
-      f.tug.tick(now, dt, f.seq.getIntensity());
-      forceRender((n) => n + 1);
+      if (!f || !f.running) return;   // the only deliberate way out
+      try {
+        if (f.ctx.state !== 'running') {
+          const wall = performance.now() / 1000;
+          if (wall - askedResumeAt > 1) {
+            askedResumeAt = wall;
+            f.ctx.resume().catch(() => { /* asked again next second */ });
+          }
+          // Do not integrate against a frozen clock -- just hold the frame.
+          f.lastNow = f.ctx.currentTime;
+        } else {
+          const now = f.ctx.currentTime;
+          const dt = Math.max(0, now - f.lastNow);
+          f.lastNow = now;
+          f.tug.tick(now, dt, f.seq.getIntensity());
+        }
+        forceRender((n) => n + 1);
+      } catch (err) {
+        if (!reported) {
+          reported = true;
+          say('A frame threw: ' + (err && err.message ? err.message : err)
+            + ' — the fight keeps running.');
+        }
+      }
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [phase]);
+  }, [phase, runId, say]);
+
+  // A tab that has been sitting can come back with its audio suspended; the
+  // frame loop handles the fight, this handles coming back to a stopped one so
+  // the next Start is not spent waking the device up.
+  useEffect(() => {
+    const wake = () => {
+      const f = fight.current;
+      if (!f || document.hidden) return;
+      if (f.ctx.state === 'suspended') f.ctx.resume().catch(() => {});
+    };
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('focus', wake);
+    return () => {
+      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('focus', wake);
+    };
+  }, []);
 
   const playWord = useCallback((raw) => {
     const f = fight.current;
@@ -351,6 +432,13 @@ export default function TugSandbox() {
   const db = tug ? tug.db : 0;
   const tacetLeft = tug && tug.phase === 'prep' ? Math.max(0, tune.PREP_SEC - tug.elapsed) : 0;
   const struck = tug ? now - tug.lastHitAt < 0.26 : false;
+  // Both in the model's own elapsed seconds: the flash on a recentre, and how
+  // long the next one is, so a jump is legible before as well as after it.
+  const recentred = tug ? tug.elapsed - tug.lastRecentreAt < 0.45 : false;
+  const recentreIn = tug && tug.invincible && tug.phase === 'fight'
+    && tug.tune.ENDLESS_RECENTRE_SEC > 0
+    ? Math.max(0, tug.tune.ENDLESS_RECENTRE_SEC - (tug.elapsed - tug.recentreAnchor))
+    : null;
   const intensity = tug ? Math.min(1, tug.smoothIntensity) : 0;
 
   const slugs = useMemo(() => {
@@ -406,7 +494,7 @@ export default function TugSandbox() {
         <button type="button"
           className={'sb-invuln' + (invincible ? ' is-on' : '')}
           aria-pressed={invincible}
-          title="Neither side can be finished off, so the round runs until you stop it."
+          title="Neither side can be finished off, so the round runs until you stop it. The barline is put back to centre on a clock, and at once if it reaches an end."
           onClick={() => {
             const v = !invincible;
             setInvincible(v);
@@ -448,7 +536,8 @@ export default function TugSandbox() {
           </aside>
 
           <div className="sb-arena">
-            <div className={'sb-rope' + (struck ? ' is-hit' : '')}>
+            <div className={'sb-rope' + (struck ? ' is-hit' : '')
+              + (recentred ? ' is-recentred' : '')}>
               <div className="sb-paper" style={{ width: rope + '%' }}>
                 {tug.pushers.length > 0 && (
                   <div className="sb-imprint">
@@ -531,7 +620,11 @@ export default function TugSandbox() {
               )}
               {phase === 'won' && <div className="sb-outcome sb-win">The words hold.</div>}
               {phase === 'lost' && <div className="sb-outcome sb-lose">The song wins.</div>}
-              {invincible && live && <div className="sb-endless">endless</div>}
+              {invincible && live && (
+                <div className="sb-endless">
+                  endless{recentreIn != null ? ' · centre in ' + recentreIn.toFixed(1) + 's' : ''}
+                </div>
+              )}
             </div>
 
             <div className="sb-readout">

@@ -34,7 +34,7 @@
   var Sandbox = (window.Wordbound.Sandbox = window.Wordbound.Sandbox || {});
 
   var DEFAULTS = {
-    PREP_SEC: 5,
+    PREP_SEC: 3,
     ROPE_START: 50,
 
     // Word -> pusher strength.
@@ -108,7 +108,17 @@
     ATTACK_CHIP_FACTOR: 0.5,  // pool strength destroyed per point of power
 
     DB_RATE: 0.08,            // dB per second
-    DB_MAX: 12                // ~4x power, then it stops climbing
+    DB_MAX: 12,               // ~4x power, then it stops climbing
+
+    // ENDLESS RECENTRE. Observation mode declares no win and no loss, so the
+    // rope has nothing to bounce off: a fight that gets away from either side
+    // ends up parked against an end and sits there, which is the one state
+    // you cannot watch anything from. While Endless is on the barline is put
+    // back to ROPE_START every ENDLESS_RECENTRE_SEC, and immediately if it
+    // does reach an end. ONLY the rope moves -- pushers, dB and the
+    // escalation clock keep running -- so what resumes is this fight as it
+    // stands now, replayed from even ground.
+    ENDLESS_RECENTRE_SEC: 6
   };
 
   Sandbox.TUG_DEFAULTS = DEFAULTS;
@@ -135,11 +145,14 @@
     var tug = {
       tune: tune,
       phase: 'prep',          // prep | fight | won | lost
-      // OBSERVATION MODE. Neither side can be finished off: the rope still
-      // moves and still pins at the ends, but no 'won'/'lost' is ever
-      // declared. It exists to watch a fight for as long as you like -- the
-      // song's whole attack pattern, a word's ramp-in and wear-off -- without
-      // the round ending underneath you. Live-togglable mid-fight.
+      // OBSERVATION MODE. Neither side can be finished off: no 'won'/'lost'
+      // is ever declared, and instead of pinning at the ends the rope is put
+      // back to the centre -- on a clock, and at once if it reaches an end
+      // (see ENDLESS_RECENTRE_SEC). It exists to watch a fight for as long as
+      // you like -- the song's whole attack pattern, a word's ramp-in and
+      // wear-off -- without the round ending underneath you, and without it
+      // parking in a corner where nothing is left to see. Live-togglable
+      // mid-fight.
       invincible: false,
       rope: tune.ROPE_START,
       pushers: [],
@@ -151,8 +164,16 @@
       smoothIntensity: 0,
       lastHitAt: -99,
       lastTelegraphAt: 0,
+      // Endless recentring, both in `elapsed` seconds: the clock this counts
+      // from, and when the last one actually happened (for the UI's flash).
+      recentreAnchor: 0,
+      lastRecentreAt: -99,
       startedAt: 0
     };
+
+    // Whether the previous tick was in observation mode, so the recentre clock
+    // can start when Endless does rather than when the fight did.
+    var wasInvincible = tug.invincible;
 
     function emit(event, payload) {
       var cbs = listeners[event];
@@ -254,6 +275,9 @@
       tug.fightElapsed = 0;
       tug.db = 0;
       tug.lastTelegraphAt = now;
+      tug.recentreAnchor = 0;
+      tug.lastRecentreAt = -99;
+      wasInvincible = tug.invincible;
       return tug;
     };
 
@@ -316,6 +340,18 @@
       chipPool(attack.power * tug.tune.ATTACK_CHIP_FACTOR);
       tug.lastHitAt = now;
       emit('attack-landed', attack);
+    }
+
+    // Put the barline back on the centre line and restart the recentre clock.
+    // ROPE_START is read live, so the tuning panel's "Barline starts at" is
+    // what centre means here too. `reason` is 'cycle' when the clock came
+    // round, 'top'/'bottom' when the rope reached an end.
+    function recentre(reason) {
+      var from = tug.rope;
+      tug.rope = tug.tune.ROPE_START;
+      tug.recentreAnchor = tug.elapsed;
+      tug.lastRecentreAt = tug.elapsed;
+      emit('rope-recentred', { reason: reason, from: from });
     }
 
     // How big a swell is, on 0..1, from whatever the piece told us about it.
@@ -384,10 +420,19 @@
       var k = Math.min(1, dt * 2.5);
       tug.smoothIntensity += (intensity - tug.smoothIntensity) * k;
 
+      // Flipping Endless on at three minutes must not snap the rope on the
+      // very next frame, so the clock starts from the toggle.
+      if (tug.invincible !== wasInvincible) {
+        wasInvincible = tug.invincible;
+        tug.recentreAnchor = tug.elapsed;
+      }
+
       if (tug.phase === 'prep') {
         if (tug.elapsed >= tug.tune.PREP_SEC) {
           tug.phase = 'fight';
           tug.lastTelegraphAt = now;
+          // The rope is frozen through the tacet; the clock starts with the pit.
+          tug.recentreAnchor = tug.elapsed;
           emit('fight-start', null);
         }
         return;
@@ -416,8 +461,16 @@
       tug.rope += (tug.playerForce() - tug.enemyForce()) * dt;
 
       if (tug.invincible) {
-        // Pinned, not finished. A hopeless fight still reads as hopeless.
-        tug.rope = Math.max(0, Math.min(100, tug.rope));
+        // Reaching an end is not an outcome here -- it is where the rope stops
+        // being worth watching -- so put it straight back rather than pinning
+        // it there. The clock does the same for a fight that is merely
+        // lopsided, so observation mode always has a rope in play.
+        if (tug.rope >= 100) recentre('top');
+        else if (tug.rope <= 0) recentre('bottom');
+        else if (tug.tune.ENDLESS_RECENTRE_SEC > 0
+          && tug.elapsed - tug.recentreAnchor >= tug.tune.ENDLESS_RECENTRE_SEC) {
+          recentre('cycle');
+        }
       } else if (tug.rope >= 100) {
         tug.rope = 100;
         tug.phase = 'won';

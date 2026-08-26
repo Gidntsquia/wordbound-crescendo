@@ -55,6 +55,12 @@
       bytesCache[url] = fetch(url).then(function (r) {
         if (!r.ok) throw new Error('audio fetch failed: ' + r.status + ' ' + url);
         return r.arrayBuffer();
+      }).catch(function (err) {
+        // A cached REJECTION would poison every later fight with this piece --
+        // the recording would never load again and only a refresh would clear
+        // it. Drop the entry so the next attempt actually retries.
+        delete bytesCache[url];
+        throw err;
       });
     }
     return bytesCache[url];
@@ -72,6 +78,10 @@
           var p = ctx.decodeAudioData(ab, resolve, reject);
           if (p && p.then) p.then(resolve, reject);
         });
+      })
+      .catch(function (err) {
+        delete bufferCache[url];   // same reason as the fetch cache above
+        throw err;
       });
     return bufferCache[url];
   }
@@ -211,6 +221,13 @@
       buffer = buf;
       if (!duration) duration = buf.duration;
       if (wantPlay && !playing) api.play();
+      return api;
+    }, function (err) {
+      // Told, not thrown. An unhandled rejection here left the fight running
+      // in silence with nothing on screen to say why; as an event the sandbox
+      // can print it, and the caches above have already cleared themselves so
+      // the next fight tries again.
+      emit('load-failed', err);
       return api;
     });
 
