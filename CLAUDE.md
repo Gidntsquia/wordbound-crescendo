@@ -146,13 +146,23 @@ Runtime is part of the cost of a test. Before adding one, check that it earns it
   "pushers" shoving right (which then hold for a while and wear off — see
   PUSHER_LIFE_*/PUSHER_FADE_SEC; they are not permanent), the song answers with
   telegraphed burst attacks plus a hidden dB ramp — and it deliberately does NOT
-  use js/wordbound/duel.js, so tuning it cannot break the shipped app.
+  use js/wordbound/duel.js, so tuning it cannot break the shipped app. Two rules
+  price the word maker: a word the player ASSEMBLED banks at SELF_SPELL_BONUS
+  times face strength (`pusher.self`, set in rubric in the typecase), and a push
+  whose letters spell nothing in any order locks the Push button — never the
+  tiles — for BLIND_PUSH_LOCK_SEC per tile past BLIND_PUSH_FREE_TILES. Detecting
+  "spells nothing" needs the dictionary, so the UI decides it and calls
+  `tug.lockPush(n)`; the model owns the clock and the arithmetic.
   `src/sandbox/wordFinder.js` is the word-maker helper (anagram map over
   WORDLIST). `src/sandbox/tileBags.js` owns the three tile bags the rack is
   drawn from (weak/normal/strong, 26 tiles each, picked in the setup bar) —
   the sandbox does NOT use Tiles.createStarterDeck(), which is the shipped
   game's deck-building artefact. `src/sandbox/TugSandbox.jsx` is the whole UI,
-  with a live tuning panel over every constant. `src/sandbox/audioPiece.js` +
+  with a live tuning panel over every constant. Tiles are played by tapping:
+  the rack is THE CASE (a played tile leaves a hollow slot rather than closing
+  the gap) and the row under it is THE COMPOSING STICK, with a FLIP slide
+  carrying the tile between them — nothing may set `transform` on `.sb-tile`,
+  which that animation owns. `src/sandbox/audioPiece.js` +
   `recordedFurElise.js` play a RECORDED piece (public/audio/fur-elise.mp3)
   behind the sequencer's own surface -- the one logged exception to the
   synthesized-only rule, sandbox-only, see the GOALS.md header. Regenerate its

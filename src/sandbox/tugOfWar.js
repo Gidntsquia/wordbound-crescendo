@@ -11,6 +11,12 @@
 //   WORDS  -- every word the player spells becomes a PUSHER: a permanent
 //             little engine that shoves the rope right forever. Pushers stack,
 //             so the player's force grows monotonically as the fight goes on.
+//             A word the player ASSEMBLED, rather than lifted off the word
+//             maker, sets at SELF_SPELL_BONUS times its face strength -- and
+//             a push made with letters that spell nothing at all locks the
+//             Push button for a moment (BLIND_PUSH_*). Between them those two
+//             say the same thing from opposite ends: reading the answer off
+//             the helper is allowed, and it is the weaker line of play.
 //   SONG   -- the enemy gets a constant drone proportional to the piece's live
 //             intensity, plus telegraphed BURST ATTACKS that land as an
 //             instant shove left AND chip strength off the pusher pool
@@ -45,6 +51,15 @@
     WORD_VALUE_WEIGHT: 1.0,   // x sum of Scrabble letter values
     WORD_LENGTH_WEIGHT: 1.0,  // x length ^ WORD_LENGTH_EXP
     WORD_LENGTH_EXP: 1.8,
+    // SPELLING IT YOURSELF IS WORTH MORE. The word maker under the field will
+    // always out-read a human -- it holds the whole dictionary and ranks by
+    // this very function -- so if a found word and a spelled word are worth
+    // the same, there is no reason to ever spell one. This is the thumb on
+    // the scale that keeps the game a word game: a word you assembled and
+    // pushed yourself sets at this multiple of its face strength. Applied in
+    // addWord, NOT in wordStrength, so the suggestion list keeps quoting
+    // honest numbers for what IT is offering.
+    SELF_SPELL_BONUS: 1.4,
     PLAYER_FORCE_SCALE: 0.025,// rope units/sec per point of pool strength
     PUSHER_RAMP_SEC: 8,       // a fresh word takes this long to reach full push
     // ...and then it wears off. A word holds full push for LIFE_BASE plus
@@ -54,6 +69,21 @@
     PUSHER_LIFE_BASE: 8,      // seconds of full push before any word starts to go
     PUSHER_LIFE_PER_LETTER: 4,// extra seconds of life per letter
     PUSHER_FADE_SEC: 6,       // seconds from start of fade to silent
+
+    // THE BLIND PUSH. Shoving the whole rack at the field and hitting Push to
+    // see what sticks is free information: the word maker answers instantly
+    // and costs nothing to ask. So asking with letters that spell NOTHING now
+    // costs time on the clock -- the press is refused and pushing is locked
+    // for BLIND_PUSH_LOCK_SEC per tile past BLIND_PUSH_FREE_TILES. Three
+    // tiles is 0.5s, seven is 2.5s: the bigger the blind swing, the longer
+    // the song gets the rope to itself.
+    //
+    // Locked means PUSHING, never assembling: tiles, typing, the rack and the
+    // word list all stay live, so the punishment is for guessing, not for
+    // thinking. Short words stay free to try (two tiles is a guess anyone is
+    // entitled to) -- see BLIND_PUSH_FREE_TILES.
+    BLIND_PUSH_FREE_TILES: 2, // this many tiles may be blind-pushed for free
+    BLIND_PUSH_LOCK_SEC: 0.5, // ...and every tile past that is this long
 
     // Song -> enemy force.
     ENEMY_DRONE: 1.6,         // rope units/sec at intensity 1.0, 0 dB
@@ -224,6 +254,11 @@
       // from, and when the last one actually happened (for the UI's flash).
       recentreAnchor: 0,
       lastRecentreAt: -99,
+      // Blind-push lockout, in the model's own `elapsed` seconds -- the same
+      // clock the pushers ramp on, so a suspended tab freezes the penalty
+      // along with everything else it froze.
+      pushLockUntil: -99,
+      pushLockFor: 0,
       startedAt: 0
     };
 
@@ -346,17 +381,31 @@
       tug.firstHitAt = -99;
       tug.recentreAnchor = 0;
       tug.lastRecentreAt = -99;
+      tug.pushLockUntil = -99;
+      tug.pushLockFor = 0;
       wasInvincible = tug.invincible;
       return tug;
     };
 
     // A played word becomes a permanent pusher. hp doubles as its live force
     // contribution, so chip damage from a burst literally quiets the word.
-    tug.addWord = function (word) {
-      var strength = tug.wordStrength(word);
+    //
+    // opts.self marks a word the PLAYER assembled and pushed, as opposed to
+    // one lifted off the word maker. It is worth SELF_SPELL_BONUS times its
+    // face strength, and it carries the flag onward so the typecase can set
+    // it in a different colour -- see the UI's .sb-slug.is-self.
+    tug.addWord = function (word, opts) {
+      var self = !!(opts && opts.self);
+      var face = tug.wordStrength(word);
+      var strength = face * (self ? tug.tune.SELF_SPELL_BONUS : 1);
       var pusher = {
         id: nextId++,
         word: String(word || '').toUpperCase(),
+        self: self,
+        // What the word is worth before the hand-set bonus, kept so the UI can
+        // say what the bonus actually bought without recomputing it against a
+        // constant the tuning panel may since have moved.
+        face: face,
         strength: strength,
         hp: strength,
         bornAt: tug.elapsed,
@@ -365,6 +414,33 @@
       tug.pushers.push(pusher);
       emit('pusher-added', pusher);
       return pusher;
+    };
+
+    // How long a blind push with `tileCount` tiles costs. Zero at or under the
+    // free allowance; the caller is what decides a push WAS blind (that needs
+    // the dictionary, which this file deliberately does not own).
+    tug.blindPushLockSec = function (tileCount) {
+      var over = (tileCount || 0) - tug.tune.BLIND_PUSH_FREE_TILES;
+      if (over <= 0) return 0;
+      return over * tug.tune.BLIND_PUSH_LOCK_SEC;
+    };
+
+    // Refuse pushes for a while. Never SHORTENS a lock already running -- two
+    // blind pushes in a row cannot be used to trade a long penalty for a
+    // short one.
+    tug.lockPush = function (tileCount) {
+      var secs = tug.blindPushLockSec(tileCount);
+      if (secs <= 0) return 0;
+      var until = tug.elapsed + secs;
+      if (until <= tug.pushLockUntil) return tug.pushLockLeft();
+      tug.pushLockUntil = until;
+      tug.pushLockFor = secs;
+      emit('push-locked', { seconds: secs, tiles: tileCount });
+      return secs;
+    };
+
+    tug.pushLockLeft = function () {
+      return Math.max(0, tug.pushLockUntil - tug.elapsed);
     };
 
     tug.spawnAttack = function (power, landAt, kind, now, mag) {

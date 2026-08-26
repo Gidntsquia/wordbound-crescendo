@@ -28,6 +28,13 @@
   --leaf-dim: #9d9784;
   --ink: #1a1710;
 
+  /* Rubrication: the hand-lettered red a scribe put in among the printed
+     black. It is what marks a word the PLAYER spelled, as opposed to one
+     lifted off the word maker -- a third colour on purpose, because brass is
+     already spoken for by the song and cream by ordinary type. */
+  --rubric: #d4614a;
+  --rubric-dim: #8f3f30;
+
   --display: 'Bodoni Moda', 'Didot', 'Playfair Display', Georgia, serif;
   --ui: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
   --figure: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -151,6 +158,65 @@ body {
   color: var(--leaf-dim);
 }
 
+/* TILE BAG: a segmented row of buttons rather than a dropdown, because the
+   knob exists to be A/B'd -- one case against another on the same seed -- and
+   that should cost one click, not a click, a read and a click. Reads
+   weak..strong left to right. The lit segment is paper-on-ink like .sb-go,
+   since picking a bag is the same kind of act as pressing Start. */
+.sb-bags {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--leaf-dim);
+}
+
+.sb-bags-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* The bag is read at Start, so a swap under a live fight is pending, not
+   ignored. Brass because it is the song's clock the change is waiting on. */
+.sb-bag-note {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--brass-hot);
+}
+
+.sb-bag-row { display: flex; }
+
+.sb-bag {
+  padding: 7px 13px;
+  border-radius: 0;
+  margin-left: -1px;   /* one shared rule between neighbours, not two */
+}
+
+.sb-bag:first-child {
+  margin-left: 0;
+  border-radius: 2px 0 0 2px;
+}
+
+.sb-bag:last-child { border-radius: 0 2px 2px 0; }
+
+.sb-bag.is-on {
+  color: var(--ink);
+  background: var(--leaf);
+  border-color: var(--leaf);
+  position: relative;   /* lit segment's rules sit over its neighbours' */
+  z-index: 1;
+}
+
+.sb-bag.is-on:hover {
+  color: var(--ink);
+  background: var(--brass-hot);
+  border-color: var(--brass-hot);
+}
+
 .sb-tune label {
   display: flex;
   flex-direction: column;
@@ -239,6 +305,22 @@ button:disabled {
   color: var(--ink);
   background: var(--brass-hot);
   border-color: var(--brass-hot);
+}
+
+/* BLIND-PUSH LOCKOUT. The button stops being paper and becomes the countdown
+   itself -- a stated number of seconds, in the figure face, so the cost of the
+   guess is legible rather than felt as an unresponsive control. Overrides
+   button:disabled's flat dimming: greyed out reads as "not available yet",
+   and this is "you spent this". */
+.sb-go.is-locked,
+.sb-go.is-locked:disabled {
+  opacity: 1;
+  color: var(--rubric);
+  background: transparent;
+  border-color: var(--rubric-dim);
+  font-family: var(--figure);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }
 
 /* ---- the field: typecase | staff | pit -------------------------------- */
@@ -339,6 +421,41 @@ button:disabled {
 .sb-slug.is-spent .sb-slug-word { text-decoration: line-through; text-decoration-thickness: 1px; }
 .sb-slug.is-spent .sb-slug-set { background: #8d8577; }
 .sb-slug.is-spent .sb-slug-str { font-style: italic; letter-spacing: 0.04em; }
+
+/* SET BY HAND. Two independent channels, so they can never argue: the left
+   rule says how the word is FARING (whole / chipped / spent, above), and the
+   fill says who SET it. Deliberately after the hurt/spent rules -- same
+   specificity, so source order is what lets a chipped hand-set word stay red
+   while its rule goes brass.
+
+   The ordinary slug prints its face by difference-blending over a cream fill,
+   which is exactly right for lead type and exactly wrong over red (it comes
+   out purple). A hand-set word drops the blend and takes the wash instead:
+   cream letters over a red ground, which is what rubrication actually looks
+   like. */
+.sb-slug.is-self { background: rgba(212, 97, 74, 0.14); }
+.sb-slug.is-self .sb-slug-set { background: var(--rubric); opacity: 0.55; }
+
+.sb-slug.is-self .sb-slug-word,
+.sb-slug.is-self .sb-slug-str {
+  mix-blend-mode: normal;
+  color: var(--leaf);
+}
+
+.sb-slug.is-self .sb-slug-str { color: #f3d9cf; }
+
+/* The mark itself: a printer's asterism, set small and raised, in front of the
+   word the way a rubricated initial sits in front of a line. */
+.sb-slug-mark {
+  font-style: normal;
+  font-size: 9px;
+  vertical-align: 0.35em;
+  margin-right: 4px;
+  color: var(--rubric);
+  mix-blend-mode: normal;
+}
+
+.sb-slug.is-self .sb-slug-mark { color: #ffd9cd; }
 
 /* -- the staff ---------------------------------------------------------- */
 .sb-arena {
@@ -623,22 +740,128 @@ button:disabled {
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
 }
 
-.sb-tile.is-picked {
+/* NOTHING HERE MAY SET `transform`. The tap-to-play slide is a FLIP (see
+   flipTileTo in TugSandbox.jsx) and it owns this element's transform for the
+   190ms it is travelling; a hover or state rule that also wrote transform
+   would fight it for the same property and the tile would jump. Lift is done
+   with shadow and ground alone, which is truer to a piece of type anyway --
+   it is picked UP, not stretched. */
+.sb-tile:hover:not(:disabled):not(.is-slot) {
   color: var(--ink);
   background: var(--brass-hot);
   border-color: var(--brass-hot);
-  transform: translateY(-6px);
-  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45), 0 0 0 1px var(--brass-hot);
 }
 
-.sb-tile.is-picked sub { color: rgba(26, 23, 16, 0.6); }
+/* THE HOLE A PLAYED TILE LEAVES. The case does not close up behind a tile --
+   the row would reshuffle under the player's finger mid-word, and the FLIP
+   needs somewhere for that tile to come home to. Same box, no face. */
+.sb-tile.is-slot {
+  background: transparent;
+  border: 1px dashed var(--rule);
+  box-shadow: none;
+  cursor: default;
+  /* It is a hole, not a control: it must not light under the cursor and must
+     not swallow a click aimed past it. A <span> is not :disabled, so the hover
+     rule above would otherwise paint an empty slot like a live tile. */
+  pointer-events: none;
+}
 
-.sb-tile:hover:not(:disabled) {
-  color: var(--ink);
+/* A tile standing in the stick: it has left the case and is inked, ready to
+   print. Brass-hot because that is already what this screen means by "your
+   attention is on this one" -- it is what a rack tile turns under the cursor,
+   and what a picked tile used to turn before the stick existed. */
+.sb-tile.is-set {
   background: var(--brass-hot);
   border-color: var(--brass-hot);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5);
+}
+
+.sb-tile.is-set sub { color: rgba(26, 23, 16, 0.6); }
+
+.sb-tile.is-set:hover:not(:disabled) {
+  background: var(--leaf);
+  border-color: var(--leaf);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5), 0 0 0 1px var(--leaf);
+}
+
+/* A letter in the field with no tile in the case behind it. Set as an
+   outline: there is nothing to print with. */
+.sb-tile.is-missing {
+  color: var(--rubric);
+  background: transparent;
+  border: 1px dashed var(--rubric-dim);
+  box-shadow: none;
+}
+
+.sb-tile.is-missing:hover:not(:disabled) {
+  color: var(--rubric);
+  background: rgba(212, 97, 74, 0.14);
+  border-color: var(--rubric);
+  box-shadow: none;
+}
+
+/* -- the composing stick ------------------------------------------------ */
+/* The play area a tapped tile slides down into. Fixed height on purpose: a row
+   that grew as the first tile landed would move the very target the FLIP
+   measured against, and the slide would end somewhere the tile is not. */
+.sb-stick-wrap { margin-bottom: 14px; }
+
+.sb-stick-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+/* What the type standing in the stick is worth if pushed now -- and, when it
+   was assembled rather than looked up, that it is carrying the hand-set
+   bonus. The multiplier is applied at the moment of play and is otherwise
+   completely invisible: a player cannot notice a number they never saw the
+   other version of. */
+.sb-stick-worth {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--leaf-dim);
+}
+
+.sb-stick-worth b {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--leaf);
+}
+
+.sb-stick-worth.is-hand { color: var(--rubric); }
+.sb-stick-worth.is-hand b { color: var(--rubric); }
+
+.sb-stick {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-height: 68px;
+  padding: 7px 9px;
+  border: 1px solid var(--rule);
+  border-bottom-width: 3px;
+  background: var(--pit-deep);
+}
+
+/* The field is standing on letters the case cannot cover, so the stick itself
+   says so rather than leaving the warning to a line of prose below it. */
+.sb-stick.is-short { border-color: var(--rubric-dim); }
+
+.sb-stick-empty {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--leaf-dim);
+  padding-left: 2px;
 }
 
 .sb-tile sub {
@@ -896,6 +1119,21 @@ button:disabled {
   .sb-dyn-mark { font-size: 28px; }
   .sb-wordmark h1 { font-size: 30px; }
   .sb-setup { gap: 14px; }
+  /* Three segments plus the page's own padding is wider than a 375px phone at
+     the desktop padding; trimmed so the row still reads as one control. */
+  .sb-bag { padding: 7px 8px; letter-spacing: 0.08em; }
+  /* A full rack has to stay ONE row on a phone. Seven tiles that wrap turn
+     the case into two rows that reflow as tiles leave it, and the hollow slot
+     is what this whole layout uses to keep the case still. 7x40 + 6x5 = 310,
+     inside a 375px screen at this padding. */
+  .sb-rack,
+  .sb-stick { gap: 5px; }
+  .sb-tile {
+    min-width: 40px;
+    height: 46px;
+    font-size: 19px;
+  }
+  .sb-stick { min-height: 60px; padding: 6px 7px; }
   .sb-input input { font-size: 17px; }
 }
 

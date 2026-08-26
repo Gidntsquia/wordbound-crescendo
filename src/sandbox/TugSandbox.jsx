@@ -12,9 +12,44 @@
 // five-line STAFF, printed in ink on paper where your words hold it and lit in
 // brass where the pit holds it. Attacks are note heads riding that staff,
 // pitched by weight. The hidden dB ramp is stated as a dynamics marking.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 const RACK_SIZE = 7;
+
+// TAP A TILE AND IT MOVES. Lifted from the pre-sandbox combat screen
+// (src/components/CombatScreen.jsx, which lifted it from game.js in turn),
+// because that is the thing the rack lost when this screen replaced a staging
+// row with a text field: a tapped tile used to leave the case and TRAVEL, and
+// a letter that just appears somewhere else reads as a typo rather than as a
+// move you made.
+//
+// Plain FLIP: the caller records where the tile was BEFORE the state change,
+// React re-renders it wherever it now belongs, and this puts the inverted
+// offset on the new element and releases it into a real transition on the
+// second frame. One frame is not enough -- the style has to be committed and
+// the layout read back before the transition may be armed, or the browser
+// coalesces both writes and nothing animates at all.
+//
+// Guarded exactly like its ancestors: reduced motion, no requestAnimationFrame
+// (so it is inert under any headless DOM), or a sub-pixel move all bail out
+// before touching a single style.
+function flipTileTo(fromRect, toEl) {
+  if (!fromRect || !toEl || typeof toEl.getBoundingClientRect !== 'function') return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (typeof window.requestAnimationFrame !== 'function') return;
+  const toRect = toEl.getBoundingClientRect();
+  const dx = fromRect.left - toRect.left;
+  const dy = fromRect.top - toRect.top;
+  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+  toEl.style.transition = 'none';
+  toEl.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      toEl.style.transition = 'transform 190ms cubic-bezier(0.2, 0.9, 0.3, 1)';
+      toEl.style.transform = '';
+    });
+  });
+}
 
 // Where the five staff lines sit, as a % of the bar's height. Note heads ride
 // the same grid: nine slots from the top line to the bottom one.
@@ -82,6 +117,9 @@ const TUNE_LABELS = {
   WORD_VALUE_WEIGHT: 'Word · letter-value weight',
   WORD_LENGTH_WEIGHT: 'Word · length weight',
   WORD_LENGTH_EXP: 'Word · length exponent',
+  SELF_SPELL_BONUS: 'Word · spelled it yourself ×',
+  BLIND_PUSH_FREE_TILES: 'Blind push · tiles that cost nothing',
+  BLIND_PUSH_LOCK_SEC: 'Blind push · lockout per extra tile (s)',
   PUSHER_RAMP_SEC: 'Type takes hold over (s)',
   PUSHER_LIFE_BASE: 'Type holds for (s)',
   PUSHER_LIFE_PER_LETTER: 'Type holds, extra per letter (s)',
@@ -109,7 +147,9 @@ const TUNE_LABELS = {
 };
 const TUNE_STEPS = {
   PREP_SEC: 0.5, ROPE_START: 5, WORD_VALUE_WEIGHT: 0.1, WORD_LENGTH_WEIGHT: 0.1,
-  WORD_LENGTH_EXP: 0.1, PUSHER_RAMP_SEC: 0.5, PLAYER_FORCE_SCALE: 0.005,
+  WORD_LENGTH_EXP: 0.1, SELF_SPELL_BONUS: 0.05,
+  BLIND_PUSH_FREE_TILES: 1, BLIND_PUSH_LOCK_SEC: 0.25,
+  PUSHER_RAMP_SEC: 0.5, PLAYER_FORCE_SCALE: 0.005,
   PUSHER_LIFE_BASE: 1, PUSHER_LIFE_PER_LETTER: 0.5, PUSHER_FADE_SEC: 0.5,
   ENEMY_DRONE: 0.1, ATTACK_POWER_BASE: 0.5,
   CRESCENDO_MIN_MULT: 0.1, CRESCENDO_MAX_MULT: 0.1,
@@ -141,6 +181,15 @@ export default function TugSandbox() {
   const [tune, setTune] = useState(() => ({ ...SB.TUG_DEFAULTS }));
   const [suggestions, setSuggestions] = useState([]);
   const [indexing, setIndexing] = useState(false);
+  // WHO SPELLED THIS. True while the letters standing in the field were put
+  // there by the word maker -- Best play filling it in, or a word taken off
+  // the list. Any move the player makes themselves (a tile tapped either way,
+  // a keystroke, Clear) puts it back to false, and a push made with it false
+  // is worth SELF_SPELL_BONUS more. Deliberately provenance, not a re-read of
+  // the letters: Best play fills the field with the winning word spelled
+  // correctly, so "does this already spell something" would hand the bonus
+  // straight back to the helper it is meant to price against.
+  const [assisted, setAssisted] = useState(false);
   // Observation mode: nobody can be finished off, so a fight runs as long as
   // you want to watch it. Toggling it mid-fight takes effect immediately.
   const [invincible, setInvincible] = useState(false);
@@ -151,6 +200,31 @@ export default function TugSandbox() {
   // reloading the tab.
   const [runId, setRunId] = useState(0);
   const inputRef = useRef(null);
+
+  // The FLIP half that lives in React: a click handler stashes the tile's rect
+  // BEFORE it calls setWord (React schedules the re-render, so the DOM is still
+  // showing the old position at that moment), and the layout effect below --
+  // which runs after the commit and BEFORE the browser paints it -- re-finds
+  // the same tile id on its new side and slides it in from the old one.
+  //
+  // This component re-renders every animation frame, so the effect is written
+  // to cost nothing on the ~sixty commits a second where no tile moved.
+  const pendingFlipFromRef = useRef({});
+  function captureFlipFrom(tileId) {
+    if (typeof document === 'undefined') return;
+    const el = document.querySelector('[data-flip-tile-id="' + tileId + '"]');
+    if (el && el.getBoundingClientRect) pendingFlipFromRef.current[tileId] = el.getBoundingClientRect();
+  }
+  useLayoutEffect(() => {
+    const pending = pendingFlipFromRef.current;
+    const ids = Object.keys(pending);
+    if (!ids.length) return;
+    ids.forEach((tileId) => {
+      const fromRect = pending[tileId];
+      delete pending[tileId];
+      flipTileTo(fromRect, document.querySelector('[data-flip-tile-id="' + tileId + '"]'));
+    });
+  });
 
   const say = useCallback((line) => {
     setLog((prev) => [line, ...prev].slice(0, 60));
@@ -313,6 +387,10 @@ export default function TugSandbox() {
     window.__piece = piece;
     setLog([]);
     setWord('');
+    // ...and whatever the LAST fight's field was standing on. Restarting with
+    // `assisted` still true from a Best play two fights ago would quietly cost
+    // the first hand-spelled word of this one its bonus.
+    setAssisted(false);
     setSuggestions([]);
     setPhase('live');
     setRunId((n) => n + 1);
@@ -390,38 +468,106 @@ export default function TugSandbox() {
     };
   }, []);
 
-  const playWord = useCallback((raw) => {
+  // WHAT THE FIELD'S LETTERS ARE, and which rack tiles they are standing on.
+  // Declared ABOVE the actions because the actions read them: a push has to
+  // know whether the letters can actually be formed before it can decide
+  // whether a failed push was a blind guess.
+  const rackLetters = fight.current ? fight.current.rack.map((t) => t.letter).join('') : '';
+  const letters = word.toUpperCase().replace(/[^A-Z?]/g, '');
+
+  // Match the field's letters to REAL rack tiles, in order, so the composing
+  // stick can show which tiles are set and a tap can send one specific tile
+  // home. Exact letters are claimed first and blanks fill whatever is left --
+  // the same rule Lexicon.canFormFromRack uses, and optimal, since a blank
+  // covers anything. Written out here rather than called because that function
+  // throws the WHOLE match away the moment one letter is missing, and this row
+  // has to leave a hole instead: typing one letter you don't own must not
+  // sweep every tile you already set back into the case.
+  const slots = (() => {
+    const fc = fight.current;
+    if (!fc || !letters) return [];
+    const out = new Array(letters.length).fill(null);
+    const used = new Set();
+    for (let i = 0; i < letters.length; i++) {
+      const t = fc.rack.find((x) => !used.has(x.id) && x.letter === letters[i]);
+      if (t) { out[i] = t; used.add(t.id); }
+    }
+    for (let i = 0; i < letters.length; i++) {
+      if (out[i]) continue;
+      const t = fc.rack.find((x) => !used.has(x.id) && x.letter === '?');
+      if (t) { out[i] = t; used.add(t.id); }
+    }
+    return out;
+  })();
+  const pickedIds = new Set(slots.filter(Boolean).map((t) => t.id));
+  const formable = !letters || pickedIds.size === letters.length;
+
+  const playWord = useCallback((raw, opts) => {
     const f = fight.current;
     if (!f || phase !== 'live') return;
     const upper = String(raw || '').trim().toUpperCase();
-    setWord('');
     if (!upper) return;
-    if (!W.Lexicon.isValidWord(upper)) { say(upper + ' isn’t in the dictionary.'); return; }
+    if (!W.Lexicon.isValidWord(upper)) { say(upper + ' isn\u2019t in the dictionary.'); return; }
     const form = W.Lexicon.canFormFromRack(upper, f.rack);
-    if (!form.possible) { say(upper + ' needs letters you don’t have.'); return; }
+    if (!form.possible) { say(upper + ' needs letters you don\u2019t have.'); return; }
 
     W.Lexicon.removeTiles(f.rack, form.tilesUsed);
     f.pile.discardPile.push(...form.tilesUsed);
     const need = RACK_SIZE - f.rack.length;
     if (need > 0) f.rack.push(...W.Tiles.draw(f.pile, need, f.rng));
 
-    const pusher = f.tug.addWord(upper);
+    // Set BY HAND if the player assembled these letters themselves. See
+    // `assisted` for what counts as a hand -- and note the flag is cleared
+    // here as well as the field, so the next word starts from a clean slate.
+    const byHand = !!(opts && opts.self);
+    const pusher = f.tug.addWord(upper, { self: byHand });
+    // Only a word that actually went in clears the field. A rejected push
+    // leaves the type standing in the stick, because the tiles are now
+    // physically sitting there and dumping them back into the case over a
+    // spelling the player is mid-way through fixing is the worst thing this
+    // screen could do to them.
+    setWord('');
+    setAssisted(false);
     setSuggestions([]);
-    say(upper + ' set — ' + pusher.strength.toFixed(1) + ' push, pool '
-      + f.tug.poolStrength().toFixed(1) + '.');
+    say(upper + (byHand ? ' set by hand \u2014 ' : ' set \u2014 ')
+      + pusher.strength.toFixed(1) + ' push'
+      + (byHand ? ' (\u00d7' + f.tug.tune.SELF_SPELL_BONUS + ' for spelling it yourself)' : '')
+      + ', pool ' + f.tug.poolStrength().toFixed(1) + '.');
   }, [phase, say, W]);
 
   // Enter plays what you typed if it is already a word; otherwise it sends the
   // strongest rearrangement of the same letters. Either way one key ends the
   // turn -- you never have to spell it correctly yourself.
+  //
+  // ...and if the letters spell NOTHING, in any order, that is a blind push:
+  // the press is refused and pushing is locked for a moment that grows with
+  // how many tiles were thrown at it (BLIND_PUSH_* in tugOfWar.js). Assembling
+  // is never locked -- only the press is.
   const sendBest = useCallback(() => {
     const f = fight.current;
     if (!f || phase !== 'live') return;
-    const typed = word.trim().toUpperCase();
-    if (typed && W.Lexicon.isValidWord(typed)) { playWord(typed); return; }
-    if (suggestions.length > 0) { playWord(suggestions[0].word); return; }
-    if (typed) say('Nothing spells out of ' + typed + '.');
-  }, [word, suggestions, phase, playWord, say, W]);
+    const left = f.tug.pushLockLeft();
+    if (left > 0) { say('Still locked \u2014 ' + left.toFixed(1) + 's before you can push.'); return; }
+    const typed = letters;
+    if (!typed) return;
+    // The hand path: these letters, in this order, already spell a word.
+    if (W.Lexicon.isValidWord(typed)) { playWord(typed, { self: !assisted }); return; }
+    // The maker's path: the best rearrangement of the SAME letters. Computed
+    // here rather than read off `suggestions`, which is a render behind and
+    // would otherwise be able to hand out a lockout the letters didn't earn.
+    const found = SB.findWords(typed, (w) => f.tug.wordStrength(w), 1);
+    if (found.length > 0) { playWord(found[0].word, { self: false }); return; }
+    // Nothing at all. Letters you don't even hold are a typo, not a blind
+    // push, and cost nothing.
+    if (!formable) { say(typed + ' needs letters that aren\u2019t in your rack.'); return; }
+    const secs = f.tug.lockPush(typed.length);
+    if (secs > 0) {
+      say(typed + ' spells nothing \u2014 ' + typed.length + ' tiles, pushing locked for '
+        + secs.toFixed(1) + 's.');
+    } else {
+      say('Nothing spells out of ' + typed + '.');
+    }
+  }, [letters, formable, assisted, phase, playWord, say, W, SB]);
 
   const newRack = useCallback(() => {
     const f = fight.current;
@@ -429,12 +575,13 @@ export default function TugSandbox() {
     f.pile.discardPile.push(...f.rack);
     f.rack.length = 0;
     f.rack.push(...W.Tiles.draw(f.pile, RACK_SIZE, f.rng));
+    // The tiles the stick was holding no longer exist, so the field cannot
+    // keep standing on them.
+    setWord('');
+    setAssisted(false);
     setSuggestions([]);
-    say('New rack drawn — free in the sandbox.');
+    say('New rack drawn \u2014 free in the sandbox.');
   }, [phase, say, W]);
-
-  const rackLetters = fight.current ? fight.current.rack.map((t) => t.letter).join('') : '';
-  const letters = word.toUpperCase().replace(/[^A-Z?]/g, '');
 
   // Live rearrangements of exactly the letters currently selected. Type DISTGE
   // and DIGEST is waiting under the field; Enter sends the best one.
@@ -446,25 +593,27 @@ export default function TugSandbox() {
     setSuggestions(SB.findWords(letters, scoreOf, 10));
   }, [letters, indexing, SB]);
 
-  // Which rack tiles the current letters consume, so the rack can show what is
-  // picked up and clicking a picked tile can put it back.
-  const pickedIds = (() => {
-    const fc = fight.current;
-    if (!fc || !letters) return new Set();
-    const form = W.Lexicon.canFormFromRack(letters, fc.rack);
-    return form.possible ? new Set(form.tilesUsed.map((t) => t.id)) : new Set();
-  })();
-  const formable = !letters || pickedIds.size === letters.length;
-
-  const toggleTile = (tile) => {
-    const letter = tile.letter === '?' ? '?' : tile.letter;
-    if (pickedIds.has(tile.id)) {
-      const at = word.toUpperCase().lastIndexOf(letter);
-      if (at >= 0) setWord(word.slice(0, at) + word.slice(at + 1));
-      return;
-    }
-    setWord(word + letter);
+  // TAPPING TILES. Everything the player does by hand goes through these two,
+  // and both capture the tile's CURRENT screen position first so the layout
+  // effect below can slide it from there to wherever it lands -- see
+  // flipTileTo's own note. Both also clear `assisted`: the moment you move a
+  // tile yourself, the word standing in the stick is yours, whatever put the
+  // first letters there.
+  const stageTile = (tile) => {
+    captureFlipFrom(tile.id);
+    setWord(letters + (tile.letter === '?' ? '?' : tile.letter));
+    setAssisted(false);
   };
+
+  // Send one SPECIFIC position home, not "the last tile with this letter" --
+  // with real tiles in a row, the one you tapped is the one that must move.
+  const unstageAt = (i) => {
+    const t = slots[i];
+    if (t) captureFlipFrom(t.id);
+    setWord(letters.slice(0, i) + letters.slice(i + 1));
+    setAssisted(false);
+  };
+
 
   const setConst = (key, value) => {
     setTune((t) => ({ ...t, [key]: value }));
@@ -487,6 +636,19 @@ export default function TugSandbox() {
     ? Math.max(0, tug.tune.ENDLESS_RECENTRE_SEC - (tug.elapsed - tug.recentreAnchor))
     : null;
   const intensity = tug ? Math.min(1, tug.smoothIntensity) : 0;
+  // The blind-push lockout, counted down live -- this component already
+  // re-renders every frame, so the number on the button is the model's own.
+  const lockLeft = tug ? tug.pushLockLeft() : 0;
+  const locked = live && lockLeft > 0;
+  // What the letters standing in the stick would actually bank if pushed now,
+  // WITH the hand-set bonus if it has been earned. The bonus is invisible
+  // otherwise: it is a multiplier applied at the moment of play, and a player
+  // has no way to notice a number they never saw the other version of.
+  const spelt = !!(live && formable && letters.length >= 2
+    && W.Lexicon.isValidWord(letters));
+  const spentWorth = spelt
+    ? tug.wordStrength(letters) * (assisted ? 1 : tug.tune.SELF_SPELL_BONUS)
+    : 0;
 
   const slugs = useMemo(() => {
     if (!tug) return [];
@@ -512,13 +674,28 @@ export default function TugSandbox() {
             {OPPONENTS.map((o) => <option key={o.id} value={o.id}>{o.glyph} {o.name}</option>)}
           </select>
         </label>
-        <label title={SB.getTileBag(bagId).blurb}>Tile bag
-          <select value={bagId} onChange={(e) => setBagId(e.target.value)}>
+        {/* Three buttons, not a dropdown: the whole point of the bag knob is
+            A/B-ing one case against another on the SAME seed, and a dropdown
+            makes each swap a click, a read and a second click. Laid out
+            weak..strong left to right, the order TILE_BAGS is written in, so
+            the row itself says which way is stronger. Still read at Start
+            (see bagId's declaration), so a swap under a live fight is marked
+            pending rather than silently doing nothing. */}
+        <div className="sb-bags" role="group" aria-label="Tile bag">
+          <span className="sb-bags-head">
+            Tile bag
+            {f && f.bagId !== bagId && <em className="sb-bag-note">on restart</em>}
+          </span>
+          <div className="sb-bag-row">
             {SB.TILE_BAGS.map((b) => (
-              <option key={b.id} value={b.id} title={b.blurb}>{b.label}</option>
+              <button key={b.id} type="button"
+                className={'sb-bag' + (b.id === bagId ? ' is-on' : '')}
+                aria-pressed={b.id === bagId}
+                title={b.blurb}
+                onClick={() => setBagId(b.id)}>{b.label}</button>
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
         <label>Seed
           <input value={seed} onChange={(e) => setSeed(e.target.value)} size={9} />
         </label>
@@ -573,13 +750,20 @@ export default function TugSandbox() {
                 const ramp = tug.pusherRamp(p);
                 const fade = tug.pusherFade(p);
                 // Two different ways a word stops pushing, and they should not
-                // look alike: chipped by an attack, or simply spent.
+                // look alike: chipped by an attack, or simply spent. WHO SET
+                // IT is a third, independent thing, so it gets its own channel
+                // -- the fill is rubric red for a word the player spelled
+                // themselves, while the left rule goes on carrying damage.
                 const cls = 'sb-slug'
+                  + (p.self ? ' is-self' : '')
                   + (fade < 1 ? ' is-spent' : (p.hp < p.strength ? ' is-hurt' : ''));
                 return (
                   <div key={p.id} className={cls}>
                     <span className="sb-slug-set" style={{ width: (100 * ramp * fade) + '%' }} />
-                    <span className="sb-slug-word">{p.word}</span>
+                    <span className="sb-slug-word">
+                      {p.self && <i className="sb-slug-mark" title="Spelled by hand">✱</i>}
+                      {p.word}
+                    </span>
                     <span className="sb-slug-str">
                       {ramp < 1 ? 'setting' : fade < 1 ? 'wearing off' : p.hp.toFixed(1)}
                     </span>
@@ -708,25 +892,85 @@ export default function TugSandbox() {
 
       {f && (
         <section className="sb-play">
+          {/* THE CASE. A tile the stick is holding leaves a hollow slot behind
+              rather than closing the gap: the rack must not reshuffle itself
+              under the player's finger mid-word, and the slot is where that
+              tile comes home to. `data-flip-tile-id` is what the FLIP finds the
+              tile by on both sides of the move -- a name of its own, not the
+              tile id, so nothing else can start animating these. */}
           <div className="sb-rack">
-            {f.rack.map((t) => (
+            {f.rack.map((t) => (pickedIds.has(t.id) ? (
+              <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
+            ) : (
               <button key={t.id} type="button" disabled={!live}
-                className={'sb-tile' + (pickedIds.has(t.id) ? ' is-picked' : '')}
-                onClick={() => toggleTile(t)}>
+                className="sb-tile" data-flip-tile-id={t.id}
+                onClick={() => stageTile(t)}>
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
               </button>
-            ))}
+            )))}
+          </div>
+
+          {/* THE COMPOSING STICK -- the play area a tapped tile slides down
+              into, and the thing this screen was missing. Its contents are
+              derived from the field (see `slots`), so typing, tapping and
+              backspacing all move the same type around; what the row adds is
+              that a letter you played is a TILE you can see leave the case and
+              a specific tile you can tap to send back, instead of a character
+              appearing in a text box. */}
+          <div className="sb-stick-wrap">
+            <div className="sb-stick-head">
+              <span className="sb-eyebrow">The composing stick</span>
+              {spelt && (
+                <span className={'sb-stick-worth' + (assisted ? '' : ' is-hand')}>
+                  <b className="sb-figure">{spentWorth.toFixed(1)}</b>
+                  {assisted ? 'off the list' : 'spelled by hand'}
+                </span>
+              )}
+            </div>
+            <div className={'sb-stick' + (formable ? '' : ' is-short')}>
+              {letters.length === 0 && (
+                <span className="sb-stick-empty">tap the case, or type</span>
+              )}
+              {slots.map((t, i) => (t ? (
+                <button key={t.id} type="button" disabled={!live}
+                  className="sb-tile is-set" data-flip-tile-id={t.id}
+                  title="Send this tile home"
+                  onClick={() => unstageAt(i)}>
+                  {t.letter === '?' ? (letters[i] === '?' ? '␣' : letters[i]) : t.letter}
+                  <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
+                </button>
+              ) : (
+                <button key={'gap' + i} type="button" disabled={!live}
+                  className="sb-tile is-missing"
+                  title="No tile in the case spells this"
+                  onClick={() => unstageAt(i)}>
+                  {letters[i]}
+                </button>
+              )))}
+            </div>
           </div>
 
           <div className="sb-input">
             <input ref={inputRef} value={word} disabled={!live}
               className={formable ? '' : 'is-unformable'}
-              placeholder="Pick tiles or type letters"
-              onChange={(e) => setWord(e.target.value)}
+              placeholder="Tap the case, or type letters"
+              onChange={(e) => { setWord(e.target.value); setAssisted(false); }}
               onKeyDown={(e) => { if (e.key === 'Enter') sendBest(); }} />
-            <button type="button" className="sb-go" onClick={sendBest} disabled={!live}>Push</button>
-            <button type="button" onClick={() => setWord('')} disabled={!live}>Clear</button>
+            {/* Locked is a state of the PUSH, never of the stick: the button
+                counts itself down while tiles, typing and the word list all
+                stay live. See BLIND_PUSH_* in tugOfWar.js. */}
+            <button type="button" className={'sb-go' + (locked ? ' is-locked' : '')}
+              onClick={sendBest} disabled={!live || locked}
+              title={locked ? 'Blind push — locked until this runs out' : undefined}
+              aria-label={locked
+                ? 'Push locked for ' + lockLeft.toFixed(1) + ' more seconds'
+                : undefined}>
+              {locked ? lockLeft.toFixed(1) + 's' : 'Push'}
+            </button>
+            <button type="button"
+              onClick={() => { setWord(''); setAssisted(false); }}
+              disabled={!live}>Clear</button>
             <button type="button" onClick={() => {
               const scoreOf = fight.current
                 ? (w) => fight.current.tug.wordStrength(w)
@@ -735,7 +979,10 @@ export default function TugSandbox() {
               // Fill with the winning word's letters, not the whole rack: the
               // field is an exact-letters field now, so handing it seven tiles
               // that spell nothing would just show "no word".
-              if (best.length) setWord(best[0].word);
+              // ...and mark the word as the LIST's, not the player's: it came
+              // out of the dictionary spelled correctly, so it must not collect
+              // the bonus for spelling it yourself.
+              if (best.length) { setWord(best[0].word); setAssisted(true); }
               else say('Nothing spells out of this rack.');
             }} disabled={!live}>Best play</button>
             <button type="button" onClick={newRack} disabled={!live}>New rack</button>
@@ -771,7 +1018,8 @@ export default function TugSandbox() {
               {!indexing && suggestions.map((s, i) => (
                 <button key={s.word} type="button"
                   className={'sb-suggest' + (i === 0 ? ' is-best' : '')}
-                  onClick={() => playWord(s.word)} disabled={!live}>
+                  onClick={() => playWord(s.word, { self: false })}
+                  disabled={!live || locked}>
                   {s.word}<em>{s.score.toFixed(0)}</em>
                 </button>
               ))}
