@@ -59,8 +59,29 @@ Runtime is part of the cost of a test. Before adding one, check that it earns it
 - Fake clock over sleeping. Stub over live service. Fixtures get the widest scope that's still correct.
 - Deleting a test that no longer earns its runtime is a normal part of a change — do it, and say so in the summary.
 
+### What to run, and when
+
+Match the verification to the size of the change. The full set is ~3 minutes of
+machine time and far more of yours, and running it on a one-constant edit tells
+you nothing the targeted gate didn't.
+
+1. **While iterating — test the exact thing you changed.** The behaviour, not
+   the repo. Usually that is the one MANDATORY gate for the file you touched
+   (src/sandbox/ or music.js -> `test:sandbox`; src/components -> `test:react`
+   or `test:react:changed`; CSS layout -> `test:mobile`), or a throwaway
+   harness in the scratchpad that drives the module directly and measures the
+   property you were actually trying to change. A harness that proves the new
+   behaviour beats a suite that proves nothing broke.
+2. **If the change reaches past one file — add the fast tier**,
+   `npm run test:gates:fast` (sub-20s).
+3. **Before `git push` — and only then — run everything**:
+   `npm run test:gates && npm run test:react`. That is the gate on the push,
+   not on the edit.
+
+A deploy counts as a push: full set first.
+
 Commands:
-- Full suite: `npm run test:gates && npm run test:react`
+- Full suite (pre-push only): `npm run test:gates && npm run test:react`
 - Fast tier (default while developing): `npm run test:gates:fast`
 - Changed files only: `npm run test:react:changed`
 

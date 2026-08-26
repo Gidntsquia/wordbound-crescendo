@@ -43,6 +43,14 @@
   // the approach and the swell build together and arrive on the same beat.
   var LEAD_SEC = 4.0;
 
+  // How far BEHIND the playhead a swell may be and still be worth swinging on.
+  // Inside this the peak is essentially now, and the fight lands the burst on
+  // it at once -- the closest it can still get to the music. Past it the piece
+  // has moved on, so the surge is marked spent and never announced: a tab that
+  // sat in the background for a minute must not come back and dump every swell
+  // it slept through onto the barline in one frame.
+  var CATCHUP_SEC = 0.5;
+
   var bufferCache = {};  // url -> Promise<AudioBuffer>, decoded once
   var bytesCache = {};   // url -> Promise<ArrayBuffer>, fetched once
 
@@ -193,20 +201,28 @@
         var pos = position();
         surges.forEach(function (s, i) {
           if (firedSurges[i]) return;
-          if (pos >= s.sec - LEAD_SEC && pos < s.sec) {
-            firedSurges[i] = true;
-            emit('crescendo-approaching', {
-              id: 'surge-' + i,
-              peakBeat: s.sec,
-              peakIntensity: s.intensity,
-              rise: s.rise,
-              // How big this swell is against the others in this recording,
-              // 0..1. The fight sizes the hit off it and gates the small ones
-              // out early, so leaving it behind here silently downgrades both
-              // to a guess from peak level.
-              mag: s.mag
-            });
-          }
+          // NEVER DROP A SWELL. The old window was `pos >= s.sec - LEAD_SEC &&
+          // pos < s.sec`, which silently lost every surge the playhead stepped
+          // clean over -- and it steps over them routinely: this interval is
+          // throttled to a second in a background tab, the tempo control speeds
+          // the position up under it, and a dense passage can put several peaks
+          // inside one tick. Each one lost was a crescendo that played with no
+          // attack on it. A peak that is already behind us is announced anyway
+          // (the fight lands it immediately) as long as it is still fresh.
+          if (pos < s.sec - LEAD_SEC) return;
+          firedSurges[i] = true;
+          if (pos > s.sec + CATCHUP_SEC) return;   // long gone: spent, unswung
+          emit('crescendo-approaching', {
+            id: 'surge-' + i,
+            peakBeat: s.sec,
+            peakIntensity: s.intensity,
+            rise: s.rise,
+            // How big this swell is against the others in this recording,
+            // 0..1. The fight sizes the hit off it and gates the small ones
+            // out early, so leaving it behind here silently downgrades both
+            // to a guess from peak level.
+            mag: s.mag
+          });
         });
         if (duration && pos >= duration && !endedFired) {
           endedFired = true;

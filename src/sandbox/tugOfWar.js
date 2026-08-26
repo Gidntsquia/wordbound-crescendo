@@ -97,6 +97,21 @@
     // exactly the out-of-sync hit this rewrite was meant to remove.
     CADENCE_SILENCE_SEC: 13,
     ATTACK_TRAVEL_SEC: 4,     // flight time for a fallback swing (see LEAD_SEC)
+    // HOW EXACTLY A BURST LANDS ON ITS CRESCENDO. The piece announces a swell
+    // some seconds before its peak and hands over the peak's own moment on the
+    // audio clock; the burst is pinned to THAT, never to a flight time measured
+    // from when the announcement happened to arrive. This is the only fudge in
+    // it: the hit is put this far EARLY, because a shove that lands a frame
+    // after the swell reads as a reaction to it, and one that lands a breath
+    // before reads as the swell itself arriving.
+    ATTACK_EARLY_SEC: 0.06,
+    // ...and the other side of it: how late an ANNOUNCEMENT may arrive and
+    // still be worth swinging on. Inside this the peak is near enough that a
+    // burst landing at once still reads as landing on the swell. Beyond it the
+    // music has moved on, and the swing is dropped rather than thrown at a
+    // moment the song is no longer at -- a stray off-music hit is the exact
+    // thing this whole model exists to avoid.
+    ATTACK_MAX_LATE_SEC: 0.12,
     // Fewer, bigger hits. Dropping the attack clock cut burst pressure to about
     // a third of what a cadence timer was pushing out, so each surviving hit
     // carries more -- which is the point: one readable hit you can see coming
@@ -118,7 +133,7 @@
     // does reach an end. ONLY the rope moves -- pushers, dB and the
     // escalation clock keep running -- so what resumes is this fight as it
     // stands now, replayed from even ground.
-    ENDLESS_RECENTRE_SEC: 6
+    ENDLESS_RECENTRE_SEC: 1.5
   };
 
   Sandbox.TUG_DEFAULTS = DEFAULTS;
@@ -394,7 +409,6 @@
     // that payload, and it is what decides how big the hit is.
     tug.telegraphCrescendo = function (peakTime, now, surge) {
       if (tug.phase !== 'fight') return null;
-      var lead = Math.max(0.4, peakTime - now);
       var mag = tug.crescendoMagnitude(surge);
       // Counts as the song having spoken even when the swell is too small to
       // swing, so a gated-out stretch never trips the silence fallback -- a
@@ -404,7 +418,56 @@
       // curating. A sequenced piece hand-writes a handful of crescendos and
       // every one of them is meant to land.
       if (surge && surge.mag != null && mag < tug.attackGate()) return null;
-      return tug.spawnAttack(tug.crescendoPower(mag), now + lead, 'crescendo', now, mag);
+      // Announced too late to still be about this swell (a tab that was in the
+      // background, a stall). Dropped, not thrown after the music.
+      if (now - peakTime > tug.tune.ATTACK_MAX_LATE_SEC) return null;
+      // THE BURST IS PINNED TO THE PEAK, never to `now + a flight time`. An
+      // announcement can arrive late -- a throttled tab, a stretch where the
+      // swells come closer together than the warning window, a tempo the
+      // player just pushed up -- and when it does, the hit still belongs on
+      // the swell, even if that means landing on this very frame. There is
+      // deliberately NO minimum lead here: a floor is exactly what used to
+      // shove a late burst out past the crescendo it was announcing.
+      var landAt = peakTime - tug.tune.ATTACK_EARLY_SEC;
+      var attack = tug.spawnAttack(tug.crescendoPower(mag), landAt, 'crescendo',
+        Math.min(now, landAt - 0.001), mag);
+      // Which beat of the piece this hit belongs to, kept so it can be
+      // re-pinned if the piece's clock moves under it. See resyncAttacks.
+      if (surge && surge.peakBeat != null) attack.peakBeat = surge.peakBeat;
+      return attack;
+    };
+
+    // THE PIECE'S CLOCK CAN MOVE UNDER A BURST THAT IS ALREADY IN FLIGHT. The
+    // tempo control re-anchors playback, so the moment a peak announced four
+    // seconds ago will actually sound at is no longer the moment it was when
+    // the burst was scheduled. Re-pin every attack that knows its own beat,
+    // from the piece's own beat->time map, once a frame.
+    //
+    // There is deliberately no "is this jump too big to be real" window here.
+    // A tempo change moves a peak four seconds out by whole seconds, so any
+    // window loose enough to allow it is loose enough to be wrong, and any
+    // window tight enough to be safe refuses the one case this exists for.
+    // The other thing that moves the map -- the piece LOOPING -- is told to us
+    // outright instead, by forgetAttackBeats().
+    tug.resyncAttacks = function (beatToTime) {
+      if (typeof beatToTime !== 'function') return;
+      for (var i = 0; i < tug.attacks.length; i++) {
+        var a = tug.attacks[i];
+        if (a.peakBeat == null) continue;
+        var t = beatToTime(a.peakBeat) - tug.tune.ATTACK_EARLY_SEC;
+        if (!isFinite(t)) continue;
+        a.landAt = t;
+        if (a.spawnAt >= a.landAt) a.spawnAt = a.landAt - 0.001;
+      }
+    };
+
+    // The performance a burst was aimed at has ended (the piece looped). Its
+    // beat means something else in the new pass -- the same number now points
+    // at a moment minutes away -- so the burst stops tracking the map and
+    // lands on the schedule it already has. Called by whoever restarts the
+    // piece, because only they know a restart from a tempo change.
+    tug.forgetAttackBeats = function () {
+      for (var i = 0; i < tug.attacks.length; i++) tug.attacks[i].peakBeat = null;
     };
 
     tug.isTerminal = function () {
@@ -451,12 +514,28 @@
           now + tug.tune.ATTACK_TRAVEL_SEC, 'beat', now, mag);
       }
 
+      // LAND ON THE NEAREST FRAME, BIASED EARLY. Frames are ~16 ms apart and a
+      // crescendo's peak almost never falls on one, so `now >= landAt` put
+      // every single hit LATE -- never early, always by however much of a frame
+      // was left. Firing when the landing is nearer to THIS frame than to the
+      // next one halves that error and splits it either side of the beat, and
+      // ATTACK_EARLY_SEC then puts the whole distribution a breath in front.
+      // This is also what makes the timing independent of frame rate: at 30fps
+      // or 144fps the hit sits on the same moment of the music.
+      var due = [];
       var pending = [];
+      var frameEdge = now + dt * 0.5;
       for (var i = 0; i < tug.attacks.length; i++) {
-        if (now >= tug.attacks[i].landAt) land(tug.attacks[i], now);
+        if (frameEdge >= tug.attacks[i].landAt) due.push(tug.attacks[i]);
         else pending.push(tug.attacks[i]);
       }
       tug.attacks = pending;
+      // Several swells can come due in one frame. Land them in the order the
+      // MUSIC plays them, not the order they were announced in -- a late
+      // announcement can spawn after a burst that lands before it, and the
+      // pool is chipped weakest-first, so the order changes who survives.
+      due.sort(function (a, b) { return a.landAt - b.landAt; });
+      for (var d = 0; d < due.length; d++) land(due[d], now);
 
       tug.rope += (tug.playerForce() - tug.enemyForce()) * dt;
 

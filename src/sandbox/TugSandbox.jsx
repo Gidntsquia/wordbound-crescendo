@@ -91,6 +91,8 @@ const TUNE_LABELS = {
   ATTACK_INTERVAL_BASE: 'Attack interval base (s)',
   ATTACK_POWER_BASE: 'Attack power base',
   ATTACK_TRAVEL_SEC: 'Telegraph lead (s)',
+  ATTACK_EARLY_SEC: 'Hit lands before the peak (s)',
+  ATTACK_MAX_LATE_SEC: 'Skip a swell announced later than (s)',
   ATTACK_IMPULSE_SCALE: 'Barline shove per power',
   ATTACK_CHIP_FACTOR: 'Type destroyed per power',
   CRESCENDO_POWER_MULT: 'Crescendo power ×',
@@ -103,9 +105,10 @@ const TUNE_STEPS = {
   WORD_LENGTH_EXP: 0.1, PUSHER_RAMP_SEC: 0.5, PLAYER_FORCE_SCALE: 0.005,
   PUSHER_LIFE_BASE: 1, PUSHER_LIFE_PER_LETTER: 0.5, PUSHER_FADE_SEC: 0.5,
   ENEMY_DRONE: 0.1, ATTACK_INTERVAL_BASE: 0.5, ATTACK_POWER_BASE: 0.5,
-  ATTACK_TRAVEL_SEC: 0.1, ATTACK_IMPULSE_SCALE: 0.05, ATTACK_CHIP_FACTOR: 0.05,
+  ATTACK_TRAVEL_SEC: 0.1, ATTACK_EARLY_SEC: 0.02, ATTACK_MAX_LATE_SEC: 0.02,
+  ATTACK_IMPULSE_SCALE: 0.05, ATTACK_CHIP_FACTOR: 0.05,
   CRESCENDO_POWER_MULT: 0.1, DB_RATE: 0.01, DB_MAX: 1,
-  ENDLESS_RECENTRE_SEC: 1,
+  ENDLESS_RECENTRE_SEC: 0.5,
 };
 
 export default function TugSandbox() {
@@ -223,12 +226,16 @@ export default function TugSandbox() {
     tug.on('attack-landed', (a) => say(
       (a.kind === 'crescendo' ? sizeWord(a.mag) : 'Stray swing')
       + ' hits ' + a.power.toFixed(1) + ' — barline at ' + tug.rope.toFixed(1)));
-    // Endless puts the barline back rather than letting it park on an end, so
-    // say which of the two just happened -- a jump nobody caused needs a line.
-    tug.on('rope-recentred', (e) => say(
-      e.reason === 'cycle' ? 'Da capo — barline back to centre.'
-        : e.reason === 'top' ? 'The words ran it off the end — barline back to centre.'
-          : 'The song ran it off the end — barline back to centre.'));
+    // Endless puts the barline back rather than letting it park on an end. Only
+    // the two END cases get a line. The routine clock fires every
+    // ENDLESS_RECENTRE_SEC (1.5s = ~40 times a minute), and narrating that
+    // buries the words and attacks the log exists to show -- while the HUD's
+    // "centre in Xs" already announces the cycle before it happens.
+    tug.on('rope-recentred', (e) => {
+      if (e.reason === 'cycle') return;
+      say(e.reason === 'top' ? 'The words ran it off the end — barline back to centre.'
+        : 'The song ran it off the end — barline back to centre.');
+    });
     tug.on('pusher-lost', (p) => say(p.word + ' silenced.'));
     tug.on('pusher-spent', (p) => say(p.word + (p.fading ? ' wears off.' : ' silenced.')));
     tug.on('won', () => halt('won', 'The words hold.'));
@@ -251,6 +258,11 @@ export default function TugSandbox() {
     seq.on('piece-ended', () => {
       const f = fight.current;
       if (!f || !f.running) return;
+      // Bursts still in the air were aimed at beats of the performance that
+      // just ended. Restarting re-maps every beat, so cut them loose from the
+      // piece's clock first -- otherwise they would chase the same beat number
+      // into the new pass, minutes away. They land on the schedule they have.
+      f.tug.forgetAttackBeats();
       seq.stop();
       seq.play();
       if (f.tempo !== 1) seq.setTempoScale(f.tempo);
@@ -310,6 +322,12 @@ export default function TugSandbox() {
           const now = f.ctx.currentTime;
           const dt = Math.max(0, now - f.lastNow);
           f.lastNow = now;
+          // Re-pin every burst still in the air to the beat it was aimed at
+          // BEFORE integrating this frame. Changing the tempo re-anchors
+          // playback, which moves the moment an announced peak actually sounds
+          // at -- and a hit is only worth anything if it is still on its
+          // crescendo afterwards.
+          f.tug.resyncAttacks(f.seq.beatToTime);
           f.tug.tick(now, dt, f.seq.getIntensity());
         }
         forceRender((n) => n + 1);
