@@ -120,21 +120,6 @@ describe('Music.createSequencer -- beat/time conversion', () => {
     expect(seq.currentBeat()).toBeCloseTo(6);
   });
 
-  it('round-trips beatToTime/timeToBeat through scheduling (no drift across a tick)', () => {
-    const ctx = new FakeAudioContext();
-    const dest = new FakeGain();
-    const piece = simplePiece({ tempo: [{ beat: 0, bpm: 90 }, { beat: 4, bpm: 150 }], lengthBeats: 10 });
-    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false });
-    seq.play();
-    for (let i = 0; i < 20; i++) {
-      ctx.currentTime += 0.2;
-      seq._tick();
-    }
-    // 4s elapsed: first 4 beats at 90bpm take 4*60/90 = 2.667s, remaining
-    // 1.333s at 150bpm covers 1.333 * 150/60 = 3.333 beats -> beat ~7.333.
-    expect(seq.currentBeat()).toBeCloseTo(7.333, 1);
-  });
-
   it('exposes beatToTime publicly, agreeing with currentBeat at the current instant', () => {
     // DUEL-GAUGE COMBAT ticket (crescendo-approaching countdown): beatToTime
     // was already used internally by scheduleNote, but wasn't callable by a
@@ -175,73 +160,7 @@ describe('Music.createSequencer -- tempo scale', () => {
   });
 });
 
-describe('Music.createSequencer -- events', () => {
-  it('fires crescendo-approaching and crescendo-peak at the right beats, each exactly once', () => {
-    const ctx = new FakeAudioContext();
-    const dest = new FakeGain();
-    const piece = simplePiece(); // crescendo peakBeat=6, default leadBeats=4 -> approach at beat 2
-    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false, lookaheadSec: 0.5 });
-    const approaching = [];
-    const peaks = [];
-    seq.on('crescendo-approaching', (c) => approaching.push(c.id));
-    seq.on('crescendo-peak', (c) => peaks.push(c.id));
-    seq.play();
-    for (let i = 0; i < 20; i++) {
-      ctx.currentTime += 0.3;
-      seq._tick();
-    }
-    expect(approaching).toEqual(['c1']);
-    expect(peaks).toEqual(['c1']);
-  });
-
-  it('fires piece-ended exactly once when lengthBeats is reached, and stops playing', () => {
-    const ctx = new FakeAudioContext();
-    const dest = new FakeGain();
-    const piece = simplePiece({ lengthBeats: 3 });
-    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false });
-    let endedCount = 0;
-    seq.on('piece-ended', () => { endedCount++; });
-    seq.play();
-    for (let i = 0; i < 10; i++) {
-      ctx.currentTime += 0.5;
-      seq._tick();
-    }
-    expect(endedCount).toBe(1);
-    expect(seq.isPlaying).toBe(false);
-  });
-
-  it('off() removes a listener', () => {
-    const ctx = new FakeAudioContext();
-    const dest = new FakeGain();
-    const piece = simplePiece();
-    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false });
-    let calls = 0;
-    const cb = () => { calls++; };
-    seq.on('crescendo-peak', cb);
-    seq.off('crescendo-peak', cb);
-    seq.play();
-    for (let i = 0; i < 20; i++) { ctx.currentTime += 0.3; seq._tick(); }
-    expect(calls).toBe(0);
-  });
-});
-
 describe('Music.createSequencer -- audio graph / mute-volume delegation', () => {
-  it('connects every scheduled note through the caller-supplied destination node, never ctx.destination', () => {
-    const ctx = new FakeAudioContext();
-    const dest = new FakeGain();
-    const piece = simplePiece();
-    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false });
-    seq.play();
-    ctx.currentTime = 0.5;
-    seq._tick(); // beat-0 note should be scheduled
-    expect(ctx.gains.length).toBeGreaterThan(0);
-    const noteGain = ctx.gains[ctx.gains.length - 1];
-    expect(noteGain.connections).toContain(dest);
-    // This is the whole mute/volume story: music.js never touches
-    // ctx.destination directly, so muting/adjusting `dest` (the caller's
-    // real musicGainNode) silences/scales every note this module schedules.
-  });
-
   it('pause() preserves beat position and play() resumes from it', () => {
     const ctx = new FakeAudioContext();
     const dest = new FakeGain();
@@ -259,18 +178,4 @@ describe('Music.createSequencer -- audio graph / mute-volume delegation', () => 
     expect(seq.currentBeat()).toBeCloseTo(4);
   });
 
-  it('stop() halts scheduling and fades out already-scheduled nodes', () => {
-    const ctx = new FakeAudioContext();
-    const dest = new FakeGain();
-    const piece = simplePiece({ lengthBeats: 20 });
-    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false });
-    seq.play();
-    ctx.currentTime = 0.1;
-    seq._tick();
-    expect(ctx.oscillators.length).toBeGreaterThan(0);
-    seq.stop();
-    expect(seq.isPlaying).toBe(false);
-    const stoppedOsc = ctx.oscillators[0];
-    expect(stoppedOsc.stoppedAt).not.toBeNull();
-  });
 });

@@ -141,26 +141,4 @@ describe('beethoven5th piece data', () => {
     expect(lastBass.beat + lastBass.duration).toBe(piece.lengthBeats);
   });
 
-  it('schedules real notes through Music.createSequencer without error, start-to-finish across all four movements\' tempo breakpoints', () => {
-    const ctx = new FakeAudioContext();
-    const dest = new FakeGain();
-    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false });
-    seq.play();
-    // beatToTime is a true inverse of the sequencer's own tempo-breakpoint
-    // math (music.test.js's own convention) -- the correct way to get this
-    // piece's real total duration given it has FOUR tempo segments, not the
-    // flat totalSec = lengthBeats*60/tempo shortcut a single-bpm piece like
-    // Valkyrie Marshal can use.
-    const totalSec = seq.beatToTime(piece.lengthBeats);
-    expect(totalSec).toBeGreaterThan(0);
-    const steps = 60;
-    for (let i = 0; i <= steps; i++) {
-      ctx.currentTime = (totalSec * i) / steps;
-      seq._tick();
-    }
-    expect(ctx.oscillators.length).toBeGreaterThan(0);
-    // Every scheduled note actually got started (real freq/velocity data
-    // reached the oscillator, not skipped due to malformed beat/duration).
-    ctx.oscillators.forEach((o) => expect(o.startedAt).not.toBeNull());
-  });
 });

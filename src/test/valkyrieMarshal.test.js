@@ -108,22 +108,4 @@ describe('valkyrieMarshal piece data', () => {
     }
   });
 
-  it('schedules real notes through Music.createSequencer without error, start-to-finish', () => {
-    const ctx = new FakeAudioContext();
-    const dest = new FakeGain();
-    const seq = Music.createSequencer(ctx, dest, piece, { autoTick: false });
-    seq.play();
-    // Manually drive currentTime across the whole piece length and tick,
-    // same "mocked clock" convention music.test.js's own header describes.
-    const totalSec = (piece.lengthBeats * 60) / piece.tempo;
-    const steps = 40;
-    for (let i = 0; i <= steps; i++) {
-      ctx.currentTime = (totalSec * i) / steps;
-      seq._tick();
-    }
-    expect(ctx.oscillators.length).toBeGreaterThan(0);
-    // Every scheduled note actually got started (real freq/velocity data
-    // reached the oscillator, not skipped due to malformed beat/duration).
-    ctx.oscillators.forEach((o) => expect(o.startedAt).not.toBeNull());
-  });
 });

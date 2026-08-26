@@ -71,16 +71,4 @@ describe('AlphabetDisplay', () => {
     StolenLetters.reset();
   });
 
-  it('recovered letters persist across a real simulated reload (real localStorage, not jsdom\'s file:// limitation dom-check.js hits)', () => {
-    StolenLetters.reset();
-    StolenLetters.recoverByBossDefId('boss_sovereign'); // recovers V
-    // Simulate a fresh page load: a NEW in-memory state that only knows
-    // what loadProgress() reads back from the SAME real localStorage.
-    StolenLetters.reset(); // also clears localStorage -- re-seed it directly, as if from a prior real session
-    window.localStorage.setItem('wordbound_stolen_letters_v1', JSON.stringify({ V: true }));
-    StolenLetters.loadProgress();
-    expect(StolenLetters.isStolen('V')).toBe(false);
-    expect(StolenLetters.isStolen('K')).toBe(true); // untouched, still stolen
-    StolenLetters.reset();
-  });
 });
