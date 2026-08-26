@@ -105,9 +105,12 @@
     regularName: 'The Invention',
     gimmick: 'Two contrapuntal voices fighting each other as much as you — brief crossed-line surges.',
     stageTier: 'mid',
+    gain: 1.8,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH_BEATS,
     tempo: 132, // fast, constant -- a two-part invention's own brisk, continuous-motion tempo
     tracks: { voice1: voice1, voice2: voice2 },
+    // Two-part invention, written for harpsichord -- bright and plucky.
+    voices: { voice1: 'bright', voice2: 'bright' },
     dynamics: {
       // Calm baseline (~0.1) whenever the two voices stay in separate
       // registers (statements 0, 2, 4), spiking only during the 3

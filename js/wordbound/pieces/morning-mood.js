@@ -87,9 +87,12 @@
     regularName: 'Morning Mood',
     gimmick: 'Wakes up slowly over the whole fight. Starts nearly harmless, ends only mildly less so.',
     stageTier: 'early',
+    gain: 2.6,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: 48,
     tempo: 76,
     tracks: { melody: melody, harmony: harmony },
+    // Grieg gives the tune to a flute over held strings.
+    voices: { melody: 'reed', harmony: 'strings' },
     dynamics: {
       // A single, genuine (if shallow) crescendo spanning the whole piece
       // -- roughly triples from start to end, same shape as the original

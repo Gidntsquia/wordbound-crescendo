@@ -19,12 +19,11 @@
 // bar is therefore 6 beats, and tempo is set so a bar lands near a second --
 // "Poco moto" (a little motion), not a showpiece.
 //
-// TIMBRE: the melody is doubled an octave up at low velocity on its own track.
-// music.js's voice is a single oscillator per note, so a piano's overtones
-// have to be sequenced rather than synthesized; the doubling is what keeps the
-// theme from reading as a bare sine tone. Callers pick the waveforms via
-// createSequencer's voiceTypes option (src/sandbox/TugSandbox.jsx passes
-// triangle for melody and bass).
+// TIMBRE: both hands are marked 'piano', which is music.js's own struck-string
+// voice (partial stack, inharmonicity, hammer transient -- see THE VOICE in
+// music.js). An earlier draft doubled the melody an octave up on a third track
+// to fake overtones; the engine synthesizes real ones now, so that track is
+// gone and the texture is just the two hands.
 (function () {
   window.Wordbound = window.Wordbound || {};
   window.Wordbound.Pieces = window.Wordbound.Pieces || {};
@@ -99,15 +98,11 @@
   }
 
   var melody = [];
-  var shimmer = [];   // the octave doubling; see TIMBRE above
   var bass = [];
 
   function layMelody(phrase, startBeat, velocity) {
     var laid = melodyFrom(phrase, startBeat, velocity);
     melody = melody.concat(laid.notes);
-    shimmer = shimmer.concat(laid.notes.map(function (n) {
-      return { beat: n.beat, duration: n.duration, freq: n.freq * 2, velocity: velocity * 0.22 };
-    }));
     return laid.endBeat;
   }
 
@@ -138,11 +133,13 @@
     regularName: 'The Bagatelle',
     gimmick: 'Everyone knows the first eight notes. Nobody remembers what comes next.',
     stageTier: 'early',
+    gain: 1.0,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH,
     // Sixteenths per minute: a 6-beat 3/8 bar lands just under a second,
     // which is "Poco moto" at the tempo the piece is usually taken.
     tempo: 380,
-    tracks: { melody: melody, shimmer: shimmer, bass: bass },
+    tracks: { melody: melody, bass: bass },
+    voices: { melody: 'piano', bass: 'piano' },
     dynamics: {
       // Quiet and rocking through A, opening up through the B strain's climb,
       // then settling back as the theme returns.

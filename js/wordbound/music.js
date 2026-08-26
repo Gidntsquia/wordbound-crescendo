@@ -15,6 +15,9 @@
 //   {
 //     id, title, composer, vetting: { composed, composerDied, publicDomain },
 //     stageTier: 'early' | 'mid' | 'late' | 'final',   // base duel-push tier
+//     gain: number (default 1),  // per-piece loudness trim, so a quiet piece
+//         and a loud one sit at the same level without re-authoring either
+//         one's velocities. Amplitude only -- never changes voicing.
 //     lengthBeats: number,                              // piece ends here
 //     tempo: number | [{ beat, bpm }, ...],              // constant bpm, or
 //         ascending breakpoints (first MUST be { beat: 0, bpm }) for a piece
@@ -25,11 +28,15 @@
 //         close enough for gameplay purposes (this is a step beyond the
 //         base ticket's plain "tempo" field -- documented here since
 //         Mountain King's accelerando genuinely needs it).
-//     tracks: { <name>: [{ beat, duration, freq, velocity, type }, ...] },
+//     tracks: { <name>: [{ beat, duration, freq, velocity, voice }, ...] },
 //         beat/duration are in BEATS (tempo-relative, not seconds); freq is
-//         Hz; velocity is 0..1 (defaults to 0.8); type is an OscillatorNode
-//         type (defaults to the track's own default, see createSequencer's
-//         voiceTypes option, itself defaulting to 'sine').
+//         Hz; velocity is 0..1 (defaults to 0.8); voice names an instrument
+//         from Music.VOICES -- 'piano' (default), 'bright', 'strings',
+//         'reed' -- see THE VOICE below for what each one actually is. A note
+//         may still carry the original `type` field naming an OscillatorNode
+//         type; those map onto the nearest instrument (sine->piano,
+//         triangle->bright, square->reed, sawtooth->strings) so every piece
+//         written against the old API keeps working and simply sounds better.
 //     dynamics: {
 //       keyframes: [{ beat, intensity }, ...],  // sorted ascending by beat,
 //           piecewise-LINEAR 0..1 curve -- this is intensityAt()/
@@ -47,8 +54,11 @@
 //       dynamics.keyframes curve (no sequencer needed).
 //   createSequencer(ctx, destination, piece, opts) -> sequencer, see below.
 //       opts: { tickMs=25, lookaheadSec=0.15, crescendoLeadBeats=4,
-//               autoTick=true, voiceTypes={} } -- voiceTypes maps a track
-//       name to a default OscillatorNode type override.
+//               autoTick=true, voices={}, voiceTypes={}, reverb=0.2 } --
+//       voices maps a track name to a Music.VOICES instrument name;
+//       voiceTypes is the original OscillatorNode-typed form of the same
+//       thing, still honoured; reverb (0..1) sets the shared room's wet
+//       level, 0 for a dry signal.
 //
 // SEQUENCER INSTANCE:
 //   .play() / .pause() / .stop()   -- stop() also halts any still-sounding
@@ -138,21 +148,326 @@
   }
   Music.intensityAt = intensityAt;
 
-  function playVoice(ctx, destination, type, freq, start, duration, velocity) {
-    var osc = ctx.createOscillator();
-    var gain = ctx.createGain();
-    osc.type = type || 'sine';
-    osc.connect(gain);
-    gain.connect(destination);
-    osc.frequency.setValueAtTime(freq, start);
-    var peak = Math.max(0.0001, 0.28 * (velocity == null ? 0.8 : velocity));
-    var attack = Math.min(0.02, duration * 0.2);
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(peak, start + attack);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    osc.start(start);
-    osc.stop(start + duration + 0.02);
-    return { osc: osc, gain: gain, stopAt: start + duration };
+  // ---------------------------------------------------------------------
+  // THE VOICE
+  //
+  // Every note used to be one bare oscillator with a single exponential fade,
+  // which is why the engine read as beeps rather than instruments. A struck
+  // string is three things at once, and this builds all three:
+  //
+  //   1. A PARTIAL STACK. Harmonics above the fundamental, each quieter than
+  //      the last AND each dying faster than the last. The differential decay
+  //      is the cue: an organ's partials decay together, a piano's don't.
+  //   2. INHARMONICITY. Real piano strings are stiff, so partial n sits a
+  //      little sharp of n x f0 -- f_n = n*f0*sqrt(1 + B*n^2). Tiny number,
+  //      enormous perceptual difference: it is most of what says "piano"
+  //      rather than "additive synth."
+  //   3. A HAMMER TRANSIENT. A few milliseconds of filtered noise at onset.
+  //      Without it a note fades in; with it, something strikes.
+  //
+  // Plus unison detuning (a piano has two or three strings per note, never
+  // perfectly in tune, and the slow beating between them is the shimmer), a
+  // velocity-dependent tone filter (hit harder, get brighter), and a real
+  // damper release instead of an abrupt ramp to silence.
+  //
+  // Levels are held where they were: peak amplitude per note still works out
+  // near the old 0.28 x velocity, and the shared bus (see getBus) ends in a
+  // gentle compressor so stacked notes cannot clip the caller's destination.
+  // ---------------------------------------------------------------------
+
+  // amp: relative amplitude. decay: multiplier on the note's decay time --
+  // below 1 means this partial dies before the fundamental does.
+  var VOICES = {
+    piano: {
+      partials: [
+        { mult: 1, amp: 1.00, decay: 1.00 },
+        { mult: 2, amp: 0.38, decay: 0.60 },
+        { mult: 3, amp: 0.20, decay: 0.44 },
+        { mult: 4, amp: 0.11, decay: 0.32 },
+        { mult: 5, amp: 0.06, decay: 0.24 }
+      ],
+      inharmonicity: 0.0004,
+      detuneCents: 3.2,     // the second string of the unison pair
+      attack: 0.004,
+      decaySec: 2.6,        // at A3; scaled by pitch below
+      knee: { level: 0.46, tau: 0.055, after: 0.2 }, // the fast first drop
+      sustain: false,       // free decay: the note dies whether or not it is held
+      release: 0.055,       // damper felt coming down
+      hammer: 0.9,          // strength of the onset transient
+      hammerHz: 2600,
+      brightness: 5.5       // tone-filter cutoff, in multiples of the fundamental
+    },
+    bright: {
+      partials: [
+        { mult: 1, amp: 1.00, decay: 1.00 },
+        { mult: 2, amp: 0.52, decay: 0.66 },
+        { mult: 3, amp: 0.30, decay: 0.50 },
+        { mult: 4, amp: 0.19, decay: 0.38 },
+        { mult: 5, amp: 0.12, decay: 0.30 },
+        { mult: 6, amp: 0.07, decay: 0.24 }
+      ],
+      inharmonicity: 0.0005,
+      detuneCents: 2.4,
+      attack: 0.003,
+      decaySec: 2.0,
+      knee: { level: 0.4, tau: 0.045, after: 0.17 },
+      sustain: false,
+      release: 0.05,
+      hammer: 1.0,
+      hammerHz: 3800,
+      brightness: 8
+    },
+    strings: {
+      partials: [
+        { mult: 1, amp: 1.00, decay: 1 },
+        { mult: 2, amp: 0.58, decay: 1 },
+        { mult: 3, amp: 0.36, decay: 1 },
+        { mult: 4, amp: 0.22, decay: 1 },
+        { mult: 5, amp: 0.13, decay: 1 },
+        { mult: 6, amp: 0.08, decay: 1 }
+      ],
+      inharmonicity: 0,
+      detuneCents: 6,       // an ensemble is never in unison
+      attack: 0.085,        // the bow takes hold
+      decaySec: 30,
+      sustain: true,        // holds for as long as the note is held
+      release: 0.14,
+      hammer: 0.12,
+      hammerHz: 1400,
+      brightness: 6
+    },
+    reed: {
+      partials: [
+        { mult: 1, amp: 1.00, decay: 1 },
+        { mult: 3, amp: 0.46, decay: 1 },
+        { mult: 5, amp: 0.23, decay: 1 },
+        { mult: 7, amp: 0.12, decay: 1 }
+      ],
+      inharmonicity: 0,
+      detuneCents: 1.5,
+      attack: 0.014,
+      decaySec: 30,
+      sustain: true,
+      release: 0.06,
+      hammer: 0.25,
+      hammerHz: 2200,
+      brightness: 7
+    }
+  };
+  Music.VOICES = VOICES;
+
+  // Pieces written against the old API name an OscillatorNode type. Those keep
+  // working and now pick the nearest instrument instead of a raw waveform.
+  var TYPE_ALIASES = {
+    sine: 'piano', triangle: 'bright', square: 'reed', sawtooth: 'strings'
+  };
+  function resolveVoice(name) {
+    if (!name) return VOICES.piano;
+    return VOICES[name] || VOICES[TYPE_ALIASES[name]] || VOICES.piano;
+  }
+
+  // One shared bus per destination node: compressor, then a synthesized
+  // convolution reverb. Cached, because a piece schedules hundreds of notes and
+  // every one of them routes through the same room. Never touches
+  // ctx.destination -- it ends at the CALLER's node, so the existing
+  // mute/volume plumbing still owns the final level.
+  var busCache = typeof WeakMap === 'function' ? new WeakMap() : null;
+
+  function buildImpulseResponse(ctx, seconds, decay) {
+    var rate = ctx.sampleRate;
+    var len = Math.max(1, Math.floor(rate * seconds));
+    var buf = ctx.createBuffer(2, len, rate);
+    for (var ch = 0; ch < 2; ch++) {
+      var data = buf.getChannelData(ch);
+      for (var i = 0; i < len; i++) {
+        var t = i / len;
+        // Noise under an exponential tail, with a short fade-in so the reverb
+        // blooms behind the note instead of doubling its attack.
+        var bloom = Math.min(1, t * 90);
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay) * bloom;
+      }
+    }
+    return buf;
+  }
+
+  var softClipShared = null;
+  function softClipCurve() {
+    if (softClipShared) return softClipShared;
+    var n = 8192;
+    var curve = new Float32Array(n);
+    var knee = 0.66;
+    for (var i = 0; i < n; i++) {
+      var x = (i / (n - 1)) * 2 - 1;
+      var a = Math.abs(x);
+      // Dead linear below the knee, so normal playing is bit-for-bit
+      // untouched; above it, a smooth approach to 1.0 instead of a hard wall.
+      var y = a < knee ? a : knee + (1 - knee) * Math.tanh((a - knee) / (1 - knee));
+      curve[i] = x < 0 ? -y : y;
+    }
+    softClipShared = curve;
+    return curve;
+  }
+
+  function buildNoiseBuffer(ctx) {
+    var len = Math.floor(ctx.sampleRate * 0.12);
+    var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  function getBus(ctx, destination, reverbAmount) {
+    var cached = busCache && busCache.get(destination);
+    if (cached) return cached;
+
+    var input = ctx.createGain();
+    input.gain.value = 1;
+
+    // Safety against stacked notes clipping the caller's node. NOT a
+    // compressor: a DynamicsCompressorNode carries several milliseconds of
+    // lookahead latency and pulls down exactly the hammer transients this
+    // voice exists to produce -- measurably, it pushed a note's peak from 5ms
+    // out to 115ms. A waveshaper is sample-exact, passes anything under 0.66
+    // through untouched, and only rounds off true peaks.
+    var comp = ctx.createWaveShaper();
+    comp.curve = softClipCurve();
+    comp.oversample = '4x';
+
+    var wet = reverbAmount == null ? 0.2 : reverbAmount;
+    var dry = ctx.createGain();
+    dry.gain.value = 1 - wet * 0.4;
+
+    var send = ctx.createGain();
+    send.gain.value = wet;
+
+    // Roll the tail off before the reverb so it sits behind the notes rather
+    // than hissing on top of them.
+    var tone = ctx.createBiquadFilter();
+    tone.type = 'lowpass';
+    tone.frequency.value = 3600;
+
+    var verb = ctx.createConvolver();
+    verb.buffer = buildImpulseResponse(ctx, 1.8, 2.6);
+
+    input.connect(comp);
+    comp.connect(dry);
+    dry.connect(destination);
+    comp.connect(send);
+    send.connect(tone);
+    tone.connect(verb);
+    verb.connect(destination);
+
+    var bus = { input: input, noise: buildNoiseBuffer(ctx) };
+    if (busCache) busCache.set(destination, bus);
+    return bus;
+  }
+
+  function playVoice(ctx, destination, type, freq, start, duration, velocity, reverbAmount, level) {
+    var voice = resolveVoice(type);
+    var bus = getBus(ctx, destination, reverbAmount);
+    var vel = velocity == null ? 0.8 : velocity;
+    var sources = [];
+
+    // Held for `duration`, then the damper comes down.
+    var attack = Math.min(voice.attack, duration * 0.5);
+    var releaseAt = start + Math.max(attack + 0.005, duration);
+    var release = voice.release;
+
+    // Low strings ring far longer than high ones.
+    var decaySec = voice.sustain
+      ? voice.decaySec
+      : Math.max(0.35, Math.min(6, voice.decaySec * Math.pow(220 / Math.max(40, freq), 0.45)));
+
+    // Per-note gain, then a tone filter that opens with velocity: the same
+    // note played harder is brighter, not just louder.
+    var noteGain = ctx.createGain();
+    noteGain.gain.value = 1;
+
+    var tone = ctx.createBiquadFilter();
+    tone.type = 'lowpass';
+    tone.frequency.setValueAtTime(
+      Math.max(700, Math.min(13000, freq * voice.brightness * (0.55 + 0.9 * vel))), start);
+    tone.Q.setValueAtTime(0.6, start);
+
+    noteGain.connect(tone);
+    tone.connect(bus.input);
+
+    // Normalize against the summed partial amplitudes so adding harmonics
+    // makes the note richer, never louder.
+    var unisons = [0, -voice.detuneCents];
+    var total = 0;
+    voice.partials.forEach(function (p) { total += p.amp * unisons.length; });
+    // `level` is the piece's own trim (see PIECE FORMAT's gain field). It
+    // scales amplitude only -- velocity still owns brightness, so trimming a
+    // piece's level never changes how it is voiced.
+    var peak = 0.34 * vel * (level == null ? 1 : level) / Math.max(0.001, total);
+
+    voice.partials.forEach(function (p) {
+      var stretch = Math.sqrt(1 + voice.inharmonicity * p.mult * p.mult);
+      var partialHz = freq * p.mult * stretch;
+      if (partialHz > ctx.sampleRate * 0.45) return; // never alias
+
+      unisons.forEach(function (cents) {
+        var osc = ctx.createOscillator();
+        var g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(partialHz, start);
+        if (cents) osc.detune.setValueAtTime(cents, start);
+        osc.connect(g);
+        g.connect(noteGain);
+
+        var target = Math.max(0.00002, peak * p.amp);
+        g.gain.setValueAtTime(0.00002, start);
+        g.gain.exponentialRampToValueAtTime(target, start + attack);
+        // setTargetAtTime, not a ramp to a fixed time: each stage continues
+        // from wherever the curve has got to, so a later stage (or the damper)
+        // can interrupt at any moment with no discontinuity.
+        var tail = Math.max(0.03, decaySec * p.decay);
+        if (voice.knee) {
+          // A struck string does not decay at one rate. It drops fast for the
+          // first fraction of a second, then rings on far more slowly -- the
+          // double decay is why a piano has a "ping" and a synth pad doesn't.
+          var kneeAt = start + attack + voice.knee.after;
+          g.gain.setTargetAtTime(target * voice.knee.level, start + attack, voice.knee.tau * p.decay);
+          g.gain.setTargetAtTime(0, kneeAt, tail);
+        } else {
+          g.gain.setTargetAtTime(0, start + attack, tail);
+        }
+        g.gain.setTargetAtTime(0, releaseAt, release);
+
+        osc.start(start);
+        osc.stop(releaseAt + release * 8 + 0.03);
+        sources.push(osc);
+      });
+    });
+
+    // The strike itself.
+    if (voice.hammer > 0) {
+      var noise = ctx.createBufferSource();
+      noise.buffer = bus.noise;
+      var nf = ctx.createBiquadFilter();
+      nf.type = 'bandpass';
+      nf.frequency.setValueAtTime(voice.hammerHz * (0.7 + 0.6 * vel), start);
+      nf.Q.setValueAtTime(0.8, start);
+      var ng = ctx.createGain();
+      var hammerPeak = Math.max(0.00002, 0.05 * vel * voice.hammer);
+      ng.gain.setValueAtTime(0.00002, start);
+      ng.gain.exponentialRampToValueAtTime(hammerPeak, start + 0.0015);
+      ng.gain.setTargetAtTime(0, start + 0.0015, 0.012);
+      noise.connect(nf);
+      nf.connect(ng);
+      ng.connect(noteGain);
+      noise.start(start);
+      noise.stop(start + 0.14);
+      sources.push(noise);
+    }
+
+    return {
+      sources: sources,
+      osc: sources[0],   // kept for callers that only ever knew about one
+      gain: noteGain,
+      stopAt: releaseAt + release * 8 + 0.03
+    };
   }
 
   Music.createSequencer = function (ctx, destination, piece, opts) {
@@ -162,6 +477,12 @@
     var crescendoLeadBeats = opts.crescendoLeadBeats != null ? opts.crescendoLeadBeats : 4;
     var autoTick = opts.autoTick !== false;
     var voiceTypes = opts.voiceTypes || {};
+    var voices = opts.voices || {};
+    var reverb = opts.reverb != null ? opts.reverb : 0.2;
+    // Pieces were authored at whatever velocities suited them, which left a
+    // ~20 dB spread across the set -- Satie nearly inaudible next to Wagner.
+    // `gain` is each piece's trim back to a common loudness.
+    var pieceGain = opts.gain != null ? opts.gain : (piece.gain != null ? piece.gain : 1);
 
     var listeners = {};
     var scheduledNodes = [];
@@ -227,15 +548,18 @@
 
     function clearScheduledNodes(fade) {
       scheduledNodes.forEach(function (n) {
+        var sources = n.sources || (n.osc ? [n.osc] : []);
         try {
           if (fade) {
             var now = ctx.currentTime;
+            // Fade the note's own gain rather than cutting the oscillators, so
+            // stopping mid-chord never clicks.
             n.gain.gain.cancelScheduledValues(now);
             n.gain.gain.setValueAtTime(n.gain.gain.value, now);
-            n.gain.gain.linearRampToValueAtTime(0.0001, now + 0.03);
-            n.osc.stop(now + 0.03);
+            n.gain.gain.linearRampToValueAtTime(0.0001, now + 0.04);
+            sources.forEach(function (src) { try { src.stop(now + 0.05); } catch (e) { /* already done */ } });
           } else {
-            n.osc.stop();
+            sources.forEach(function (src) { try { src.stop(); } catch (e) { /* already done */ } });
           }
         } catch (e) { /* node may already be stopped/finished */ }
       });
@@ -276,8 +600,10 @@
       var startT = beatToTime(note.beat);
       var endT = beatToTime(note.beat + note.duration);
       var duration = Math.max(0.02, endT - startT);
-      var type = note.type || voiceTypes[trackName] || 'sine';
-      var node = playVoice(ctx, destination, type, note.freq, startT, duration, note.velocity);
+      // `voice` is the current name for this; `type` is the original
+      // OscillatorNode-typed field, still honoured and mapped to an instrument.
+      var voice = note.voice || voices[trackName] || note.type || voiceTypes[trackName] || 'piano';
+      var node = playVoice(ctx, destination, voice, note.freq, startT, duration, note.velocity, reverb, pieceGain);
       scheduledNodes.push(node);
     }
 

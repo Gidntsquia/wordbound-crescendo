@@ -128,12 +128,10 @@ export default function TugSandbox() {
     const pile = { drawPile: W.Tiles.shuffleIntoDrawPile(deck, rng), discardPile: [] };
     const rack = W.Tiles.draw(pile, RACK_SIZE, rng);
 
-    // music.js gives one oscillator per note, so waveform choice is the only
-    // timbre control there is: triangle for the played lines (odd harmonics,
-    // closer to a struck string than a bare sine) and sine for the octave
-    // doubling that stands in for a piano's overtones.
+    // A piece can name an instrument per track (see Music.VOICES); anything it
+    // doesn't name falls back to the struck-string piano voice.
     const seq = W.Music.createSequencer(ctx, gain, piece, {
-      voiceTypes: { melody: 'triangle', bass: 'triangle', shimmer: 'sine' },
+      voices: piece.voices || {},
     });
     const tug = SB.createTug({ tune });
 

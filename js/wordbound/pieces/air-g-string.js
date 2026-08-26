@@ -65,9 +65,12 @@
     regularName: 'The G String',
     gimmick: "One long, gentle, unbroken legato line. Telegraphs nothing because there's nothing to telegraph.",
     stageTier: 'early',
+    gain: 0.8,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: 40,
     tempo: 54, // slower even than the Gymnopédiste -- a true legato adagio
     tracks: { melody: melody, bass: bass },
+    // Bach's air is a violin line over a walking bass -- bowed, both hands.
+    voices: { melody: 'strings', bass: 'strings' },
     dynamics: {
       // Deliberately near-flat the ENTIRE length, no swell at all (unlike
       // the Gymnopédiste's small late one) -- "nothing to telegraph."

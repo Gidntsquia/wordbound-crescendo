@@ -96,6 +96,7 @@
     floor: 1,
     hostageLetterProposal: 'K',
     stageTier: 'mid',
+    gain: 1.15,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: 72,
     tempo: [
       { beat: 0, bpm: 100 },
@@ -105,6 +106,8 @@
       { beat: 64, bpm: 210 },
     ],
     tracks: { melody: melody, bass: bass },
+    // Pizzicato strings that grow into the full orchestra.
+    voices: { melody: 'strings', bass: 'strings' },
     dynamics: {
       keyframes: [
         { beat: 0, intensity: 0.05 },

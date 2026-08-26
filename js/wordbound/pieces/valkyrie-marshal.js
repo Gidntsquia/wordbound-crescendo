@@ -121,9 +121,12 @@
     floor: 3,
     hostageLetterProposal: 'V',
     stageTier: 'late',
+    gain: 0.55,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: 64,
     tempo: 152, // fast and constant throughout -- no accelerando to build into, unlike Mountain King; this piece starts at full gallop.
     tracks: { melody: melody, bass: bass },
+    // Brass and strings; strings is the closer of the two voices here.
+    voices: { melody: 'strings', bass: 'strings' },
     dynamics: {
       keyframes: [
         { beat: 0, intensity: 0.55 },

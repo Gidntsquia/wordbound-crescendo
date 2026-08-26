@@ -79,9 +79,12 @@
     regularName: 'The Gymnopédiste',
     gimmick: "Barely moves. Barely attacks. A warm-up in every sense.",
     stageTier: 'early',
+    gain: 1.6,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: 36,
     tempo: 66, // "Lent et douloureux" -- slow and sorrowful, constant throughout
     tracks: { melody: melody, bass: bass },
+    // Satie wrote it for piano.
+    voices: { melody: 'piano', bass: 'piano' },
     dynamics: {
       // Nearly flat the whole way -- no real crescendo, just the smallest
       // possible nudge in the final phrase (beats 30-36).

@@ -1154,7 +1154,9 @@
     var destination = opts.destination || ensureMusicGainNode(ctx);
     stopBackgroundMusic(); // the sequencer below owns this fight's audio, not the placeholder loop
 
-    var sequencer = Music.createSequencer(ctx, destination, piece);
+    // A piece names the instrument each of its tracks is scored for (see
+    // Music.VOICES); anything it doesn't name falls back to the piano voice.
+    var sequencer = Music.createSequencer(ctx, destination, piece, { voices: piece.voices || {} });
     sequencer.play();
     // Largo assist AND/OR Ritardando (ITEMS ticket) combined, so a fight that
     // starts with either (or both) already active begins slow, not just

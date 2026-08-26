@@ -112,9 +112,12 @@
     regularName: 'The Metronome',
     gimmick: 'Mechanical, relentless, perfectly even — no surprise crescendos, just unceasing pressure that never actually stops to breathe.',
     stageTier: 'mid',
+    gain: 1.7,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH_BEATS,
     tempo: 132, // brisk, unrelenting -- a velocity study's own real tempo character, unlike every calmer piece in this directory
     tracks: { melody: melody, bass: bass },
+    // A piano etude: bright running right hand over a plainer left.
+    voices: { melody: 'bright', bass: 'piano' },
     dynamics: {
       // Deliberately confined to a narrow band (0.30-0.34) for the
       // piece's ENTIRE length -- meaningfully higher than the other

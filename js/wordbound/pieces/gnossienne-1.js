@@ -139,9 +139,12 @@
     regularName: 'The Gnossienne',
     gimmick: 'Deliberately off-kilter, no time signature to read -- the spikes land where you don\'t expect them.',
     stageTier: 'mid',
+    gain: 2.4,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH_BEATS,
     tempo: 54, // "Lent" -- slow, constant throughout; the irregularity is structural, not tempo-driven
     tracks: { melody: melody, bass: bass },
+    // Satie wrote it for piano.
+    voices: { melody: 'piano', bass: 'piano' },
     dynamics: {
       // Mostly calm baseline (~0.1), with three real spikes -- each timed
       // to land mid-phrase (beats 8-11, 24-29, 45-49 all fall strictly

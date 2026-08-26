@@ -123,9 +123,12 @@
     regularName: 'The Swarm',
     gimmick: 'Frantic, chromatic, constant — no single big crescendo, just relentless high-frequency pressure.',
     stageTier: 'late',
+    gain: 1.25,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH_BEATS,
     tempo: 168, // Presto -- the fastest tempo of any piece in this directory, matching "frantic"
     tracks: { melody: melody, bass: bass },
+    // Chromatic swarm -- strings, which is how it is usually taken.
+    voices: { melody: 'strings', bass: 'strings' },
     dynamics: {
       // A gentle undulation confined to a narrow, high band (0.50-0.56)
       // for the piece's ENTIRE length -- meaningfully above The

@@ -175,6 +175,7 @@
     floor: 4, // the Podium -- not a real generated floor yet; see this ticket's own "Next" note
     hostageLetterProposal: 'Z',
     stageTier: 'final',
+    gain: 0.65,  // level trim; see PIECE FORMAT in music.js
     lengthBeats: 112,
     tempo: [
       { beat: 0, bpm: 116 },  // I. Allegro con brio
@@ -183,6 +184,8 @@
       { beat: 80, bpm: 132 }, // IV. Allegro (finale)
     ],
     tracks: { melody: melody, bass: bass },
+    // Orchestral strings carry the four-note motif.
+    voices: { melody: 'strings', bass: 'strings' },
     dynamics: {
       keyframes: [
         // I. Allegro con brio -- climbing into its own crescendo, which
