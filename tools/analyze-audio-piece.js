@@ -37,17 +37,22 @@ const MIN_INT = 0.12;     // the intensity band the sequenced pieces occupy,
 const MAX_INT = 0.70;     //   matched so tug balance carries over unchanged
 const KEYFRAME_TOL = 0.012; // drop a point this close to the line through its neighbours
 const SURGE_LOOKBACK = 3; // a surge's climb is measured over this many seconds
-// The surge test is FLAT -- deliberately. An earlier version loosened it over
-// the first half-minute so the song attacked more and more often, and the
-// result was a swarm of interchangeable little hits that read as noise rather
-// than as the music. Difficulty now escalates by making the big swells BIGGER
-// (tugOfWar's ESCALATION_PER_MIN), so this pass has one job: find the swells
-// the piece actually has, keep their sizes, and say how big each one is.
+// The surge test is FLAT and DELIBERATELY GREEDY. It is not trying to pick the
+// piece's best moments -- it is trying to find every swell the recording has,
+// from the main crescendos down to little phrase peaks and beat drops, and to
+// say honestly how big each one is. WHICH of them actually swing is decided at
+// runtime, by fight time, in tugOfWar's ATTACK_GATE_*: early on only the big
+// ones do, and the bar falls until the whole list is live and the song swarms.
+//
+// Deciding that here instead -- as an earlier version did, by loosening the
+// test as the recording played -- got it wrong twice over: it tied escalation
+// to song position, so looping reset it, and it had no way to keep the big
+// moments distinct from the noise it was letting through.
 //
 // The gap is what sets density; the rise test barely binds under it, because
 // merging near-neighbours already keeps only the larger of any close pair.
-const SURGE_MIN_RISE = 0.04;    // climb over SURGE_LOOKBACK to count at all
-const SURGE_MIN_GAP = 2.2;      // seconds two surges must be apart
+const SURGE_MIN_RISE = 0.02;    // climb over SURGE_LOOKBACK to count at all
+const SURGE_MIN_GAP = 0.7;      // seconds two surges must be apart
 
 // `mag` is what the fight reads: 0 for the smallest swell in the recording,
 // 1 for the biggest. Mostly how far it CLIMBS -- that is what a crescendo is
@@ -240,15 +245,17 @@ ${surges.map((s) => `        { sec: ${s.sec}, intensity: ${s.intensity}, rise: $
   console.log('analysed ' + path.basename(IN));
   console.log('  duration   ' + duration + 's, peak ' + raw.peak);
   console.log('  keyframes  ' + keep.length + ' (from ' + pts.length + ' sampled)');
-  // The report is about SIZE SPREAD, not density: the fight wants a readable
-  // ladder from small to large, and a run where every swell lands in one
-  // bucket means the mechanic has nothing to show the player.
+  // Two things worth reporting. SIZE SPREAD, because a run where every swell
+  // lands in one bucket leaves the fight nothing to show the player. And the
+  // ATTACK RATE AT EACH GATE, because that is the swarm curve: the top row is
+  // the opening bars, the bottom row is the song at full tilt.
   const hist = [0, 0, 0, 0, 0];
   surges.forEach((s2) => { hist[Math.min(4, Math.floor(s2.mag * 5))]++; });
-  const gaps = surges.slice(1).map((s2, i) => s2.sec - surges[i].sec).sort((a, b) => a - b);
   console.log('  surges     ' + surges.length + ' total, '
-    + (surges.length / duration * 60).toFixed(1) + '/min, median '
-    + (gaps.length ? gaps[gaps.length >> 1].toFixed(1) : '-') + 's apart');
+    + (surges.length / duration * 60).toFixed(1) + '/min if every one swings');
   console.log('  magnitude  ' + hist.join(' / ') + '  (count per 0.2 of mag, small -> large)');
+  const rate = (g) => (surges.filter((s2) => s2.mag >= g).length / duration * 60).toFixed(1);
+  console.log('  gate rate  ' + [0.6, 0.45, 0.3, 0.15, 0]
+    .map((g) => 'gate ' + g.toFixed(2) + ' -> ' + rate(g) + '/min').join(', '));
   console.log('  wrote      ' + path.relative(ROOT, OUT));
 })();

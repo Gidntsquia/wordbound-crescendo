@@ -19,9 +19,14 @@
   // 0.28. Without this trim the recording would be roughly 10 dB louder than
   // everything else in the set.
   var LEVEL = 0.32;
-  // How far ahead of a surge to announce it. The tug needs the warning early
-  // enough to slide a note in from the edge before the hit lands.
-  var LEAD_SEC = 1.8;
+  // How far ahead of a surge to announce it. This IS the attack's flight time:
+  // the tug lands the burst exactly on the peak, so the warning has to go out
+  // this long before it. Kept deliberately long. At 1.8 s the note appeared at
+  // the same moment the swell became audible, which read as the crescendo
+  // spitting out an attack rather than an attack bearing down on a crescendo.
+  // Four seconds puts the note on screen while the music is still quiet, so
+  // the approach and the swell build together and arrive on the same beat.
+  var LEAD_SEC = 4.0;
 
   var bufferCache = {};  // url -> Promise<AudioBuffer>, decoded once
   var bytesCache = {};   // url -> Promise<ArrayBuffer>, fetched once
@@ -169,7 +174,12 @@
               id: 'surge-' + i,
               peakBeat: s.sec,
               peakIntensity: s.intensity,
-              rise: s.rise
+              rise: s.rise,
+              // How big this swell is against the others in this recording,
+              // 0..1. The fight sizes the hit off it and gates the small ones
+              // out early, so leaving it behind here silently downgrades both
+              // to a guess from peak level.
+              mag: s.mag
             });
           }
         });

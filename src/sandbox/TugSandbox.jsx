@@ -26,10 +26,13 @@ const STAFF_STEP = 7.5;
 // staff it rides. NOTE_FULL_POWER is where the ladder tops out: a bit under
 // the hardest hit the escalation can eventually produce, so late-fight swells
 // saturate at "as big as it gets" instead of growing forever.
-const NOTE_FULL_POWER = 34;
+const NOTE_FULL_POWER = 30;
 const NOTE_MIN_W = 11;
 const NOTE_MAX_W = 34;
-const NOTE_BIG_AT = 0.55;   // heft at which a hit gets the hot colour + hairpin
+// Set so the opening bars' main crescendos (power ~13.5) already come in hot.
+// They are the only thing on screen then and they are meant to look like the
+// threat they are; later the swarm around them stays small and plain.
+const NOTE_BIG_AT = 0.44;   // heft at which a hit gets the hot colour + hairpin
 const STAFF_LINES = [0, 2, 4, 6, 8].map((slot) => STAFF_TOP + slot * STAFF_STEP);
 
 // Opponents lifted from js/wordbound/monsters.js so the sandbox doesn't need
@@ -466,17 +469,25 @@ export default function TugSandbox() {
               {tug.attacks.map((a) => {
                 const span = Math.max(0.001, a.landAt - a.spawnAt);
                 const progress = Math.max(0, Math.min(1, (now - a.spawnAt) / span));
-                const left = rope + (98.5 - rope) * (1 - progress);
+                // Eased IN, not linear. The note goes out while the music is
+                // still quiet, hangs at the edge through the build, and covers
+                // most of the distance in the last second -- so it arrives with
+                // the swell instead of drifting across ahead of it. It lands on
+                // the peak either way; this is what makes that landing read.
+                const rush = Math.pow(progress, 1.9);
+                const left = rope + (98.5 - rope) * (1 - rush);
+                // ...and swells into the hit, the last few frames only.
+                const arrive = 1 + 0.4 * Math.pow(progress, 4);
                 // Everything below is one number. A note that looks twice the
                 // size of the last one is carrying roughly twice the shove.
                 const heft = Math.max(0, Math.min(1, a.power / NOTE_FULL_POWER));
-                const w = NOTE_MIN_W + (NOTE_MAX_W - NOTE_MIN_W) * heft;
+                const w = (NOTE_MIN_W + (NOTE_MAX_W - NOTE_MIN_W) * heft) * arrive;
                 const h = w * 0.72;
                 const big = heft >= NOTE_BIG_AT;
                 // Heavier hits sit lower on the staff, the way a bass note does.
                 const slot = Math.max(0, Math.min(8, Math.round(heft * 8)));
                 const top = STAFF_TOP + slot * STAFF_STEP;
-                const hairpin = (16 + 42 * progress) * (0.6 + 0.9 * heft);
+                const hairpin = (16 + 42 * rush) * (0.6 + 0.9 * heft);
                 return (
                   <span key={a.id}>
                     {big && (
@@ -496,7 +507,7 @@ export default function TugSandbox() {
                         marginTop: -h / 2 + 'px',
                         marginLeft: -w / 2 + 'px',
                         '--stem': (h * 2.9) + 'px',
-                        opacity: 0.5 + 0.5 * progress,
+                        opacity: 0.45 + 0.55 * progress,
                       }} />
                   </span>
                 );

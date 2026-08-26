@@ -60,8 +60,8 @@
     // the player has to be able to look at an incoming note and know what it
     // will do, and that only works if its size is settled when it spawns.
     ATTACK_POWER_BASE: 7,
-    CRESCENDO_MIN_MULT: 0.9,  // multiplier for the smallest swell in a piece...
-    CRESCENDO_MAX_MULT: 3.4,  // ...and for the biggest, in the opening bars.
+    CRESCENDO_MIN_MULT: 0.5,  // multiplier for the smallest swell in a piece...
+    CRESCENDO_MAX_MULT: 2.6,  // ...and for the biggest, in the opening bars.
     // Difficulty escalates by making the BIG swells bigger, not by adding more
     // small ones. Time stretches the MIN..MAX span upward from its floor, so a
     // mag-0 swell hits the same at three minutes as it did at ten seconds
@@ -73,6 +73,21 @@
     ESCALATION_PER_MIN: 0.55, // extra spans per minute of fighting
     ESCALATION_MAX: 2.2,      // ...and the ceiling on that stretch
 
+    // THE SWARM. The analyser bakes EVERY swell it can find, down to little
+    // phrase peaks and beat drops. This gate decides how much of that list is
+    // allowed to swing right now: in the opening bars only the main crescendos
+    // do, and as the fight runs the bar drops until the whole list is live and
+    // the song is swarming.
+    //
+    // Density escalates here, power escalates in crescendoPower, and the floor
+    // stays pinned -- so the swarm arrives without ever costing the main
+    // crescendos their status. A late small hit is still a 1.4-rope nudge; a
+    // late big one is still a 14-rope slam and still four times the size on
+    // screen. More things to watch, same thing to be afraid of.
+    ATTACK_GATE_START: 0.62,  // opening bars: only swells this big attack...
+    ATTACK_GATE_END: 0,       // ...and eventually every one of them does
+    ATTACK_GATE_SEC: 70,      // seconds of fighting to open it all the way
+
     // Silence fallback. A sparsely-marked SEQUENCED piece can run a long way
     // with no crescendo written into it at all, and a song that never swings
     // is not a fight. If nothing has telegraphed for this long the pit takes
@@ -81,13 +96,16 @@
     // triggers it -- a stray swing in a passage the music is resting through is
     // exactly the out-of-sync hit this rewrite was meant to remove.
     CADENCE_SILENCE_SEC: 13,
-    ATTACK_TRAVEL_SEC: 1.6,   // telegraph lead for a fallback swing
+    ATTACK_TRAVEL_SEC: 4,     // flight time for a fallback swing (see LEAD_SEC)
     // Fewer, bigger hits. Dropping the attack clock cut burst pressure to about
     // a third of what a cadence timer was pushing out, so each surviving hit
     // carries more -- which is the point: one readable hit you can see coming
     // beats four you cannot tell apart.
-    ATTACK_IMPULSE_SCALE: 0.75,// rope units shoved left per point of power
-    ATTACK_CHIP_FACTOR: 0.45, // pool strength destroyed per point of power
+    // Set against the FULL swarm, not the opening: at the end of the gate the
+    // song is landing ~40 hits a minute, so per-hit numbers that felt right at
+    // 14 a minute would simply delete the player.
+    ATTACK_IMPULSE_SCALE: 0.4,// rope units shoved left per point of power
+    ATTACK_CHIP_FACTOR: 0.5,  // pool strength destroyed per point of power
 
     DB_RATE: 0.08,            // dB per second
     DB_MAX: 12                // ~4x power, then it stops climbing
@@ -312,6 +330,13 @@
       return clamp01((surge.peakIntensity - INT_FLOOR) / (INT_CEIL - INT_FLOOR));
     };
 
+    // How small a swell is allowed to swing right now. Falls over the fight.
+    tug.attackGate = function () {
+      var t = clamp01(tug.fightElapsed / Math.max(0.1, tug.tune.ATTACK_GATE_SEC));
+      return tug.tune.ATTACK_GATE_START
+        + (tug.tune.ATTACK_GATE_END - tug.tune.ATTACK_GATE_START) * t;
+    };
+
     // How far the MIN..MAX span has stretched by now. 1 in the opening bars.
     tug.escalation = function () {
       return Math.min(tug.tune.ESCALATION_MAX,
@@ -335,7 +360,14 @@
       if (tug.phase !== 'fight') return null;
       var lead = Math.max(0.4, peakTime - now);
       var mag = tug.crescendoMagnitude(surge);
+      // Counts as the song having spoken even when the swell is too small to
+      // swing, so a gated-out stretch never trips the silence fallback -- a
+      // stray off-music swing is the exact thing this model exists to avoid.
       tug.lastTelegraphAt = now;
+      // The gate only applies to an ANALYSED list, which is dense and needs
+      // curating. A sequenced piece hand-writes a handful of crescendos and
+      // every one of them is meant to land.
+      if (surge && surge.mag != null && mag < tug.attackGate()) return null;
       return tug.spawnAttack(tug.crescendoPower(mag), now + lead, 'crescendo', now, mag);
     };
 
