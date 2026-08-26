@@ -20,6 +20,16 @@ const RACK_SIZE = 7;
 // the same grid: nine slots from the top line to the bottom one.
 const STAFF_TOP = 20;
 const STAFF_STEP = 7.5;
+// A NOTE'S SIZE IS ITS POWER. The whole point of drawing an attack early is
+// that the player can price it before it lands, so heft is read straight off
+// tug power and drives the notehead, its stem, the hairpin and how low on the
+// staff it rides. NOTE_FULL_POWER is where the ladder tops out: a bit under
+// the hardest hit the escalation can eventually produce, so late-fight swells
+// saturate at "as big as it gets" instead of growing forever.
+const NOTE_FULL_POWER = 34;
+const NOTE_MIN_W = 11;
+const NOTE_MAX_W = 34;
+const NOTE_BIG_AT = 0.55;   // heft at which a hit gets the hot colour + hairpin
 const STAFF_LINES = [0, 2, 4, 6, 8].map((slot) => STAFF_TOP + slot * STAFF_STEP);
 
 // Opponents lifted from js/wordbound/monsters.js so the sandbox doesn't need
@@ -46,6 +56,17 @@ const OPPONENTS = [
 const DYNAMICS = [
   [1.5, 'pp'], [3, 'p'], [4.5, 'mp'], [6, 'mf'], [8, 'f'], [10, 'ff'],
 ];
+// The log's name for a swell, on the same ladder the notehead is drawn from,
+// so reading the log and watching the staff never disagree about what hit you.
+function sizeWord(mag) {
+  const m = mag == null ? 0.5 : mag;
+  if (m < 0.2) return 'A ripple';
+  if (m < 0.45) return 'A swell';
+  if (m < 0.7) return 'A crescendo';
+  if (m < 0.88) return 'A big crescendo';
+  return 'A FORTISSIMO';
+}
+
 function dynamicMark(db) {
   for (let i = 0; i < DYNAMICS.length; i++) if (db < DYNAMICS[i][0]) return DYNAMICS[i][1];
   return 'fff';
@@ -163,11 +184,11 @@ export default function TugSandbox() {
 
     tug.on('fight-start', () => say('The pit comes in.'));
     tug.on('attack-telegraphed', (a) => {
-      if (a.kind === 'crescendo') say('Crescendo building — ' + a.power.toFixed(1));
+      if (a.kind === 'crescendo') say(sizeWord(a.mag) + ' building — ' + a.power.toFixed(1));
     });
     tug.on('attack-landed', (a) => say(
-      (a.kind === 'crescendo' ? 'Crescendo hit ' : 'Beat hit ')
-      + a.power.toFixed(1) + ' — barline at ' + tug.rope.toFixed(1)));
+      (a.kind === 'crescendo' ? sizeWord(a.mag) : 'Stray swing')
+      + ' hits ' + a.power.toFixed(1) + ' — barline at ' + tug.rope.toFixed(1)));
     tug.on('pusher-lost', (p) => say(p.word + ' silenced.'));
     tug.on('pusher-spent', (p) => say(p.word + (p.fading ? ' wears off.' : ' silenced.')));
     tug.on('won', () => halt('won', 'The words hold.'));
@@ -176,7 +197,9 @@ export default function TugSandbox() {
     seq.on('crescendo-approaching', (c) => {
       const f = fight.current;
       if (!f) return;
-      f.tug.telegraphCrescendo(seq.beatToTime(c.peakBeat), f.ctx.currentTime);
+      // `c` carries the swell's size (a recording's `mag`, a sequenced
+      // piece's peakIntensity), which is what sets how hard the hit lands.
+      f.tug.telegraphCrescendo(seq.beatToTime(c.peakBeat), f.ctx.currentTime, c);
     });
     // Loop the piece: a tug fight can outlast one performance, and a silent
     // opponent is not a fight.
@@ -444,22 +467,37 @@ export default function TugSandbox() {
                 const span = Math.max(0.001, a.landAt - a.spawnAt);
                 const progress = Math.max(0, Math.min(1, (now - a.spawnAt) / span));
                 const left = rope + (98.5 - rope) * (1 - progress);
-                const big = a.kind === 'crescendo';
+                // Everything below is one number. A note that looks twice the
+                // size of the last one is carrying roughly twice the shove.
+                const heft = Math.max(0, Math.min(1, a.power / NOTE_FULL_POWER));
+                const w = NOTE_MIN_W + (NOTE_MAX_W - NOTE_MIN_W) * heft;
+                const h = w * 0.72;
+                const big = heft >= NOTE_BIG_AT;
                 // Heavier hits sit lower on the staff, the way a bass note does.
-                const slot = Math.max(0, Math.min(8, Math.round((a.power / 26) * 8)));
+                const slot = Math.max(0, Math.min(8, Math.round(heft * 8)));
                 const top = STAFF_TOP + slot * STAFF_STEP;
-                const hairpin = 26 + 54 * progress;
+                const hairpin = (16 + 42 * progress) * (0.6 + 0.9 * heft);
                 return (
                   <span key={a.id}>
                     {big && (
-                      <svg className="sb-hairpin" width={hairpin} height={34}
-                        style={{ left: left + '%', top: top + '%' }} aria-hidden="true">
-                        <line x1="0" y1="17" x2={hairpin} y2="2" />
-                        <line x1="0" y1="17" x2={hairpin} y2="32" />
+                      <svg className="sb-hairpin" width={hairpin} height={h * 2.4}
+                        style={{ left: left + '%', top: top + '%', marginTop: -h * 1.2 + 'px' }}
+                        aria-hidden="true">
+                        <line x1="0" y1={h * 1.2} x2={hairpin} y2={h * 0.1} />
+                        <line x1="0" y1={h * 1.2} x2={hairpin} y2={h * 2.3} />
                       </svg>
                     )}
                     <span className={'sb-flynote' + (big ? ' is-big' : '')}
-                      style={{ left: left + '%', top: top + '%', opacity: 0.5 + 0.5 * progress }} />
+                      style={{
+                        left: left + '%',
+                        top: top + '%',
+                        width: w + 'px',
+                        height: h + 'px',
+                        marginTop: -h / 2 + 'px',
+                        marginLeft: -w / 2 + 'px',
+                        '--stem': (h * 2.9) + 'px',
+                        opacity: 0.5 + 0.5 * progress,
+                      }} />
                   </span>
                 );
               })}

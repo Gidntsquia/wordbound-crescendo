@@ -413,11 +413,11 @@ button:disabled {
 .sb-staff--ink .sb-staff-line { background: rgba(26, 23, 16, 0.62); }
 
 /* Note heads: real engraved shape (tilted ellipse + stem), not a glyph. */
+/* Size, stem length and margins all arrive inline, computed from the attack's
+   power (see NOTE_FULL_POWER in TugSandbox.jsx) -- a bigger note IS a bigger
+   hit. Only the things that don't vary live here. */
 .sb-flynote {
   position: absolute;
-  width: 15px;
-  height: 11px;
-  margin: -5px 0 0 -7px;
   border-radius: 50%;
   background: var(--brass);
   transform: rotate(-19deg);
@@ -431,27 +431,24 @@ button:disabled {
   right: 0;
   bottom: 4px;
   width: 1.5px;
-  height: 32px;
+  height: var(--stem, 32px);
   background: inherit;
   transform: rotate(19deg);
   transform-origin: bottom right;
 }
 
+/* The top of the ladder gets a colour of its own as well as the extra size,
+   so "this one is serious" survives a quick glance. */
 .sb-flynote.is-big {
-  width: 24px;
-  height: 17px;
-  margin: -8px 0 0 -12px;
   background: var(--brass-hot);
   box-shadow: 0 0 22px rgba(242, 194, 96, 0.55);
 }
 
-.sb-flynote.is-big::after { width: 2px; height: 46px; }
+.sb-flynote.is-big::after { width: 2px; }
 
 /* Crescendo hairpin opening behind a big hit as it closes in. */
 .sb-hairpin {
   position: absolute;
-  height: 34px;
-  margin-top: -17px;
   pointer-events: none;
   overflow: visible;
 }

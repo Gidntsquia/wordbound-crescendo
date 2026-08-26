@@ -16,6 +16,10 @@
 //             instant shove left AND chip strength off the pusher pool
 //             (weakest first). Bursts are how a song "overwhelms the words
 //             team's offenses" before the pool has time to compound.
+//             EVERY BURST IS A CRESCENDO THE PIECE ACTUALLY PLAYS. There is
+//             no attack timer running alongside the music -- the song swings
+//             when it swells and at no other time -- and a burst's power is
+//             the SIZE of that crescendo, so a small swell is a small hit.
 //   dB     -- a hidden loudness ramp. Enemy force is multiplied by
 //             10^(db/20); db climbs at DB_RATE per second up to DB_MAX. That
 //             is the timer: the song gets louder whether or not the player is
@@ -49,18 +53,55 @@
 
     // Song -> enemy force.
     ENEMY_DRONE: 1.6,         // rope units/sec at intensity 1.0, 0 dB
-    ATTACK_INTERVAL_BASE: 5.0,// seconds, divided by (0.5 + intensity)
+
+    // BURST POWER IS CRESCENDO SIZE. The analyser hands every surge a `mag`
+    // of 0..1 -- how big a swell it is within its own piece -- and power is
+    // read straight off it. Live intensity deliberately does NOT enter here:
+    // the player has to be able to look at an incoming note and know what it
+    // will do, and that only works if its size is settled when it spawns.
     ATTACK_POWER_BASE: 7,
-    ATTACK_TRAVEL_SEC: 1.6,   // telegraph lead for cadence attacks
-    ATTACK_IMPULSE_SCALE: 0.5,// rope units shoved left per point of power
-    ATTACK_CHIP_FACTOR: 0.35, // pool strength destroyed per point of power
-    CRESCENDO_POWER_MULT: 2.5,
+    CRESCENDO_MIN_MULT: 0.9,  // multiplier for the smallest swell in a piece...
+    CRESCENDO_MAX_MULT: 3.4,  // ...and for the biggest, in the opening bars.
+    // Difficulty escalates by making the BIG swells bigger, not by adding more
+    // small ones. Time stretches the MIN..MAX span upward from its floor, so a
+    // mag-0 swell hits the same at three minutes as it did at ten seconds
+    // while a mag-1 swell grows the whole amount. One size ladder, learned
+    // once, that stays honest -- the top of it just keeps climbing.
+    //
+    // This is keyed on FIGHT time, not song position, so looping the recording
+    // no longer drops the fight back to its opening difficulty.
+    ESCALATION_PER_MIN: 0.55, // extra spans per minute of fighting
+    ESCALATION_MAX: 2.2,      // ...and the ceiling on that stretch
+
+    // Silence fallback. A sparsely-marked SEQUENCED piece can run a long way
+    // with no crescendo written into it at all, and a song that never swings
+    // is not a fight. If nothing has telegraphed for this long the pit takes
+    // a swing on its own, sized off live intensity. Set clear of the recording's
+    // longest genuinely quiet stretch (11 s) so the piece being tuned never
+    // triggers it -- a stray swing in a passage the music is resting through is
+    // exactly the out-of-sync hit this rewrite was meant to remove.
+    CADENCE_SILENCE_SEC: 13,
+    ATTACK_TRAVEL_SEC: 1.6,   // telegraph lead for a fallback swing
+    // Fewer, bigger hits. Dropping the attack clock cut burst pressure to about
+    // a third of what a cadence timer was pushing out, so each surviving hit
+    // carries more -- which is the point: one readable hit you can see coming
+    // beats four you cannot tell apart.
+    ATTACK_IMPULSE_SCALE: 0.75,// rope units shoved left per point of power
+    ATTACK_CHIP_FACTOR: 0.45, // pool strength destroyed per point of power
 
     DB_RATE: 0.08,            // dB per second
     DB_MAX: 12                // ~4x power, then it stops climbing
   };
 
   Sandbox.TUG_DEFAULTS = DEFAULTS;
+
+  // The intensity band every piece in the sandbox is normalised into -- the
+  // sequenced pieces occupy it by hand and the analyser maps the recording
+  // onto it, which is what lets one difficulty model read both.
+  var INT_FLOOR = 0.12;
+  var INT_CEIL = 0.70;
+
+  function clamp01(v) { return Math.max(0, Math.min(1, v)); }
 
   Sandbox.createTug = function (options) {
     options = options || {};
@@ -91,7 +132,7 @@
       intensity: 0,
       smoothIntensity: 0,
       lastHitAt: -99,
-      nextAttackAt: 0,
+      lastTelegraphAt: 0,
       startedAt: 0
     };
 
@@ -194,6 +235,7 @@
       tug.elapsed = 0;
       tug.fightElapsed = 0;
       tug.db = 0;
+      tug.lastTelegraphAt = now;
       return tug;
     };
 
@@ -214,10 +256,14 @@
       return pusher;
     };
 
-    tug.spawnAttack = function (power, landAt, kind, now) {
+    tug.spawnAttack = function (power, landAt, kind, now, mag) {
       var attack = {
         id: nextId++,
         power: power,
+        // 0..1, the size of the swell behind this hit. The UI draws the
+        // notehead from `power`, so what is sliding across the staff is
+        // literally how hard it is about to land.
+        mag: mag != null ? mag : 0.5,
         kind: kind || 'beat',
         spawnAt: now,
         landAt: landAt
@@ -254,22 +300,43 @@
       emit('attack-landed', attack);
     }
 
-    function scheduleNext(now) {
-      var interval = tug.tune.ATTACK_INTERVAL_BASE / (0.5 + tug.smoothIntensity);
-      tug.nextAttackAt = now + Math.max(0.6, interval);
-    }
+    // How big a swell is, on 0..1, from whatever the piece told us about it.
+    // A RECORDING's surge carries `mag` outright (tools/analyze-audio-piece.js
+    // percentile-ranks every swell it found against the others in that same
+    // recording). A SEQUENCED piece only declares peakIntensity, so its swells
+    // are ranked against the intensity band instead.
+    tug.crescendoMagnitude = function (surge) {
+      if (!surge) return 0.5;
+      if (surge.mag != null) return clamp01(surge.mag);
+      if (surge.peakIntensity == null) return 0.5;
+      return clamp01((surge.peakIntensity - INT_FLOOR) / (INT_CEIL - INT_FLOOR));
+    };
 
-    // A crescendo is the one thing the song telegraphs honestly: the sequencer
+    // How far the MIN..MAX span has stretched by now. 1 in the opening bars.
+    tug.escalation = function () {
+      return Math.min(tug.tune.ESCALATION_MAX,
+        1 + tug.tune.ESCALATION_PER_MIN * (tug.fightElapsed / 60));
+    };
+
+    // The whole difficulty curve in one line: the floor never moves, the
+    // ceiling climbs, and a swell's own size says where between them it lands.
+    tug.crescendoPower = function (mag) {
+      var span = (tug.tune.CRESCENDO_MAX_MULT - tug.tune.CRESCENDO_MIN_MULT)
+        * tug.escalation();
+      return tug.tune.ATTACK_POWER_BASE
+        * (tug.tune.CRESCENDO_MIN_MULT + span * clamp01(mag));
+    };
+
+    // A crescendo is the one thing the song telegraphs honestly: the piece
     // fires 'crescendo-approaching' well before the peak, so the burst can be
-    // spawned to land exactly on the beat the music hits hardest.
-    tug.telegraphCrescendo = function (peakTime, now) {
+    // spawned to land exactly on the beat the music hits hardest. `surge` is
+    // that payload, and it is what decides how big the hit is.
+    tug.telegraphCrescendo = function (peakTime, now, surge) {
       if (tug.phase !== 'fight') return null;
       var lead = Math.max(0.4, peakTime - now);
-      var power = tug.tune.ATTACK_POWER_BASE
-        * (0.4 + tug.smoothIntensity)
-        * tug.tune.CRESCENDO_POWER_MULT
-        * tug.dbMultiplier();
-      return tug.spawnAttack(power, now + lead, 'crescendo', now);
+      var mag = tug.crescendoMagnitude(surge);
+      tug.lastTelegraphAt = now;
+      return tug.spawnAttack(tug.crescendoPower(mag), now + lead, 'crescendo', now, mag);
     };
 
     tug.isTerminal = function () {
@@ -288,7 +355,7 @@
       if (tug.phase === 'prep') {
         if (tug.elapsed >= tug.tune.PREP_SEC) {
           tug.phase = 'fight';
-          scheduleNext(now);
+          tug.lastTelegraphAt = now;
           emit('fight-start', null);
         }
         return;
@@ -298,12 +365,13 @@
       tug.db = Math.min(tug.tune.DB_MAX, tug.tune.DB_RATE * tug.fightElapsed);
       wearOff(dt);
 
-      if (now >= tug.nextAttackAt) {
-        var power = tug.tune.ATTACK_POWER_BASE
-          * (0.4 + tug.smoothIntensity)
-          * tug.dbMultiplier();
-        tug.spawnAttack(power, now + tug.tune.ATTACK_TRAVEL_SEC, 'beat', now);
-        scheduleNext(now);
+      // Not a cadence -- there is no attack clock any more. This only fires
+      // when the piece itself has gone quiet for CADENCE_SILENCE_SEC.
+      if (now - tug.lastTelegraphAt >= tug.tune.CADENCE_SILENCE_SEC) {
+        var mag = clamp01((tug.smoothIntensity - INT_FLOOR) / (INT_CEIL - INT_FLOOR));
+        tug.lastTelegraphAt = now;
+        tug.spawnAttack(tug.crescendoPower(mag),
+          now + tug.tune.ATTACK_TRAVEL_SEC, 'beat', now, mag);
       }
 
       var pending = [];

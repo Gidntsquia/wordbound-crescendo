@@ -37,20 +37,24 @@ const MIN_INT = 0.12;     // the intensity band the sequenced pieces occupy,
 const MAX_INT = 0.70;     //   matched so tug balance carries over unchanged
 const KEYFRAME_TOL = 0.012; // drop a point this close to the line through its neighbours
 const SURGE_LOOKBACK = 3; // a surge's climb is measured over this many seconds
-// The surge test gets LENIENT fast, so the song goes from picking its moments
-// to hammering within the first half-minute. The ramp is measured in SECONDS
-// of the recording, not in fraction of it: the escalation the player feels
-// should be the same whether the piece runs three minutes or thirty.
+// The surge test is FLAT -- deliberately. An earlier version loosened it over
+// the first half-minute so the song attacked more and more often, and the
+// result was a swarm of interchangeable little hits that read as noise rather
+// than as the music. Difficulty now escalates by making the big swells BIGGER
+// (tugOfWar's ESCALATION_PER_MIN), so this pass has one job: find the swells
+// the piece actually has, keep their sizes, and say how big each one is.
 //
-// RAMP_FROM is the prep window (tugOfWar's PREP_SEC), because attacks are
-// dropped until the fight actually starts -- so the strict end of the ramp
-// lines up with the fight's first second rather than being spent on silence.
-const SURGE_RAMP_FROM = 5;      // seconds: strictest here...
-const SURGE_RAMP_TO = 18;       // ...fully lenient here, and stays there
-const SURGE_RISE_START = 0.14;  // climb required at the strict end
-const SURGE_RISE_END = 0.015;   // ...and once the ramp has topped out
-const SURGE_GAP_START = 5.5;    // seconds two surges must be apart, strict end
-const SURGE_GAP_END = 0.55;     // ...and once the ramp has topped out
+// The gap is what sets density; the rise test barely binds under it, because
+// merging near-neighbours already keeps only the larger of any close pair.
+const SURGE_MIN_RISE = 0.04;    // climb over SURGE_LOOKBACK to count at all
+const SURGE_MIN_GAP = 2.2;      // seconds two surges must be apart
+
+// `mag` is what the fight reads: 0 for the smallest swell in the recording,
+// 1 for the biggest. Mostly how far it CLIMBS -- that is what a crescendo is
+// -- with the level it reaches as a lesser term, so a hard climb into a loud
+// peak outranks the same climb into a middling one.
+const MAG_RISE_WEIGHT = 0.7;
+const MAG_PEAK_WEIGHT = 0.3;
 
 // Decoding is the slow part (headless Chromium, several seconds) and it never
 // changes while the mp3 does not, so the raw envelope is cached. NOT beside the
@@ -155,34 +159,45 @@ async function decodeEnvelope() {
   })();
 
   const back = Math.round(SURGE_LOOKBACK / hopSec);
-  // Eased slightly OUTWARD, not inward: the loosening has to be audible while
-  // it is happening, so most of it lands in the first half of the ramp and the
-  // tail just tops it off.
-  const lerp = (a, b, t) => {
-    const e = Math.pow(Math.max(0, Math.min(1, t)), 0.85);
-    return a + (b - a) * e;
-  };
   const surges = [];
   for (let i = back; i < peakNorm.length - 1; i++) {
     if (!(peakNorm[i] >= peakNorm[i - 1] && peakNorm[i] > peakNorm[i + 1])) continue;
-    const progress = (i * hopSec - SURGE_RAMP_FROM) / (SURGE_RAMP_TO - SURGE_RAMP_FROM);
-    const needRise = lerp(SURGE_RISE_START, SURGE_RISE_END, progress);
-    const needGap = lerp(SURGE_GAP_START, SURGE_GAP_END, progress);
     let lo = Infinity;
     for (let j = i - back; j < i; j++) lo = Math.min(lo, peakNorm[j]);
-    if (peakNorm[i] - lo < needRise) continue;
+    const rise = peakNorm[i] - lo;
+    if (rise < SURGE_MIN_RISE) continue;
     // Detection used the sharp copy; the numbers the fight reads come from the
     // same smoothed curve as the keyframes, so a surge's intensity always
     // agrees with the envelope around it.
     const t = +(i * hopSec).toFixed(2);
-    const hit = { sec: t, intensity: norm[i], rise: +(peakNorm[i] - lo).toFixed(3) };
+    const hit = {
+      sec: t,
+      intensity: norm[i],
+      rise: +rise.toFixed(3),
+      raw: MAG_RISE_WEIGHT * rise + MAG_PEAK_WEIGHT * (peakNorm[i] - MIN_INT)
+    };
     const prev = surges[surges.length - 1];
-    if (prev && t - prev.sec < needGap) {
-      if (hit.intensity > prev.intensity) surges[surges.length - 1] = hit;
+    // Two swells inside SURGE_MIN_GAP are one swell as far as the fight is
+    // concerned, and the bigger reading is the honest one to keep.
+    if (prev && t - prev.sec < SURGE_MIN_GAP) {
+      if (hit.raw > prev.raw) surges[surges.length - 1] = hit;
       continue;
     }
     surges.push(hit);
   }
+
+  // Rank the swells against EACH OTHER, not against an absolute scale, so a
+  // quietly-played recording still has small and large hits rather than all
+  // small ones. Percentiles rather than min/max so one outlier peak cannot
+  // squash everything else into the bottom of the range.
+  const rawSorted = surges.map((s2) => s2.raw).sort((a, b) => a - b);
+  const magLo = rawSorted[Math.floor(rawSorted.length * 0.05)] || 0;
+  const magHi = rawSorted[Math.floor(rawSorted.length * 0.95)] || 1;
+  surges.forEach((s2) => {
+    const t = magHi > magLo ? (s2.raw - magLo) / (magHi - magLo) : 0.5;
+    s2.mag = +Math.max(0, Math.min(1, t)).toFixed(3);
+    delete s2.raw;
+  });
 
   const existing = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
   const header = existing.split('(function () {')[0];
@@ -215,7 +230,7 @@ async function decodeEnvelope() {
 ${keep.map(([s, i]) => `        { sec: ${s}, intensity: ${i} }`).join(',\n')}
       ],
       surges: [
-${surges.map((s) => `        { sec: ${s.sec}, intensity: ${s.intensity}, rise: ${s.rise} }`).join(',\n')}
+${surges.map((s) => `        { sec: ${s.sec}, intensity: ${s.intensity}, rise: ${s.rise}, mag: ${s.mag} }`).join(',\n')}
       ]
     }
   };
@@ -225,16 +240,15 @@ ${surges.map((s) => `        { sec: ${s.sec}, intensity: ${s.intensity}, rise: $
   console.log('analysed ' + path.basename(IN));
   console.log('  duration   ' + duration + 's, peak ' + raw.peak);
   console.log('  keyframes  ' + keep.length + ' (from ' + pts.length + ' sampled)');
-  // Reported in 10-second buckets over the first minute, because the ramp is
-  // measured in seconds and that is the stretch it is actually shaping.
-  const buckets = [0, 0, 0, 0, 0, 0];
-  let early = 0;
-  surges.forEach((s2) => {
-    if (s2.sec < 60) { buckets[Math.floor(s2.sec / 10)]++; early++; }
-  });
+  // The report is about SIZE SPREAD, not density: the fight wants a readable
+  // ladder from small to large, and a run where every swell lands in one
+  // bucket means the mechanic has nothing to show the player.
+  const hist = [0, 0, 0, 0, 0];
+  surges.forEach((s2) => { hist[Math.min(4, Math.floor(s2.mag * 5))]++; });
+  const gaps = surges.slice(1).map((s2, i) => s2.sec - surges[i].sec).sort((a, b) => a - b);
   console.log('  surges     ' + surges.length + ' total, '
-    + (surges.length / duration * 60).toFixed(1) + '/min overall');
-  console.log('  first 60s  ' + buckets.join(' / ')
-    + '  (per 10s bucket, ' + early + ' in the first minute)');
+    + (surges.length / duration * 60).toFixed(1) + '/min, median '
+    + (gaps.length ? gaps[gaps.length >> 1].toFixed(1) : '-') + 's apart');
+  console.log('  magnitude  ' + hist.join(' / ') + '  (count per 0.2 of mag, small -> large)');
   console.log('  wrote      ' + path.relative(ROOT, OUT));
 })();
