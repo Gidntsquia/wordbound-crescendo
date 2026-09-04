@@ -1,10 +1,13 @@
 # CLAUDE.md — Wordbound: Crescendo
 
-Working notes for anyone (human or zero-memory routine run) touching this repo.
-Read GOALS.md first: its header carries the standing rules (verification gates,
-public-domain music vetting, synthesized-audio-only, LIVE DEPLOY, STATE
-HYGIENE); its body is the open ticket queue. This file is the repo map — keep
+Working notes for anyone touching this repo. This file is the repo map — keep
 it truthful when you add or move structure.
+
+Standing rules: verify changes by running the app (see `run` skill) before
+calling a task done; music must be public-domain or the logged
+recorded-Fur-Elise exception; audio is synthesized-only outside that
+exception; deploys follow the LIVE DEPLOY steps under Commands below; keep
+committed state clean (no stray scratch files).
 
 ## What this is
 
@@ -19,7 +22,7 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
 - `npm run dev` / `build` / `preview` — Vite; build outputs to `dist/app`
   (relative `base: './'`).
 - `npm run dev:sandbox` — the bare-bones TUG SANDBOX (see below): one fight, no run.
-- Deploy (LIVE DEPLOY rule, GOALS.md header): `npm run build:site` stages
+- Deploy (LIVE DEPLOY rule): `npm run build:site` stages
   `dist/app/` into `dist/site/` with the SANDBOX as the root `index.html` (the
   full app moves to `/app.html`) plus an empty `.nojekyll`; publish the CONTENTS
   of `dist/site/` as the root of the `gh-pages` branch (orphan/replace commit,
@@ -29,7 +32,7 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
 ## Tests
 
 There is no test suite right now. It was deleted on 2026-09-04 at Jaxon's direct
-instruction (see the GOALS.md header) for a fast-iteration sandbox phase where
+instruction for a fast-iteration sandbox phase where
 breaking changes are expected and re-fixing tests after every change cost more
 than it saved. Don't add new tests, don't resurrect deleted ones, and don't
 suggest running a `test:*` command — there isn't one. If the pace slows down and
@@ -90,7 +93,6 @@ not something to reintroduce piecemeal mid-task.
   per piece and two of the eight have none at all. Add an engine module back to
   `src/sandbox/main.jsx` only when tuning the mechanic it owns.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation,
-  kept until the React port reaches full parity (see GOALS.md header).
+  kept until the React port reaches full parity.
 - `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `record-gameplay.js`.
 - `THEME.md` — world/style bible. `ROADMAP.md` — north star + known gaps.
-- `GOALS_ARCHIVE.md` / `PROGRESS_ARCHIVE.md` — history only, not context.
