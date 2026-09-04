@@ -2,6 +2,7 @@ node_modules/
 dist/
 .claude/*
 !.claude/settings.json
+!.claude/test-commands.sh
 
 # analyzer decode cache (tools/analyze-audio-piece.js)
 .cache/
