@@ -74,29 +74,13 @@ the sibling.
   Vite is the build tool (boring default; orchestrator-logged). The sibling
   repo's "no build step" convention does NOT apply here.
 
-**MANDATORY VERIFICATION (inherited from the sibling repo, same reasons):** run
-`npm test` (jsdom dom-check) clean before checking off ANY task touching game logic,
-wordbound.html, or rendering/event CSS. `npm run test:mobile` (real-browser, 375/414px)
-for any CSS layout/panel change. jsdom cannot verify audio, real timing, or
-drag-and-drop — for those, verify what you can (state changes, callback wiring, no
-errors), use a real headless browser (Playwright is already a devDependency) for
-timing-sensitive checks with a mocked/virtual clock where possible, and say plainly in
-PROGRESS.md what's confirmed vs. what still needs real ears/hands. Never claim
-confidence you don't have.
-ADDED 2026-08-21 (STRUCTURAL sub-step 3, Vitest/RTL stood up): `npm run test:react`
-(Vitest + React Testing Library, `src/components/__tests__/*`) is now ALSO mandatory
-before checking off any task touching a `src/components/*.jsx` file — it drives the
-real engine modules (`window.Wordbound.*`, same import order as `src/main.jsx`)
-through the actual React components, not a mock. This does NOT replace `npm test`:
-`npm test` (dom-check) still covers `wordbound.html`, which remains the complete,
-unmodified reference implementation until the React port reaches full parity — at
-that point a future run should retire dom-check and update this header for real, per
-the STRUCTURAL ticket's original instruction. Until then both suites are mandatory,
-each for the tree it actually covers. When adding a new ported screen, add its
-Vitest/RTL test in the same commit rather than letting it lag (see gameHelpers.js's
-`freshRun`/`findNodeIdByType`/`defeatCurrentMonster` for the established pattern of
-driving real game state instead of hardcoding node ids, which the seed's `floor.js`
-node-id counter makes unsafe across tests).
+**TESTS REMOVED FOR FAST ITERATION (Jaxon, 2026-09-04, direct instruction):** the
+entire test suite (test/, src/components/__tests__/, src/test/, tools/run-gates.js,
+all `test`/`pretest` npm scripts) was deleted on purpose. We're in a fast-iteration
+sandbox phase with expected breaking changes; re-verifying every edit against a
+suite that will keep breaking anyway wasted more time than it saved. No verification
+gate is mandatory right now — ship the change. Tests can be rebuilt later if/when
+the pace slows down; don't restore individual test files piecemeal in the meantime.
 
 **LIVE DEPLOY (added 2026-08-22, DEPLOY ticket):** the game is publicly served at
 https://gidntsquia.github.io/wordbound-crescendo/ from the `gh-pages` BRANCH
