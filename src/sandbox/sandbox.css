@@ -1154,3 +1154,101 @@ button:disabled {
   color: #8d7f5a;
   pointer-events: none;
 }
+
+/* ---- the round board: meter, counters, plays so far ------------------- */
+.sb-board {
+  padding: 0 0 18px;
+  margin-bottom: 4px;
+}
+
+.sb-dyn-mark small {
+  font-size: 0.45em;
+  font-style: normal;
+  font-weight: 500;
+  color: var(--leaf-dim);
+}
+
+.sb-meter {
+  position: relative;
+  height: 14px;
+  background: var(--pit-raise);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.sb-meter-fill {
+  height: 100%;
+  background: var(--leaf);
+  transition: width 320ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.sb-meter-fill.is-met { background: var(--brass-hot); }
+
+.sb-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--leaf-dim);
+}
+
+.sb-counters b {
+  font-family: var(--figure);
+  font-size: 15px;
+  color: var(--leaf);
+  margin-right: 4px;
+}
+
+.sb-counters .sb-enemy { margin-left: auto; color: var(--brass); }
+
+.sb-plays {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sb-plays li {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 56px;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(44, 46, 69, 0.6);
+}
+
+.sb-plays-word {
+  font-family: var(--display);
+  font-size: 20px;
+  letter-spacing: 0.04em;
+}
+
+.sb-plays-how {
+  font-family: var(--figure);
+  font-size: 11px;
+  color: var(--leaf-dim);
+}
+
+.sb-plays li b {
+  text-align: right;
+  font-size: 18px;
+  color: var(--brass-hot);
+}
+
+/* On the round board the verdict is a line in the flow, not an overlay
+   (the rope's .sb-outcome sat over the arena, which this screen has none of). */
+.sb-board .sb-outcome {
+  position: static;
+  inset: auto;
+  justify-content: flex-start;
+  margin-top: 16px;
+  padding: 14px 18px;
+  font-size: clamp(22px, 3vw, 32px);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
