@@ -853,6 +853,7 @@ button:disabled {
 }
 .sb-stick-worth.is-hand .sb-pts { color: #6fb3e0; }
 .sb-stick-worth.is-hand .sb-mult { color: var(--brass-hot); }
+.sb-stick-worth.is-hand .sb-bingo { color: var(--leaf); }
 
 .sb-stick {
   display: flex;

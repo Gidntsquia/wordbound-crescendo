@@ -50,18 +50,21 @@ const TUNE_LABELS = {
   RACK_SIZE: 'Rack size',
   MULT_BASE: 'Mult, one letter',
   MULT_PER_LETTER: 'Mult per extra letter',
+  BONUS_7: 'Bonus, 7+ letters',
+  BONUS_6: 'Bonus, 6 letters',
   GOLD_WIN: 'Gold for a win',
   GOLD_PER_WORD_LEFT: 'Gold per word left',
 };
 
-// "letters 9 · full rack +15 = 24 pts × 7 (length 7)" -- points, then mult.
+// "letters 9 · charged +4 = 13 pts × 7 + 50 bingo" -- points, mult, then the
+// flat length bonus.
 function describeBreakdown(b) {
   const pts = ['letters ' + b.base];
-  if (b.bingoBonus) pts.push('full rack +' + b.bingoBonus);
   if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
   if (b.variantFlat) pts.push('charged +' + b.variantFlat);
   let out = (pts.length > 1 ? pts.join(' · ') + ' = ' : '') + b.points + ' pts × ' + b.mult;
   if (b.bonusMult !== 1) out += ' (length ' + b.lengthMult + ' × tile ' + b.bonusMult + ')';
+  if (b.lengthBonus) out += ' + ' + b.lengthBonus + ' bingo';
   if (b.itemBonus) out += ' · items +' + b.itemBonus;
   return out;
 }
@@ -412,6 +415,7 @@ export default function RoundSandbox() {
                     <b className="sb-figure sb-pts">{worthHow.points}</b>
                     <i>×</i>
                     <b className="sb-figure sb-mult">{worthHow.mult}</b>
+                    {worthHow.lengthBonus > 0 && <><i>+</i><b className="sb-figure sb-bingo">{worthHow.lengthBonus}</b></>}
                     <i>=</i>
                   </span>
                   <b className="sb-figure">{worth}</b>
@@ -506,7 +510,7 @@ export default function RoundSandbox() {
         </div>
         <p className="sb-tune-note">
           Target, words, changeouts and rack size take effect on the next Start; the mult
-          figures apply to the next word; the gold figures are read at the win. Nothing is saved — copy the numbers you want to keep
+          and bonus figures apply to the next word; the gold figures are read at the win. Nothing is saved — copy the numbers you want to keep
           into src/sandbox/round.js.
         </p>
       </details>

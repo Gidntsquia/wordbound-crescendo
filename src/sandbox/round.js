@@ -16,7 +16,10 @@
 // counts here for free; its old length bonus is dropped, because length is
 // now the MULT: MULT_BASE + MULT_PER_LETTER per letter beyond the first, so
 // with the defaults a word's mult is simply its length. A tile's mult-on-play
-// bonus multiplies the mult. total = round(points * mult); items add on top.
+// bonus multiplies the mult. total = round(points * mult) + the LENGTH BONUS:
+// a flat Scrabble-style bingo, BONUS_7 for seven or more letters, BONUS_6 for
+// six, added after the mult. scoreWord's own +15 full-rack bonus is dropped
+// so it is not counted twice. Items add on top.
 //
 // A SINGLE LETTER is always playable: one tile, no dictionary check, points
 // x MULT_BASE. It is the "play a bad hand" of the round -- a way to spend a
@@ -51,6 +54,8 @@
     RACK_SIZE: 7,
     MULT_BASE: 1,        // mult of a one-letter play
     MULT_PER_LETTER: 1,  // mult added per letter beyond the first
+    BONUS_7: 50,         // flat score bonus for a 7+ letter word (after the mult)
+    BONUS_6: 25,         // flat score bonus for a 6 letter word
     GOLD_WIN: 3,         // flat purse for a win
     GOLD_PER_WORD_LEFT: 2 // bonus per unplayed word at the win
   };
@@ -71,11 +76,12 @@
   Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune) {
     var Lexicon = window.Wordbound.Lexicon;
     var b = Lexicon.scoreWord(word, tilesUsed, rackCapacity);
-    b.lengthBonus = 0; // length is the mult now, not a flat bonus
-    b.points = b.base + b.bingoBonus + b.bonusFlat + b.variantFlat;
+    b.bingoBonus = 0; // replaced by the flat lengthBonus below
+    b.points = b.base + b.bonusFlat + b.variantFlat;
     b.lengthMult = tune.MULT_BASE + tune.MULT_PER_LETTER * Math.max(0, word.length - 1);
     b.mult = b.lengthMult * b.bonusMult;
-    b.total = Math.round(b.points * b.mult);
+    b.lengthBonus = word.length >= 7 ? tune.BONUS_7 : word.length === 6 ? tune.BONUS_6 : 0;
+    b.total = Math.round(b.points * b.mult) + b.lengthBonus;
     return b;
   };
 
