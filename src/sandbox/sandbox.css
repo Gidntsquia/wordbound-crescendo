@@ -840,6 +840,20 @@ button:disabled {
 .sb-stick-worth.is-hand { color: var(--rubric); }
 .sb-stick-worth.is-hand b { color: var(--rubric); }
 
+/* POINTS × MULT, Balatro-style: cool points, hot mult, then the product. */
+.sb-stick-math {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.sb-stick-math i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--leaf-dim);
+}
+.sb-stick-worth.is-hand .sb-pts { color: #6fb3e0; }
+.sb-stick-worth.is-hand .sb-mult { color: var(--brass-hot); }
+
 .sb-stick {
   display: flex;
   align-items: center;

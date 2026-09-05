@@ -62,8 +62,11 @@ not something to reintroduce piecemeal mid-task.
   game.js/floor.js/monsters.js/combat.js/duel.js. Loads only namespace, rng,
   wordlist, lexicon, tiles, music + pieces. Combat is the Balatro-with-Scrabble
   round owned by `src/sandbox/round.js` (see COMBAT_REDESIGN.md): a point
-  target, PLAYS words, CHANGEOUTS tile swaps, `Lexicon.scoreWord` for the
-  points, gold on a win (GOLD_WIN + GOLD_PER_WORD_LEFT per unspent word). It has
+  target, PLAYS words, CHANGEOUTS tile swaps, Balatro-style POINTS × MULT
+  scoring (`Sandbox.scoreWordPoints`: points from `Lexicon.scoreWord` minus its
+  length bonus, mult = MULT_BASE + MULT_PER_LETTER per extra letter, so by
+  default mult = word length), a single tile always playable without the
+  dictionary, gold on a win (GOLD_WIN + GOLD_PER_WORD_LEFT per unspent word). It has
   no clock; the music is a soundtrack only and never touches the score. It
   deliberately does NOT use js/wordbound/duel.js, so tuning it cannot break the
   shipped app. `src/sandbox/RoundSandbox.jsx` is the whole UI, with a live

@@ -8,9 +8,19 @@
 // with words unspent pays gold per word left, on top of a flat win purse.
 //
 // Plain JS, no React, NO CLOCK: nothing here ticks. The music is a soundtrack
-// and never touches this object. Scoring is Lexicon.scoreWord so the tile
-// bonuses the engine already has (flat/mult on play, Volatile, Charged) count
-// here for free -- that is the "enhanced card" layer.
+// and never touches this object.
+//
+// SCORING is Balatro's POINTS x MULT. POINTS come from Lexicon.scoreWord --
+// letter values plus the tile bonuses the engine already has (flat on play,
+// Volatile, Charged, the full-rack bingo) -- so the "enhanced card" layer
+// counts here for free; its old length bonus is dropped, because length is
+// now the MULT: MULT_BASE + MULT_PER_LETTER per letter beyond the first, so
+// with the defaults a word's mult is simply its length. A tile's mult-on-play
+// bonus multiplies the mult. total = round(points * mult); items add on top.
+//
+// A SINGLE LETTER is always playable: one tile, no dictionary check, points
+// x MULT_BASE. It is the "play a bad hand" of the round -- a way to spend a
+// word on a dead rack rather than a changeout.
 //
 // PUBLIC API (window.Wordbound.Sandbox):
 //   ROUND_DEFAULTS       -- every tunable, mirrored by the UI's tuning panel
@@ -24,6 +34,8 @@
 //     round.rack, .pile, .score, .target, .playsLeft, .changeoutsLeft,
 //       .state ('live' | 'won' | 'lost'), .plays [{ word, breakdown }], .gold
 //     round.scoreFor(word)          -> number, for ranking helper suggestions
+//     round.breakdownFor(word)      -> { points, mult, total, ... } for the
+//                                      current rack (see scoreWordPoints)
 //     round.playWord(word)          -> { ok, breakdown } | { ok:false, reason }
 //     round.changeout(tileIds)      -> { ok, drawn } | { ok:false, reason }
 //     round.tune                    -- live; TARGET/PLAYS/CHANGEOUTS read at
@@ -33,10 +45,12 @@
   var Sandbox = (window.Wordbound.Sandbox = window.Wordbound.Sandbox || {});
 
   Sandbox.ROUND_DEFAULTS = {
-    TARGET: 60,          // points to reach
+    TARGET: 100,         // points to reach
     PLAYS: 4,            // words the player may play
     CHANGEOUTS: 3,       // tile swaps
     RACK_SIZE: 7,
+    MULT_BASE: 1,        // mult of a one-letter play
+    MULT_PER_LETTER: 1,  // mult added per letter beyond the first
     GOLD_WIN: 3,         // flat purse for a win
     GOLD_PER_WORD_LEFT: 2 // bonus per unplayed word at the win
   };
@@ -50,6 +64,20 @@
     'gilded_bookmark', 'wildcard_pouch', 'spare_satchel',
     'errant_footnote', 'heavy_ink', 'consonant_cluster', 'long_s_ligature', 'vowel_reliquary'
   ];
+
+  // POINTS x MULT for a word made of these tiles. `breakdown` keeps
+  // Lexicon.scoreWord's fields (base, bingoBonus, bonusFlat, variantFlat,
+  // bonusMult) so the UI can itemise, plus points / lengthMult / mult / total.
+  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune) {
+    var Lexicon = window.Wordbound.Lexicon;
+    var b = Lexicon.scoreWord(word, tilesUsed, rackCapacity);
+    b.lengthBonus = 0; // length is the mult now, not a flat bonus
+    b.points = b.base + b.bingoBonus + b.bonusFlat + b.variantFlat;
+    b.lengthMult = tune.MULT_BASE + tune.MULT_PER_LETTER * Math.max(0, word.length - 1);
+    b.mult = b.lengthMult * b.bonusMult;
+    b.total = Math.round(b.points * b.mult);
+    return b;
+  };
 
   Sandbox.createRound = function (opts) {
     var W = window.Wordbound;
@@ -107,23 +135,30 @@
     // Rank helper: what would this word score off the CURRENT rack's tiles?
     // Falls back to plain letter values when the rack cannot form it, so the
     // word list can still order words it has no tiles for.
-    round.scoreFor = function (word) {
+    round.breakdownFor = function (word) {
       var upper = String(word).toUpperCase();
       var form = Lexicon.canFormFromRack(upper, round.rack);
-      if (form.possible) return Lexicon.scoreWord(upper, form.tilesUsed, round.rackSize).total;
-      var tiles = upper.split('').map(function (l) { return { letter: l, bonus: null, variant: null }; });
-      return Lexicon.scoreWord(upper, tiles, round.rackSize).total;
+      var tiles = form.possible ? form.tilesUsed
+        : upper.split('').map(function (l) { return { letter: l, bonus: null, variant: null }; });
+      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, tune);
+    };
+    round.scoreFor = function (word) { return round.breakdownFor(word).total; };
+
+    // One tile is always a legal play; anything longer must be in the dictionary.
+    round.isPlayable = function (word) {
+      var upper = String(word || '').toUpperCase();
+      return upper.length === 1 ? /^[A-Z]$/.test(upper) : Lexicon.isValidWord(upper);
     };
 
     round.playWord = function (raw) {
       if (round.state !== 'live') return { ok: false, reason: 'The round is over.' };
       var upper = String(raw || '').trim().toUpperCase();
       if (!upper) return { ok: false, reason: 'Nothing to play.' };
-      if (!Lexicon.isValidWord(upper)) return { ok: false, reason: upper + ' isn’t in the dictionary.' };
+      if (!round.isPlayable(upper)) return { ok: false, reason: upper + ' isn’t in the dictionary.' };
       var form = Lexicon.canFormFromRack(upper, round.rack);
       if (!form.possible) return { ok: false, reason: upper + ' needs letters you don’t have.' };
 
-      var breakdown = Lexicon.scoreWord(upper, form.tilesUsed, round.rackSize);
+      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, tune);
       // Items: the shipped hooks add to result.damage, and here that is the
       // score. monster.hp is a dummy applyBonusDamage can decrement.
       var messages = [];

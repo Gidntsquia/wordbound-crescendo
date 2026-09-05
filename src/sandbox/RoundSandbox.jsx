@@ -48,19 +48,22 @@ const TUNE_LABELS = {
   PLAYS: 'Words per round',
   CHANGEOUTS: 'Changeouts',
   RACK_SIZE: 'Rack size',
+  MULT_BASE: 'Mult, one letter',
+  MULT_PER_LETTER: 'Mult per extra letter',
   GOLD_WIN: 'Gold for a win',
   GOLD_PER_WORD_LEFT: 'Gold per word left',
 };
 
+// "letters 9 · full rack +15 = 24 pts × 7 (length 7)" -- points, then mult.
 function describeBreakdown(b) {
-  const parts = ['letters ' + b.base];
-  if (b.lengthBonus) parts.push('length +' + b.lengthBonus);
-  if (b.bingoBonus) parts.push('full rack +' + b.bingoBonus);
-  if (b.bonusFlat) parts.push('tile bonus +' + b.bonusFlat);
-  if (b.variantFlat) parts.push('charged +' + b.variantFlat);
-  if (b.bonusMult !== 1) parts.push('×' + b.bonusMult);
-  if (b.itemBonus) parts.push('items +' + b.itemBonus);
-  return parts.join(' · ');
+  const pts = ['letters ' + b.base];
+  if (b.bingoBonus) pts.push('full rack +' + b.bingoBonus);
+  if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
+  if (b.variantFlat) pts.push('charged +' + b.variantFlat);
+  let out = (pts.length > 1 ? pts.join(' · ') + ' = ' : '') + b.points + ' pts × ' + b.mult;
+  if (b.bonusMult !== 1) out += ' (length ' + b.lengthMult + ' × tile ' + b.bonusMult + ')';
+  if (b.itemBonus) out += ' · items +' + b.itemBonus;
+  return out;
 }
 
 export default function RoundSandbox() {
@@ -230,7 +233,7 @@ export default function RoundSandbox() {
   const play = useCallback(() => {
     const r = fight.current?.round;
     if (!r || phase !== 'live' || !letters) return;
-    if (W.Lexicon.isValidWord(letters)) { playWord(letters); return; }
+    if (r.isPlayable(letters)) { playWord(letters); return; }
     const found = SB.findWords(letters, (w) => r.scoreFor(w), 1);
     if (found.length > 0) { playWord(found[0].word); return; }
     say(formable ? 'Nothing spells out of ' + letters + '.'
@@ -272,8 +275,9 @@ export default function RoundSandbox() {
   };
 
   const live = phase === 'live' && round;
-  const spelt = !!(live && formable && letters.length >= 2 && W.Lexicon.isValidWord(letters));
-  const worth = spelt ? round.scoreFor(letters) : 0;
+  const spelt = !!(live && formable && round.isPlayable(letters));
+  const worthHow = spelt ? round.breakdownFor(letters) : null;
+  const worth = worthHow ? worthHow.total : 0;
   const pct = round ? Math.min(100, (100 * round.score) / round.target) : 0;
 
   return (
@@ -341,7 +345,7 @@ export default function RoundSandbox() {
       </section>
 
       {phase === 'idle' && (
-        <p className="sb-hint">Pick an enemy and a bag, then Start. Beat the target in four words.</p>
+        <p className="sb-hint">Pick an enemy and a bag, then Start. Beat the target in four words — a word scores its letters × its length.</p>
       )}
 
       {round && (
@@ -404,14 +408,21 @@ export default function RoundSandbox() {
               <span className="sb-eyebrow">The composing stick</span>
               {spelt && (
                 <span className="sb-stick-worth is-hand">
+                  <span className="sb-stick-math">
+                    <b className="sb-figure sb-pts">{worthHow.points}</b>
+                    <i>×</i>
+                    <b className="sb-figure sb-mult">{worthHow.mult}</b>
+                    <i>=</i>
+                  </span>
                   <b className="sb-figure">{worth}</b>
-                  {round.score + worth >= round.target ? 'meets the target' : 'points'}
+                  {round.score + worth >= round.target ? 'meets the target'
+                    : letters.length === 1 ? 'single letter' : 'points'}
                 </span>
               )}
             </div>
             <div className={'sb-stick' + (formable ? '' : ' is-short')}>
               {letters.length === 0 && (
-                <span className="sb-stick-empty">tap the case, or type — then Play it or Change it out</span>
+                <span className="sb-stick-empty">tap the case, or type — then Play it or Change it out · one tile alone always plays</span>
               )}
               {slots.map((t, i) => (t ? (
                 <button key={t.id} type="button" disabled={!live}
@@ -494,8 +505,8 @@ export default function RoundSandbox() {
           ))}
         </div>
         <p className="sb-tune-note">
-          Target, words, changeouts and rack size take effect on the next Start; the gold
-          figures are read at the win. Nothing is saved — copy the numbers you want to keep
+          Target, words, changeouts and rack size take effect on the next Start; the mult
+          figures apply to the next word; the gold figures are read at the win. Nothing is saved — copy the numbers you want to keep
           into src/sandbox/round.js.
         </p>
       </details>
