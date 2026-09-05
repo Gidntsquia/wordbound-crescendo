@@ -65,8 +65,8 @@ not something to reintroduce piecemeal mid-task.
   target, PLAYS words, CHANGEOUTS tile swaps, Balatro-style POINTS × MULT
   scoring (`Sandbox.scoreWordPoints`: points from `Lexicon.scoreWord` minus its
   length bonus, mult = MULT_BASE + MULT_PER_LETTER per extra letter, so by
-  default mult = word length, then a flat BONUS_7 / BONUS_6 Scrabble bingo for
-  7+ / 6 letter words added after the mult), a single tile always playable
+  default mult = word length, with a BONUS_7 / BONUS_6 Scrabble bingo for
+  7+ / 6 letter words added to the points before the mult), a single tile always playable
   without the dictionary, gold on a win (GOLD_WIN + GOLD_PER_WORD_LEFT per unspent word). It has
   no clock; the music is a soundtrack only and never touches the score. It
   deliberately does NOT use js/wordbound/duel.js, so tuning it cannot break the

@@ -56,15 +56,14 @@ const TUNE_LABELS = {
   GOLD_PER_WORD_LEFT: 'Gold per word left',
 };
 
-// "letters 9 · charged +4 = 13 pts × 7 + 50 bingo" -- points, mult, then the
-// flat length bonus.
+// "letters 9 · bingo +50 = 59 pts × 7" -- points (bingo included), then mult.
 function describeBreakdown(b) {
   const pts = ['letters ' + b.base];
+  if (b.bingoBonus) pts.push('bingo +' + b.bingoBonus);
   if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
   if (b.variantFlat) pts.push('charged +' + b.variantFlat);
   let out = (pts.length > 1 ? pts.join(' · ') + ' = ' : '') + b.points + ' pts × ' + b.mult;
   if (b.bonusMult !== 1) out += ' (length ' + b.lengthMult + ' × tile ' + b.bonusMult + ')';
-  if (b.lengthBonus) out += ' + ' + b.lengthBonus + ' bingo';
   if (b.itemBonus) out += ' · items +' + b.itemBonus;
   return out;
 }
@@ -412,10 +411,10 @@ export default function RoundSandbox() {
               {spelt && (
                 <span className="sb-stick-worth is-hand">
                   <span className="sb-stick-math">
-                    <b className="sb-figure sb-pts">{worthHow.points}</b>
+                    {worthHow.bingoBonus > 0 && <><i>(</i><b className="sb-figure sb-pts">{worthHow.points - worthHow.bingoBonus}</b><i>+</i><b className="sb-figure sb-bingo">{worthHow.bingoBonus}</b><i>)</i></>}
+                    {!worthHow.bingoBonus && <b className="sb-figure sb-pts">{worthHow.points}</b>}
                     <i>×</i>
                     <b className="sb-figure sb-mult">{worthHow.mult}</b>
-                    {worthHow.lengthBonus > 0 && <><i>+</i><b className="sb-figure sb-bingo">{worthHow.lengthBonus}</b></>}
                     <i>=</i>
                   </span>
                   <b className="sb-figure">{worth}</b>
