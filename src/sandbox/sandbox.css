@@ -1252,3 +1252,37 @@ button:disabled {
   border: 1px solid var(--rule);
   border-radius: 2px;
 }
+
+/* ---- sample items: a row of checkboxes, the pick of the set marked ------ */
+.sb-items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 0 0 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.sb-items .sb-eyebrow { margin-right: 6px; }
+
+.sb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--leaf-dim);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.sb-item:hover { border-color: var(--brass); color: var(--brass-hot); }
+.sb-item.is-pick { border-color: var(--brass); }
+.sb-item.is-on { color: var(--ink); background: var(--leaf); border-color: var(--leaf); }
+.sb-item input { margin: 0; accent-color: var(--brass); }

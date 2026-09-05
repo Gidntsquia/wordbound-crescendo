@@ -14,7 +14,13 @@
 //
 // PUBLIC API (window.Wordbound.Sandbox):
 //   ROUND_DEFAULTS       -- every tunable, mirrored by the UI's tuning panel
-//   createRound(opts)    -- { rng, deck, tune? } -> round
+//   SAMPLE_ITEMS         -- the item ids the sandbox offers as checkboxes
+//   createRound(opts)    -- { rng, deck, tune?, items? } -> round
+//     items: array of js/wordbound/items.js ids. Their onRunStart / onDraw /
+//       onWordPlayed hooks and rackCapacityBonus run here against a stand-in
+//       ctx: the shipped hooks add "damage" to result.damage, and here that
+//       IS the score, so every scoring item works unchanged. Ink/heal and
+//       monster-hp effects are inert (there is no ink and no monster).
 //     round.rack, .pile, .score, .target, .playsLeft, .changeoutsLeft,
 //       .state ('live' | 'won' | 'lost'), .plays [{ word, breakdown }], .gold
 //     round.scoreFor(word)          -> number, for ranking helper suggestions
@@ -35,19 +41,37 @@
     GOLD_PER_WORD_LEFT: 2 // bonus per unplayed word at the win
   };
 
+  // Offered as checkboxes in the setup bar. The first three are the pick of the
+  // shipped set for a SCORING round: Gilded Bookmark doubles the opening word
+  // (a quarter of the round), Wildcard Pouch's two blanks turn near-misses into
+  // full-rack bingos, Spare Satchel's eighth tile lengthens every word. The
+  // rest are there to feel out a build.
+  Sandbox.SAMPLE_ITEMS = [
+    'gilded_bookmark', 'wildcard_pouch', 'spare_satchel',
+    'errant_footnote', 'heavy_ink', 'consonant_cluster', 'long_s_ligature', 'vowel_reliquary'
+  ];
+
   Sandbox.createRound = function (opts) {
     var W = window.Wordbound;
     var Tiles = W.Tiles;
     var Lexicon = W.Lexicon;
+    var Items = W.Items;
     var rng = opts.rng;
     var tune = Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {});
+    // The stand-in player the item hooks read. `ink`/`maxInk`/`gold` exist so
+    // hooks that touch them do not throw; nothing here reads them back.
+    var player = { items: (opts.items || []).slice(), ink: 99, maxInk: 99, gold: 0 };
+    var hasItems = !!(Items && player.items.length);
+    var rackSize = tune.RACK_SIZE;
+    if (hasItems) rackSize += Items.getRackCapacity(player) - 7;
 
     var round = {
       tune: tune,
       target: tune.TARGET,
       playsLeft: tune.PLAYS,
       changeoutsLeft: tune.CHANGEOUTS,
-      rackSize: tune.RACK_SIZE,
+      rackSize: rackSize,
+      items: player.items,
       score: 0,
       gold: 0,
       state: 'live',
@@ -55,11 +79,20 @@
       pile: { drawPile: Tiles.shuffleIntoDrawPile(opts.deck, rng), discardPile: [] },
       rack: []
     };
-    round.rack = Tiles.draw(round.pile, round.rackSize, rng);
+    // onRunStart hooks add tiles to the pile (blanks, a charged E) BEFORE the
+    // opening rack is drawn, the way game.js orders it.
+    if (hasItems) Items.runHook('onRunStart', { player: player, pileState: round.pile }, player);
+
+    function draw(count) {
+      var drawn = Tiles.draw(round.pile, count, rng);
+      if (hasItems) Items.runHook('onDraw', { player: player, drawnTiles: drawn, pileState: round.pile, rng: rng }, player);
+      return drawn;
+    }
+    round.rack = draw(round.rackSize);
 
     function refill() {
       var need = round.rackSize - round.rack.length;
-      if (need > 0) round.rack.push.apply(round.rack, Tiles.draw(round.pile, need, rng));
+      if (need > 0) round.rack.push.apply(round.rack, draw(need));
     }
 
     function settle() {
@@ -91,14 +124,28 @@
       if (!form.possible) return { ok: false, reason: upper + ' needs letters you don’t have.' };
 
       var breakdown = Lexicon.scoreWord(upper, form.tilesUsed, round.rackSize);
+      // Items: the shipped hooks add to result.damage, and here that is the
+      // score. monster.hp is a dummy applyBonusDamage can decrement.
+      var messages = [];
+      if (hasItems) {
+        var result = { damage: breakdown.total };
+        var prev = round.plays.length ? round.plays[round.plays.length - 1].word : null;
+        Items.runHook('onWordPlayed', {
+          player: player, monster: { hp: 1e9 }, word: upper, tilesUsed: form.tilesUsed,
+          result: result, previousWord: prev, wordsPlayedThisFight: round.plays.length + 1,
+          messages: messages
+        }, player);
+        breakdown.itemBonus = result.damage - breakdown.total;
+        breakdown.total = result.damage;
+      }
       Lexicon.removeTiles(round.rack, form.tilesUsed);
       round.pile.discardPile.push.apply(round.pile.discardPile, form.tilesUsed);
       refill();
       round.score += breakdown.total;
       round.playsLeft -= 1;
-      round.plays.push({ word: upper, breakdown: breakdown });
+      round.plays.push({ word: upper, breakdown: breakdown, messages: messages });
       settle();
-      return { ok: true, word: upper, breakdown: breakdown };
+      return { ok: true, word: upper, breakdown: breakdown, messages: messages };
     };
 
     // Throw back any number of CHOSEN tiles and draw that many. Costs one
@@ -112,7 +159,7 @@
       if (!back.length) return { ok: false, reason: 'Those tiles aren’t in the rack.' };
       round.rack = round.rack.filter(function (t) { return !ids.has(t.id); });
       // Discard AFTER drawing, so a small bag cannot hand the same tiles back.
-      var drawn = Tiles.draw(round.pile, back.length, rng);
+      var drawn = draw(back.length);
       round.rack.push.apply(round.rack, drawn);
       round.pile.discardPile.push.apply(round.pile.discardPile, back);
       round.changeoutsLeft -= 1;

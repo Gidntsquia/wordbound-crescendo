@@ -77,12 +77,17 @@ not something to reintroduce piecemeal mid-task.
   owns the three tile bags the rack is drawn from (weak/normal/strong, 26
   tiles each, picked in the setup bar) — the sandbox does NOT use
   Tiles.createStarterDeck(), which is the shipped game's deck-building
-  artefact. LEFTOVERS from the retired tug of war, not loaded by main.jsx and
-  due for deletion in the redesign's cleanup phase: `tugOfWar.js`,
-  `TugSandbox.jsx`, `sequencedSurges.js`, `audioPiece.js`,
-  `recordedFurElise.js`, `recordedMoonlight.js` (the recorded-piece exception
-  to the synthesized-only rule goes with them). Add an engine module back to
-  `src/sandbox/main.jsx` only when tuning the mechanic it owns.
+  artefact. `js/wordbound/items.js` IS loaded: the setup bar offers
+  `Sandbox.SAMPLE_ITEMS` as checkboxes and round.js runs their
+  onRunStart/onDraw/onWordPlayed hooks with the item "damage" counted as score.
+  `src/sandbox/audioPiece.js` + `recordedFurElise.js` play the RECORDED Für
+  Elise (public/audio/fur-elise.mp3) as the Bagatelle's soundtrack — the one
+  logged exception to the synthesized-only rule, kept because the sequenced
+  Für Elise sounds off. LEFTOVERS from the retired tug of war, not loaded by
+  main.jsx and due for deletion in the redesign's cleanup phase:
+  `tugOfWar.js`, `TugSandbox.jsx`, `sequencedSurges.js`,
+  `recordedMoonlight.js`. Add an engine module back to `src/sandbox/main.jsx`
+  only when tuning the mechanic it owns.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation,
   kept until the React port reaches full parity.
 - `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `record-gameplay.js`.

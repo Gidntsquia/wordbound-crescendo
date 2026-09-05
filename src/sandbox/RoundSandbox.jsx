@@ -30,7 +30,10 @@ function flipTileTo(fromRect, toEl) {
 
 // Standard enemies: a name and the piece that plays under the round.
 const ENEMIES = [
-  { id: 'bagatelle', name: 'The Bagatelle', glyph: '\u{1F339}', piece: 'furElise' },
+  // `recorded` names a Sandbox.* recorded piece (audioPiece.js) played back
+  // instead of a synthesized Pieces.* entry.
+  { id: 'bagatelle', name: 'The Bagatelle', glyph: '\u{1F339}', recorded: 'recordedFurElise' },
+  { id: 'bagatelle-synth', name: 'The Bagatelle (synth)', glyph: '\u{1F3B9}', piece: 'furElise' },
   { id: 'gymnopediste', name: 'The Gymnopédiste', glyph: '\u{1FA70}', piece: 'gymnopedie1' },
   { id: 'gstring', name: 'The G String', glyph: '\u{1F3BB}', piece: 'airGString' },
   { id: 'morningmood', name: 'Morning Mood', glyph: '\u{1F305}', piece: 'morningMood' },
@@ -56,6 +59,7 @@ function describeBreakdown(b) {
   if (b.bonusFlat) parts.push('tile bonus +' + b.bonusFlat);
   if (b.variantFlat) parts.push('charged +' + b.variantFlat);
   if (b.bonusMult !== 1) parts.push('×' + b.bonusMult);
+  if (b.itemBonus) parts.push('items +' + b.itemBonus);
   return parts.join(' · ');
 }
 
@@ -72,6 +76,8 @@ export default function RoundSandbox() {
   const [bagId, setBagId] = useState('normal');
   const [volume, setVolume] = useState(0.4);
   const [tune, setTune] = useState(() => ({ ...SB.ROUND_DEFAULTS }));
+  // Sample items, read at Start (a mid-round swap would half-apply).
+  const [itemIds, setItemIds] = useState(() => new Set());
   const [suggestions, setSuggestions] = useState([]);
   const [indexing, setIndexing] = useState(false);
   const inputRef = useRef(null);
@@ -111,10 +117,20 @@ export default function RoundSandbox() {
     if (f && f.gain) f.gain.gain.value = volume;
   }, [volume]);
 
-  const start = useCallback(() => {
-    if (fight.current) fight.current.seq.stop();
+  // Pull the recording down as soon as the Bagatelle is picked, not at Start.
+  useEffect(() => {
     const def = ENEMIES.find((o) => o.id === enemyId);
-    const piece = W.Pieces[def.piece];
+    const piece = def && def.recorded && SB[def.recorded];
+    if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
+  }, [enemyId, SB]);
+
+  const start = useCallback(() => {
+    if (fight.current) {
+      if (fight.current.seq.dispose) fight.current.seq.dispose();
+      else fight.current.seq.stop();
+    }
+    const def = ENEMIES.find((o) => o.id === enemyId);
+    const piece = def.recorded ? SB[def.recorded] : W.Pieces[def.piece];
     const rng = window.Game.RNG.create(seed);
 
     let ctx = fight.current?.ctx;
@@ -133,8 +149,12 @@ export default function RoundSandbox() {
       return;
     }
 
-    const round = SB.createRound({ rng, deck: SB.createBagDeck(bagId), tune });
-    const seq = W.Music.createSequencer(ctx, gain, piece);
+    const round = SB.createRound({ rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds] });
+    const seq = piece.audio
+      ? SB.createAudioPiece(ctx, gain, piece)
+      : W.Music.createSequencer(ctx, gain, piece);
+    seq.on('load-failed', (err) => say('The recording did not load ('
+      + (err && err.message ? err.message : err) + ') — Restart to try again.'));
     seq.on('piece-ended', () => {
       const f = fight.current;
       if (!f || f.seq !== seq) return;
@@ -150,8 +170,12 @@ export default function RoundSandbox() {
     setSuggestions([]);
     setPhase('live');
     say(def.name + ' takes up ' + piece.title + '. Target ' + round.target + '.');
+    if (round.items.length) {
+      say('Carrying ' + round.items.map((id) => W.Items.ITEM_DEFS[id].name).join(', ')
+        + (round.rackSize !== tune.RACK_SIZE ? ' — rack of ' + round.rackSize : '') + '.');
+    }
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [enemyId, seed, bagId, volume, tune, say, W, SB]);
+  }, [enemyId, seed, bagId, volume, tune, itemIds, say, W, SB]);
 
   const f = fight.current;
   const round = f ? f.round : null;
@@ -198,6 +222,7 @@ export default function RoundSandbox() {
     setSuggestions([]);
     say(res.word + ' — ' + res.breakdown.total + ' (' + describeBreakdown(res.breakdown) + ')'
       + ' → ' + r.score + ' / ' + r.target + '.');
+    res.messages.forEach((m) => say(m));
     finish(r);
     refresh();
   }, [phase, say, finish, refresh]);
@@ -294,6 +319,27 @@ export default function RoundSandbox() {
         </button>
       </section>
 
+      <section className="sb-items" role="group" aria-label="Sample items">
+        <span className="sb-eyebrow">Items · read at start</span>
+        {SB.SAMPLE_ITEMS.map((id, i) => {
+          const d = W.Items.ITEM_DEFS[id];
+          return (
+            <label key={id} className={'sb-item' + (itemIds.has(id) ? ' is-on' : '') + (i < 3 ? ' is-pick' : '')}
+              title={d.hint}>
+              <input type="checkbox" checked={itemIds.has(id)}
+                onChange={(e) => setItemIds((prev) => {
+                  const next = new Set(prev);
+                  if (e.target.checked) next.add(id); else next.delete(id);
+                  return next;
+                })} />
+              {d.name}
+            </label>
+          );
+        })}
+        {round && [...itemIds].sort().join() !== round.items.slice().sort().join()
+          && <em className="sb-bag-note">on restart</em>}
+      </section>
+
       {phase === 'idle' && (
         <p className="sb-hint">Pick an enemy and a bag, then Start. Beat the target in four words.</p>
       )}
@@ -309,6 +355,9 @@ export default function RoundSandbox() {
             <span><b>{round.playsLeft}</b> word{round.playsLeft === 1 ? '' : 's'} left</span>
             <span><b>{round.changeoutsLeft}</b> changeout{round.changeoutsLeft === 1 ? '' : 's'} left</span>
             <span><b>{round.pile.drawPile.length}</b> in the bag</span>
+            {round.items.length > 0 && (
+              <span>{round.items.map((id) => W.Items.ITEM_DEFS[id].name).join(' · ')}</span>
+            )}
             <span className="sb-enemy">{f.def.glyph} {f.def.name} · {f.piece.title}</span>
           </div>
           {round.plays.length > 0 && (
