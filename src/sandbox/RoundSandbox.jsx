@@ -62,6 +62,7 @@ const TUNE_LABELS = {
   INK_BOLD: 'Bold · mult per tile',
   INK_STEEL: 'Steel · × mult held',
   INK_COIN_CAP: 'Coin · gold cap',
+  BOUNTY_GOLD: 'Bounty favour · gold',
   GOLD_SMALL: 'Gold, small enemy',
   GOLD_BIG: 'Gold, big enemy',
   GOLD_BOSS: 'Gold, boss',
@@ -182,7 +183,7 @@ function Shop({ run, SB, act, leave, onInk }) {
   return (
     <div className="sb-shop">
       <div className="sb-shop-head">
-        <span className="sb-eyebrow">The shop · between fights</span>
+        <span className="sb-eyebrow">The shop · between fights{shop.coupon ? ' · coupon: cards are free' : ''}{shop.packs.some((p) => p.free && !p.opened) ? ' · a free pack' : ''}</span>
         <span className="sb-purse"><b>{run.gold}</b> gold</span>
       </div>
       {run.pack && (
@@ -245,6 +246,88 @@ function Shop({ run, SB, act, leave, onInk }) {
   );
 }
 
+// The best so far, kept in the browser: best word, deepest enemy, wins.
+const BEST_KEY = 'wbc.best';
+function readBest() {
+  try { return JSON.parse(window.localStorage.getItem(BEST_KEY)) || {}; } catch (e) { return {}; }
+}
+function writeBest(next) {
+  try { window.localStorage.setItem(BEST_KEY, JSON.stringify(next)); } catch (e) { /* private mode, quota: ignore */ }
+}
+function depthOf(run) { return run.movement * 3 + run.stage; }
+function recordRun(run, won) {
+  const best = readBest();
+  const out = { ...best };
+  if (run.bestPlay && (!best.word || run.bestPlay.breakdown.total > best.word.total)) {
+    out.word = { word: run.bestPlay.word, total: run.bestPlay.breakdown.total, enemy: run.bestPlay.enemy };
+  }
+  const depth = won ? 6 : depthOf(run);
+  if (!best.deepest || depth > best.deepest.depth) {
+    out.deepest = { depth, name: won ? 'the whole run' : run.enemy.name };
+  }
+  out.wins = (best.wins || 0) + (won ? 1 : 0);
+  out.runs = (best.runs || 0) + 1;
+  writeBest(out);
+  return out;
+}
+function randomSeed() {
+  const words = ['sonata', 'cadenza', 'fugue', 'rondo', 'largo', 'vivace', 'minuet', 'coda', 'aria', 'canon'];
+  return words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(Math.random() * 9000 + 1000);
+}
+
+// The end of a run, won or lost: what was felled, the best word, the purse
+// and the items, and the way back in.
+function EndScreen({ run, won, SB, seed, onAgain, onCopy, best, describe }) {
+  const felled = run.felled.map((id) => {
+    for (const m of run.movements) for (const e of m.enemies) if (e.id === id) return e;
+    return null;
+  }).filter(Boolean);
+  return (
+    <div className={'sb-end ' + (won ? 'sb-win' : 'sb-lose')}>
+      <h2 className="sb-end-title">{won ? 'The last boss falls.' : 'Lost to ' + run.enemy.name + '.'}</h2>
+      <p className="sb-end-sub">
+        {won ? 'Both movements, ' + run.felled.length + ' enemies felled' : (run.round.target - run.round.score) + ' short of the target'}
+        {' · '}{run.wordsPlayed} word{run.wordsPlayed === 1 ? '' : 's'} played · <b>{run.gold}</b> gold
+      </p>
+      <div className="sb-end-grid">
+        <div>
+          <span className="sb-eyebrow">Felled</span>
+          <div className="sb-end-felled">
+            {felled.map((e) => <span key={e.id} className={'sb-pip sb-pip-' + e.kind + ' is-done'} title={e.name}>{e.kind === 'boss' ? '♩' : '·'}</span>)}
+            {run.skipped.length > 0 && <em className="sb-hint">{run.skipped.length} skipped</em>}
+            {felled.length === 0 && <em className="sb-hint">none</em>}
+          </div>
+        </div>
+        <div>
+          <span className="sb-eyebrow">Best word</span>
+          {run.bestPlay ? (
+            <div className="sb-end-best">
+              <span className="sb-plays-word">{run.bestPlay.word}</span>
+              <b className="sb-figure">{run.bestPlay.breakdown.total}</b>
+              <span className="sb-plays-how">{describe(run.bestPlay.breakdown)} · against {run.bestPlay.enemy}</span>
+            </div>
+          ) : <em className="sb-hint">none played</em>}
+        </div>
+        <div>
+          <span className="sb-eyebrow">Items</span>
+          <div className="sb-end-items">
+            {run.items.map((id) => <span key={id} className={'sb-card sb-card-item is-' + (SB.ITEM_DEFS[id].rarity || 'common')}><b>{SB.ITEM_DEFS[id].name}</b></span>)}
+            {run.items.length === 0 && <em className="sb-hint">none</em>}
+          </div>
+        </div>
+      </div>
+      <div className="sb-end-actions">
+        <button type="button" className="sb-go" onClick={onAgain}>Play again · new seed</button>
+        <span className="sb-seed-line">seed <code>{seed}</code>
+          <button type="button" onClick={onCopy}>copy</button></span>
+        {best && best.word && (
+          <span className="sb-hint">best ever: {best.word.word} for {best.word.total} · deepest: {best.deepest ? best.deepest.name : '—'} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function RoundSandbox() {
   const W = window.Wordbound;
   const SB = W.Sandbox;
@@ -263,6 +346,7 @@ export default function RoundSandbox() {
   // Sample items, read at Start (a mid-round swap would half-apply).
   const [itemIds, setItemIds] = useState(() => new Set());
   const [suggestions, setSuggestions] = useState([]);
+  const [best, setBest] = useState(() => readBest());
   const [indexing, setIndexing] = useState(false);
   const inputRef = useRef(null);
 
@@ -347,8 +431,10 @@ export default function RoundSandbox() {
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [say, W, SB]);
 
-  const start = useCallback(() => {
-    const rng = window.Game.RNG.create(seed);
+  const start = useCallback((seedOverride) => {
+    const useSeed = typeof seedOverride === 'string' ? seedOverride : seed;
+    if (useSeed !== seed) setSeed(useSeed);
+    const rng = window.Game.RNG.create(useSeed);
 
     let ctx = fight.current?.ctx;
     let gain = fight.current?.gain;
@@ -385,6 +471,7 @@ export default function RoundSandbox() {
     if (state === 'won') {
       setPhase('run-won');
       say('The last boss falls. Run won with ' + f.run.gold + ' gold.');
+      setBest(recordRun(f.run, true));
       refresh();
       return;
     }
@@ -404,6 +491,20 @@ export default function RoundSandbox() {
     if (!f.run.leaveShop()) return;
     startStage(f.run);
   }, [phase, startStage]);
+
+  // Walk past a small or big enemy for its favour.
+  const skipFight = useCallback(() => {
+    const f = fight.current;
+    if (!f || !f.run || phase !== 'live') return;
+    const res = f.run.skip();
+    if (!res.ok) { say(res.reason); return; }
+    say('Skipped ' + f.def.name + ' — ' + SB.FAVOUR_DEFS[res.favour].name + ': ' + SB.FAVOUR_DEFS[res.favour].hint + '.');
+    startStage(f.run);
+  }, [phase, say, startStage, SB]);
+  const copySeed = useCallback(() => {
+    try { navigator.clipboard.writeText(seed).then(() => say('Seed copied.'), () => say('Seed: ' + seed)); }
+    catch (e) { say('Seed: ' + seed); }
+  }, [seed, say]);
 
   // Every shop action funnels through here so the log and the render agree.
   const act = useCallback((label, res) => {
@@ -482,6 +583,7 @@ export default function RoundSandbox() {
     } else if (r.state === 'lost') {
       setPhase('lost');
       say('Out of words at ' + r.score + ' — ' + (r.target - r.score) + ' short.');
+      if (run) { run.next(); setBest(recordRun(run, false)); }
     }
   }, [say, SB]);
 
@@ -710,7 +812,7 @@ export default function RoundSandbox() {
           <input type="checkbox" checked={helper} onChange={(e) => setHelper(e.target.checked)} />
           Word helper
         </label>
-        <button type="button" className="sb-go" onClick={start}>
+        <button type="button" className="sb-go" onClick={() => start()}>
           {phase === 'idle' ? 'Start' : 'Restart'}
         </button>
       </section>
@@ -737,7 +839,7 @@ export default function RoundSandbox() {
       </section>
 
       {phase === 'idle' && (
-        <p className="sb-hint">Pick a bag, then Start. Two movements of three enemies — small, big, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult. Gold earns interest between fights.</p>
+        <p className="sb-hint">{best.word && <>Best so far: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}. </>}Pick a bag, then Start. Two movements of three enemies — small, big, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult. Gold earns interest between fights.</p>
       )}
 
       {round && (
@@ -758,8 +860,14 @@ export default function RoundSandbox() {
             <span><b>{round.changeoutsLeft}</b> changeout{round.changeoutsLeft === 1 ? '' : 's'} left</span>
             <span><b>{round.pile.drawPile.length}</b> in the bag of {run.deck.length}</span>
 
-            <span className="sb-enemy">{SB.KIND_LABEL[run.enemy.kind]} · {f.def.glyph} {f.def.name} · {f.piece.title}</span>
+            <span className="sb-enemy">{SB.KIND_LABEL[f.def.kind]} · {f.def.glyph} {f.def.name} · {f.piece.title}</span>
           </div>
+          {phase === 'live' && round.favour && round.plays.length === 0 && (
+            <div className="sb-skip">
+              <span className="sb-hint">Or walk past {f.def.name} for a favour — <b>{SB.FAVOUR_DEFS[round.favour].name}</b>: {SB.FAVOUR_DEFS[round.favour].hint}. No shop after a skip.</span>
+              <button type="button" onClick={skipFight}>Skip this fight</button>
+            </div>
+          )}
           {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} onInk={useInk} />}
           {round.plays.length > 0 && (
             <ol className="sb-plays">
@@ -785,15 +893,9 @@ export default function RoundSandbox() {
           {phase === 'shop' && run.shop && (
             <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} />
           )}
-          {phase === 'run-won' && (
-            <div className="sb-outcome sb-win">
-              Run won — {run.gold} gold across {run.felled.length} enemies.
-            </div>
-          )}
-          {phase === 'lost' && (
-            <div className="sb-outcome sb-lose">
-              Lost to {f.def.name} — {round.target - round.score} short of the target.
-            </div>
+          {(phase === 'run-won' || phase === 'lost') && (
+            <EndScreen run={run} won={phase === 'run-won'} SB={SB} seed={seed} best={best}
+              onAgain={() => start(randomSeed())} onCopy={copySeed} describe={describeBreakdown} />
           )}
         </section>
       )}

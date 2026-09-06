@@ -1504,3 +1504,31 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
 .sb-tile.is-barred { background: var(--rule); border-color: var(--rule); color: var(--leaf-dim); box-shadow: none; }
 .sb-tile.is-barred sub { color: var(--leaf-dim); }
 .sb-tile.is-barred::before { content: ''; position: absolute; left: 6px; right: 6px; top: 50%; height: 1px; background: var(--rubric); }
+
+/* Skip: the favour for walking past, offered only before the first word. */
+.sb-skip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0 0; }
+.sb-skip .sb-hint { margin: 0; }
+.sb-skip b { color: var(--brass-hot); font-weight: 600; }
+
+/* THE END OF A RUN. */
+.sb-end { margin-top: 16px; padding: 18px 20px 20px; border: 1px solid var(--rule); background: var(--pit-deep); }
+.sb-end.sb-win { border-color: var(--brass); }
+.sb-end.sb-lose { border-color: var(--rubric-dim); }
+.sb-end-title { font-family: var(--display); font-weight: 500; font-size: clamp(26px, 4vw, 38px); margin: 0; line-height: 1.1; }
+.sb-end.sb-win .sb-end-title { color: var(--brass-hot); }
+.sb-end.sb-lose .sb-end-title { color: var(--leaf-dim); }
+.sb-end-sub { margin: 4px 0 14px; color: var(--leaf-dim); }
+.sb-end-sub b { font-family: var(--figure); color: var(--brass-hot); }
+.sb-end-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px 24px; }
+.sb-end-grid .sb-eyebrow { display: block; margin-bottom: 6px; }
+.sb-end-felled { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.sb-end-best { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.sb-end-best .sb-plays-how { flex-basis: 100%; }
+.sb-end-items { display: flex; flex-wrap: wrap; gap: 6px; }
+.sb-end-items .sb-card { min-width: 0; padding: 6px 10px; }
+.sb-end-items .sb-card b { font-size: 13px; padding-right: 0; }
+.sb-end-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 16px; }
+.sb-end-actions .sb-go { padding: 12px 18px; }
+.sb-seed-line { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--leaf-dim); }
+.sb-seed-line code { font-family: var(--figure); color: var(--leaf); }
+.sb-seed-line button { padding: 3px 8px; font-size: 9px; }

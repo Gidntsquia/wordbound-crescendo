@@ -62,6 +62,10 @@
 //       opens it, run.leaveShop() begins the next round
 //     run.consumables [{ kind: 'etude'|'ink', id }], run.useConsumable(i, ...)
 //     run.pack / run.pick(i) -- an opened pack (shop.js)
+//     run.skip() -- skip a small or big enemy before playing a word, for
+//       run.round.favour (a Sandbox.FAVOURS id); run.favours holds the
+//       ones the next shop will honour
+//     run.bestPlay { word, breakdown, enemy }, run.wordsPlayed, run.skipped
 //   createRound(opts)    -- { rng, deck, tune?, items?, target?, tierLevels?,
 //                              rule? } (rule: a Sandbox.RULES id, enemies.js)
 //     items: array of Sandbox.ITEMS ids (items.js), fired in order by
@@ -117,8 +121,20 @@
     INK_GILT: 20,         // points per gilt tile played
     INK_BOLD: 2,          // mult per bold tile played
     INK_STEEL: 1.2,       // x mult per steel tile left in the case
-    INK_COIN_CAP: 10
+    INK_COIN_CAP: 10,
+    // Skipping a small or big enemy (run.skip) pays a favour (Sandbox.FAVOURS).
+    BOUNTY_GOLD: 8
   };
+
+  // The favours a skipped enemy pays. One is drawn per skippable round and
+  // shown on the round screen as the price of not fighting.
+  Sandbox.FAVOURS = [
+    { id: 'free_pack', name: 'Free Pack', hint: 'The next shop’s first pack is free' },
+    { id: 'coupon', name: 'Coupon', hint: 'The next shop’s cards are free (packs still cost)' },
+    { id: 'bounty', name: 'Bounty', hint: '+8 gold, now' }
+  ];
+  Sandbox.FAVOUR_DEFS = {};
+  Sandbox.FAVOURS.forEach(function (f) { Sandbox.FAVOUR_DEFS[f.id] = f; });
 
   // Balatro's hand types: a word scores as the tier of its length. An étude
   // raises a tier's level; each level adds lvlPts to its points and lvlMult
@@ -323,7 +339,9 @@
       round.playsLeft -= 1;
       round.plays.push({ word: upper, breakdown: breakdown, messages: messages });
       settle();
-      return { ok: true, word: upper, breakdown: breakdown, messages: messages };
+      var res = { ok: true, word: upper, breakdown: breakdown, messages: messages };
+      if (opts.onPlay) opts.onPlay(res);
+      return res;
     };
 
     // Throw back any number of CHOSEN tiles and draw that many. Costs one
@@ -390,6 +408,10 @@
       tierLevels: {}, // études: { tierId: level }, level 1 when absent
       gold: tune.START_GOLD,
       felled: [],    // enemy ids beaten so far
+      skipped: [],   // enemy ids skipped for a favour
+      favours: [],   // favour ids owed to the next shop (free_pack, coupon)
+      bestPlay: null, // { word, breakdown, enemy } the run's best word
+      wordsPlayed: 0,
       lastWin: null, // { reward, interest } of the latest win, for the UI
       state: 'live'
     };
@@ -410,9 +432,35 @@
         target: run.targetFor(run.movement, run.stage),
         reward: KIND_GOLD[run.enemy.kind],
         rule: run.enemy.rule,
-        tierLevels: run.tierLevels
+        tierLevels: run.tierLevels,
+        onPlay: function (res) {
+          run.wordsPlayed += 1;
+          if (!run.bestPlay || res.breakdown.total > run.bestPlay.breakdown.total) {
+            run.bestPlay = { word: res.word, breakdown: res.breakdown, enemy: run.enemy.name };
+          }
+        }
       });
+      // The favour on offer for walking past this one; bosses cannot be skipped.
+      run.round.favour = run.enemy.kind === 'boss' ? null
+        : Sandbox.FAVOURS[opts.rng.randInt(0, Sandbox.FAVOURS.length - 1)].id;
     }
+    // Skip the current enemy for its favour: only before a word is played,
+    // never a boss. Bounty pays now; the others are owed to the next shop.
+    // No shop opens after a skip. Returns { ok, favour } | { ok:false, reason }.
+    run.skip = function () {
+      var r = run.round;
+      if (run.state !== 'live' || !r || r.state !== 'live' || run.shop) return { ok: false, reason: 'Nothing to skip.' };
+      if (!r.favour) return { ok: false, reason: 'The boss cannot be skipped.' };
+      if (r.plays.length) return { ok: false, reason: 'Too late — a word has been played.' };
+      var favour = r.favour;
+      if (favour === 'bounty') run.gold += tune.BOUNTY_GOLD;
+      else run.favours.push(favour);
+      run.skipped.push(run.enemy.id);
+      run.stage += 1;
+      if (run.stage >= MOVEMENTS[run.movement].enemies.length) { run.stage = 0; run.movement += 1; }
+      begin();
+      return { ok: true, favour: favour };
+    };
     // Reorder the held items: they fire left to right.
     run.moveItem = function (from, to) {
       if (from === to || from < 0 || to < 0 || from >= run.items.length || to >= run.items.length) return false;

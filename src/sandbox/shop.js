@@ -146,6 +146,7 @@
       run.gold -= price;
       shop.rerolls += 1;
       rollCards();
+      if (shop.coupon) shop.cards.forEach(function (c) { c.price = 0; });
       return { ok: true };
     };
 
@@ -192,6 +193,13 @@
 
     rollCards();
     rollPacks();
+    // Favours owed from a skipped enemy (round.js run.skip), spent here.
+    shop.favours = run.favours.splice(0);
+    shop.favours.forEach(function (f) {
+      if (f === 'free_pack' && shop.packs[0]) shop.packs[0].free = true;
+      if (f === 'coupon') shop.coupon = true;
+    });
+    if (shop.coupon) shop.cards.forEach(function (c) { c.price = 0; });
     return shop;
   };
 })();
