@@ -1461,3 +1461,30 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
 .sb-purse { margin-left: auto; display: inline-flex; align-items: baseline; gap: 6px; }
 .sb-purse b { font-family: var(--figure); font-size: 18px; color: var(--brass-hot); }
 .sb-purse em { font-style: normal; color: var(--leaf-dim); font-size: 11px; }
+
+/* INKED TILES (inks.js): a rim in the ink's colour and a corner mark, in the
+   spirit of the reference bonus styling. No transform -- the FLIP owns it. */
+.sb-tile.is-ink-gilt { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px #e0b544, 0 0 8px rgba(224, 181, 68, 0.7); }
+.sb-tile.is-ink-bold { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px var(--rubric), 0 0 8px rgba(212, 97, 74, 0.7); }
+.sb-tile.is-ink-steel { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px #b8a5d8, 0 0 8px rgba(184, 165, 216, 0.7); }
+.sb-tile.is-ink-blank { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px #6fb3e0; }
+.sb-tile[class*="is-ink-"]::after {
+  content: '';
+  position: absolute; top: 3px; left: 4px;
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.sb-tile.is-ink-gilt::after { background: #e0b544; }
+.sb-tile.is-ink-bold::after { background: var(--rubric); }
+.sb-tile.is-ink-steel::after { background: #b8a5d8; }
+.sb-tile.is-ink-blank::after { background: #6fb3e0; }
+.sb-tile.is-inking { background: var(--brass-hot); border-color: var(--brass-hot); }
+
+.sb-inking {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin: 10px 0 4px; padding: 8px 12px;
+  border: 1px dashed var(--brass); background: var(--pit-deep);
+}
+.sb-inking .sb-hint { margin: 0; }
+.sb-vowels { display: inline-flex; gap: 4px; }
+.sb-vowel { padding: 6px 10px; font-family: var(--display); font-size: 15px; text-transform: none; letter-spacing: 0; }
+.sb-vowel.is-on { color: var(--ink); background: var(--leaf); border-color: var(--leaf); }

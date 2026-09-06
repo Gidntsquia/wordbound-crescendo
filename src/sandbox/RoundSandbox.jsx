@@ -58,6 +58,10 @@ const TUNE_LABELS = {
   ETUDE_PRICE: 'Étude price',
   REROLL_PRICE: 'Reroll price',
   REROLL_STEP: 'Reroll price step',
+  INK_GILT: 'Gilt · points per tile',
+  INK_BOLD: 'Bold · mult per tile',
+  INK_STEEL: 'Steel · × mult held',
+  INK_COIN_CAP: 'Coin · gold cap',
   GOLD_SMALL: 'Gold, small enemy',
   GOLD_BIG: 'Gold, big enemy',
   GOLD_BOSS: 'Gold, boss',
@@ -74,12 +78,14 @@ function describeBreakdown(b) {
   pts.push('letters ' + b.base);
   if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
   if (b.variantFlat) pts.push('charged +' + b.variantFlat);
+  if (b.inkPoints) pts.push('gilt +' + b.inkPoints);
   if (b.itemPoints) pts.push('items +' + b.itemPoints);
   let out = b.tierName + (b.tierLevel > 1 ? ' · lvl ' + b.tierLevel : '') + ' · ';
   out += (pts.length > 1 ? pts.join(' + ') + ' = ' : '') + b.points + ' pts × ' + b.mult;
   const multParts = [];
-  if (b.itemMult) multParts.push('tier ' + b.tierMult + ' + items ' + b.itemMult);
+  if (b.itemMult || b.inkMult) multParts.push('tier ' + b.tierMult + (b.inkMult ? ' + bold ' + b.inkMult : '') + (b.itemMult ? ' + items ' + b.itemMult : ''));
   if (b.bonusMult !== 1) multParts.push('× tile ' + b.bonusMult);
+  if (b.holdMult && b.holdMult !== 1) multParts.push('× steel held ' + b.holdMult);
   if (b.itemXMult && b.itemXMult !== 1) multParts.push('× items ' + b.itemXMult);
   if (multParts.length) out += ' (' + multParts.join(' ') + ')';
   return out;
@@ -145,7 +151,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk }) {
                 <button type="button" className="sb-card-use"
                   onClick={() => act('Played the ' + consumableName(SB, c) + ' — ' + SB.TIER_DEFS[c.id].name + ' is level ' + ((run.tierLevels[c.id] || 1) + 1) + '.', run.useConsumable(i))}>use</button>
               )}
-              {live && c.kind === 'ink' && onInk && (
+              {c.kind === 'ink' && onInk && (live || SB.INK_DEFS[c.id].targets === 0) && (
                 <button type="button" className="sb-card-use" onClick={() => onInk(i)}>use</button>
               )}
               {inShop && (
@@ -164,7 +170,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk }) {
 }
 
 // The shop between fights: two cards, two packs, reroll, and the door.
-function Shop({ run, SB, act, leave }) {
+function Shop({ run, SB, act, leave, onInk }) {
   const shop = run.shop;
   const next = SB.enemyAt(run.movement, run.stage);
   const packDef = (kind) => SB.PACK_KINDS.find((k) => k.kind === kind);
@@ -222,7 +228,7 @@ function Shop({ run, SB, act, leave }) {
             </button>
           ))}
         </div>
-        <HeldRow run={run} SB={SB} act={act} inShop />
+        <HeldRow run={run} SB={SB} act={act} inShop onInk={onInk} />
         <button type="button" className="sb-go sb-shop-leave" onClick={leave}>
           Next fight · {next.glyph} {next.name} · target {run.targetFor(run.movement, run.stage)}
         </button>
@@ -398,6 +404,38 @@ export default function RoundSandbox() {
     refresh();
     return true;
   }, [say, refresh]);
+
+  // INKING: tapping a held ink enters "choose a tile" on the case; Apply
+  // commits it. { index, ink, ids, vowel } while choosing.
+  const [inking, setInking] = useState(null);
+  const useInk = useCallback((i) => {
+    const r = fight.current?.run;
+    if (!r) return;
+    const c = r.consumables[i];
+    if (!c || c.kind !== 'ink') return;
+    const ink = SB.INK_DEFS[c.id];
+    if (ink.targets === 0) {
+      const res = r.useConsumable(i, []);
+      act(res.ok ? res.result.note : null, res);
+      return;
+    }
+    setWord('');
+    setInking({ index: i, ink, ids: [], vowel: null });
+  }, [act, SB]);
+  const applyInk = useCallback(() => {
+    const r = fight.current?.run;
+    if (!r || !inking) return;
+    const res = r.useConsumable(inking.index, inking.ids, { vowel: inking.vowel });
+    if (act(res.ok ? res.result.note : null, res)) setInking(null);
+  }, [inking, act]);
+  const toggleInkTile = (id) => {
+    setInking((k) => {
+      if (!k) return k;
+      const ids = k.ids.includes(id) ? k.ids.filter((x) => x !== id)
+        : k.ids.length >= k.ink.targets ? [...k.ids.slice(1), id] : [...k.ids, id];
+      return { ...k, ids };
+    });
+  };
 
   const f = fight.current;
   const run = f ? f.run : null;
@@ -707,7 +745,7 @@ export default function RoundSandbox() {
 
             <span className="sb-enemy">{SB.KIND_LABEL[run.enemy.kind]} · {f.def.glyph} {f.def.name} · {f.piece.title}</span>
           </div>
-          {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} />}
+          {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} onInk={useInk} />}
           {round.plays.length > 0 && (
             <ol className="sb-plays">
               {round.plays.map((p, i) => (
@@ -730,7 +768,7 @@ export default function RoundSandbox() {
             </div>
           )}
           {phase === 'shop' && run.shop && (
-            <Shop run={run} SB={SB} act={act} leave={leaveShop} />
+            <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} />
           )}
           {phase === 'run-won' && (
             <div className="sb-outcome sb-win">
@@ -752,15 +790,40 @@ export default function RoundSandbox() {
               <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
             ) : (
               <button key={t.id} type="button" disabled={!live}
-                className={'sb-tile' + (hollow ? ' is-dragging' : '')}
+                className={'sb-tile' + (hollow ? ' is-dragging' : '') + (t.ink ? ' is-ink-' + t.ink : '')
+                  + (inking && inking.ids.includes(t.id) ? ' is-inking' : '')}
                 data-flip-tile-id={t.id}
-                {...drag.bind('rack', i, t.id)}
-                onClick={() => stageTile(t)}>
+                title={t.ink ? SB.INK_DEFS[t.ink].name + ' — ' + SB.INK_DEFS[t.ink].hint : undefined}
+                {...(inking ? {} : drag.bind('rack', i, t.id))}
+                onClick={() => (inking ? toggleInkTile(t.id) : stageTile(t))}>
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
               </button>
             )))}
           </div>
+
+          {inking && (
+            <div className="sb-inking">
+              <span className="sb-eyebrow">{inking.ink.name}</span>
+              <span className="sb-hint">
+                {inking.ink.targets === 1 ? 'tap one tile in the case' : 'tap up to ' + inking.ink.targets + ' tiles in the case'}
+                {' · '}{inking.ink.hint}
+              </span>
+              {inking.ink.needsVowel && (
+                <span className="sb-vowels">
+                  {SB.VOWELS.map((v) => (
+                    <button key={v} type="button" className={'sb-vowel' + (inking.vowel === v ? ' is-on' : '')}
+                      onClick={() => setInking((k) => ({ ...k, vowel: v }))}>{v}</button>
+                  ))}
+                </span>
+              )}
+              <button type="button" className="sb-go" onClick={applyInk}
+                disabled={!inking.ids.length || (inking.ink.needsVowel && !inking.vowel)}>
+                Apply{inking.ids.length ? ' to ' + inking.ids.length : ''}
+              </button>
+              <button type="button" onClick={() => setInking(null)}>Cancel</button>
+            </div>
+          )}
 
           <div className="sb-stick-wrap">
             <div className="sb-stick-head">
@@ -786,7 +849,7 @@ export default function RoundSandbox() {
               )}
               {stickShown.map(({ t, i, ch, hollow }) => (t ? (
                 <button key={t.id} type="button" disabled={!live}
-                  className={'sb-tile is-set' + (hollow ? ' is-dragging' : '')}
+                  className={'sb-tile is-set' + (hollow ? ' is-dragging' : '') + (t.ink ? ' is-ink-' + t.ink : '')}
                   data-flip-tile-id={t.id}
                   title="Tap to send home · drag to reorder"
                   {...drag.bind('stick', i, t.id)}

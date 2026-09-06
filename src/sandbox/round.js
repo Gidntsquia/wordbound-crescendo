@@ -15,9 +15,10 @@
 // has a base POINTS and a base MULT, and an ETUDE (Balatro's planet card)
 // levels a tier permanently for the run -- run.tierLevels -- adding the
 // tier's per-level bonus each time.
-//   points = tier base (+ level bonus) + letter sum + tile flats + item flats
-//   mult   = tier mult (+ level bonus) + item mult, then x tile mult-on-play
-//            and x item multipliers
+//   points = tier base (+ level bonus) + letter sum + inked tile points
+//            + item flats
+//   mult   = tier mult (+ level bonus) + inked tile mult + item mult, then
+//            x steel tiles held (inks.js) and x item multipliers
 //   total  = round(points x mult)
 // Items fire LEFT TO RIGHT in the order they are held (Sandbox.applyItems);
 // order matters once a x-mult item is in the row.
@@ -111,7 +112,12 @@
     INK_PRICE: 3,
     ETUDE_PRICE: 3,
     REROLL_PRICE: 5,
-    REROLL_STEP: 1
+    REROLL_STEP: 1,
+    // Inks (inks.js).
+    INK_GILT: 20,         // points per gilt tile played
+    INK_BOLD: 2,          // mult per bold tile played
+    INK_STEEL: 1.2,       // x mult per steel tile left in the case
+    INK_COIN_CAP: 10
   };
 
   // Balatro's hand types: a word scores as the tier of its length. An étude
@@ -161,11 +167,25 @@
   // POINTS x MULT for a word made of these tiles. `breakdown` keeps
   // Lexicon.scoreWord's fields (base, bingoBonus, bonusFlat, variantFlat,
   // bonusMult) so the UI can itemise, plus points / lengthMult / mult / total.
-  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune, items, tierLevels) {
+  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune, items, tierLevels, heldTiles) {
     var Lexicon = window.Wordbound.Lexicon;
     var b = Lexicon.scoreWord(word, tilesUsed, rackCapacity);
     b.lengthBonus = 0;
     b.bingoBonus = 0; // length is the tier now; no separate bingo
+    // Inked tiles (inks.js): gilt and bold on the tiles played, steel on the
+    // tiles left waiting in the case.
+    b.inkPoints = 0;
+    b.inkMult = 0;
+    b.holdMult = 1;
+    b.inkNotes = [];
+    tilesUsed.forEach(function (t) {
+      if (t.ink === 'gilt') { b.inkPoints += tune.INK_GILT; b.inkNotes.push('gilt ' + t.letter + ' +' + tune.INK_GILT); }
+      else if (t.ink === 'bold') { b.inkMult += tune.INK_BOLD; b.inkNotes.push('bold ' + t.letter + ' +' + tune.INK_BOLD + ' mult'); }
+    });
+    (heldTiles || []).forEach(function (t) {
+      if (t.ink === 'steel') { b.holdMult *= tune.INK_STEEL; b.inkNotes.push('steel ' + t.letter + ' held ×' + tune.INK_STEEL); }
+    });
+    b.holdMult = Math.round(b.holdMult * 1000) / 1000;
     var tier = Sandbox.tierFor(word);
     var ts = Sandbox.tierStats(tier, tune, tierLevels ? tierLevels[tier.id] : 1);
     b.tier = tier;
@@ -183,9 +203,10 @@
       b.itemPoints += it.points || 0;
       b.itemMult += it.mult || 0;
     });
-    b.points = b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.itemPoints;
+    b.points = b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints + b.itemPoints;
     b.lengthMult = b.tierMult; // kept for older readers of the breakdown
-    b.mult = (b.tierMult + b.itemMult) * b.bonusMult * b.itemXMult;
+    b.mult = (b.tierMult + b.inkMult + b.itemMult) * b.bonusMult * b.holdMult * b.itemXMult;
+    b.mult = Math.round(b.mult * 100) / 100;
     b.total = Math.round(b.points * b.mult);
     return b;
   };
@@ -235,6 +256,11 @@
       }
     }
 
+    // The tiles that would stay in the case if these were played.
+    function held(tilesUsed) {
+      return round.rack.filter(function (t) { return tilesUsed.indexOf(t) < 0; });
+    }
+
     // Rank helper: what would this word score off the CURRENT rack's tiles?
     // Falls back to plain letter values when the rack cannot form it, so the
     // word list can still order words it has no tiles for.
@@ -243,7 +269,7 @@
       var form = Lexicon.canFormFromRack(upper, round.rack);
       var tiles = form.possible ? form.tilesUsed
         : upper.split('').map(function (l) { return { letter: l, bonus: null, variant: null }; });
-      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, tune, items, tierLevels);
+      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, tune, items, tierLevels, held(tiles));
     };
     round.scoreFor = function (word) { return round.breakdownFor(word).total; };
 
@@ -261,7 +287,7 @@
       var form = Lexicon.canFormFromRack(upper, round.rack);
       if (!form.possible) return { ok: false, reason: upper + ' needs letters you don’t have.' };
 
-      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, tune, items, tierLevels);
+      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, tune, items, tierLevels, held(form.tilesUsed));
       var messages = [];
       Lexicon.removeTiles(round.rack, form.tilesUsed);
       round.pile.discardPile.push.apply(round.pile.discardPile, form.tilesUsed);
@@ -289,6 +315,15 @@
       round.pile.discardPile.push.apply(round.pile.discardPile, back);
       round.changeoutsLeft -= 1;
       return { ok: true, drawn: drawn, returned: back };
+    };
+
+    // An Erase ink: the tile leaves the case for good and the case refills.
+    round.destroyTile = function (tileId) {
+      var i = round.rack.findIndex(function (t) { return t.id === tileId; });
+      if (i < 0) return false;
+      round.rack.splice(i, 1);
+      refill();
+      return true;
     };
 
     // Rearrange the rack by hand: the player's own ordering, nothing scored.
@@ -386,7 +421,7 @@
     };
     // Use a held consumable. An étude needs nothing else; an ink takes the
     // ids of the tiles it is applied to (inks.js, Phase 4).
-    run.useConsumable = function (i, tileIds) {
+    run.useConsumable = function (i, tileIds, extra) {
       var c = run.consumables[i];
       if (!c) return { ok: false, reason: 'Nothing there.' };
       if (c.kind === 'etude') {
@@ -395,7 +430,7 @@
         return { ok: true, used: c };
       }
       if (c.kind === 'ink' && Sandbox.applyInk) {
-        var res = Sandbox.applyInk(run, c.id, tileIds || []);
+        var res = Sandbox.applyInk(run, c.id, tileIds || [], extra);
         if (!res.ok) return res;
         run.consumables.splice(i, 1);
         return { ok: true, used: c, result: res };
