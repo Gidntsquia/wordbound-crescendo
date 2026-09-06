@@ -7,8 +7,8 @@
 // and reduced to the two things the mechanic needs: a loudness envelope
 // (intensity) and a list of surges (the crescendos it telegraphs against).
 //
-// Decoding happens in headless Chromium via decodeAudioData because the repo
-// has Playwright already and does not have ffmpeg.
+// Decoding uses ffmpeg when it is on the PATH (it is, at /usr/bin/ffmpeg) and
+// falls back to headless Chromium's decodeAudioData otherwise.
 //
 // The output file is HAND-OWNED except for one region. Everything about the
 // piece that a person decides -- its title, its licensing, the prose the fight
@@ -74,10 +74,39 @@ const MAG_PEAK_WEIGHT = 0.3;
 // of scratch data have no business being deployed. Pass --fresh to re-decode.
 const CACHE = path.join(ROOT, '.cache', path.basename(IN) + '.env.json');
 
+// ffmpeg decode: no browser, a second per track. Same envelope as the
+// Chromium path (20 Hz RMS on a mono 48 kHz mix), so cached results agree.
+function decodeWithFfmpeg() {
+  const { execFileSync } = require('child_process');
+  const SR = 48000;
+  let pcm;
+  try {
+    pcm = execFileSync('ffmpeg', ['-v', 'error', '-i', IN, '-f', 'f32le', '-ac', '1', '-ar', String(SR), '-'],
+      { maxBuffer: 1 << 30 });
+  } catch (e) { return null; }
+  const d = new Float32Array(pcm.buffer, pcm.byteOffset, pcm.byteLength >> 2);
+  const HOP = Math.round(SR / 20);
+  const env = [];
+  for (let i = 0; i + HOP <= d.length; i += HOP) {
+    let sq = 0;
+    for (let j = i; j < i + HOP; j++) sq += d[j] * d[j];
+    env.push(Math.sqrt(sq / HOP));
+  }
+  let peak = 0;
+  for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
+  return { duration: +(d.length / SR).toFixed(2), peak: +peak.toFixed(3), hopSec: HOP / SR, env };
+}
+
 async function decodeEnvelope() {
   if (!args.includes('--fresh') && fs.existsSync(CACHE)
       && fs.statSync(CACHE).mtimeMs >= fs.statSync(IN).mtimeMs) {
     return JSON.parse(fs.readFileSync(CACHE, 'utf8'));
+  }
+  const viaFfmpeg = decodeWithFfmpeg();
+  if (viaFfmpeg) {
+    fs.mkdirSync(path.dirname(CACHE), { recursive: true });
+    fs.writeFileSync(CACHE, JSON.stringify(viaFfmpeg));
+    return viaFfmpeg;
   }
   const { chromium } = require(path.join(ROOT, 'node_modules/playwright'));
   const dir = path.dirname(IN);

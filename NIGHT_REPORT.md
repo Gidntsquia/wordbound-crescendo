@@ -67,8 +67,21 @@ Zero page errors; no horizontal scroll at 390.
 
 ## Licence notes
 
-No new audio. Nothing changed under js/wordbound/ or src/components/. The
-Pixabay recordings remain the logged not-PD exceptions.
+Updated 2026-09-06 (DEMO_PLAN_2 Phase 1). Nine recordings now, one per
+enemy, all listed with URL, licence and sha256 in `tools/audio-manifest.json`
+and reproduced by `npm run fetch:audio`; every `src/sandbox/recorded*.js`
+header names its source and licence. Seven are public domain in BOTH
+composition and performance (Symphony 5 / Skidmore; Goldberg Aria / Ishizaka
+CC0; Mountain King, Gymnopédie 1, Eine kleine Nachtmusik, Night on Bald
+Mountain / Musopen PD releases; William Tell finale / US Marine Band, a US
+government work). The two Pixabay tracks (Für Elise, Moonlight) remain the
+logged not-PD exceptions and stay committed; the seven fetched MP3s are
+gitignored. Nothing changed under js/wordbound/ or src/components/.
+
+- **Movement III difficulty** is untuned: MOVEMENT_BASE_3 = 1200 (×1.6 on
+  Movement II) and the boss rule `sotto_voce` halves the mult of 5+ letter
+  words while 3–4 letter words get ×1.5. Whether that boss is fair at
+  target 2400 needs a played run.
 
 ## Not done / not tonight
 

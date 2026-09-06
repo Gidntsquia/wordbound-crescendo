@@ -5,3 +5,9 @@ dist/
 
 # analyzer decode cache (tools/analyze-audio-piece.js)
 .cache/
+
+# fetched recordings (tools/fetch-audio.js reproduces them from tools/audio-manifest.json);
+# the two hand-placed Pixabay tracks stay committed
+public/audio/*.mp3
+!public/audio/fur-elise.mp3
+!public/audio/moonlight-sonata.mp3

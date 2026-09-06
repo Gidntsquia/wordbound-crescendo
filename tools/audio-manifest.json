@@ -1,0 +1,139 @@
+{
+  "_comment": "Every recording the sandbox plays, with its provenance. `npm run fetch:audio` (tools/fetch-audio.js) downloads each `url` into .cache/audio/, trims it to `trim` with ffmpeg, writes `file` as 128 kbps MP3, writes src/sandbox/<module>.js once (hand-owned header from these fields) and refreshes its GENERATED block. Entries without a `url` are hand-placed files that stay committed (the two Pixabay tracks). `sha256` is of the DOWNLOADED source, recorded on first fetch, checked after.",
+  "recordings": [
+    {
+      "id": "fur-elise",
+      "module": "recordedFurElise",
+      "file": "public/audio/fur-elise.mp3",
+      "title": "Für Elise",
+      "composer": "Ludwig van Beethoven",
+      "performer": "Pixabay track, performer uncredited",
+      "license": "Pixabay Content License (composition public domain; recording permissive, not PD)",
+      "sourcePage": "https://pixabay.com/music/search/fur%20elise/",
+      "committed": true
+    },
+    {
+      "id": "moonlight-sonata",
+      "module": "recordedMoonlight",
+      "file": "public/audio/moonlight-sonata.mp3",
+      "title": "Moonlight Sonata",
+      "composer": "Ludwig van Beethoven",
+      "performer": "Pixabay track, performer uncredited",
+      "license": "Pixabay Content License (composition public domain; recording permissive, not PD)",
+      "sourcePage": "https://pixabay.com/music/",
+      "committed": true
+    },
+    {
+      "id": "symphony-5",
+      "module": "recordedSymphony5",
+      "file": "public/audio/symphony-5.mp3",
+      "title": "Symphony No. 5, I. Allegro con brio",
+      "composer": "Ludwig van Beethoven",
+      "performer": "Skidmore College Orchestra",
+      "license": "Public domain (composition and recording; performers' PD dedication via Musopen)",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Ludwig_van_Beethoven_-_symphony_no._5_in_c_minor,_op._67_-_i._allegro_con_brio.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Ludwig_van_Beethoven_-_symphony_no._5_in_c_minor%2C_op._67_-_i._allegro_con_brio.ogg",
+      "trim": {
+        "start": 0,
+        "seconds": 200
+      },
+      "sha256": "663cfa62707be850a51ec8cd7b51b95595a9ee010f3eefea16e1dd46d54a9d95"
+    },
+    {
+      "id": "goldberg-aria",
+      "module": "recordedGoldbergAria",
+      "file": "public/audio/goldberg-aria.mp3",
+      "title": "Goldberg Variations, Aria",
+      "composer": "Johann Sebastian Bach",
+      "performer": "Kimiko Ishizaka (Open Goldberg Variations)",
+      "license": "CC0 1.0 (composition public domain; recording dedicated to the public domain by the performer)",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Kimiko_Ishizaka_-_01_-_Aria.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Kimiko_Ishizaka_-_01_-_Aria.ogg",
+      "trim": {
+        "start": 0,
+        "seconds": 180
+      },
+      "sha256": "c6b232e71e0c2a615c74ad119692db7f618173bc1c5452e0c6d4875990634d14"
+    },
+    {
+      "id": "mountain-king",
+      "module": "recordedMountainKing",
+      "file": "public/audio/mountain-king.mp3",
+      "title": "In the Hall of the Mountain King",
+      "composer": "Edvard Grieg",
+      "performer": "Musopen Symphony Orchestra (Czech National Symphony Orchestra)",
+      "license": "Public domain (composition and recording; Musopen Kickstarter release)",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Musopen_-_In_the_Hall_Of_The_Mountain_King.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Musopen_-_In_the_Hall_Of_The_Mountain_King.ogg",
+      "trim": {
+        "start": 0,
+        "seconds": 160
+      },
+      "sha256": "3bfa7424d3a148f1482a44688b77eb9138a7cea6cff7474799f1329181ab3342"
+    },
+    {
+      "id": "william-tell",
+      "module": "recordedWilliamTell",
+      "file": "public/audio/william-tell.mp3",
+      "title": "William Tell Overture, finale",
+      "composer": "Gioachino Rossini",
+      "performer": "United States Marine Band (dir. Timothy Foley), 2000",
+      "license": "Public domain (composition public domain; recording a work of the US federal government)",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Gioachino_Rossini,_William_Tell_Overture_(military_band_version,_2000).ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/43/Gioachino_Rossini%2C_William_Tell_Overture_%28military_band_version%2C_2000%29.ogg",
+      "trim": {
+        "start": 447,
+        "seconds": 215
+      },
+      "sha256": "a63a296eb411a3dc998c7ae5f87d2978553cd79a246da758ec8d0d161f4d5200"
+    },
+    {
+      "id": "gymnopedie-1",
+      "module": "recordedGymnopedie",
+      "file": "public/audio/gymnopedie-1.mp3",
+      "title": "Gymnopédie No. 1",
+      "composer": "Erik Satie",
+      "performer": "Robin Alciatore (Musopen)",
+      "license": "Public domain (composition public domain; recording released as public domain via Musopen)",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Erik_Satie_-_gymnopedies_-_la_1_ere._lent_et_douloureux.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/90/Erik_Satie_-_gymnopedies_-_la_1_ere._lent_et_douloureux.ogg",
+      "trim": {
+        "start": 0,
+        "seconds": 190
+      },
+      "sha256": "419e37656856224227086df32d6d481a00a738961e08fca9f6147e472beea53e"
+    },
+    {
+      "id": "nachtmusik",
+      "module": "recordedNachtmusik",
+      "file": "public/audio/nachtmusik.mp3",
+      "title": "Eine kleine Nachtmusik, I. Allegro",
+      "composer": "Wolfgang Amadeus Mozart",
+      "performer": "Musopen (European Archive)",
+      "license": "Public domain (composition public domain; recording released as public domain via Musopen)",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Mozart_K525_Serenade_in_G_Major_1_-_Allegro.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/6/68/Mozart_K525_Serenade_in_G_Major_1_-_Allegro.ogg",
+      "trim": {
+        "start": 0,
+        "seconds": 180
+      },
+      "sha256": "c0bd9e48d7b7c60ead7ebad4d147f8dbe1e1a9f8ba4a89cde97966cc8afd5394"
+    },
+    {
+      "id": "bald-mountain",
+      "module": "recordedBaldMountain",
+      "file": "public/audio/bald-mountain.mp3",
+      "title": "Night on Bald Mountain",
+      "composer": "Modest Mussorgsky",
+      "performer": "Musopen",
+      "license": "Public domain (composition public domain; recording released as public domain via Musopen)",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Modest_Mussorgsky_-_night_on_bald_mountain.ogg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Modest_Mussorgsky_-_night_on_bald_mountain.ogg",
+      "trim": {
+        "start": 0,
+        "seconds": 200
+      },
+      "sha256": "f0c7f3cd9dc3b746fd8080860012ba152b99760021431f127070a2825d2cefc9"
+    }
+  ]
+}

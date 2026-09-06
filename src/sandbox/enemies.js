@@ -1,9 +1,10 @@
 // src/sandbox/enemies.js
-// THE LINEUP: two MOVEMENTS of three enemies each (Balatro's antes and
-// blinds, see BALATRO_NOTES.md). Each enemy is a piece of music -- one of the
-// sandbox's three recordings, reused across movements, no new audio -- with a
+// THE LINEUP: three MOVEMENTS of three enemies each (Balatro's antes and
+// blinds, see BALATRO_NOTES.md). Each enemy is its own piece of music -- one
+// of the nine recordings tools/audio-manifest.json fetches (small = a light
+// solo piece, big = something with a pulse, boss = orchestral) -- with a
 // kind that sets its target multiplier and gold: small x1, big x1.5, boss x2
-// of the movement's base (ROUND_DEFAULTS MOVEMENT_BASE_1 / _2, BIG_MULT,
+// of the movement's base (ROUND_DEFAULTS MOVEMENT_BASE_1 / _2 / _3, BIG_MULT,
 // BOSS_MULT). A boss may carry a RULE (a "tempo marking", Sandbox.RULES)
 // that round.js applies at creation.
 //
@@ -32,12 +33,23 @@
     {
       numeral: 'II', name: 'Second Movement',
       enemies: [
-        { id: 'bagatelle2', name: 'The Bagatelle, Reprise', glyph: '\u{1F339}', recorded: 'recordedFurElise', kind: 'small',
-          flavour: 'The same tune, sharper teeth.' },
-        { id: 'moonlight2', name: 'The Moonlight, Presto', glyph: '\u{1F319}', recorded: 'recordedMoonlight', kind: 'big',
-          flavour: 'It has learned to hurry.', rule: 'presto' },
-        { id: 'fate2', name: 'Fate Answered', glyph: '\u{1F451}', recorded: 'recordedSymphony5', kind: 'boss',
+        { id: 'aria', name: 'The Aria', glyph: '\u{1F54A}\uFE0F', recorded: 'recordedGoldbergAria', kind: 'small',
+          flavour: 'A single line, unhurried. It will wait for you.' },
+        { id: 'mountain_king', name: 'The Mountain King', glyph: '\u{1F3D4}\uFE0F', recorded: 'recordedMountainKing', kind: 'big',
+          flavour: 'It starts on tiptoe. It does not stay there.', rule: 'presto' },
+        { id: 'gallop', name: 'The Gallop', glyph: '\u{1F40E}', recorded: 'recordedWilliamTell', kind: 'boss',
           flavour: 'Every letter you spend, it remembers.', rule: 'no_repeats' }
+      ]
+    },
+    {
+      numeral: 'III', name: 'Third Movement',
+      enemies: [
+        { id: 'gymnopedie', name: 'The Gymnop\u00e9die', glyph: '\u{1F32B}\uFE0F', recorded: 'recordedGymnopedie', kind: 'small',
+          flavour: 'Slow and sorrowful. It has nowhere to be.' },
+        { id: 'serenade', name: 'The Serenade', glyph: '\u{1F3BB}', recorded: 'recordedNachtmusik', kind: 'big',
+          flavour: 'A little night music. It knows every step.' },
+        { id: 'bald_mountain', name: 'The Bare Mountain', glyph: '\u{1F311}', recorded: 'recordedBaldMountain', kind: 'boss',
+          flavour: 'Speak softly here. The loud words are taken from you.', rule: 'sotto_voce' }
       ]
     }
   ];
@@ -63,6 +75,16 @@
       id: 'presto', name: 'Presto',
       text: 'No time to dwell. Three words instead of four, and the target is lighter — ×0.8.',
       plays: -1, targetMult: 0.8
+    },
+    sotto_voce: {
+      id: 'sotto_voce', name: 'Sotto voce',
+      text: 'Softly. A word of five letters or more scores ×0.5 mult here; three or four letters, ×1.5.',
+      score: function (ctx, acc) {
+        var n = ctx.word.length;
+        if (n >= 5) { acc.mult *= 0.5; return '×0.5 mult, sotto voce'; }
+        if (n >= 3) { acc.mult *= 1.5; return '×1.5 mult, sotto voce'; }
+        return null;
+      }
     },
     no_repeats: {
       id: 'no_repeats', name: 'No repeats',

@@ -68,10 +68,11 @@ not something to reintroduce piecemeal mid-task.
   is the term-for-term mapping; NIGHT_REPORT.md is what shipped and what
   needs Jaxon's feel judgement). All model code is plain JS on
   `window.Wordbound.Sandbox`, no React, no timers:
-  - `enemies.js` — `Sandbox.MOVEMENTS`: two movements of three enemies
-    (small / big / boss), each a recording; `Sandbox.RULES` are the boss
-    TEMPO MARKINGS (four_knocks: 4-letter words ×2 mult; presto: 3 words,
-    target ×0.8; no_repeats: a letter played this round is barred).
+  - `enemies.js` — `Sandbox.MOVEMENTS`: three movements of three enemies
+    (small / big / boss), each its own recording; `Sandbox.RULES` are the
+    boss TEMPO MARKINGS (four_knocks: 4-letter words ×2 mult; presto: 3
+    words, target ×0.8; no_repeats: a letter played this round is barred;
+    sotto_voce: 5+ letters ×0.5 mult, 3–4 letters ×1.5).
   - `round.js` — `ROUND_DEFAULTS` (every tunable; the tuning panel mirrors
     it), `TIERS` (word-length tiers SHORT/THREE/FOUR/FIVE/SIX/SEVEN, each a
     base points × mult, levelled by ÉTUDES), `scoreWordPoints` (points =
@@ -100,15 +101,22 @@ not something to reintroduce piecemeal mid-task.
     played tile leaves a hollow), the row under it THE COMPOSING STICK, a
     FLIP slide between them — nothing may set `transform` on `.sb-tile`.
     The stick is also the changeout selection.
-  - `audioPiece.js` + `recordedFurElise.js` / `recordedMoonlight.js` /
-    `recordedSymphony5.js` — the three RECORDINGS under public/audio/
-    (Pixabay ×2, permissive but not PD; Skidmore College Orchestra, public
-    domain). These are the logged exceptions to the synthesized-only rule;
-    the sandbox does not load music.js. Enemies beyond three reuse them.
-    Soundtrack only; the music never touches the score.
+  - `audioPiece.js` + `recordings.js` (generated import index) +
+    `recorded*.js` ×9 — the nine RECORDINGS under public/audio/, one per
+    enemy. `tools/audio-manifest.json` is the source of truth (URL, licence,
+    performer, trim, sha256); `npm run fetch:audio` (tools/fetch-audio.js)
+    downloads into `.cache/audio/`, trims/transcodes with ffmpeg to 128 kbps
+    excerpts, writes a new recorded file's header once, and refreshes the
+    GENERATED envelope block via tools/analyze-audio-piece.js (ffmpeg
+    decode, Chromium fallback). Fetched MP3s are gitignored; `build:site`
+    fetches any that are missing. Für Elise and Moonlight are Pixabay
+    (permissive, not PD, committed); the other seven are public domain in
+    composition and performance. These are the logged exceptions to the
+    synthesized-only rule; the sandbox does not load music.js. Soundtrack
+    only; the music never touches the score.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation,
   kept until the React port reaches full parity.
-- `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`.
+- `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`.
 - `THEME.md` — world/style bible. `ROADMAP.md` — north star + known gaps.
   `COMBAT_REDESIGN.md` — the 2026-09-05 plan: Balatro-with-Scrabble rounds
   (4 words, 3 changeouts, beat a point target, gold, shop) replacing the tug

@@ -47,7 +47,7 @@
 //   tierFor(word, tune)  -- the tier a word of that length scores as
 //   (ITEMS live in items.js, inks in inks.js, the shop in shop.js)
 //   createRun(opts)      -- { rng, deck, tune?, items? } -> a run down
-//                           Sandbox.MOVEMENTS (enemies.js): two movements of
+//                           Sandbox.MOVEMENTS (enemies.js): three movements of
 //                           small / big / boss, targets MOVEMENT_BASE_n x
 //                           1 / BIG_MULT / BOSS_MULT, gold pooled with
 //                           INTEREST (1 per INTEREST_PER held, cap
@@ -86,6 +86,7 @@
   Sandbox.ROUND_DEFAULTS = {
     MOVEMENT_BASE_1: 300, // small-enemy target, first movement (Phase 0)
     MOVEMENT_BASE_2: 750, // second movement, ~2.5x like Balatro's antes
+    MOVEMENT_BASE_3: 1200, // third movement, x1.6 -- untuned, see NIGHT_REPORT
     BIG_MULT: 1.5,        // big enemy target = base x this
     BOSS_MULT: 2,         // boss target = base x this
     PLAYS: 4,            // words the player may play

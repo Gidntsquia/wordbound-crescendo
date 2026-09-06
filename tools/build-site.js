@@ -12,12 +12,16 @@
 // not break their asset paths.
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(ROOT, 'dist', 'app');
 const SITE = path.join(ROOT, 'dist', 'site');
 
+// The fetched recordings are not in git; pull any that are missing first.
+if (spawnSync('node', ['tools/fetch-audio.js', '--check'], { cwd: ROOT, stdio: 'ignore' }).status !== 0) {
+  execFileSync('node', ['tools/fetch-audio.js'], { cwd: ROOT, stdio: 'inherit' });
+}
 execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'inherit' });
 
 fs.rmSync(SITE, { recursive: true, force: true });

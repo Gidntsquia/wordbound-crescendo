@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "build:itch": "node tools/build-itch.js",
     "prerecord:gameplay": "node tools/ensure-deps.js @playwright/test",
-    "record:gameplay": "node tools/record-gameplay.js"
+    "record:gameplay": "node tools/record-gameplay.js",
+    "fetch:audio": "node tools/fetch-audio.js"
   },
   "dependencies": {
     "react": "^19.2.8",

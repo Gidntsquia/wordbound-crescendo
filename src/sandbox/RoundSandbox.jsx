@@ -34,6 +34,7 @@ function flipTileTo(fromRect, toEl) {
 const TUNE_LABELS = {
   MOVEMENT_BASE_1: 'Target base, movement I',
   MOVEMENT_BASE_2: 'Target base, movement II',
+  MOVEMENT_BASE_3: 'Target base, movement III',
   BIG_MULT: 'Big enemy × base',
   BOSS_MULT: 'Boss × base',
   PLAYS: 'Words per round',
@@ -255,13 +256,14 @@ function writeBest(next) {
   try { window.localStorage.setItem(BEST_KEY, JSON.stringify(next)); } catch (e) { /* private mode, quota: ignore */ }
 }
 function depthOf(run) { return run.movement * 3 + run.stage; }
+function runLength(run) { return run.movements.reduce((n, m) => n + m.enemies.length, 0); }
 function recordRun(run, won) {
   const best = readBest();
   const out = { ...best };
   if (run.bestPlay && (!best.word || run.bestPlay.breakdown.total > best.word.total)) {
     out.word = { word: run.bestPlay.word, total: run.bestPlay.breakdown.total, enemy: run.bestPlay.enemy };
   }
-  const depth = won ? 6 : depthOf(run);
+  const depth = won ? runLength(run) : depthOf(run);
   if (!best.deepest || depth > best.deepest.depth) {
     out.deepest = { depth, name: won ? 'the whole run' : run.enemy.name };
   }
@@ -286,7 +288,7 @@ function EndScreen({ run, won, SB, seed, onAgain, onCopy, best, describe }) {
     <div className={'sb-end ' + (won ? 'sb-win' : 'sb-lose')}>
       <h2 className="sb-end-title">{won ? 'The last boss falls.' : 'Lost to ' + run.enemy.name + '.'}</h2>
       <p className="sb-end-sub">
-        {won ? 'Both movements, ' + run.felled.length + ' enemies felled' : (run.round.target - run.round.score) + ' short of the target'}
+        {won ? 'All ' + run.movements.length + ' movements, ' + run.felled.length + ' enemies felled' : (run.round.target - run.round.score) + ' short of the target'}
         {' · '}{run.wordsPlayed} word{run.wordsPlayed === 1 ? '' : 's'} played · <b>{run.gold}</b> gold
       </p>
       <div className="sb-end-grid">
@@ -422,16 +424,21 @@ export default function RoundSandbox() {
     if (f && f.gain) f.gain.gain.value = volume;
   }, [volume]);
 
-  // Pull all three recordings down up front, not at each stage's start.
-  useEffect(() => {
-    const seen = new Set();
-    SB.MOVEMENTS.forEach((m) => m.enemies.forEach((def) => {
-      if (seen.has(def.recorded)) return;
-      seen.add(def.recorded);
-      const piece = SB[def.recorded];
-      if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
-    }));
+  // Warm the recording for an enemy (bytes only; the decode waits for the
+  // fight). Nine excerpts are ~25 MB, too much to pull up front on a phone,
+  // so only the enemy on stage and the one after it are warmed.
+  const warm = useCallback((movement, stage) => {
+    const def = SB.enemyAt(movement, stage);
+    const piece = def && SB[def.recorded];
+    if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
   }, [SB]);
+  const warmAhead = useCallback((run) => {
+    warm(run.movement, run.stage);
+    const m = run.movements[run.movement];
+    if (run.stage + 1 < m.enemies.length) warm(run.movement, run.stage + 1);
+    else warm(run.movement + 1, 0);
+  }, [warm]);
+  useEffect(() => { warm(0, 0); warm(0, 1); }, [warm]);
 
   // Start the soundtrack for the run's current enemy.
   const startStage = useCallback((run) => {
@@ -455,6 +462,7 @@ export default function RoundSandbox() {
     // Take the stage under the previous enemy's last breath, not over it.
     seq.whenReady.then(() => { if (fight.current?.seq === seq) seq.fadeIn(1.2); });
     const round = run.round;
+    warmAhead(run);
     fight.current = { ...f, run, round, seq, def, piece };
     window.__round = round;
     window.__run = run;
@@ -464,7 +472,7 @@ export default function RoundSandbox() {
     say('Movement ' + SB.MOVEMENTS[run.movement].numeral + ' · ' + SB.KIND_LABEL[def.kind] + ' — '
       + def.name + ' takes up ' + piece.title + '. Target ' + round.target + '.');
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [say, W, SB]);
+  }, [say, W, SB, warmAhead]);
 
   const start = useCallback((seedOverride) => {
     const useSeed = typeof seedOverride === 'string' ? seedOverride : seed;
@@ -511,13 +519,14 @@ export default function RoundSandbox() {
       return;
     }
     if (f.run.shop) {
+      warm(f.run.movement, f.run.stage);
       setPhase('shop');
       say('The shop opens. ' + f.run.gold + ' gold in the purse.');
       refresh();
       return;
     }
     startStage(f.run);
-  }, [phase, say, refresh, startStage, SB]);
+  }, [phase, say, refresh, startStage, SB, warm]);
 
   // Leave the shop and go on to the next enemy.
   const leaveShop = useCallback(() => {
@@ -797,7 +806,7 @@ export default function RoundSandbox() {
       )}
       <header className="sb-head">
         <div className="sb-wordmark">
-          <span className="sb-eyebrow">Round sandbox · two movements</span>
+          <span className="sb-eyebrow">Round sandbox · three movements</span>
           <h1>Wordbound<span className="sb-amp">·</span>Crescendo</h1>
         </div>
         <button type="button" className="sb-gear" aria-label="Setup and tuning" title="Setup and tuning"
@@ -887,7 +896,7 @@ export default function RoundSandbox() {
         <button type="button" className="sb-go sb-start-narrow" onClick={() => start()}>Start</button>
       )}
       {phase === 'idle' && (
-        <p className="sb-hint">{best.word && <>Best so far: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}. </>}Pick a bag, then Start. Two movements of three enemies — small, big, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult. Gold earns interest between fights.</p>
+        <p className="sb-hint">{best.word && <>Best so far: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}. </>}Pick a bag, then Start. Three movements of three enemies — small, big, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult. Gold earns interest between fights.</p>
       )}
 
       {round && (

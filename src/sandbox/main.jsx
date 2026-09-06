@@ -27,15 +27,12 @@ import './inks.js';
 import './wordFinder.js';
 // Which letters a fight draws from -- three bags, weak/normal/strong.
 import './tileBags.js';
-// The recorded Für Elise (public/audio/fur-elise.mp3) and the player that
-// fronts it -- the one logged exception to the synthesized-only rule, kept
-// because the sequenced Für Elise sounds off. Soundtrack only here.
+// The player that fronts a RECORDING (the logged exception to the
+// synthesized-only rule) and the nine recordings themselves -- recordings.js
+// is generated from tools/audio-manifest.json by `npm run fetch:audio`.
+// Soundtrack only here.
 import './audioPiece.js';
-import './recordedFurElise.js';
-// Battle 2 and the boss: the Moonlight (Pixabay track, same footing as Für
-// Elise) and Symphony No. 5 (Skidmore College Orchestra, public domain).
-import './recordedMoonlight.js';
-import './recordedSymphony5.js';
+import './recordings.js';
 
 import RoundSandbox from './RoundSandbox.jsx';
 
