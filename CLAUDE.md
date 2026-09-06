@@ -80,9 +80,8 @@ not something to reintroduce piecemeal mid-task.
     LEFT TO RIGHT), `createRound` (PLAYS words, CHANGEOUTS swaps, a single
     tile always playable), `createRun` (walks the lineup; targets
     MOVEMENT_BASE_n × 1 / BIG_MULT / BOSS_MULT; gold with INTEREST; one
-    `run.deck` and one `run.pile` (bag + DISCARD PILE, refilled only when
-    the bag runs dry; a round's leftover rack is discarded; `run.addTile`
-    shuffles a bought tile in) for the whole run; `run.shop` after every won fight short of
+    `run.deck` for the whole run, reshuffled into a fresh `run.pile` (bag +
+    DISCARD PILE, refilled only when the bag runs dry) at every fight; `run.shop` after every won fight short of
     the last; `run.skip()` a small/big enemy for a favour; `run.bestPlay`).
     Its header carries the Phase 0 calibration table.
   - `items.js` — `Sandbox.ITEMS`, fifteen jokers with `score(ctx, acc)`

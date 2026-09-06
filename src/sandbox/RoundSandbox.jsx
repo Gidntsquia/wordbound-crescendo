@@ -1297,7 +1297,7 @@ export default function RoundSandbox() {
             <summary>
               <span><b>{round.pile.drawPile.length}</b> in the bag</span>
               <span><b>{round.pile.discardPile.length}</b> discarded</span>
-              <em>played and swapped tiles wait here until the bag is empty</em>
+              <em>played and swapped tiles wait here until the bag is empty; the bag reshuffles each fight</em>
             </summary>
             <div className="sb-pile-tiles">
               {round.pile.discardPile.length === 0 && <span className="sb-hint">Nothing discarded yet.</span>}

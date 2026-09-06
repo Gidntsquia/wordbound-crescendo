@@ -55,7 +55,8 @@
 //     run.movement, run.stage (both 0-based), run.enemy, run.round,
 //       run.gold, run.state ('live' | 'won' | 'lost'), run.next()
 //     run.targetFor(movement, stage), run.interestPreview()
-//     run.pile -- { drawPile, discardPile }: the bag, shared by every round
+//     run.pile -- { drawPile, discardPile }: this fight's bag, reshuffled from
+//                 the deck at the start of every fight
 //     run.deck -- the tiles every round's rack is drawn from, persisted and
 //       grown by the shop's tile packs
 //     run.tierLevels {tierId: level}, run.levelTier(tierId) -- études
@@ -493,24 +494,19 @@
     run.interestPreview = function () {
       return Math.min(tune.INTEREST_CAP, Math.floor(run.gold / tune.INTEREST_PER));
     };
-    // One bag for the whole run. Played and swapped tiles wait in the discard
-    // pile; the bag is only rebuilt from it when it runs dry. A round's
-    // leftover rack is discarded when the round ends.
-    run.pile = { drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(run.deck, opts.rng), discardPile: [] };
+    // The bag is the whole deck reshuffled at the start of every fight.
+    // Within a fight, played and swapped tiles wait in the discard pile and
+    // only come back once the bag runs dry.
     function discardRack() {
       var r = run.round;
       if (!r) return;
-      run.pile.discardPile.push.apply(run.pile.discardPile, r.rack);
+      r.pile.discardPile.push.apply(r.pile.discardPile, r.rack);
       r.rack = [];
     }
-    // A tile bought in the shop is shuffled into what is left of the bag.
-    run.addTile = function (tile) {
-      run.deck.push(tile);
-      var at = opts.rng.randInt(0, run.pile.drawPile.length);
-      run.pile.drawPile.splice(at, 0, tile);
-    };
+    run.addTile = function (tile) { run.deck.push(tile); };
     function begin() {
       run.enemy = Sandbox.enemyAt(run.movement, run.stage);
+      run.pile = { drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(run.deck, opts.rng), discardPile: [] };
       run.round = Sandbox.createRound({
         rng: opts.rng, deck: run.deck, pile: run.pile, tune: tune, items: run.items, run: run,
         target: run.targetFor(run.movement, run.stage),
