@@ -10,17 +10,30 @@
 // Plain JS, no React, NO CLOCK: nothing here ticks. The music is a soundtrack
 // and never touches this object.
 //
-// SCORING is Balatro's POINTS x MULT. POINTS come from Lexicon.scoreWord --
-// letter values plus the tile bonuses the engine already has (flat on play,
-// Volatile, Charged, the full-rack bingo) -- so the "enhanced card" layer
-// counts here for free; its old length bonus is dropped, because length is
-// now the MULT: MULT_BASE + MULT_PER_LETTER per letter beyond the first, so
-// with the defaults a word's mult is simply its length. A tile's mult-on-play
-// bonus multiplies the mult. The BINGO -- BONUS_7 points for seven or more
-// letters, BONUS_6 for six -- goes into POINTS, before the mult, so a long
-// word's bingo is itself multiplied. scoreWord's own +15 full-rack bonus is
-// dropped so it is not counted twice. total = round(points * mult); items
-// add on top.
+// SCORING is Balatro's POINTS x MULT, with WORD LENGTH as the hand type.
+// Sandbox.TIERS is the table (BALATRO_NOTES.md section 2): each length band
+// has a base POINTS and a base MULT, and an ETUDE (Balatro's planet card)
+// levels a tier permanently for the run -- run.tierLevels -- adding the
+// tier's per-level bonus each time.
+//   points = tier base (+ level bonus) + letter sum + tile flats + item flats
+//   mult   = tier mult (+ level bonus) + item mult, then x tile mult-on-play
+//            and x item multipliers
+//   total  = round(points x mult)
+// Items fire LEFT TO RIGHT in the order they are held (Sandbox.applyItems);
+// order matters once a x-mult item is in the row.
+//
+// PHASE 0 CALIBRATION (2026-09-06, scratch script, 2,000 rounds per bag, a
+// greedy player taking wordFinder's best word by score, changeout when the
+// best word is under 30, 4 plays, uncapped):
+//   bag      mean   p10   p50   p90   mean best length
+//   weak      402   280   391   532   4.4
+//   normal    779   528   723  1080   5.4
+//   strong   1276   840  1269  1640   6.3
+// (Today's linear mult measured 611 / 349 / 556 / 917 on the normal bag.)
+// The tiers are kept at the notes' Balatro-sized numbers rather than scaled
+// down to a 120 mean: a greedy solver with the whole dictionary is a
+// ceiling, not a player. A human playing 4- and 5-letter words scores about
+// 250-300 a round on this table, so Movement I's base target is 300.
 //
 // A SINGLE LETTER is always playable: one tile, no dictionary check, points
 // x MULT_BASE. It is the "play a bad hand" of the round -- a way to spend a
@@ -28,6 +41,9 @@
 //
 // PUBLIC API (window.Wordbound.Sandbox):
 //   ROUND_DEFAULTS       -- every tunable, mirrored by the UI's tuning panel
+//   TIERS                -- length tiers [{ id, name, minLen, pts, mult,
+//                           lvlPts, lvlMult }] (pts/mult read from tune)
+//   tierFor(word, tune)  -- the tier a word of that length scores as
 //   ITEMS                -- the sandbox's own items: each simply adds flat
 //                           POINTS and/or MULT to every word (see below)
 //   createRun(opts)      -- { rng, makeDeck, tune?, items? } -> run of three
@@ -35,7 +51,8 @@
 //                           TARGET_1 / TARGET_2 / TARGET_BOSS, gold pooled.
 //     run.stage (0-based), run.stages [{ target, boss }], run.round,
 //       run.gold, run.state ('live' | 'won' | 'lost'), run.next()
-//   createRound(opts)    -- { rng, deck, tune?, items?, target? } -> round
+//     run.tierLevels {tierId: level}, run.levelTier(tierId) -- études
+//   createRound(opts)    -- { rng, deck, tune?, items?, target?, tierLevels? }
 //     items: array of Sandbox.ITEMS ids. Every one is folded straight into
 //       scoreWordPoints: points += item.points, mult += item.mult.
 //     round.rack, .pile, .score, .target, .playsLeft, .changeoutsLeft,
@@ -58,12 +75,46 @@
     PLAYS: 4,            // words the player may play
     CHANGEOUTS: 3,       // tile swaps
     RACK_SIZE: 7,
-    MULT_BASE: 1,        // mult of a one-letter play
-    MULT_PER_LETTER: 1,  // mult added per letter beyond the first
-    BONUS_7: 50,         // bingo points for a 7+ letter word (before the mult)
-    BONUS_6: 25,         // bingo points for a 6 letter word
+    // Length tiers: base points and base mult per band (Sandbox.TIERS).
+    PTS_2: 0, MULT_2: 1,     // one or two letters
+    PTS_3: 5, MULT_3: 2,
+    PTS_4: 10, MULT_4: 3,
+    PTS_5: 20, MULT_5: 4,
+    PTS_6: 35, MULT_6: 5,
+    PTS_7: 60, MULT_7: 7,    // seven or more
     GOLD_WIN: 3,         // flat purse for a win
     GOLD_PER_WORD_LEFT: 2 // bonus per unplayed word at the win
+  };
+
+  // Balatro's hand types: a word scores as the tier of its length. An étude
+  // raises a tier's level; each level adds lvlPts to its points and lvlMult
+  // to its mult for the rest of the run.
+  Sandbox.TIERS = [
+    { id: 't2', name: 'SHORT', minLen: 1, lvlPts: 5, lvlMult: 1 },
+    { id: 't3', name: 'THREE', minLen: 3, lvlPts: 10, lvlMult: 1 },
+    { id: 't4', name: 'FOUR', minLen: 4, lvlPts: 10, lvlMult: 1 },
+    { id: 't5', name: 'FIVE', minLen: 5, lvlPts: 15, lvlMult: 2 },
+    { id: 't6', name: 'SIX', minLen: 6, lvlPts: 20, lvlMult: 2 },
+    { id: 't7', name: 'SEVEN', minLen: 7, lvlPts: 30, lvlMult: 3 }
+  ];
+  Sandbox.TIER_DEFS = {};
+  Sandbox.TIERS.forEach(function (t) { Sandbox.TIER_DEFS[t.id] = t; });
+  Sandbox.tierFor = function (word) {
+    var len = String(word || '').length;
+    var out = Sandbox.TIERS[0];
+    Sandbox.TIERS.forEach(function (t) { if (len >= t.minLen) out = t; });
+    return out;
+  };
+  // The tier's base points / mult at a level, read live from the tune so the
+  // tuning panel can move them.
+  Sandbox.tierStats = function (tier, tune, level) {
+    var n = tier.id.slice(1);
+    var lvl = Math.max(1, level || 1);
+    return {
+      pts: (tune['PTS_' + n] || 0) + tier.lvlPts * (lvl - 1),
+      mult: (tune['MULT_' + n] || 0) + tier.lvlMult * (lvl - 1),
+      level: lvl
+    };
   };
 
   // The sandbox's own items, offered as checkboxes in the setup bar. Each is
@@ -83,22 +134,31 @@
   // POINTS x MULT for a word made of these tiles. `breakdown` keeps
   // Lexicon.scoreWord's fields (base, bingoBonus, bonusFlat, variantFlat,
   // bonusMult) so the UI can itemise, plus points / lengthMult / mult / total.
-  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune, items) {
+  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune, items, tierLevels) {
     var Lexicon = window.Wordbound.Lexicon;
     var b = Lexicon.scoreWord(word, tilesUsed, rackCapacity);
-    b.lengthBonus = 0; // length is the mult now, not a flat bonus
-    b.bingoBonus = word.length >= 7 ? tune.BONUS_7 : word.length === 6 ? tune.BONUS_6 : 0;
+    b.lengthBonus = 0;
+    b.bingoBonus = 0; // length is the tier now; no separate bingo
+    var tier = Sandbox.tierFor(word);
+    var ts = Sandbox.tierStats(tier, tune, tierLevels ? tierLevels[tier.id] : 1);
+    b.tier = tier;
+    b.tierName = tier.name;
+    b.tierLevel = ts.level;
+    b.tierPts = ts.pts;
+    b.tierMult = ts.mult;
     b.itemPoints = 0;
     b.itemMult = 0;
+    b.itemXMult = 1;
+    b.itemNotes = [];
     (items || []).forEach(function (id) {
       var it = Sandbox.ITEM_DEFS[id];
       if (!it) return;
       b.itemPoints += it.points || 0;
       b.itemMult += it.mult || 0;
     });
-    b.points = b.base + b.bingoBonus + b.bonusFlat + b.variantFlat + b.itemPoints;
-    b.lengthMult = tune.MULT_BASE + tune.MULT_PER_LETTER * Math.max(0, word.length - 1);
-    b.mult = (b.lengthMult + b.itemMult) * b.bonusMult;
+    b.points = b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.itemPoints;
+    b.lengthMult = b.tierMult; // kept for older readers of the breakdown
+    b.mult = (b.tierMult + b.itemMult) * b.bonusMult * b.itemXMult;
     b.total = Math.round(b.points * b.mult);
     return b;
   };
@@ -110,6 +170,7 @@
     var rng = opts.rng;
     var tune = Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {});
     var items = (opts.items || []).slice();
+    var tierLevels = opts.tierLevels || {};
 
     var round = {
       tune: tune,
@@ -118,6 +179,7 @@
       changeoutsLeft: tune.CHANGEOUTS,
       rackSize: tune.RACK_SIZE,
       items: items,
+      tierLevels: tierLevels,
       score: 0,
       gold: 0,
       state: 'live',
@@ -153,7 +215,7 @@
       var form = Lexicon.canFormFromRack(upper, round.rack);
       var tiles = form.possible ? form.tilesUsed
         : upper.split('').map(function (l) { return { letter: l, bonus: null, variant: null }; });
-      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, tune, items);
+      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, tune, items, tierLevels);
     };
     round.scoreFor = function (word) { return round.breakdownFor(word).total; };
 
@@ -171,7 +233,7 @@
       var form = Lexicon.canFormFromRack(upper, round.rack);
       if (!form.possible) return { ok: false, reason: upper + ' needs letters you don’t have.' };
 
-      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, tune, items);
+      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, tune, items, tierLevels);
       var messages = [];
       Lexicon.removeTiles(round.rack, form.tilesUsed);
       round.pile.discardPile.push.apply(round.pile.discardPile, form.tilesUsed);
@@ -230,15 +292,22 @@
       items: (opts.items || []).slice(), // carried into every round from here on
       startItems: (opts.items || []).slice(), // what the run set out with
       offer: null,   // after a won round: OFFER_SIZE item ids to choose one from
+      tierLevels: {}, // études: { tierId: level }, level 1 when absent
       gold: 0,
       state: 'live'
     };
     function begin() {
       run.round = Sandbox.createRound({
         rng: opts.rng, deck: opts.makeDeck(), tune: tune, items: run.items,
-        target: run.stages[run.stage].target
+        target: run.stages[run.stage].target, tierLevels: run.tierLevels
       });
     }
+    // An étude: raise one length tier a level for the rest of the run.
+    run.levelTier = function (tierId) {
+      if (!Sandbox.TIER_DEFS[tierId]) return false;
+      run.tierLevels[tierId] = (run.tierLevels[tierId] || 1) + 1;
+      return true;
+    };
     // The reward for a felled enemy: a choice of OFFER_SIZE items the run does
     // not already carry, drawn at random. Empty when there is nothing left.
     function drawOffer() {

@@ -48,25 +48,30 @@ const TUNE_LABELS = {
   PLAYS: 'Words per round',
   CHANGEOUTS: 'Changeouts',
   RACK_SIZE: 'Rack size',
-  MULT_BASE: 'Mult, one letter',
-  MULT_PER_LETTER: 'Mult per extra letter',
-  BONUS_7: 'Bonus, 7+ letters',
-  BONUS_6: 'Bonus, 6 letters',
+  PTS_2: 'Short (1–2) · points', MULT_2: 'Short · mult',
+  PTS_3: 'Three · points', MULT_3: 'Three · mult',
+  PTS_4: 'Four · points', MULT_4: 'Four · mult',
+  PTS_5: 'Five · points', MULT_5: 'Five · mult',
+  PTS_6: 'Six · points', MULT_6: 'Six · mult',
+  PTS_7: 'Seven+ · points', MULT_7: 'Seven+ · mult',
   GOLD_WIN: 'Gold for a win',
   GOLD_PER_WORD_LEFT: 'Gold per word left',
 };
 
-// "letters 9 · bingo +50 = 59 pts × 7" -- points (bingo included), then mult.
+// "FIVE · lvl 2 · 35 + letters 9 = 44 pts × 6" -- tier, points, then mult.
 function describeBreakdown(b) {
-  const pts = ['letters ' + b.base];
-  if (b.bingoBonus) pts.push('bingo +' + b.bingoBonus);
+  const pts = [];
+  if (b.tierPts) pts.push(b.tierPts);
+  pts.push('letters ' + b.base);
   if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
   if (b.variantFlat) pts.push('charged +' + b.variantFlat);
   if (b.itemPoints) pts.push('items +' + b.itemPoints);
-  let out = (pts.length > 1 ? pts.join(' · ') + ' = ' : '') + b.points + ' pts × ' + b.mult;
+  let out = b.tierName + (b.tierLevel > 1 ? ' · lvl ' + b.tierLevel : '') + ' · ';
+  out += (pts.length > 1 ? pts.join(' + ') + ' = ' : '') + b.points + ' pts × ' + b.mult;
   const multParts = [];
-  if (b.itemMult) multParts.push('length ' + b.lengthMult + ' + items ' + b.itemMult);
+  if (b.itemMult) multParts.push('tier ' + b.tierMult + ' + items ' + b.itemMult);
   if (b.bonusMult !== 1) multParts.push('× tile ' + b.bonusMult);
+  if (b.itemXMult && b.itemXMult !== 1) multParts.push('× items ' + b.itemXMult);
   if (multParts.length) out += ' (' + multParts.join(' ') + ')';
   return out;
 }
@@ -494,7 +499,7 @@ export default function RoundSandbox() {
       </section>
 
       {phase === 'idle' && (
-        <p className="sb-hint">Pick a bag, then Start. Three battles — two enemies, then a boss — each with a higher target to beat in four words. A word scores its letters × its length.</p>
+        <p className="sb-hint">Pick a bag, then Start. Three battles — two enemies, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult.</p>
       )}
 
       {round && (
@@ -587,8 +592,8 @@ export default function RoundSandbox() {
               {spelt && (
                 <span className="sb-stick-worth is-hand">
                   <span className="sb-stick-math">
-                    {worthHow.bingoBonus > 0 && <><i>(</i><b className="sb-figure sb-pts">{worthHow.points - worthHow.bingoBonus}</b><i>+</i><b className="sb-figure sb-bingo">{worthHow.bingoBonus}</b><i>)</i></>}
-                    {!worthHow.bingoBonus && <b className="sb-figure sb-pts">{worthHow.points}</b>}
+                    <em className="sb-tier-name">{worthHow.tierName}{worthHow.tierLevel > 1 ? ' ' + worthHow.tierLevel : ''}</em>
+                    <b className="sb-figure sb-pts">{worthHow.points}</b>
                     <i>×</i>
                     <b className="sb-figure sb-mult">{worthHow.mult}</b>
                     <i>=</i>
@@ -689,8 +694,8 @@ export default function RoundSandbox() {
           ))}
         </div>
         <p className="sb-tune-note">
-          Targets, words, changeouts and rack size take effect on the next round; the mult
-          and bonus figures apply to the next word; the gold figures are read at the win. Nothing is saved — copy the numbers you want to keep
+          Targets, words, changeouts and rack size take effect on the next round; the tier
+          figures apply to the next word; the gold figures are read at the win. Nothing is saved — copy the numbers you want to keep
           into src/sandbox/round.js.
         </p>
       </details>
