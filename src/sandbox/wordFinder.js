@@ -22,23 +22,43 @@
   var ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   var anagramMap = null;
 
-  function buildMap() {
-    if (anagramMap) return anagramMap;
-    anagramMap = new Map();
-    var list = window.Wordbound.WORDLIST || [];
-    for (var i = 0; i < list.length; i++) {
+  // Built in slices so the page keeps painting while the helper warms up
+  // (warmWordMaker); a search that lands before the slices are done finishes
+  // the job synchronously (buildMap), so nothing ever has to wait on it.
+  var builtUpTo = 0;
+  var SLICE = 40000;
+
+  function buildSlice(map, list, upTo) {
+    for (var i = builtUpTo; i < upTo; i++) {
       var w = list[i];
       if (w.length < 2) continue;
       var key = w.split('').sort().join('');
-      var bucket = anagramMap.get(key);
+      var bucket = map.get(key);
       if (bucket) bucket.push(w);
-      else anagramMap.set(key, [w]);
+      else map.set(key, [w]);
     }
+    builtUpTo = upTo;
+  }
+
+  function buildMap() {
+    var list = window.Wordbound.WORDLIST || [];
+    if (!anagramMap) anagramMap = new Map();
+    if (builtUpTo < list.length) buildSlice(anagramMap, list, list.length);
     return anagramMap;
   }
 
-  Sandbox.isWordMakerReady = function () { return !!anagramMap; };
-  Sandbox.warmWordMaker = function () { buildMap(); };
+  Sandbox.isWordMakerReady = function () {
+    return !!anagramMap && builtUpTo >= (window.Wordbound.WORDLIST || []).length;
+  };
+  Sandbox.warmWordMaker = function (onDone) {
+    var list = window.Wordbound.WORDLIST || [];
+    if (!anagramMap) anagramMap = new Map();
+    (function step() {
+      if (builtUpTo >= list.length) { if (onDone) onDone(); return; }
+      buildSlice(anagramMap, list, Math.min(list.length, builtUpTo + SLICE));
+      setTimeout(step, 0);
+    })();
+  };
 
   function splitLetters(letters) {
     var chars = String(letters || '').toUpperCase().replace(/[^A-Z?]/g, '').split('');

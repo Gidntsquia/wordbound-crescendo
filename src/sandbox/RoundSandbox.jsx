@@ -116,9 +116,10 @@ export default function RoundSandbox() {
   // The dictionary index is only built once the helper is switched on.
   useEffect(() => {
     if (!helper || SB.isWordMakerReady()) return undefined;
+    let alive = true;
     setIndexing(true);
-    const id = setTimeout(() => { SB.warmWordMaker(); setIndexing(false); }, 60);
-    return () => clearTimeout(id);
+    SB.warmWordMaker(() => { if (alive) setIndexing(false); });
+    return () => { alive = false; };
   }, [helper, SB]);
 
   // Volume slider reaches the running soundtrack directly.
@@ -290,14 +291,14 @@ export default function RoundSandbox() {
     if (r.isPlayable(letters)) { playWord(letters); return; }
     if (!formable) { say(letters + ' needs letters that aren’t in your rack.'); return; }
     // With the helper on, Play settles for the best word inside the letters.
-    if (helper && !indexing) {
+    if (helper) {
       const found = SB.findWords(letters, (w) => r.scoreFor(w), 1);
       if (found.length > 0) { playWord(found[0].word); return; }
       say('Nothing spells out of ' + letters + '.');
       return;
     }
     say(letters + ' isn’t in the dictionary.');
-  }, [letters, formable, phase, helper, indexing, playWord, say, SB]);
+  }, [letters, formable, phase, helper, playWord, say, SB]);
 
   const changeout = useCallback(() => {
     const r = fight.current?.round;
@@ -548,7 +549,7 @@ export default function RoundSandbox() {
                 const best = SB.bestFromRack(rackLetters, (w) => round.scoreFor(w), 1);
                 if (best.length) setWord(best[0].word);
                 else say('Nothing spells out of this rack.');
-              }} disabled={!live || indexing}>Best play</button>
+              }} disabled={!live}>Best play</button>
             )}
           </div>
 
