@@ -1,6 +1,8 @@
-// ROUND SANDBOX -- one Balatro-with-Scrabble round (see COMBAT_REDESIGN.md).
+// ROUND SANDBOX -- a RUN of three Balatro-with-Scrabble rounds (see
+// COMBAT_REDESIGN.md): two normal enemies, then a boss, each with a higher
+// point target. Gold pools across the run.
 //
-// A point target, four words, three changeouts. The classical piece is a
+// Each round: a point target, four words, three changeouts. The classical piece is a
 // SOUNDTRACK here and nothing more: it starts with the round, loops, and never
 // touches the score. The tile play (case + composing stick + FLIP slide) is
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
@@ -28,7 +30,8 @@ function flipTileTo(fromRect, toEl) {
   });
 }
 
-// Standard enemies: a name and the piece that plays under the round.
+// Enemies: a name and the piece that plays under the round. The run draws
+// its two normal enemies from the non-boss entries and ends on the boss.
 const ENEMIES = [
   // `recorded` names a Sandbox.* recorded piece (audioPiece.js) played back
   // instead of a synthesized Pieces.* entry.
@@ -40,11 +43,16 @@ const ENEMIES = [
   { id: 'gnossienne', name: 'The Gnossienne', glyph: '\u{1F3B9}', piece: 'gnossienne1' },
   { id: 'invention', name: 'The Invention', glyph: '\u{1F3BC}', piece: 'invention4' },
   { id: 'metronome', name: 'The Metronome', glyph: '⏰', piece: 'czerny299' },
-  { id: 'vowelmaw', name: 'The Vowelmaw', glyph: '\u{1F451}', piece: 'mountainKing' },
+  { id: 'vowelmaw', name: 'The Vowelmaw', glyph: '\u{1F451}', piece: 'mountainKing', boss: true },
 ];
+const BOSS = ENEMIES.find((e) => e.boss);
+const NORMAL_ENEMIES = ENEMIES.filter((e) => !e.boss);
+const STAGE_NAMES = ['Battle 1', 'Battle 2', 'Boss'];
 
 const TUNE_LABELS = {
-  TARGET: 'Point target',
+  TARGET_1: 'Target, battle 1',
+  TARGET_2: 'Target, battle 2',
+  TARGET_BOSS: 'Target, boss',
   PLAYS: 'Words per round',
   CHANGEOUTS: 'Changeouts',
   RACK_SIZE: 'Rack size',
@@ -62,22 +70,27 @@ function describeBreakdown(b) {
   if (b.bingoBonus) pts.push('bingo +' + b.bingoBonus);
   if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
   if (b.variantFlat) pts.push('charged +' + b.variantFlat);
+  if (b.itemPoints) pts.push('items +' + b.itemPoints);
   let out = (pts.length > 1 ? pts.join(' · ') + ' = ' : '') + b.points + ' pts × ' + b.mult;
-  if (b.bonusMult !== 1) out += ' (length ' + b.lengthMult + ' × tile ' + b.bonusMult + ')';
-  if (b.itemBonus) out += ' · items +' + b.itemBonus;
+  const multParts = [];
+  if (b.itemMult) multParts.push('length ' + b.lengthMult + ' + items ' + b.itemMult);
+  if (b.bonusMult !== 1) multParts.push('× tile ' + b.bonusMult);
+  if (multParts.length) out += ' (' + multParts.join(' ') + ')';
   return out;
 }
 
 export default function RoundSandbox() {
   const W = window.Wordbound;
   const SB = W.Sandbox;
-  const fight = useRef(null);   // { round, seq, ctx, gain, def, piece }
+  const fight = useRef(null);   // { run, round, seq, ctx, gain, def, piece }
   const [, forceRender] = useState(0);
-  const [phase, setPhase] = useState('idle'); // idle | live | won | lost
+  // idle | live | won (round, run continues) | lost | run-won
+  const [phase, setPhase] = useState('idle');
   const [log, setLog] = useState([]);
   const [word, setWord] = useState('');
-  const [enemyId, setEnemyId] = useState(ENEMIES[0].id);
   const [seed, setSeed] = useState('sandbox');
+  // The word-maker helper (suggestions, Best play, fuzzy Play) -- off by default.
+  const [helper, setHelper] = useState(false);
   const [bagId, setBagId] = useState('normal');
   const [volume, setVolume] = useState(0.4);
   const [tune, setTune] = useState(() => ({ ...SB.ROUND_DEFAULTS }));
@@ -109,12 +122,13 @@ export default function RoundSandbox() {
   }, []);
   const refresh = useCallback(() => forceRender((n) => n + 1), []);
 
+  // The dictionary index is only built once the helper is switched on.
   useEffect(() => {
-    if (SB.isWordMakerReady()) return undefined;
+    if (!helper || SB.isWordMakerReady()) return undefined;
     setIndexing(true);
     const id = setTimeout(() => { SB.warmWordMaker(); setIndexing(false); }, 60);
     return () => clearTimeout(id);
-  }, [SB]);
+  }, [helper, SB]);
 
   // Volume slider reaches the running soundtrack directly.
   useEffect(() => {
@@ -122,20 +136,45 @@ export default function RoundSandbox() {
     if (f && f.gain) f.gain.gain.value = volume;
   }, [volume]);
 
-  // Pull the recording down as soon as the Bagatelle is picked, not at Start.
+  // Pull the recording down up front; the Bagatelle may come up in the run.
   useEffect(() => {
-    const def = ENEMIES.find((o) => o.id === enemyId);
-    const piece = def && def.recorded && SB[def.recorded];
+    const piece = SB.recordedFurElise;
     if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
-  }, [enemyId, SB]);
+  }, [SB]);
+
+  // Start the soundtrack for the run's current stage against `def`.
+  const startStage = useCallback((run, def) => {
+    const f = fight.current;
+    if (f && f.seq) {
+      if (f.seq.dispose) f.seq.dispose();
+      else f.seq.stop();
+    }
+    const piece = def.recorded ? SB[def.recorded] : W.Pieces[def.piece];
+    const seq = piece.audio
+      ? SB.createAudioPiece(f.ctx, f.gain, piece)
+      : W.Music.createSequencer(f.ctx, f.gain, piece);
+    seq.on('load-failed', (err) => say('The recording did not load ('
+      + (err && err.message ? err.message : err) + ') — Restart to try again.'));
+    seq.on('piece-ended', () => {
+      const g = fight.current;
+      if (!g || g.seq !== seq) return;
+      seq.stop();
+      seq.play();
+    });
+    seq.play();
+    const round = run.round;
+    fight.current = { ...f, run, round, seq, def, piece };
+    window.__round = round;
+    window.__run = run;
+    setWord('');
+    setSuggestions([]);
+    setPhase('live');
+    say(STAGE_NAMES[run.stage] + ' — ' + def.name + ' takes up ' + piece.title
+      + '. Target ' + round.target + '.');
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, [say, W, SB]);
 
   const start = useCallback(() => {
-    if (fight.current) {
-      if (fight.current.seq.dispose) fight.current.seq.dispose();
-      else fight.current.seq.stop();
-    }
-    const def = ENEMIES.find((o) => o.id === enemyId);
-    const piece = def.recorded ? SB[def.recorded] : W.Pieces[def.piece];
     const rng = window.Game.RNG.create(seed);
 
     let ctx = fight.current?.ctx;
@@ -154,35 +193,37 @@ export default function RoundSandbox() {
       return;
     }
 
-    const round = SB.createRound({ rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds] });
-    const seq = piece.audio
-      ? SB.createAudioPiece(ctx, gain, piece)
-      : W.Music.createSequencer(ctx, gain, piece);
-    seq.on('load-failed', (err) => say('The recording did not load ('
-      + (err && err.message ? err.message : err) + ') — Restart to try again.'));
-    seq.on('piece-ended', () => {
-      const f = fight.current;
-      if (!f || f.seq !== seq) return;
-      seq.stop();
-      seq.play();
+    // Two distinct normal enemies drawn on the seed, then the boss.
+    const pool = NORMAL_ENEMIES.slice();
+    const pick = () => pool.splice(Math.floor(rng.next() * pool.length), 1)[0];
+    const lineup = [pick(), pick(), BOSS];
+    const run = SB.createRun({
+      rng, makeDeck: () => SB.createBagDeck(bagId), tune, items: [...itemIds]
     });
-    seq.play();
-
-    fight.current = { round, seq, ctx, gain, def, piece };
-    window.__round = round;
+    fight.current = { ...(fight.current || {}), ctx, gain, lineup, seq: fight.current?.seq };
     setLog([]);
-    setWord('');
-    setSuggestions([]);
-    setPhase('live');
-    say(def.name + ' takes up ' + piece.title + '. Target ' + round.target + '.');
-    if (round.items.length) {
-      say('Carrying ' + round.items.map((id) => W.Items.ITEM_DEFS[id].name).join(', ')
-        + (round.rackSize !== tune.RACK_SIZE ? ' — rack of ' + round.rackSize : '') + '.');
+    if (itemIds.size) {
+      say('Carrying ' + [...itemIds].map((id) => SB.ITEM_DEFS[id].name).join(', ') + '.');
     }
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }, [enemyId, seed, bagId, volume, tune, itemIds, say, W, SB]);
+    startStage(run, lineup[0]);
+  }, [seed, bagId, volume, tune, itemIds, say, startStage]);
+
+  // After a won round: bank the gold and move to the next enemy, or end the run.
+  const nextStage = useCallback(() => {
+    const f = fight.current;
+    if (!f || !f.run || phase !== 'won') return;
+    const state = f.run.next();
+    if (state === 'won') {
+      setPhase('run-won');
+      say('The boss falls. Run won with ' + f.run.gold + ' gold.');
+      refresh();
+      return;
+    }
+    startStage(f.run, f.lineup[f.run.stage]);
+  }, [phase, say, refresh, startStage]);
 
   const f = fight.current;
+  const run = f ? f.run : null;
   const round = f ? f.round : null;
   const rackLetters = round ? round.rack.map((t) => t.letter).join('') : '';
   const letters = word.toUpperCase().replace(/[^A-Z?]/g, '');
@@ -236,11 +277,16 @@ export default function RoundSandbox() {
     const r = fight.current?.round;
     if (!r || phase !== 'live' || !letters) return;
     if (r.isPlayable(letters)) { playWord(letters); return; }
-    const found = SB.findWords(letters, (w) => r.scoreFor(w), 1);
-    if (found.length > 0) { playWord(found[0].word); return; }
-    say(formable ? 'Nothing spells out of ' + letters + '.'
-      : letters + ' needs letters that aren’t in your rack.');
-  }, [letters, formable, phase, playWord, say, W, SB]);
+    if (!formable) { say(letters + ' needs letters that aren’t in your rack.'); return; }
+    // With the helper on, Play settles for the best word inside the letters.
+    if (helper && !indexing) {
+      const found = SB.findWords(letters, (w) => r.scoreFor(w), 1);
+      if (found.length > 0) { playWord(found[0].word); return; }
+      say('Nothing spells out of ' + letters + '.');
+      return;
+    }
+    say(letters + ' isn’t in the dictionary.');
+  }, [letters, formable, phase, helper, indexing, playWord, say, SB]);
 
   const changeout = useCallback(() => {
     const r = fight.current?.round;
@@ -256,10 +302,10 @@ export default function RoundSandbox() {
   }, [slots, phase, say, refresh]);
 
   useEffect(() => {
-    if (!letters || indexing) { setSuggestions([]); return; }
+    if (!helper || !letters || indexing) { setSuggestions([]); return; }
     const r = fight.current?.round;
     setSuggestions(SB.findWords(letters, r ? (w) => r.scoreFor(w) : (w) => w.length, 10));
-  }, [letters, indexing, SB]);
+  }, [helper, letters, indexing, SB]);
 
   const stageTile = (tile) => {
     captureFlipFrom(tile.id);
@@ -286,23 +332,18 @@ export default function RoundSandbox() {
     <div className="sb">
       <header className="sb-head">
         <div className="sb-wordmark">
-          <span className="sb-eyebrow">Round sandbox · one round</span>
+          <span className="sb-eyebrow">Round sandbox · a run of three</span>
           <h1>Wordbound<span className="sb-amp">·</span>Crescendo</h1>
         </div>
         {round && (
           <div className="sb-dyn">
-            <span className="sb-dyn-label">Score / target</span>
+            <span className="sb-dyn-label">{STAGE_NAMES[run.stage]} · score / target</span>
             <span className="sb-dyn-mark">{round.score}<small> / {round.target}</small></span>
           </div>
         )}
       </header>
 
       <section className="sb-setup">
-        <label>Enemy
-          <select value={enemyId} onChange={(e) => setEnemyId(e.target.value)}>
-            {ENEMIES.map((o) => <option key={o.id} value={o.id}>{o.glyph} {o.name}</option>)}
-          </select>
-        </label>
         <label>Seed
           <input value={seed} onChange={(e) => setSeed(e.target.value)} style={{ width: 110 }} />
         </label>
@@ -320,6 +361,10 @@ export default function RoundSandbox() {
           <input type="range" min="0" max="1" step="0.05" value={volume}
             onChange={(e) => setVolume(Number(e.target.value))} />
         </label>
+        <label className="sb-toggle" title="Word suggestions, Best play, and Play settling for the best word in the letters">
+          <input type="checkbox" checked={helper} onChange={(e) => setHelper(e.target.checked)} />
+          Word helper
+        </label>
         <button type="button" className="sb-go" onClick={start}>
           {phase === 'idle' ? 'Start' : 'Restart'}
         </button>
@@ -327,10 +372,10 @@ export default function RoundSandbox() {
 
       <section className="sb-items" role="group" aria-label="Sample items">
         <span className="sb-eyebrow">Items · read at start</span>
-        {SB.SAMPLE_ITEMS.map((id, i) => {
-          const d = W.Items.ITEM_DEFS[id];
+        {SB.ITEMS.map((d) => {
+          const id = d.id;
           return (
-            <label key={id} className={'sb-item' + (itemIds.has(id) ? ' is-on' : '') + (i < 3 ? ' is-pick' : '')}
+            <label key={id} className={'sb-item' + (itemIds.has(id) ? ' is-on' : '')}
               title={d.hint}>
               <input type="checkbox" checked={itemIds.has(id)}
                 onChange={(e) => setItemIds((prev) => {
@@ -338,7 +383,7 @@ export default function RoundSandbox() {
                   if (e.target.checked) next.add(id); else next.delete(id);
                   return next;
                 })} />
-              {d.name}
+              {d.name}<em>{[d.points ? '+' + d.points + ' pts' : '', d.mult ? '+' + d.mult + ' mult' : ''].filter(Boolean).join(' ')}</em>
             </label>
           );
         })}
@@ -347,7 +392,7 @@ export default function RoundSandbox() {
       </section>
 
       {phase === 'idle' && (
-        <p className="sb-hint">Pick an enemy and a bag, then Start. Beat the target in four words — a word scores its letters × its length.</p>
+        <p className="sb-hint">Pick a bag, then Start. Three battles — two enemies, then a boss — each with a higher target to beat in four words. A word scores its letters × its length.</p>
       )}
 
       {round && (
@@ -362,9 +407,10 @@ export default function RoundSandbox() {
             <span><b>{round.changeoutsLeft}</b> changeout{round.changeoutsLeft === 1 ? '' : 's'} left</span>
             <span><b>{round.pile.drawPile.length}</b> in the bag</span>
             {round.items.length > 0 && (
-              <span>{round.items.map((id) => W.Items.ITEM_DEFS[id].name).join(' · ')}</span>
+              <span>{round.items.map((id) => SB.ITEM_DEFS[id].name).join(' · ')}</span>
             )}
-            <span className="sb-enemy">{f.def.glyph} {f.def.name} · {f.piece.title}</span>
+            <span><b>{run.gold}</b> gold banked</span>
+            <span className="sb-enemy">{STAGE_NAMES[run.stage]} · {f.def.glyph} {f.def.name} · {f.piece.title}</span>
           </div>
           {round.plays.length > 0 && (
             <ol className="sb-plays">
@@ -380,11 +426,21 @@ export default function RoundSandbox() {
           {phase === 'won' && (
             <div className="sb-outcome sb-win">
               Won — {round.gold} gold ({round.tune.GOLD_WIN} + {round.tune.GOLD_PER_WORD_LEFT} × {round.playsLeft} word{round.playsLeft === 1 ? '' : 's'} left).
+              {' '}
+              <button type="button" className="sb-go" onClick={nextStage}>
+                {run.stage >= run.stages.length - 1 ? 'Finish the run'
+                  : 'Next: ' + f.lineup[run.stage + 1].name + ' · target ' + run.stages[run.stage + 1].target}
+              </button>
+            </div>
+          )}
+          {phase === 'run-won' && (
+            <div className="sb-outcome sb-win">
+              Run won — {run.gold} gold across three battles.
             </div>
           )}
           {phase === 'lost' && (
             <div className="sb-outcome sb-lose">
-              Lost — {round.target - round.score} short of the target.
+              Lost at {STAGE_NAMES[run.stage]} — {round.target - round.score} short of the target.
             </div>
           )}
         </section>
@@ -460,14 +516,16 @@ export default function RoundSandbox() {
               Change out{pickedIds.size ? ' ' + pickedIds.size : ''}
             </button>
             <button type="button" onClick={() => setWord('')} disabled={!live}>Clear</button>
-            <button type="button" onClick={() => {
-              const best = SB.bestFromRack(rackLetters, (w) => round.scoreFor(w), 1);
-              if (best.length) setWord(best[0].word);
-              else say('Nothing spells out of this rack.');
-            }} disabled={!live}>Best play</button>
+            {helper && (
+              <button type="button" onClick={() => {
+                const best = SB.bestFromRack(rackLetters, (w) => round.scoreFor(w), 1);
+                if (best.length) setWord(best[0].word);
+                else say('Nothing spells out of this rack.');
+              }} disabled={!live || indexing}>Best play</button>
+            )}
           </div>
 
-          <details className="sb-suggests-drop">
+          {helper && <details className="sb-suggests-drop">
             <summary>
               <span className="sb-suggests-title">Words</span>
               {indexing && <span className="sb-hint">reading the dictionary…</span>}
@@ -491,7 +549,7 @@ export default function RoundSandbox() {
                 </button>
               ))}
             </div>
-          </details>
+          </details>}
           {!formable && letters
             && <p className="sb-hint sb-warn-line">{letters} needs letters that aren’t in your rack.</p>}
         </section>
@@ -508,7 +566,7 @@ export default function RoundSandbox() {
           ))}
         </div>
         <p className="sb-tune-note">
-          Target, words, changeouts and rack size take effect on the next Start; the mult
+          Targets, words, changeouts and rack size take effect on the next round; the mult
           and bonus figures apply to the next word; the gold figures are read at the win. Nothing is saved — copy the numbers you want to keep
           into src/sandbox/round.js.
         </p>

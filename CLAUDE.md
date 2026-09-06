@@ -61,8 +61,11 @@ not something to reintroduce piecemeal mid-task.
   items/intents/shops/events/achievements/stolen letters, and no
   game.js/floor.js/monsters.js/combat.js/duel.js. Loads only namespace, rng,
   wordlist, lexicon, tiles, music + pieces. Combat is the Balatro-with-Scrabble
-  round owned by `src/sandbox/round.js` (see COMBAT_REDESIGN.md): a point
-  target, PLAYS words, CHANGEOUTS tile swaps, Balatro-style POINTS × MULT
+  RUN owned by `src/sandbox/round.js` (see COMBAT_REDESIGN.md):
+  `Sandbox.createRun` chains three rounds — two normal enemies drawn on the
+  seed, then the boss (The Vowelmaw) — with targets TARGET_1 / TARGET_2 /
+  TARGET_BOSS and gold pooled across the run; a lost round ends the run. Each
+  round has PLAYS words, CHANGEOUTS tile swaps, Balatro-style POINTS × MULT
   scoring (`Sandbox.scoreWordPoints`: points from `Lexicon.scoreWord` minus its
   length bonus, mult = MULT_BASE + MULT_PER_LETTER per extra letter, so by
   default mult = word length, with a BONUS_7 / BONUS_6 Scrabble bingo for
@@ -77,13 +80,15 @@ not something to reintroduce piecemeal mid-task.
   between them — nothing may set `transform` on `.sb-tile`, which that
   animation owns. The stick is also the changeout selection: Change out throws
   back whatever tiles stand on it. `src/sandbox/wordFinder.js` is the
-  word-maker helper (anagram map over WORDLIST). `src/sandbox/tileBags.js`
+  word-maker helper (anagram map over WORDLIST); it sits behind the WORD
+  HELPER toggle in the setup bar, OFF by default, and its index is only built
+  when switched on. `src/sandbox/tileBags.js`
   owns the three tile bags the rack is drawn from (weak/normal/strong, 26
   tiles each, picked in the setup bar) — the sandbox does NOT use
   Tiles.createStarterDeck(), which is the shipped game's deck-building
-  artefact. `js/wordbound/items.js` IS loaded: the setup bar offers
-  `Sandbox.SAMPLE_ITEMS` as checkboxes and round.js runs their
-  onRunStart/onDraw/onWordPlayed hooks with the item "damage" counted as score.
+  artefact. ITEMS are sandbox-owned (`Sandbox.ITEMS` in round.js, checkboxes
+  in the setup bar): each is nothing but a flat +points and/or +mult on every
+  word, folded into scoreWordPoints. js/wordbound/items.js is NOT loaded.
   `src/sandbox/audioPiece.js` + `recordedFurElise.js` play the RECORDED Für
   Elise (public/audio/fur-elise.mp3) as the Bagatelle's soundtrack — the one
   logged exception to the synthesized-only rule, kept because the sequenced

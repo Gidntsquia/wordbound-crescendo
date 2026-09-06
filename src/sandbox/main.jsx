@@ -18,8 +18,6 @@ import '../../js/core/rng.js';
 import '../../js/wordbound/wordlist.js';
 import '../../js/wordbound/lexicon.js';
 import '../../js/wordbound/tiles.js';
-// Items: loaded so a round can try a sample build (round.js runs the hooks).
-import '../../js/wordbound/items.js';
 import '../../js/wordbound/music.js';
 import '../../js/wordbound/pieces/fur-elise.js';
 import '../../js/wordbound/pieces/gymnopedie-1.js';

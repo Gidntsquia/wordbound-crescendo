@@ -28,13 +28,16 @@
 //
 // PUBLIC API (window.Wordbound.Sandbox):
 //   ROUND_DEFAULTS       -- every tunable, mirrored by the UI's tuning panel
-//   SAMPLE_ITEMS         -- the item ids the sandbox offers as checkboxes
-//   createRound(opts)    -- { rng, deck, tune?, items? } -> round
-//     items: array of js/wordbound/items.js ids. Their onRunStart / onDraw /
-//       onWordPlayed hooks and rackCapacityBonus run here against a stand-in
-//       ctx: the shipped hooks add "damage" to result.damage, and here that
-//       IS the score, so every scoring item works unchanged. Ink/heal and
-//       monster-hp effects are inert (there is no ink and no monster).
+//   ITEMS                -- the sandbox's own items: each simply adds flat
+//                           POINTS and/or MULT to every word (see below)
+//   createRun(opts)      -- { rng, makeDeck, tune?, items? } -> run of three
+//                           rounds: two normal enemies then a boss, targets
+//                           TARGET_1 / TARGET_2 / TARGET_BOSS, gold pooled.
+//     run.stage (0-based), run.stages [{ target, boss }], run.round,
+//       run.gold, run.state ('live' | 'won' | 'lost'), run.next()
+//   createRound(opts)    -- { rng, deck, tune?, items?, target? } -> round
+//     items: array of Sandbox.ITEMS ids. Every one is folded straight into
+//       scoreWordPoints: points += item.points, mult += item.mult.
 //     round.rack, .pile, .score, .target, .playsLeft, .changeoutsLeft,
 //       .state ('live' | 'won' | 'lost'), .plays [{ word, breakdown }], .gold
 //     round.scoreFor(word)          -> number, for ranking helper suggestions
@@ -49,7 +52,9 @@
   var Sandbox = (window.Wordbound.Sandbox = window.Wordbound.Sandbox || {});
 
   Sandbox.ROUND_DEFAULTS = {
-    TARGET: 100,         // points to reach
+    TARGET_1: 100,       // points to reach, first battle
+    TARGET_2: 175,       // second battle
+    TARGET_BOSS: 300,    // the boss
     PLAYS: 4,            // words the player may play
     CHANGEOUTS: 3,       // tile swaps
     RACK_SIZE: 7,
@@ -61,27 +66,38 @@
     GOLD_PER_WORD_LEFT: 2 // bonus per unplayed word at the win
   };
 
-  // Offered as checkboxes in the setup bar. The first three are the pick of the
-  // shipped set for a SCORING round: Gilded Bookmark doubles the opening word
-  // (a quarter of the round), Wildcard Pouch's two blanks turn near-misses into
-  // full-rack bingos, Spare Satchel's eighth tile lengthens every word. The
-  // rest are there to feel out a build.
-  Sandbox.SAMPLE_ITEMS = [
-    'gilded_bookmark', 'wildcard_pouch', 'spare_satchel',
-    'errant_footnote', 'heavy_ink', 'consonant_cluster', 'long_s_ligature', 'vowel_reliquary'
+  // The sandbox's own items, offered as checkboxes in the setup bar. Each is
+  // nothing but a flat addition to every word's POINTS (before the mult) or
+  // MULT. The shipped js/wordbound/items.js set is NOT used here.
+  Sandbox.ITEMS = [
+    { id: 'brass_nib', name: 'Brass Nib', points: 10, hint: '+10 points on every word' },
+    { id: 'lead_weight', name: 'Lead Weight', points: 25, hint: '+25 points on every word' },
+    { id: 'second_ink', name: 'Second Ink', mult: 1, hint: '+1 mult on every word' },
+    { id: 'double_stop', name: 'Double Stop', mult: 2, hint: '+2 mult on every word' },
+    { id: 'gilded_edge', name: 'Gilded Edge', points: 10, mult: 1, hint: '+10 points and +1 mult' },
   ];
+  Sandbox.ITEM_DEFS = {};
+  Sandbox.ITEMS.forEach(function (it) { Sandbox.ITEM_DEFS[it.id] = it; });
 
   // POINTS x MULT for a word made of these tiles. `breakdown` keeps
   // Lexicon.scoreWord's fields (base, bingoBonus, bonusFlat, variantFlat,
   // bonusMult) so the UI can itemise, plus points / lengthMult / mult / total.
-  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune) {
+  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune, items) {
     var Lexicon = window.Wordbound.Lexicon;
     var b = Lexicon.scoreWord(word, tilesUsed, rackCapacity);
     b.lengthBonus = 0; // length is the mult now, not a flat bonus
     b.bingoBonus = word.length >= 7 ? tune.BONUS_7 : word.length === 6 ? tune.BONUS_6 : 0;
-    b.points = b.base + b.bingoBonus + b.bonusFlat + b.variantFlat;
+    b.itemPoints = 0;
+    b.itemMult = 0;
+    (items || []).forEach(function (id) {
+      var it = Sandbox.ITEM_DEFS[id];
+      if (!it) return;
+      b.itemPoints += it.points || 0;
+      b.itemMult += it.mult || 0;
+    });
+    b.points = b.base + b.bingoBonus + b.bonusFlat + b.variantFlat + b.itemPoints;
     b.lengthMult = tune.MULT_BASE + tune.MULT_PER_LETTER * Math.max(0, word.length - 1);
-    b.mult = b.lengthMult * b.bonusMult;
+    b.mult = (b.lengthMult + b.itemMult) * b.bonusMult;
     b.total = Math.round(b.points * b.mult);
     return b;
   };
@@ -90,23 +106,17 @@
     var W = window.Wordbound;
     var Tiles = W.Tiles;
     var Lexicon = W.Lexicon;
-    var Items = W.Items;
     var rng = opts.rng;
     var tune = Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {});
-    // The stand-in player the item hooks read. `ink`/`maxInk`/`gold` exist so
-    // hooks that touch them do not throw; nothing here reads them back.
-    var player = { items: (opts.items || []).slice(), ink: 99, maxInk: 99, gold: 0 };
-    var hasItems = !!(Items && player.items.length);
-    var rackSize = tune.RACK_SIZE;
-    if (hasItems) rackSize += Items.getRackCapacity(player) - 7;
+    var items = (opts.items || []).slice();
 
     var round = {
       tune: tune,
-      target: tune.TARGET,
+      target: opts.target != null ? opts.target : tune.TARGET_1,
       playsLeft: tune.PLAYS,
       changeoutsLeft: tune.CHANGEOUTS,
-      rackSize: rackSize,
-      items: player.items,
+      rackSize: tune.RACK_SIZE,
+      items: items,
       score: 0,
       gold: 0,
       state: 'live',
@@ -114,14 +124,9 @@
       pile: { drawPile: Tiles.shuffleIntoDrawPile(opts.deck, rng), discardPile: [] },
       rack: []
     };
-    // onRunStart hooks add tiles to the pile (blanks, a charged E) BEFORE the
-    // opening rack is drawn, the way game.js orders it.
-    if (hasItems) Items.runHook('onRunStart', { player: player, pileState: round.pile }, player);
 
     function draw(count) {
-      var drawn = Tiles.draw(round.pile, count, rng);
-      if (hasItems) Items.runHook('onDraw', { player: player, drawnTiles: drawn, pileState: round.pile, rng: rng }, player);
-      return drawn;
+      return Tiles.draw(round.pile, count, rng);
     }
     round.rack = draw(round.rackSize);
 
@@ -147,7 +152,7 @@
       var form = Lexicon.canFormFromRack(upper, round.rack);
       var tiles = form.possible ? form.tilesUsed
         : upper.split('').map(function (l) { return { letter: l, bonus: null, variant: null }; });
-      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, tune);
+      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, tune, items);
     };
     round.scoreFor = function (word) { return round.breakdownFor(word).total; };
 
@@ -165,21 +170,8 @@
       var form = Lexicon.canFormFromRack(upper, round.rack);
       if (!form.possible) return { ok: false, reason: upper + ' needs letters you don’t have.' };
 
-      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, tune);
-      // Items: the shipped hooks add to result.damage, and here that is the
-      // score. monster.hp is a dummy applyBonusDamage can decrement.
+      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, tune, items);
       var messages = [];
-      if (hasItems) {
-        var result = { damage: breakdown.total };
-        var prev = round.plays.length ? round.plays[round.plays.length - 1].word : null;
-        Items.runHook('onWordPlayed', {
-          player: player, monster: { hp: 1e9 }, word: upper, tilesUsed: form.tilesUsed,
-          result: result, previousWord: prev, wordsPlayedThisFight: round.plays.length + 1,
-          messages: messages
-        }, player);
-        breakdown.itemBonus = result.damage - breakdown.total;
-        breakdown.total = result.damage;
-      }
       Lexicon.removeTiles(round.rack, form.tilesUsed);
       round.pile.discardPile.push.apply(round.pile.discardPile, form.tilesUsed);
       refill();
@@ -209,5 +201,45 @@
     };
 
     return round;
+  };
+
+  // A RUN: three rounds back to back, harder each time -- two normal enemies
+  // and then a boss. Each round draws a fresh rack from a fresh deck
+  // (opts.makeDeck() is called per round). Gold pools across the run. Lose a
+  // round and the run is lost; win the boss and the run is won.
+  Sandbox.createRun = function (opts) {
+    var tune = Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {});
+    var run = {
+      tune: tune,
+      stages: [
+        { target: tune.TARGET_1, boss: false },
+        { target: tune.TARGET_2, boss: false },
+        { target: tune.TARGET_BOSS, boss: true }
+      ],
+      stage: 0,
+      round: null,
+      gold: 0,
+      state: 'live'
+    };
+    function begin() {
+      run.round = Sandbox.createRound({
+        rng: opts.rng, deck: opts.makeDeck(), tune: tune, items: opts.items,
+        target: run.stages[run.stage].target
+      });
+    }
+    // Settle the current round into the run; then, if it was won and there is
+    // a next stage, start it. Returns the run state.
+    run.next = function () {
+      var r = run.round;
+      if (run.state !== 'live' || !r || r.state === 'live') return run.state;
+      if (r.state === 'lost') { run.state = 'lost'; return run.state; }
+      run.gold += r.gold;
+      if (run.stage >= run.stages.length - 1) { run.state = 'won'; return run.state; }
+      run.stage += 1;
+      begin();
+      return run.state;
+    };
+    begin();
+    return run;
   };
 })();

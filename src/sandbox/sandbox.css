@@ -1301,3 +1301,9 @@ button:disabled {
 .sb-item.is-pick { border-color: var(--brass); }
 .sb-item.is-on { color: var(--ink); background: var(--leaf); border-color: var(--leaf); }
 .sb-item input { margin: 0; accent-color: var(--brass); }
+
+/* Items: the "+10 pts +1 mult" tag under a name; the helper toggle in the setup bar. */
+.sb-item em { font-style: normal; font-weight: 400; letter-spacing: 0.04em; text-transform: none; opacity: 0.75; }
+.sb-setup .sb-toggle { flex-direction: row; align-items: center; gap: 7px; cursor: pointer; }
+.sb-setup .sb-toggle input { margin: 0; accent-color: var(--brass); }
+.sb-outcome .sb-go { margin-left: 10px; }
