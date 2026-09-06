@@ -130,7 +130,7 @@ not something to reintroduce piecemeal mid-task.
     only; the music never touches the score.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation,
   kept until the React port reaches full parity.
-- `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`.
+- `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`, `fetch-wiktionary.js` (`npm run fetch:words`: pulls Wiktionary's English lemmas into the GENERATED WIKT_EXTRA block of `js/wordbound/wordlist.js`, 4+ letter lowercase titles only; cache in `.cache/wiktionary/`).
 - `THEME.md` — world/style bible. `ROADMAP.md` — north star + known gaps.
   `COMBAT_REDESIGN.md` — the 2026-09-05 plan: Balatro-with-Scrabble rounds
   (4 words, 3 changeouts, beat a point target, gold, shop) replacing the tug
