@@ -755,10 +755,10 @@ button:disabled {
 
 /* DRAG TO REORDER (dragReorder.js). The tile being dragged goes hollow where
    it stood -- its ghost is what the finger is holding -- and that hollow
-   travels along the row to wherever the drop would land. No transform:
-   the FLIP owns it. touch-action keeps a finger on a tile from scrolling the
-   page sideways while still letting a vertical swipe scroll. */
-.sb-tile { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+   travels to wherever the drop would land, in either row. No transform: the
+   FLIP owns it. touch-action: none, because a drag from the case down to the
+   stick is vertical and the browser must not take it as a scroll. */
+.sb-tile { touch-action: none; user-select: none; -webkit-user-select: none; }
 .sb-tile.is-dragging { opacity: 0.25; }
 .sb-drag-ghost {
   position: fixed;

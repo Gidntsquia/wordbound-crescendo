@@ -87,8 +87,9 @@ not something to reintroduce piecemeal mid-task.
   the row under it is THE COMPOSING STICK, with a FLIP slide carrying the tile
   between them — nothing may set `transform` on `.sb-tile`, which that
   animation owns. `src/sandbox/dragReorder.js` lets a tile be DRAGGED along
-  its row (pointer events, a ghost on body, `round.moveTile` for the case and
-  a reordered word string for the stick); a press under 6px is still a tap.
+  its row or between the two rows (document-level pointer events, a ghost on
+  body, `round.moveTile` for the case and an edited word string for the
+  stick); a press under 6px is still a tap.
   The stick is also the changeout selection: Change out throws
   back whatever tiles stand on it. `src/sandbox/wordFinder.js` is the
   word-maker helper (anagram map over WORDLIST); it sits behind the WORD

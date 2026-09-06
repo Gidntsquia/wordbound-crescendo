@@ -334,43 +334,57 @@ export default function RoundSandbox() {
   // Every tile in the row is FLIPped so its neighbours slide aside; the
   // dragged tile slides in from where the finger let go of its ghost.
   const wordRef = useRef(letters); wordRef.current = letters;
-  const slotsRef = useRef(slots); slotsRef.current = slots;
-  // While a drag is on, the row is drawn in PREVIEW order: the hollow tile
-  // stands where the drop would put it. `to` is its index among the others.
-  const [preview, setPreview] = useState(null);   // { row, id, to } | null
+  // While a drag is on, both rows are drawn in PREVIEW: the hollow tile stands
+  // where the drop would put it, in whichever row the finger is over.
+  const [preview, setPreview] = useState(null);   // { id, fromRow, fromIndex, toRow, to } | null
+  const playRef = useRef(null);
   const dragRef = useRef(null);
   if (!dragRef.current) {
-    const flipRow = (row, id) => {
+    const flipAll = (id) => {
       const r = fight.current?.round;
       if (!r) return;
-      (row === 'rack' ? r.rack : slotsRef.current).forEach((t) => { if (t && t.id !== id) captureFlipFrom(t.id); });
+      r.rack.forEach((t) => { if (t.id !== id) captureFlipFrom(t.id); });
     };
     dragRef.current = createDragReorder({
-      onPreview: (row, id, to, from) => {
-        flipRow(row, id);
-        setPreview({ row, id, to, from });
-      },
+      rows: () => ({
+        rack: playRef.current.querySelector('.sb-rack'),
+        stick: playRef.current.querySelector('.sb-stick')
+      }),
+      onPreview: (p) => { flipAll(p.id); setPreview(p); },
       onSettle: (id, ghostRect) => {
         setPreview(null);
-        pendingFlipFromRef.current[id] = ghostRect;
+        if (id) pendingFlipFromRef.current[id] = ghostRect;
         refresh();
       },
-      onReorder: (row, from, to, id, ghostRect) => {
+      onDrop: (p, ghostRect) => {
         const r = fight.current?.round;
         if (!r) return;
         setPreview(null);
-        if (row === 'rack') {
-          pendingFlipFromRef.current[id] = ghostRect;
-          r.moveTile(from, to);
-          refresh();
-        } else {
-          const cur = wordRef.current;
-          if (from >= cur.length || to >= cur.length) return;
-          if (id) pendingFlipFromRef.current[id] = ghostRect;
-          const arr = cur.split('');
-          const ch = arr.splice(from, 1)[0];
-          arr.splice(to, 0, ch);
+        if (p.id) pendingFlipFromRef.current[p.id] = ghostRect;
+        const cur = wordRef.current;
+        if (p.fromRow === 'rack') {
+          const tile = r.rack[p.fromIndex];
+          if (!tile) return;
+          if (p.toRow === 'rack') { r.moveTile(p.fromIndex, p.to); refresh(); return; }
+          // Case -> stick: stage the letter at the finger's slot.
+          const ch = tile.letter === '?' ? '?' : tile.letter;
+          setWord(cur.slice(0, p.to) + ch + cur.slice(p.to));
+          return;
+        }
+        if (p.fromIndex >= cur.length) return;
+        const arr = cur.split('');
+        const ch = arr.splice(p.fromIndex, 1)[0];
+        if (p.toRow === 'stick') {
+          arr.splice(p.to, 0, ch);
           setWord(arr.join(''));
+          return;
+        }
+        // Stick -> case: send the tile home, to the slot the finger chose.
+        setWord(arr.join(''));
+        if (p.id) {
+          const i = r.rack.findIndex((t) => t.id === p.id);
+          if (i >= 0) r.moveTile(i, p.to);
+          refresh();
         }
       }
     });
@@ -382,19 +396,36 @@ export default function RoundSandbox() {
     if (fight.current) fight.current.round.tune[key] = value;
   };
 
-  // Rows as drawn: the real order, or the drag's preview order.
+  // Rows as drawn: the real order, or the drag's preview. Each entry carries
+  // `hollow` (the tile being dragged) so the row can paint it as a hole.
   const moved = (arr, i, to) => { const a = arr.slice(); const x = a.splice(i, 1)[0]; a.splice(to, 0, x); return a; };
   const rackShown = (() => {
     if (!round) return [];
-    if (!preview || preview.row !== 'rack') return round.rack.map((t, i) => ({ t, i }));
-    const arr = round.rack.map((t, i) => ({ t, i }));
+    let arr = round.rack.map((t, i) => ({ t, i, picked: pickedIds.has(t.id), hollow: false }));
+    if (!preview || !preview.id) return arr;
     const i = arr.findIndex((x) => x.t.id === preview.id);
-    return i < 0 ? arr : moved(arr, i, preview.to);
+    if (i < 0) return arr;
+    if (preview.toRow === 'rack') {
+      arr[i] = { ...arr[i], picked: false, hollow: true };
+      arr = moved(arr, i, preview.to);
+    } else {
+      arr[i] = { ...arr[i], picked: true };
+    }
+    return arr;
   })();
   const stickShown = (() => {
-    const arr = slots.map((t, i) => ({ t, i, ch: letters[i] }));
-    if (!preview || preview.row !== 'stick') return arr;
-    return preview.from < arr.length ? moved(arr, preview.from, preview.to) : arr;
+    let arr = slots.map((t, i) => ({ t, i, ch: letters[i], hollow: false }));
+    if (!preview) return arr;
+    if (preview.fromRow === 'stick') {
+      if (preview.fromIndex >= arr.length) return arr;
+      const x = { ...arr[preview.fromIndex], hollow: true };
+      arr.splice(preview.fromIndex, 1);
+      if (preview.toRow === 'stick') arr.splice(preview.to, 0, x);
+    } else if (preview.toRow === 'stick' && round) {
+      const t = round.rack.find((x) => x.id === preview.id);
+      if (t) arr.splice(preview.to, 0, { t, i: -1, ch: t.letter, hollow: true });
+    }
+    return arr;
   })();
 
   const live = phase === 'live' && round;
@@ -538,13 +569,13 @@ export default function RoundSandbox() {
       )}
 
       {round && (
-        <section className="sb-play">
+        <section className="sb-play" ref={playRef}>
           <div className="sb-rack">
-            {rackShown.map(({ t, i }) => (pickedIds.has(t.id) ? (
+            {rackShown.map(({ t, i, picked, hollow }) => (picked ? (
               <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
             ) : (
               <button key={t.id} type="button" disabled={!live}
-                className={'sb-tile' + (preview && preview.id === t.id ? ' is-dragging' : '')}
+                className={'sb-tile' + (hollow ? ' is-dragging' : '')}
                 data-flip-tile-id={t.id}
                 {...drag.bind('rack', i, t.id)}
                 onClick={() => stageTile(t)}>
@@ -576,9 +607,9 @@ export default function RoundSandbox() {
               {letters.length === 0 && (
                 <span className="sb-stick-empty">tap the case, or type — then Play it or Change it out · one tile alone always plays</span>
               )}
-              {stickShown.map(({ t, i, ch }) => (t ? (
+              {stickShown.map(({ t, i, ch, hollow }) => (t ? (
                 <button key={t.id} type="button" disabled={!live}
-                  className={'sb-tile is-set' + (preview && preview.id === t.id ? ' is-dragging' : '')}
+                  className={'sb-tile is-set' + (hollow ? ' is-dragging' : '')}
                   data-flip-tile-id={t.id}
                   title="Tap to send home · drag to reorder"
                   {...drag.bind('stick', i, t.id)}
@@ -588,7 +619,7 @@ export default function RoundSandbox() {
                 </button>
               ) : (
                 <button key={'gap' + i} type="button" disabled={!live}
-                  className={'sb-tile is-missing' + (preview && preview.row === 'stick' && preview.from === i ? ' is-dragging' : '')}
+                  className={'sb-tile is-missing' + (hollow ? ' is-dragging' : '')}
                   title="No tile in the case spells this"
                   {...drag.bind('stick', i, null)}
                   onClick={() => unstageAt(i)}>
