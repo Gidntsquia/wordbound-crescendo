@@ -260,7 +260,7 @@ export default function RoundSandbox() {
       const f = fight.current;
       if (f && f.seq && f.seq.die) {
         f.seq.die(SB.DEATH_STALL_SEC);
-        SB.playDeathSting(f.ctx, f.gain, SB.DEATH_STALL_SEC * 0.8);
+        SB.playDeathSting(f.ctx, f.gain, SB.DEATH_STALL_SEC * 0.55, f.piece?.key);
       }
       say('Target met — ' + r.score + ' against ' + r.target + '. '
         + r.playsLeft + ' word' + (r.playsLeft === 1 ? '' : 's') + ' left → '

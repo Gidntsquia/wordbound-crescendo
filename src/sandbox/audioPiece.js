@@ -175,19 +175,17 @@
         firedSurges = {};
       },
 
-      // TAPE-STOP. The piece sags to a halt over `sec`: pitch and level slide
-      // down together, then the source is cut. This is the enemy dying (see
-      // deathSting.js). Nothing here restarts it; a new stage makes a new piece.
+      // The piece DIES: a plain diminuendo over `sec` -- the orchestra falls
+      // silent, no tape-warp (pitch-bending a real recording read as a
+      // broken cassette, not a defeat). See deathSting.js for what follows.
+      // Nothing here restarts it; a new stage makes a new piece.
       die: function (sec) {
         wantPlay = false;
         if (!source) return;
         var now = ctx.currentTime;
         var end = now + (sec || 1.4);
-        source.playbackRate.cancelScheduledValues(now);
-        source.playbackRate.setValueAtTime(rate, now);
-        source.playbackRate.exponentialRampToValueAtTime(0.08, end);
         trim.gain.cancelScheduledValues(now);
-        trim.gain.setValueAtTime(trim.gain.value, now);
+        trim.gain.setValueAtTime(Math.max(trim.gain.value, 0.0005), now);
         trim.gain.exponentialRampToValueAtTime(0.0005, end);
         try { source.stop(end + 0.05); } catch (e) { /* already stopped */ }
         var dying = source;
