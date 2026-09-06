@@ -46,11 +46,15 @@
 //   tierFor(word, tune)  -- the tier a word of that length scores as
 //   ITEMS                -- the sandbox's own items: each simply adds flat
 //                           POINTS and/or MULT to every word (see below)
-//   createRun(opts)      -- { rng, makeDeck, tune?, items? } -> run of three
-//                           rounds: two normal enemies then a boss, targets
-//                           TARGET_1 / TARGET_2 / TARGET_BOSS, gold pooled.
-//     run.stage (0-based), run.stages [{ target, boss }], run.round,
+//   createRun(opts)      -- { rng, makeDeck, tune?, items? } -> a run down
+//                           Sandbox.MOVEMENTS (enemies.js): two movements of
+//                           small / big / boss, targets MOVEMENT_BASE_n x
+//                           1 / BIG_MULT / BOSS_MULT, gold pooled with
+//                           INTEREST (1 per INTEREST_PER held, cap
+//                           INTEREST_CAP) paid at each win.
+//     run.movement, run.stage (both 0-based), run.enemy, run.round,
 //       run.gold, run.state ('live' | 'won' | 'lost'), run.next()
+//     run.targetFor(movement, stage), run.interestPreview()
 //     run.tierLevels {tierId: level}, run.levelTier(tierId) -- études
 //   createRound(opts)    -- { rng, deck, tune?, items?, target?, tierLevels? }
 //     items: array of Sandbox.ITEMS ids. Every one is folded straight into
@@ -69,9 +73,10 @@
   var Sandbox = (window.Wordbound.Sandbox = window.Wordbound.Sandbox || {});
 
   Sandbox.ROUND_DEFAULTS = {
-    TARGET_1: 100,       // points to reach, first battle
-    TARGET_2: 175,       // second battle
-    TARGET_BOSS: 300,    // the boss
+    MOVEMENT_BASE_1: 300, // small-enemy target, first movement (Phase 0)
+    MOVEMENT_BASE_2: 750, // second movement, ~2.5x like Balatro's antes
+    BIG_MULT: 1.5,        // big enemy target = base x this
+    BOSS_MULT: 2,         // boss target = base x this
     PLAYS: 4,            // words the player may play
     CHANGEOUTS: 3,       // tile swaps
     RACK_SIZE: 7,
@@ -82,8 +87,13 @@
     PTS_5: 20, MULT_5: 4,
     PTS_6: 35, MULT_6: 5,
     PTS_7: 60, MULT_7: 7,    // seven or more
-    GOLD_WIN: 3,         // flat purse for a win
-    GOLD_PER_WORD_LEFT: 2 // bonus per unplayed word at the win
+    GOLD_SMALL: 3,        // purse for felling a small enemy
+    GOLD_BIG: 4,          // a big one
+    GOLD_BOSS: 5,         // the boss
+    GOLD_PER_WORD_LEFT: 1, // bonus per unplayed word at the win
+    START_GOLD: 4,
+    INTEREST_PER: 5,      // +1 gold per this much held at a round's end
+    INTEREST_CAP: 5
   };
 
   // Balatro's hand types: a word scores as the tier of its length. An étude
@@ -174,7 +184,8 @@
 
     var round = {
       tune: tune,
-      target: opts.target != null ? opts.target : tune.TARGET_1,
+      target: opts.target != null ? opts.target : tune.MOVEMENT_BASE_1,
+      reward: opts.reward != null ? opts.reward : tune.GOLD_SMALL, // flat gold at the win
       playsLeft: tune.PLAYS,
       changeoutsLeft: tune.CHANGEOUTS,
       rackSize: tune.RACK_SIZE,
@@ -201,7 +212,7 @@
     function settle() {
       if (round.score >= round.target) {
         round.state = 'won';
-        round.gold = tune.GOLD_WIN + tune.GOLD_PER_WORD_LEFT * round.playsLeft;
+        round.gold = round.reward + tune.GOLD_PER_WORD_LEFT * round.playsLeft;
       } else if (round.playsLeft <= 0) {
         round.state = 'lost';
       }
@@ -274,32 +285,47 @@
     return round;
   };
 
-  // A RUN: three rounds back to back, harder each time -- two normal enemies
-  // and then a boss. Each round draws a fresh rack from a fresh deck
-  // (opts.makeDeck() is called per round). Gold pools across the run. Lose a
-  // round and the run is lost; win the boss and the run is won.
+  // A RUN down the lineup in enemies.js: movements of small / big / boss,
+  // each a round with a higher target. Each round draws a fresh rack from a
+  // fresh deck (opts.makeDeck() is called per round). Gold pools across the
+  // run and earns INTEREST at every win. Lose a round and the run is lost;
+  // fell the last boss and the run is won.
   Sandbox.createRun = function (opts) {
     var tune = Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {});
+    var MOVEMENTS = Sandbox.MOVEMENTS || [];
     var run = {
       tune: tune,
-      stages: [
-        { target: tune.TARGET_1, boss: false },
-        { target: tune.TARGET_2, boss: false },
-        { target: tune.TARGET_BOSS, boss: true }
-      ],
+      movements: MOVEMENTS,
+      movement: 0,
       stage: 0,
+      enemy: null,
       round: null,
       items: (opts.items || []).slice(), // carried into every round from here on
       startItems: (opts.items || []).slice(), // what the run set out with
       offer: null,   // after a won round: OFFER_SIZE item ids to choose one from
       tierLevels: {}, // études: { tierId: level }, level 1 when absent
-      gold: 0,
+      gold: tune.START_GOLD,
+      felled: [],    // enemy ids beaten so far
+      lastWin: null, // { reward, interest } of the latest win, for the UI
       state: 'live'
     };
+    var KIND_MULT = { small: 1, big: tune.BIG_MULT, boss: tune.BOSS_MULT };
+    var KIND_GOLD = { small: tune.GOLD_SMALL, big: tune.GOLD_BIG, boss: tune.GOLD_BOSS };
+    run.targetFor = function (movement, stage) {
+      var e = Sandbox.enemyAt(movement, stage);
+      var base = tune['MOVEMENT_BASE_' + (movement + 1)] || tune.MOVEMENT_BASE_1 * Math.pow(2.5, movement);
+      return Math.round(base * (e ? KIND_MULT[e.kind] || 1 : 1));
+    };
+    run.interestPreview = function () {
+      return Math.min(tune.INTEREST_CAP, Math.floor(run.gold / tune.INTEREST_PER));
+    };
     function begin() {
+      run.enemy = Sandbox.enemyAt(run.movement, run.stage);
       run.round = Sandbox.createRound({
         rng: opts.rng, deck: opts.makeDeck(), tune: tune, items: run.items,
-        target: run.stages[run.stage].target, tierLevels: run.tierLevels
+        target: run.targetFor(run.movement, run.stage),
+        reward: KIND_GOLD[run.enemy.kind],
+        tierLevels: run.tierLevels
       });
     }
     // An étude: raise one length tier a level for the rest of the run.
@@ -320,17 +346,24 @@
       }
       return out;
     }
-    // Settle the current round into the run. A win on the way to the boss
-    // puts up run.offer (choose one with run.choose) before the next round
-    // begins; if there is nothing left to offer the next round begins at
-    // once. Returns the run state.
+    // Settle the current round into the run: bank the reward, then the
+    // interest on what is held. A win on the way to the last boss puts up
+    // run.offer (choose one with run.choose) before the next round begins;
+    // if there is nothing left to offer the next round begins at once.
+    // Returns the run state.
     run.next = function () {
       var r = run.round;
       if (run.state !== 'live' || !r || r.state === 'live' || run.offer) return run.state;
       if (r.state === 'lost') { run.state = 'lost'; return run.state; }
       run.gold += r.gold;
-      if (run.stage >= run.stages.length - 1) { run.state = 'won'; return run.state; }
+      var interest = run.interestPreview();
+      run.gold += interest;
+      run.lastWin = { reward: r.gold, interest: interest };
+      run.felled.push(run.enemy.id);
+      var last = run.movement >= MOVEMENTS.length - 1 && run.stage >= MOVEMENTS[run.movement].enemies.length - 1;
+      if (last) { run.state = 'won'; return run.state; }
       run.stage += 1;
+      if (run.stage >= MOVEMENTS[run.movement].enemies.length) { run.stage = 0; run.movement += 1; }
       var offer = drawOffer();
       if (offer.length) run.offer = offer;
       else begin();

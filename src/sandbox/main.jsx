@@ -19,6 +19,7 @@ import '../../js/wordbound/wordlist.js';
 import '../../js/wordbound/lexicon.js';
 import '../../js/wordbound/tiles.js';
 
+import './enemies.js';
 import './round.js';
 import './wordFinder.js';
 // Which letters a fight draws from -- three bags, weak/normal/strong.

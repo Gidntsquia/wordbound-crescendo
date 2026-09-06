@@ -31,20 +31,11 @@ function flipTileTo(fromRect, toEl) {
   });
 }
 
-// The run's fixed lineup: a name and the piece that plays under each round.
-// `recorded` names a Sandbox.* recorded piece (audioPiece.js); all three are
-// recordings (see recordedFurElise.js for the logged exception).
-const LINEUP = [
-  { id: 'bagatelle', name: 'The Bagatelle', glyph: '\u{1F339}', recorded: 'recordedFurElise' },
-  { id: 'moonlight', name: 'The Moonlight', glyph: '\u{1F319}', recorded: 'recordedMoonlight' },
-  { id: 'fate', name: 'Fate at the Door', glyph: '\u{1F451}', recorded: 'recordedSymphony5', boss: true },
-];
-const STAGE_NAMES = ['Battle 1', 'Battle 2', 'Boss'];
-
 const TUNE_LABELS = {
-  TARGET_1: 'Target, battle 1',
-  TARGET_2: 'Target, battle 2',
-  TARGET_BOSS: 'Target, boss',
+  MOVEMENT_BASE_1: 'Target base, movement I',
+  MOVEMENT_BASE_2: 'Target base, movement II',
+  BIG_MULT: 'Big enemy × base',
+  BOSS_MULT: 'Boss × base',
   PLAYS: 'Words per round',
   CHANGEOUTS: 'Changeouts',
   RACK_SIZE: 'Rack size',
@@ -54,8 +45,13 @@ const TUNE_LABELS = {
   PTS_5: 'Five · points', MULT_5: 'Five · mult',
   PTS_6: 'Six · points', MULT_6: 'Six · mult',
   PTS_7: 'Seven+ · points', MULT_7: 'Seven+ · mult',
-  GOLD_WIN: 'Gold for a win',
+  GOLD_SMALL: 'Gold, small enemy',
+  GOLD_BIG: 'Gold, big enemy',
+  GOLD_BOSS: 'Gold, boss',
   GOLD_PER_WORD_LEFT: 'Gold per word left',
+  START_GOLD: 'Starting gold',
+  INTEREST_PER: 'Interest: 1 gold per',
+  INTEREST_CAP: 'Interest cap',
 };
 
 // "FIVE · lvl 2 · 35 + letters 9 = 44 pts × 6" -- tier, points, then mult.
@@ -136,14 +132,18 @@ export default function RoundSandbox() {
 
   // Pull all three recordings down up front, not at each stage's start.
   useEffect(() => {
-    LINEUP.forEach((def) => {
+    const seen = new Set();
+    SB.MOVEMENTS.forEach((m) => m.enemies.forEach((def) => {
+      if (seen.has(def.recorded)) return;
+      seen.add(def.recorded);
       const piece = SB[def.recorded];
       if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
-    });
+    }));
   }, [SB]);
 
-  // Start the soundtrack for the run's current stage against `def`.
-  const startStage = useCallback((run, def) => {
+  // Start the soundtrack for the run's current enemy.
+  const startStage = useCallback((run) => {
+    const def = run.enemy;
     const f = fight.current;
     if (f && f.seq) {
       if (f.seq.dispose) f.seq.dispose();
@@ -169,8 +169,8 @@ export default function RoundSandbox() {
     setWord('');
     setSuggestions([]);
     setPhase('live');
-    say(STAGE_NAMES[run.stage] + ' — ' + def.name + ' takes up ' + piece.title
-      + '. Target ' + round.target + '.');
+    say('Movement ' + SB.MOVEMENTS[run.movement].numeral + ' · ' + SB.KIND_LABEL[def.kind] + ' — '
+      + def.name + ' takes up ' + piece.title + '. Target ' + round.target + '.');
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [say, W, SB]);
 
@@ -193,16 +193,15 @@ export default function RoundSandbox() {
       return;
     }
 
-    const lineup = LINEUP;
     const run = SB.createRun({
       rng, makeDeck: () => SB.createBagDeck(bagId), tune, items: [...itemIds]
     });
-    fight.current = { ...(fight.current || {}), ctx, gain, lineup, seq: fight.current?.seq };
+    fight.current = { ...(fight.current || {}), ctx, gain, seq: fight.current?.seq };
     setLog([]);
     if (itemIds.size) {
       say('Carrying ' + [...itemIds].map((id) => SB.ITEM_DEFS[id].name).join(', ') + '.');
     }
-    startStage(run, lineup[0]);
+    startStage(run);
   }, [seed, bagId, volume, tune, itemIds, say, startStage]);
 
   // After a won round: bank the gold and move to the next enemy, or end the run.
@@ -212,7 +211,7 @@ export default function RoundSandbox() {
     const state = f.run.next();
     if (state === 'won') {
       setPhase('run-won');
-      say('The boss falls. Run won with ' + f.run.gold + ' gold.');
+      say('The last boss falls. Run won with ' + f.run.gold + ' gold.');
       refresh();
       return;
     }
@@ -222,7 +221,7 @@ export default function RoundSandbox() {
       refresh();
       return;
     }
-    startStage(f.run, f.lineup[f.run.stage]);
+    startStage(f.run);
   }, [phase, say, refresh, startStage, SB]);
 
   // Take one of the offered items (or none) and go on to the next enemy.
@@ -231,7 +230,7 @@ export default function RoundSandbox() {
     if (!f || !f.run || phase !== 'choose') return;
     if (!f.run.choose(id)) return;
     say(id ? 'Took ' + SB.ITEM_DEFS[id].name + '.' : 'Took nothing.');
-    startStage(f.run, f.lineup[f.run.stage]);
+    startStage(f.run);
   }, [phase, say, startStage, SB]);
 
   const f = fight.current;
@@ -260,13 +259,14 @@ export default function RoundSandbox() {
   const formable = !letters || pickedIds.size === letters.length;
 
   const finish = useCallback((r) => {
+    const run = fight.current?.run;
     if (r.state === 'won') {
       setPhase('won');
       // The piece simply stops; no death sound.
       fight.current?.seq?.stop?.();
       say('Target met — ' + r.score + ' against ' + r.target + '. '
         + r.playsLeft + ' word' + (r.playsLeft === 1 ? '' : 's') + ' left → '
-        + r.gold + ' gold.');
+        + r.gold + ' gold' + (run.interestPreview() ? ' + ' + run.interestPreview() + ' interest' : '') + '.');
     } else if (r.state === 'lost') {
       setPhase('lost');
       say('Out of words at ' + r.score + ' — ' + (r.target - r.score) + ' short.');
@@ -439,16 +439,41 @@ export default function RoundSandbox() {
     <div className="sb">
       <header className="sb-head">
         <div className="sb-wordmark">
-          <span className="sb-eyebrow">Round sandbox · a run of three</span>
+          <span className="sb-eyebrow">Round sandbox · two movements</span>
           <h1>Wordbound<span className="sb-amp">·</span>Crescendo</h1>
         </div>
         {round && (
           <div className="sb-dyn">
-            <span className="sb-dyn-label">{STAGE_NAMES[run.stage]} · score / target</span>
+            <span className="sb-dyn-label">{SB.KIND_LABEL[run.enemy.kind]} · score / target</span>
             <span className="sb-dyn-mark">{round.score}<small> / {round.target}</small></span>
           </div>
         )}
       </header>
+
+      {run && (
+        <nav className="sb-strip" aria-label="The run">
+          {run.movements.map((m, mi) => (
+            <span key={m.numeral} className={'sb-strip-mv' + (mi === run.movement ? ' is-now' : mi < run.movement ? ' is-done' : '')}>
+              <b className="sb-strip-numeral">{m.numeral}</b>
+              {m.enemies.map((e, si) => {
+                const done = run.felled.includes(e.id);
+                const now = mi === run.movement && si === run.stage;
+                return (
+                  <span key={e.id} title={e.name + ' · target ' + run.targetFor(mi, si)}
+                    className={'sb-pip sb-pip-' + e.kind + (now ? ' is-now' : '') + (done ? ' is-done' : '')}>
+                    {e.kind === 'boss' ? '♩' : '·'}
+                  </span>
+                );
+              })}
+            </span>
+          ))}
+          <span className="sb-strip-enemy">{run.enemy.glyph} {run.enemy.name}</span>
+          <span className="sb-purse" title={'Interest: 1 gold per ' + run.tune.INTEREST_PER + ' held, up to ' + run.tune.INTEREST_CAP}>
+            <b>{run.gold}</b> gold
+            {run.interestPreview() > 0 && <em>+{run.interestPreview()} interest</em>}
+          </span>
+        </nav>
+      )}
 
       <section className="sb-setup">
         <label>Seed
@@ -499,7 +524,7 @@ export default function RoundSandbox() {
       </section>
 
       {phase === 'idle' && (
-        <p className="sb-hint">Pick a bag, then Start. Three battles — two enemies, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult.</p>
+        <p className="sb-hint">Pick a bag, then Start. Two movements of three enemies — small, big, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult. Gold earns interest between fights.</p>
       )}
 
       {round && (
@@ -516,8 +541,7 @@ export default function RoundSandbox() {
             {round.items.length > 0 && (
               <span>{round.items.map((id) => SB.ITEM_DEFS[id].name).join(' · ')}</span>
             )}
-            <span><b>{run.gold}</b> gold banked</span>
-            <span className="sb-enemy">{STAGE_NAMES[run.stage]} · {f.def.glyph} {f.def.name} · {f.piece.title}</span>
+            <span className="sb-enemy">{SB.KIND_LABEL[run.enemy.kind]} · {f.def.glyph} {f.def.name} · {f.piece.title}</span>
           </div>
           {round.plays.length > 0 && (
             <ol className="sb-plays">
@@ -532,10 +556,11 @@ export default function RoundSandbox() {
           )}
           {phase === 'won' && (
             <div className="sb-outcome sb-win">
-              Won — {round.gold} gold ({round.tune.GOLD_WIN} + {round.tune.GOLD_PER_WORD_LEFT} × {round.playsLeft} word{round.playsLeft === 1 ? '' : 's'} left).
+              Won — {round.gold} gold ({round.reward} + {round.tune.GOLD_PER_WORD_LEFT} × {round.playsLeft} word{round.playsLeft === 1 ? '' : 's'} left)
+              {run.interestPreview() > 0 && <> + {run.interestPreview()} interest</>}.
               {' '}
               <button type="button" className="sb-go" onClick={nextStage}>
-                {run.stage >= run.stages.length - 1 ? 'Finish the run' : 'Claim the spoils'}
+                {run.movement >= run.movements.length - 1 && run.enemy.kind === 'boss' ? 'Finish the run' : 'Claim the spoils'}
               </button>
             </div>
           )}
@@ -552,18 +577,18 @@ export default function RoundSandbox() {
                 );
               })}
               <button type="button" className="sb-offer-skip" onClick={() => chooseItem(null)}>
-                Take nothing · on to {f.lineup[run.stage].name}
+                Take nothing · on to {SB.enemyAt(run.movement, run.stage).name}
               </button>
             </div>
           )}
           {phase === 'run-won' && (
             <div className="sb-outcome sb-win">
-              Run won — {run.gold} gold across three battles.
+              Run won — {run.gold} gold across {run.felled.length} enemies.
             </div>
           )}
           {phase === 'lost' && (
             <div className="sb-outcome sb-lose">
-              Lost at {STAGE_NAMES[run.stage]} — {round.target - round.score} short of the target.
+              Lost to {run.enemy.name} — {round.target - round.score} short of the target.
             </div>
           )}
         </section>

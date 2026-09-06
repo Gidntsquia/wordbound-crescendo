@@ -1353,3 +1353,53 @@ button:disabled {
   text-decoration: underline; text-underline-offset: 3px;
 }
 .sb-offer-skip:hover { color: var(--brass-hot); }
+
+/* THE RUN STRIP: the lineup across the top -- a numeral per movement, a pip
+   per enemy (the boss is a note head), the current one lit, and the purse
+   with its interest preview. */
+.sb-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--rule);
+  background: var(--pit-deep);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--leaf-dim);
+}
+.sb-strip-mv { display: inline-flex; align-items: center; gap: 5px; opacity: 0.55; }
+.sb-strip-mv.is-now { opacity: 1; }
+.sb-strip-mv.is-done { opacity: 0.8; }
+.sb-strip-numeral {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--leaf);
+  margin-right: 4px;
+}
+.sb-strip-mv.is-now .sb-strip-numeral { color: var(--brass-hot); }
+.sb-pip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  font-family: var(--figure);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--leaf-dim);
+}
+.sb-pip-big { width: 26px; height: 26px; }
+.sb-pip-boss { width: 30px; height: 30px; border-color: var(--brass); color: var(--brass); }
+.sb-pip.is-done { background: var(--leaf); color: var(--ink); border-color: var(--leaf); }
+.sb-pip.is-now { background: var(--brass-hot); color: var(--ink); border-color: var(--brass-hot); box-shadow: 0 0 0 3px rgba(242, 194, 96, 0.25); }
+.sb-strip-enemy { color: var(--brass); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; font-size: 11px; }
+.sb-purse { margin-left: auto; display: inline-flex; align-items: baseline; gap: 6px; }
+.sb-purse b { font-family: var(--figure); font-size: 18px; color: var(--brass-hot); }
+.sb-purse em { font-style: normal; color: var(--leaf-dim); font-size: 11px; }
