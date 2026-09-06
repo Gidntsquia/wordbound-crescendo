@@ -521,7 +521,8 @@ export default function RoundSandbox() {
   const startStage = useCallback((run) => {
     const def = run.enemy;
     const f = fight.current;
-    if (f && f.seq) {
+    const hadMusic = !!(f && f.seq);
+    if (hadMusic) {
       if (f.seq.dispose) f.seq.dispose();
       else f.seq.stop();
     }
@@ -537,7 +538,8 @@ export default function RoundSandbox() {
     });
     seq.play();
     // Take the stage under the previous enemy's last breath, not over it.
-    seq.whenReady.then(() => { if (fight.current?.seq === seq) seq.fadeIn(1.2); });
+    // The first fight of a run starts clean so the opening notes are heard.
+    if (hadMusic) seq.whenReady.then(() => { if (fight.current?.seq === seq) seq.fadeIn(0.4); });
     const round = run.round;
     warmAhead(run);
     fight.current = { ...f, run, round, seq, def, piece };

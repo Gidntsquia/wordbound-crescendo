@@ -178,12 +178,15 @@
 
       // Fade the piece in from silence over `sec` -- the next enemy taking
       // the stage rather than cutting in on the previous one's last breath.
+      // Linear and short: an exponential ramp from near-zero sat under
+      // -30 dB for most of its length and swallowed the opening notes of a
+      // quiet piece (Für Elise lost its first bar at 1.2 s).
       fadeIn: function (sec) {
         var target = trim.gain.value;
         var now = ctx.currentTime;
         trim.gain.cancelScheduledValues(now);
-        trim.gain.setValueAtTime(0.0005, now);
-        trim.gain.exponentialRampToValueAtTime(Math.max(target, 0.001), now + (sec || 1));
+        trim.gain.setValueAtTime(0, now);
+        trim.gain.linearRampToValueAtTime(target, now + (sec || 0.4));
       },
 
       // Same contract as the sequencer's: scale playback speed live.
