@@ -7,6 +7,7 @@
     "dev:sandbox": "vite --open /sandbox.html",
     "build": "vite build",
     "build:site": "node tools/build-site.js",
+    "deploy": "bash tools/deploy.sh",
     "preview": "vite preview",
     "build:itch": "node tools/build-itch.js",
     "prerecord:gameplay": "node tools/ensure-deps.js @playwright/test",

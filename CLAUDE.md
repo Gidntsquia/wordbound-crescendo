@@ -22,7 +22,10 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
 - `npm run dev` / `build` / `preview` — Vite; build outputs to `dist/app`
   (relative `base: './'`).
 - `npm run dev:sandbox` — the bare-bones ROUND SANDBOX (see below): one round, no run.
-- Deploy (LIVE DEPLOY rule): `npm run build:site` stages
+- Deploy (LIVE DEPLOY rule): `npm run deploy` (tools/deploy.sh) does all of
+  this in one quiet call and prints one line; run it after EVERY change that
+  lands, since Jaxon watches the live link from a phone. Under the hood:
+  `npm run build:site` stages
   `dist/app/` into `dist/site/` with the SANDBOX as the root `index.html` (the
   full app moves to `/app.html`) plus an empty `.nojekyll`; publish the CONTENTS
   of `dist/site/` as the root of the `gh-pages` branch (orphan/replace commit,
@@ -110,7 +113,7 @@ not something to reintroduce piecemeal mid-task.
   only when tuning the mechanic it owns.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation,
   kept until the React port reaches full parity.
-- `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `record-gameplay.js`.
+- `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`.
 - `THEME.md` — world/style bible. `ROADMAP.md` — north star + known gaps.
   `COMBAT_REDESIGN.md` — the 2026-09-05 plan: Balatro-with-Scrabble rounds
   (4 words, 3 changeouts, beat a point target, gold, shop) replacing the tug
