@@ -68,16 +68,19 @@
   Sandbox.RULES = {
     four_knocks: {
       id: 'four_knocks', name: 'Four knocks',
+      plain: '4-letter words score ×2 mult.',
       text: 'Four. Always four. A word of four letters strikes twice as hard here — ×2 mult.',
       score: function (ctx, acc) { if (ctx.word.length !== 4) return null; acc.mult *= 2; return '×2 mult, four knocks'; }
     },
     presto: {
       id: 'presto', name: 'Presto',
+      plain: '3 words this fight instead of 4; the target is ×0.8.',
       text: 'No time to dwell. Three words instead of four, and the target is lighter — ×0.8.',
       plays: -1, targetMult: 0.8
     },
     sotto_voce: {
       id: 'sotto_voce', name: 'Sotto voce',
+      plain: 'Words of 5+ letters score ×0.5 mult; 3–4 letters ×1.5.',
       text: 'Softly. A word of five letters or more scores ×0.5 mult here; three or four letters, ×1.5.',
       score: function (ctx, acc) {
         var n = ctx.word.length;
@@ -88,6 +91,7 @@
     },
     no_repeats: {
       id: 'no_repeats', name: 'No repeats',
+      plain: 'A letter can be played once this fight; used letters are greyed.',
       text: 'Every letter you spend, it remembers. A letter played this round cannot be played again.',
       barsLetter: function (round, letter) { return letter !== '?' && !!round.usedLetters[letter]; }
     }

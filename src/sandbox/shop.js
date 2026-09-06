@@ -27,7 +27,7 @@
   var Sandbox = (window.Wordbound.Sandbox = window.Wordbound.Sandbox || {});
 
   Sandbox.PACK_KINDS = [
-    { kind: 'tile', name: 'Tile pack', hint: 'Three sorts from the foundry — keep one in your case for the run' },
+    { kind: 'tile', name: 'Tile pack', hint: 'Three sorts from the foundry — keep one; it joins your tiles for the run' },
     { kind: 'ink', name: 'Ink pack', hint: 'Three inks — keep one' },
     { kind: 'etude', name: 'Étude pack', hint: 'Three études — keep one, and level a length' }
   ];

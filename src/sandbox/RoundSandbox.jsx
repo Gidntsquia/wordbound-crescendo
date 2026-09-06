@@ -38,7 +38,7 @@ const TUNE_LABELS = {
   BIG_MULT: 'Big enemy × base',
   BOSS_MULT: 'Boss × base',
   PLAYS: 'Words per round',
-  CHANGEOUTS: 'Changeouts',
+  CHANGEOUTS: 'Swaps per fight',
   RACK_SIZE: 'Rack size',
   PTS_2: 'Short (1–2) · points', MULT_2: 'Short · mult',
   PTS_3: 'Three · points', MULT_3: 'Three · mult',
@@ -63,7 +63,7 @@ const TUNE_LABELS = {
   INK_BOLD: 'Bold · mult per tile',
   INK_STEEL: 'Steel · × mult held',
   INK_COIN_CAP: 'Coin · gold cap',
-  BOUNTY_GOLD: 'Bounty favour · gold',
+  BOUNTY_GOLD: 'Skip bonus · gold',
   GOLD_SMALL: 'Gold, small enemy',
   GOLD_BIG: 'Gold, big enemy',
   GOLD_BOSS: 'Gold, boss',
@@ -201,7 +201,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats }) {
 }
 
 // The shop between fights: two cards, two packs, reroll, and the door.
-function Shop({ run, SB, act, leave, onInk }) {
+function Shop({ run, SB, act, leave, onInk, firstVisit }) {
   const shop = run.shop;
   const next = SB.enemyAt(run.movement, run.stage);
   const packDef = (kind) => SB.PACK_KINDS.find((k) => k.kind === kind);
@@ -211,13 +211,14 @@ function Shop({ run, SB, act, leave, onInk }) {
         <span className="sb-eyebrow">The shop · between fights{shop.coupon ? ' · coupon: cards are free' : ''}{shop.packs.some((p) => p.free && !p.opened) ? ' · a free pack' : ''}</span>
         <span className="sb-purse"><b>{run.gold}</b> gold</span>
       </div>
+      {firstVisit && <div className="sb-callout sb-callout-inline">Items score every word. Gold carries over.</div>}
       {run.pack && (
         <div className="sb-pack-open">
           <span className="sb-eyebrow">{packDef(run.pack.kind).name} · keep one</span>
           <div className="sb-shop-row">
             {run.pack.choices.map((c, i) => (
               <button key={i} type="button" className={'sb-card sb-card-pick sb-card-' + c.kind}
-                title={c.kind === 'tile' ? 'A ' + c.tile.letter + ' for your case' : cardBlurb(SB, c, run)}
+                title={c.kind === 'tile' ? 'A ' + c.tile.letter + ' for your rack' : cardBlurb(SB, c, run)}
                 onClick={() => act('Kept ' + (c.kind === 'tile' ? 'the ' + c.tile.letter : 'the ' + cardName(SB, c)) + '.', run.pick(i), 'tick')}>
                 {c.kind === 'tile' ? (
                   <span className="sb-tile is-set sb-tile-static">{c.tile.letter}<sub>{SB.LETTER_VALUES ? SB.LETTER_VALUES[c.tile.letter] : window.Wordbound.Lexicon.LETTER_VALUES[c.tile.letter]}</sub></span>
@@ -264,7 +265,7 @@ function Shop({ run, SB, act, leave, onInk }) {
         </div>
         <HeldRow run={run} SB={SB} act={act} inShop onInk={onInk} />
         <button type="button" className="sb-go sb-shop-leave" onClick={leave}>
-          Next fight · {next.glyph} {next.name} · target {run.targetFor(run.movement, run.stage)}
+          Continue<small>next: {next.glyph} {next.name} · target {run.targetFor(run.movement, run.stage)}</small>
         </button>
       </>)}
     </div>
@@ -301,9 +302,35 @@ function randomSeed() {
   return words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(Math.random() * 9000 + 1000);
 }
 
+// One-time CALLOUTS (Phase 2): short hints that appear in context and go
+// away on the action they describe. wbc.seen holds the ids already shown.
+const SEEN_KEY = 'wbc.seen';
+function readSeen() {
+  try {
+    const raw = window.localStorage.getItem(SEEN_KEY);
+    if (!raw) return new Set();
+    if (raw === '1') return new Set(['legacy']); // the old three-line overlay
+    return new Set(JSON.parse(raw));
+  } catch (e) { return new Set(); }
+}
+function writeSeen(set) {
+  try { window.localStorage.setItem(SEEN_KEY, JSON.stringify([...set])); } catch (e) { /* ignore */ }
+}
+const LIVE_URL = 'https://gidntsquia.github.io/wordbound-crescendo/';
+// The Balatro-style text summary friends can paste back.
+function shareText(run, won, seed) {
+  const total = runLength(run);
+  const lines = ['Wordbound: Crescendo'];
+  lines.push(won ? 'Won — all ' + total + ' enemies felled' : 'Felled ' + run.felled.length + ' of ' + total + ' — lost to ' + run.enemy.name);
+  if (run.bestPlay) lines.push('Best word: ' + run.bestPlay.word + ' for ' + run.bestPlay.breakdown.total);
+  lines.push(run.wordsPlayed + ' words · ' + run.gold + ' gold' + (run.items.length ? ' · ' + run.items.map((id) => window.Wordbound.Sandbox.ITEM_DEFS[id].name).join(', ') : ''));
+  lines.push('Seed ' + seed + ' · ' + LIVE_URL);
+  return lines.join('\n');
+}
+
 // The end of a run, won or lost: what was felled, the best word, the purse
 // and the items, and the way back in.
-function EndScreen({ run, won, SB, seed, onAgain, onCopy, best, describe }) {
+function EndScreen({ run, won, SB, seed, onAgain, onCopy, onShare, best, describe }) {
   const felled = run.felled.map((id) => {
     for (const m of run.movements) for (const e of m.enemies) if (e.id === id) return e;
     return null;
@@ -343,7 +370,8 @@ function EndScreen({ run, won, SB, seed, onAgain, onCopy, best, describe }) {
         </div>
       </div>
       <div className="sb-end-actions">
-        <button type="button" className="sb-go" onClick={onAgain}>Play again · new seed</button>
+        <button type="button" className="sb-go" onClick={onAgain}>Play again</button>
+        <button type="button" className="sb-share" onClick={onShare}>Copy result</button>
         <span className="sb-seed-line">seed <code>{seed}</code>
           <button type="button" onClick={onCopy}>copy</button></span>
         {best && best.word && (
@@ -413,13 +441,13 @@ export default function RoundSandbox() {
   const [best, setBest] = useState(() => readBest());
   // Narrow screens keep the setup bar, starting items and tuning behind a gear.
   const [gearOpen, setGearOpen] = useState(false);
-  // First-run overlay, three lines, gone on the first tap and remembered.
-  const [showIntro, setShowIntro] = useState(() => {
-    try { return !window.localStorage.getItem('wbc.seen'); } catch (e) { return true; }
-  });
-  const dismissIntro = useCallback(() => {
-    setShowIntro(false);
-    try { window.localStorage.setItem('wbc.seen', '1'); } catch (e) { /* ignore */ }
+  // Which one-time callouts have been shown (see readSeen).
+  const [seen, setSeen] = useState(() => readSeen());
+  const markSeen = useCallback((id) => {
+    setSeen((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev); next.add(id); writeSeen(next); return next;
+    });
   }, []);
   const [indexing, setIndexing] = useState(false);
   const inputRef = useRef(null);
@@ -520,8 +548,9 @@ export default function RoundSandbox() {
     setPhase('live');
     say('Movement ' + SB.MOVEMENTS[run.movement].numeral + ' · ' + SB.KIND_LABEL[def.kind] + ' — '
       + def.name + ' takes up ' + piece.title + '. Target ' + round.target + '.');
+    if (def.rule) setTimeout(() => markSeen('boss'), 6000);
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [say, W, SB, warmAhead]);
+  }, [say, W, SB, warmAhead, markSeen]);
 
   const start = useCallback((seedOverride) => {
     const useSeed = typeof seedOverride === 'string' ? seedOverride : seed;
@@ -586,8 +615,9 @@ export default function RoundSandbox() {
     const f = fight.current;
     if (!f || !f.run || phase !== 'shop') return;
     if (!f.run.leaveShop()) return;
+    markSeen('shop');
     startStage(f.run);
-  }, [phase, startStage]);
+  }, [phase, startStage, markSeen]);
 
   // Walk past a small or big enemy for its favour.
   const skipFight = useCallback(() => {
@@ -595,12 +625,19 @@ export default function RoundSandbox() {
     if (!f || !f.run || phase !== 'live') return;
     const res = f.run.skip();
     if (!res.ok) { say(res.reason); return; }
-    say('Skipped ' + f.def.name + ' — ' + SB.FAVOUR_DEFS[res.favour].name + ': ' + SB.FAVOUR_DEFS[res.favour].hint + '.');
+    say('Skipped ' + f.def.name + ' for a bonus — ' + SB.FAVOUR_DEFS[res.favour].name + ': ' + SB.FAVOUR_DEFS[res.favour].hint + '.');
     startStage(f.run);
   }, [phase, say, startStage, SB]);
   const copySeed = useCallback(() => {
     try { navigator.clipboard.writeText(seed).then(() => say('Seed copied.'), () => say('Seed: ' + seed)); }
     catch (e) { say('Seed: ' + seed); }
+  }, [seed, say]);
+  const copyResult = useCallback(() => {
+    const run = fight.current?.run;
+    if (!run) return;
+    const text = shareText(run, run.state === 'won', seed);
+    try { navigator.clipboard.writeText(text).then(() => say('Result copied — paste it anywhere.'), () => say(text)); }
+    catch (e) { say(text); }
   }, [seed, say]);
 
   // Every shop action funnels through here so the log and the render agree.
@@ -769,13 +806,14 @@ export default function RoundSandbox() {
     const scoreBefore = r.score;
     const res = r.playWord(raw);
     if (!res.ok) { say(res.reason); sfx('thud'); return; }
+    markSeen('stick');
     setWord('');
     setSuggestions([]);
     say(res.word + ' — ' + res.breakdown.total + ' (' + describeBreakdown(res.breakdown) + ')'
       + ' → ' + r.score + ' / ' + r.target + '.');
     res.messages.forEach((m) => say(m));
     runCascade(r, res, rackBefore, scoreBefore);
-  }, [phase, say, sfx, runCascade]);
+  }, [phase, say, sfx, runCascade, markSeen]);
 
   const play = useCallback(() => {
     const r = fight.current?.round;
@@ -801,12 +839,13 @@ export default function RoundSandbox() {
     const res = r.changeout(ids);
     if (!res.ok) { say(res.reason); sfx('thud'); return; }
     sfx('shuffle');
+    markSeen('swap');
     setWord('');
     setSuggestions([]);
-    say('Changed out ' + res.returned.map((t) => t.letter).join('') + ' for '
-      + res.drawn.map((t) => t.letter).join('') + ' — ' + r.changeoutsLeft + ' left.');
+    say('Swapped ' + res.returned.map((t) => t.letter).join('') + ' for '
+      + res.drawn.map((t) => t.letter).join('') + ' — ' + r.changeoutsLeft + ' swap' + (r.changeoutsLeft === 1 ? '' : 's') + ' left.');
     refresh();
-  }, [slots, phase, say, refresh, sfx]);
+  }, [slots, phase, say, refresh, sfx, markSeen]);
 
   useEffect(() => {
     if (!helper || !letters || indexing) { setSuggestions([]); return; }
@@ -817,12 +856,14 @@ export default function RoundSandbox() {
   const stageTile = (tile) => {
     captureFlipFrom(tile.id);
     sfx('tick', letters.length, 1);
+    markSeen('rack');
     setWord(letters + (tile.letter === '?' ? '?' : tile.letter));
   };
   const unstageAt = (i) => {
     const t = slots[i];
     if (t) captureFlipFrom(t.id);
     sfx('tick', i, -1);
+    markSeen('stick');
     setWord(letters.slice(0, i) + letters.slice(i + 1));
   };
 
@@ -937,29 +978,26 @@ export default function RoundSandbox() {
   const pct = round ? Math.min(100, (100 * scoreShown) / round.target) : 0;
 
   return (
-    <div className={'sb' + (gearOpen ? ' is-gear-open' : '')} onClickCapture={showIntro ? dismissIntro : undefined}
+    <div className={'sb' + (gearOpen ? ' is-gear-open' : '') + (phase === 'idle' ? ' is-title' : '')}
       onPointerDownCapture={scoring ? skipCascade : undefined}>
-      {showIntro && (
-        <div className="sb-intro" role="dialog" aria-label="How to play">
-          <p>Spell a word from the tiles in your case. Longer words score a higher tier: base points plus letters, times the tier’s mult.</p>
-          <p>Beat each enemy’s target in four words. Change out tiles you don’t want, three times a fight.</p>
-          <p>Gold buys items and inks in the shop after every fight. Tap anywhere to begin.</p>
-        </div>
-      )}
       <header className="sb-head">
         <div className="sb-wordmark">
-          <span className="sb-eyebrow">Round sandbox · three movements</span>
+          <span className="sb-eyebrow">{phase === 'idle' ? 'Words against music' : 'Movement ' + SB.MOVEMENTS[run.movement].numeral + ' · ' + SB.KIND_LABEL[run.enemy.kind]}</span>
           <h1>Wordbound<span className="sb-amp">·</span>Crescendo</h1>
         </div>
         <button type="button" className="sb-gear" aria-label="Setup and tuning" title="Setup and tuning"
           onClick={() => setGearOpen((g) => !g)}>⚙</button>
-        {round && (
-          <div className="sb-dyn">
-            <span className="sb-dyn-label">{SB.KIND_LABEL[f.def.kind]} · score / target</span>
-            <span className={'sb-dyn-mark' + (scoring && scoring.total != null ? ' is-hit' : '')}>{scoreShown}<small> / {round.target}</small></span>
-          </div>
-        )}
       </header>
+
+      {phase === 'idle' && (
+        <section className="sb-title">
+          <p className="sb-title-line">Spell words. Beat the target before your words run out.</p>
+          <button type="button" className="sb-go sb-title-play" onClick={() => start(randomSeed())}>Play</button>
+          <p className="sb-hint sb-title-best">
+            {best.word ? <>Best: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}</> : 'Nine enemies, each with its own piece of music. Gold between fights buys items that score every word.'}
+          </p>
+        </section>
+      )}
 
       {run && (
         <nav className="sb-strip" aria-label="The run">
@@ -978,7 +1016,7 @@ export default function RoundSandbox() {
               })}
             </span>
           ))}
-          <span className="sb-strip-enemy">{phase === 'shop' ? 'next · ' : ''}{run.enemy.glyph} {run.enemy.name}</span>
+          {phase === 'shop' && <span className="sb-strip-enemy">next · {run.enemy.glyph} {run.enemy.name}</span>}
           <span className="sb-purse" title={'Interest: 1 gold per ' + run.tune.INTEREST_PER + ' held, up to ' + run.tune.INTEREST_CAP}>
             <b>{run.gold}</b> gold
             {run.interestPreview() > 0 && <em>+{run.interestPreview()} interest</em>}
@@ -986,6 +1024,7 @@ export default function RoundSandbox() {
         </nav>
       )}
 
+      <div className="sb-gear-panel">
       <section className="sb-setup">
         <label>Seed
           <input value={seed} onChange={(e) => setSeed(e.target.value)} style={{ width: 110 }} />
@@ -1013,8 +1052,9 @@ export default function RoundSandbox() {
           Word helper
         </label>
         <button type="button" className="sb-go" onClick={() => start()}>
-          {phase === 'idle' ? 'Start' : 'Restart'}
+          {phase === 'idle' ? 'Start with this seed' : 'Restart with this seed'}
         </button>
+        {round && <span className="sb-hint"><b>{round.pile.drawPile.length}</b> tiles left in the bag of {run.deck.length}</span>}
       </section>
 
       <section className="sb-items" role="group" aria-label="Sample items">
@@ -1037,39 +1077,41 @@ export default function RoundSandbox() {
         {run && [...itemIds].sort().join() !== run.startItems.slice().sort().join()
           && <em className="sb-bag-note">on restart</em>}
       </section>
+      </div>
 
-      {phase === 'idle' && (
-        <button type="button" className="sb-go sb-start-narrow" onClick={() => start()}>Start</button>
-      )}
-      {phase === 'idle' && (
-        <p className="sb-hint">{best.word && <>Best so far: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}. </>}Pick a bag, then Start. Three movements of three enemies — small, big, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult. Gold earns interest between fights.</p>
-      )}
 
       {round && (
         <section className={'sb-board' + (scoring && scoring.hit ? ' is-hit-' + scoring.hit : '')}>
-          <div className="sb-meter" aria-label="Progress to target">
-            <div className={'sb-meter-fill' + (scoreShown >= round.target ? ' is-met' : '')}
-              style={{ width: pct + '%' }} />
-            <span className="sb-meter-tick" />
+          <div className="sb-scoreline" aria-label="Score against the target">
+            <span className={'sb-dyn-mark' + (scoring && scoring.total != null ? ' is-hit' : '')}>{scoreShown}</span>
+            <div className="sb-meter" aria-label="Progress to target">
+              <div className={'sb-meter-fill' + (scoreShown >= round.target ? ' is-met' : '')}
+                style={{ width: pct + '%' }} />
+            </div>
+            <span className="sb-target"><small>target</small>{round.target}</span>
+            <span className="sb-counters">
+              <span><b>{round.playsLeft}</b> word{round.playsLeft === 1 ? '' : 's'}</span>
+              <span className={seen.has('swap') || !live || round.changeoutsLeft <= 0 ? '' : 'sb-callout-anchor'}>
+                <b>{round.changeoutsLeft}</b> swap{round.changeoutsLeft === 1 ? '' : 's'}
+              </span>
+            </span>
+          </div>
+          <div className="sb-enemy-line">
+            <span className="sb-enemy">{f.def.glyph} {f.def.name}</span>
+            <span className="sb-piece">{f.piece.title}{f.piece.composer ? ' · ' + f.piece.composer : ''}</span>
           </div>
           {round.rule && (
-            <div className={'sb-rule' + (scoring && scoring.litItem === round.rule.id ? ' is-flash' : '')}>
+            <div className={'sb-rule' + (scoring && scoring.litItem === round.rule.id ? ' is-flash' : '') + (!seen.has('boss') ? ' is-pulse' : '')}>
               {scoring && scoring.floats.filter((x) => x.on === round.rule.id).map((x) => <i key={x.key} className={'sb-float sb-float-card is-' + x.tone}>{x.text}</i>)}
               <span className="sb-eyebrow">Tempo marking · {round.rule.name}</span>
+              <b className="sb-rule-plain">{round.rule.plain}</b>
               <q>{round.rule.text}</q>
             </div>
           )}
-          <div className="sb-counters">
-            <span><b>{round.playsLeft}</b> word{round.playsLeft === 1 ? '' : 's'} left</span>
-            <span><b>{round.changeoutsLeft}</b> changeout{round.changeoutsLeft === 1 ? '' : 's'} left</span>
-            <span><b>{round.pile.drawPile.length}</b> in the bag of {run.deck.length}</span>
-
-            <span className="sb-enemy">{SB.KIND_LABEL[f.def.kind]} · {f.def.glyph} {f.def.name} · {f.piece.title}</span>
-          </div>
           {phase === 'live' && round.favour && round.plays.length === 0 && (
             <div className="sb-skip">
-              <span className="sb-hint">Or walk past {f.def.name} for a favour — <b>{SB.FAVOUR_DEFS[round.favour].name}</b>: {SB.FAVOUR_DEFS[round.favour].hint}. No shop after a skip.</span>
-              <button type="button" onClick={skipFight}>Skip this fight</button>
+              <span className="sb-hint">Or skip {f.def.name} for a bonus — <b>{SB.FAVOUR_DEFS[round.favour].name}</b>: {SB.FAVOUR_DEFS[round.favour].hint}. No shop after a skip.</span>
+              <button type="button" onClick={skipFight}>Skip for the bonus</button>
             </div>
           )}
           {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} onInk={useInk}
@@ -1100,17 +1142,20 @@ export default function RoundSandbox() {
             </div>
           )}
           {phase === 'shop' && run.shop && (
-            <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} />
+            <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} firstVisit={!seen.has('shop')} />
           )}
           {(phase === 'run-won' || phase === 'lost') && (
             <EndScreen run={run} won={phase === 'run-won'} SB={SB} seed={seed} best={best}
-              onAgain={() => start(randomSeed())} onCopy={copySeed} describe={describeBreakdown} />
+              onAgain={() => start(randomSeed())} onCopy={copySeed} onShare={copyResult} describe={describeBreakdown} />
           )}
         </section>
       )}
 
-      {round && (
+      {round && (phase === 'live' || phase === 'scoring' || phase === 'won') && (
         <section className="sb-play" ref={playRef}>
+          {live && !seen.has('rack') && round.plays.length === 0 && (
+            <div className="sb-callout">Tap letters to spell a word</div>
+          )}
           <div className="sb-rack">
             {rackShown.map(({ t, i, picked, hollow }) => (picked ? (
               <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
@@ -1133,7 +1178,7 @@ export default function RoundSandbox() {
             <div className="sb-inking">
               <span className="sb-eyebrow">{inking.ink.name}</span>
               <span className="sb-hint">
-                {inking.ink.targets === 1 ? 'tap one tile in the case' : 'tap up to ' + inking.ink.targets + ' tiles in the case'}
+                {inking.ink.targets === 1 ? 'tap one of your tiles' : 'tap up to ' + inking.ink.targets + ' of your tiles'}
                 {' · '}{inking.ink.hint}
               </span>
               {inking.ink.needsVowel && (
@@ -1154,7 +1199,9 @@ export default function RoundSandbox() {
 
           <div className="sb-stick-wrap">
             <div className="sb-stick-head">
-              <span className="sb-eyebrow">The composing stick</span>
+              {live && !seen.has('stick') && letters.length >= 2
+                ? <span className="sb-callout sb-callout-inline">Tap Play, or tap a tile to send it back</span>
+                : <span className="sb-eyebrow">{scoring ? 'Scoring' : letters.length ? 'Your word' : '\u00a0'}</span>}
               {scoring && (
                 <span className="sb-stick-worth is-hand is-scoring">
                   <span className="sb-stick-math">
@@ -1196,7 +1243,7 @@ export default function RoundSandbox() {
               ))}
               {scoring && scoring.floats.filter((x) => x.on === 'stick').map((x) => <i key={x.key} className={'sb-float is-' + x.tone}>{x.text}</i>)}
               {!scoring && letters.length === 0 && (
-                <span className="sb-stick-empty">tap the case, or type — then Play it or Change it out · one tile alone always plays</span>
+                <span className="sb-stick-empty">tap tiles above, or type — then Play, or Swap them for new tiles · one tile alone always plays</span>
               )}
               {stickShown.map(({ t, i, ch, hollow }) => (t ? (
                 <button key={t.id} type="button" disabled={!live}
@@ -1211,7 +1258,7 @@ export default function RoundSandbox() {
               ) : (
                 <button key={'gap' + i} type="button" disabled={!live}
                   className={'sb-tile is-missing' + (hollow ? ' is-dragging' : '')}
-                  title="No tile in the case spells this"
+                  title="None of your tiles spells this"
                   {...drag.bind('stick', i, null)}
                   onClick={() => unstageAt(i)}>
                   {ch}
@@ -1220,18 +1267,21 @@ export default function RoundSandbox() {
             </div>
           </div>
 
+          {live && !seen.has('swap') && pickedIds.size > 0 && round.changeoutsLeft > 0 && seen.has('stick') && (
+            <div className="sb-callout">Swap tiles you don’t want — {round.tune.CHANGEOUTS} per fight</div>
+          )}
           <div className="sb-input">
             <input ref={inputRef} value={word} disabled={!live}
               className={formable ? '' : 'is-unformable'}
-              placeholder="Tap the case, or type letters"
+              placeholder="Tap tiles, or type"
               onChange={(e) => setWord(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') play(); }} />
             <button type="button" className="sb-go" onClick={play}
               disabled={!live || !letters}>Play</button>
             <button type="button" onClick={changeout}
               disabled={!live || !pickedIds.size || round.changeoutsLeft <= 0}
-              title="Throw the tiles on the stick back into the bag and draw as many">
-              Change out{pickedIds.size ? ' ' + pickedIds.size : ''}
+              title="Put the chosen tiles back in the bag and draw as many">
+              Swap{pickedIds.size ? ' ' + pickedIds.size : ''}
             </button>
             <button type="button" onClick={() => setWord('')} disabled={!live}>Clear</button>
             {helper && (
@@ -1275,6 +1325,7 @@ export default function RoundSandbox() {
         </section>
       )}
 
+      <div className="sb-gear-panel sb-gear-panel-tune">
       <details className="sb-tune">
         <summary>Tuning · every constant, live</summary>
         <div className="sb-tune-grid">
@@ -1286,11 +1337,12 @@ export default function RoundSandbox() {
           ))}
         </div>
         <p className="sb-tune-note">
-          Targets, words, changeouts and rack size take effect on the next round; the tier
+          Targets, words, swaps and rack size take effect on the next round; the tier
           figures apply to the next word; the gold figures are read at the win. Nothing is saved — copy the numbers you want to keep
           into src/sandbox/round.js.
         </p>
       </details>
+      </div>
 
       <section className="sb-log">
         {log.map((line, i) => <div key={log.length - i}>{line}</div>)}

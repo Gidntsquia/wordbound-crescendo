@@ -94,13 +94,26 @@ not something to reintroduce piecemeal mid-task.
     run's deck starts from; NOT Tiles.createStarterDeck().
   - `wordFinder.js` — the WORD HELPER (anagram map), off by default.
   - `dragReorder.js` — drag a tile along or between the case and the stick.
-  - `RoundSandbox.jsx` — the whole UI: run strip, board, shop, pack pick,
-    inking mode, end screen, first-run overlay (`wbc.seen`), best-ever
-    (`wbc.best`), gear button folding setup/tuning away under 620px, score
-    fly (`.sb-score-fly`). Tiles play by tap: the rack is THE CASE (a
-    played tile leaves a hollow), the row under it THE COMPOSING STICK, a
-    FLIP slide between them — nothing may set `transform` on `.sb-tile`.
-    The stick is also the changeout selection.
+  - `RoundSandbox.jsx` — the whole UI: title screen (Play = random seed),
+    run strip, one score line (score · meter · target · words · swaps),
+    board, shop (Continue is the big button), pack pick, inking mode, end
+    screen with Copy result (share text), one-time CALLOUTS in place of an
+    overlay (`wbc.seen` is a JSON set of ids: rack, stick, swap, shop,
+    boss), best-ever (`wbc.best`), SFX toggle (`wbc.sfx`), the gear button
+    on every screen size folding seed / bag / starting items / helper /
+    tuning away. THE SCORING CASCADE narrates `breakdown.steps` (lock,
+    letters, items, rule, total hit, clear; `CASCADE` timing table,
+    `intensity(total, target)` is the one feel knob; any tap skips).
+    Tiles play by tap: the rack is THE CASE in code (a played tile leaves a
+    hollow), the row under it THE COMPOSING STICK, a FLIP slide between them
+    — nothing may set `transform` on `.sb-tile`; the cascade's pops go on
+    the `.sb-tile-pop` wrapper. The stick is also the swap selection. UI
+    words: "swap" for changeout, "skip for a bonus" for a favour; "case"
+    and "stick" never appear on screen.
+  - `sfx.js` — `Sandbox.createSfx(ctx, dest)`: synthesized input sounds
+    (tick climbing the stick, shuffle, thud, coin, shimmer) and the
+    cascade's hits (lock, letter, item, rule, hit, resolve, riffle);
+    `SFX_DEFAULTS` is the table.
   - `audioPiece.js` + `recordings.js` (generated import index) +
     `recorded*.js` ×9 — the nine RECORDINGS under public/audio/, one per
     enemy. `tools/audio-manifest.json` is the source of truth (URL, licence,

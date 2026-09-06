@@ -59,11 +59,19 @@ Zero page errors; no horizontal scroll at 390.
   three items plus a pack or two is affordable, a fourth item is not
   without interest discipline. This is Balatro's shape; whether it is
   fun with words is the question.
-- **The first-run overlay's three lines** — wording is a first draft.
+- **The callouts** (DEMO_PLAN_2 Phase 2 replaced the overlay): five
+  one-liners, wording is a first draft; `localStorage.removeItem('wbc.seen')`
+  brings them back.
+- **The cascade's feel** (Phase 4): `CASCADE` in RoundSandbox.jsx and
+  `SFX_DEFAULTS` in sfx.js are the two tables. Intensity is
+  (total/target)^0.7; a 3-letter word runs at half speed of the table, a
+  target-meeting word at full. Needs the phone.
+- **SFX levels** sit at 0.55 × the music volume; the hit at full intensity
+  is the loudest thing in the mix on purpose.
 - **Coin ink** doubles gold up to +10 — probably too good at 3 gold when
   the purse is near 10; Balatro's Hermit is the same and that is on purpose.
-- **Setup bar on desktop** still shows all fifteen starting-item
-  checkboxes; it is a sandbox tool, not a player screen.
+- **Setup bar** now lives behind the gear on every screen size; the title
+  screen's Play uses a random seed and the end screen shows it.
 
 ## Licence notes
 

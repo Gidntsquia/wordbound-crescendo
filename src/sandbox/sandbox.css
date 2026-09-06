@@ -1555,21 +1555,19 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
   transition: transform 640ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 640ms ease-in;
 }
 
-/* The gear: only on narrow screens, where setup and tuning fold away. */
-.sb-gear { display: none; }
-.sb-start-narrow { display: none; }
+/* The gear, every screen size: seed, bag, starting items, helper, tuning
+   fold away behind it so the demo has one path -- open, Play, spell. */
+.sb-head { position: relative; }
+.sb-gear {
+  display: inline-flex; align-items: center; justify-content: center;
+  position: absolute; top: 0; right: 0; width: 44px; height: 44px;
+  font-size: 20px; padding: 0;
+}
+.sb:not(.is-gear-open) .sb-gear-panel { display: none; }
+.sb-gear-panel { border: 1px dashed var(--rule); padding: 8px 12px 4px; margin-top: 10px; }
+.sb-gear-panel-tune { margin-top: 18px; }
+.sb-gear-panel .sb-setup { border: 0; margin: 0; padding: 8px 0; }
 @media (max-width: 620px) {
-  .sb-head { position: relative; }
-  .sb-gear {
-    display: inline-flex; align-items: center; justify-content: center;
-    position: absolute; top: 0; right: 0; width: 44px; height: 44px;
-    font-size: 20px; padding: 0;
-  }
-  .sb-dyn { padding-right: 52px; }
-  .sb:not(.is-gear-open) .sb-setup,
-  .sb:not(.is-gear-open) .sb-items,
-  .sb:not(.is-gear-open) .sb-tune { display: none; }
-  .sb-start-narrow { display: inline-flex; margin: 0 0 14px; padding: 14px 22px; }
   .sb-tile { min-width: 44px; height: 50px; }
   .sb-strip { gap: 6px 12px; padding: 8px 10px; }
   .sb-card { min-width: 120px; max-width: 100%; }
@@ -1577,7 +1575,7 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
   .sb-end { padding: 14px; }
   .sb-plays-how { font-size: 10px; }
   button { min-height: 44px; }
-  .sb-card-order button, .sb-card-sell, .sb-card-use, .sb-seed-line button, .sb-vowel { min-height: 32px; }
+  .sb-card-order button, .sb-card-sell, .sb-card-use, .sb-vowel { min-height: 32px; }
 }
 
 /* ---- the scoring cascade (DEMO_PLAN_2 Phase 4) ------------------------- */
@@ -1643,4 +1641,40 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
   .sb-tile-pop, .sb-tile-pop.is-pop, .sb-card.is-jiggle, .sb-board[class*='is-hit-'], .sb-total.is-hit, .sb-dyn-mark.is-hit {
     animation: none !important; transform: none !important;
   }
+}
+
+/* ---- first-time-player UI (DEMO_PLAN_2 Phase 2) ------------------------ */
+.sb-title { text-align: center; padding: 40px 12px 28px; }
+.sb-title-line { font-family: var(--display); font-size: clamp(19px, 3vw, 26px); margin: 0 0 22px; color: var(--leaf); }
+.sb-title-play { font-size: 20px; padding: 18px 64px; letter-spacing: 0.3em; }
+.sb-title-best { margin: 18px auto 0; max-width: 520px; }
+.sb-scoreline {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 10px 0 4px;
+}
+.sb-scoreline .sb-dyn-mark { font-size: 34px; padding: 0; flex: none; min-width: 2.2ch; }
+.sb-scoreline .sb-meter { flex: 1 1 120px; margin: 0; height: 12px; }
+.sb-target { font-family: var(--figure); font-size: 15px; color: var(--leaf-dim); flex: none; display: inline-flex; align-items: baseline; gap: 5px; }
+.sb-target small { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; }
+.sb-scoreline .sb-counters { flex: none; gap: 6px 14px; margin-left: 4px; }
+.sb-enemy-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 2px 0 8px; font-size: 12px; }
+.sb-enemy-line .sb-enemy { color: var(--brass); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; }
+.sb-enemy-line .sb-piece { color: var(--leaf-dim); font-family: var(--display); font-style: italic; font-size: 13px; }
+.sb-rule-plain { display: block; font-family: var(--ui); font-weight: 600; font-size: 13px; margin: 2px 0 3px; color: var(--leaf); }
+.sb-rule q { font-size: 13px; color: var(--leaf-dim); }
+.sb-rule.is-pulse { animation: rule-pulse 1.6s ease-in-out 3; }
+@keyframes rule-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(212, 97, 74, 0); } 50% { box-shadow: 0 0 0 3px rgba(212, 97, 74, 0.55); } }
+.sb-callout {
+  pointer-events: none;
+  display: inline-block; margin: 0 0 8px; padding: 6px 12px;
+  border: 1px solid var(--brass-hot); border-radius: 2px; background: rgba(242, 194, 96, 0.12);
+  color: var(--brass-hot); font-family: var(--ui); font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+  animation: callout-in 320ms ease-out;
+}
+.sb-callout-inline { margin: 0; }
+@keyframes callout-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.sb-shop-leave { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 16px 20px; font-size: 18px; }
+.sb-shop-leave small { font-size: 11px; letter-spacing: 0.08em; text-transform: none; color: var(--ink); opacity: 0.8; }
+.sb-share { padding: 12px 16px; }
+@media (max-width: 620px) {
+  .sb-scoreline .sb-dyn-mark { font-size: 28px; }
 }

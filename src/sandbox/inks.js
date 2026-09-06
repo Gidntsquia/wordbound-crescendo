@@ -23,7 +23,7 @@
   Sandbox.INKS = [
     { id: 'gilt', name: 'Gilt', targets: 2, hint: 'Up to 2 tiles: +20 points whenever played' },
     { id: 'bold', name: 'Bold', targets: 2, hint: 'Up to 2 tiles: +2 mult whenever played' },
-    { id: 'steel', name: 'Steel', targets: 1, hint: '1 tile: ×1.2 mult on every word while it waits in the case' },
+    { id: 'steel', name: 'Steel', targets: 1, hint: '1 tile: ×1.2 mult on every word while it stays on your rack' },
     { id: 'blank', name: 'Blank', targets: 1, hint: '1 tile becomes a wildcard — any letter, worth 0' },
     { id: 'vowel', name: 'Vowel Shift', targets: 1, needsVowel: true, hint: '1 tile becomes the vowel you choose' },
     { id: 'erase', name: 'Erase', targets: 2, hint: 'Destroy up to 2 tiles for the rest of the run' },
