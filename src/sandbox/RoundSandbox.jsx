@@ -10,7 +10,7 @@
 import { createDragReorder } from './dragReorder.js';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-// Plain FLIP (see the long note in TugSandbox.jsx): record where the tile was,
+// Plain FLIP: record where the tile was,
 // let React move it, slide it in from the old spot. Nothing else may set
 // `transform` on .sb-tile.
 function flipTileTo(fromRect, toEl) {
@@ -328,6 +328,31 @@ function EndScreen({ run, won, SB, seed, onAgain, onCopy, best, describe }) {
   );
 }
 
+// The score flies from the stick to the readout: its own element, never the
+// tile (the FLIP owns .sb-tile's transform).
+function flyScore(total) {
+  if (typeof document === 'undefined') return;
+  const from = document.querySelector('.sb-stick');
+  const to = document.querySelector('.sb-dyn-mark');
+  if (!from || !to) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const a = from.getBoundingClientRect();
+  const b = to.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'sb-score-fly';
+  el.textContent = '+' + total;
+  el.style.left = (a.left + a.width / 2) + 'px';
+  el.style.top = (a.top + a.height / 2) + 'px';
+  document.body.appendChild(el);
+  const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+  const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px)) scale(0.6)';
+    el.style.opacity = '0';
+  }));
+  setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 800);
+}
+
 export default function RoundSandbox() {
   const W = window.Wordbound;
   const SB = W.Sandbox;
@@ -347,6 +372,16 @@ export default function RoundSandbox() {
   const [itemIds, setItemIds] = useState(() => new Set());
   const [suggestions, setSuggestions] = useState([]);
   const [best, setBest] = useState(() => readBest());
+  // Narrow screens keep the setup bar, starting items and tuning behind a gear.
+  const [gearOpen, setGearOpen] = useState(false);
+  // First-run overlay, three lines, gone on the first tap and remembered.
+  const [showIntro, setShowIntro] = useState(() => {
+    try { return !window.localStorage.getItem('wbc.seen'); } catch (e) { return true; }
+  });
+  const dismissIntro = useCallback(() => {
+    setShowIntro(false);
+    try { window.localStorage.setItem('wbc.seen', '1'); } catch (e) { /* ignore */ }
+  }, []);
   const [indexing, setIndexing] = useState(false);
   const inputRef = useRef(null);
 
@@ -552,7 +587,7 @@ export default function RoundSandbox() {
   const rackLetters = round ? round.rack.map((t) => t.letter).join('') : '';
   const letters = word.toUpperCase().replace(/[^A-Z?]/g, '');
 
-  // Which rack tile stands in each position of the field (see TugSandbox).
+  // Which rack tile stands in each position of the stick.
   const slots = (() => {
     if (!round || !letters) return [];
     const out = new Array(letters.length).fill(null);
@@ -592,6 +627,7 @@ export default function RoundSandbox() {
     if (!r || phase !== 'live') return;
     const res = r.playWord(raw);
     if (!res.ok) { say(res.reason); return; }
+    flyScore(res.breakdown.total);
     setWord('');
     setSuggestions([]);
     say(res.word + ' — ' + res.breakdown.total + ' (' + describeBreakdown(res.breakdown) + ')'
@@ -751,12 +787,21 @@ export default function RoundSandbox() {
   const pct = round ? Math.min(100, (100 * round.score) / round.target) : 0;
 
   return (
-    <div className="sb">
+    <div className={'sb' + (gearOpen ? ' is-gear-open' : '')} onClickCapture={showIntro ? dismissIntro : undefined}>
+      {showIntro && (
+        <div className="sb-intro" role="dialog" aria-label="How to play">
+          <p>Spell a word from the tiles in your case. Longer words score a higher tier: base points plus letters, times the tier’s mult.</p>
+          <p>Beat each enemy’s target in four words. Change out tiles you don’t want, three times a fight.</p>
+          <p>Gold buys items and inks in the shop after every fight. Tap anywhere to begin.</p>
+        </div>
+      )}
       <header className="sb-head">
         <div className="sb-wordmark">
           <span className="sb-eyebrow">Round sandbox · two movements</span>
           <h1>Wordbound<span className="sb-amp">·</span>Crescendo</h1>
         </div>
+        <button type="button" className="sb-gear" aria-label="Setup and tuning" title="Setup and tuning"
+          onClick={() => setGearOpen((g) => !g)}>⚙</button>
         {round && (
           <div className="sb-dyn">
             <span className="sb-dyn-label">{SB.KIND_LABEL[f.def.kind]} · score / target</span>
@@ -838,6 +883,9 @@ export default function RoundSandbox() {
           && <em className="sb-bag-note">on restart</em>}
       </section>
 
+      {phase === 'idle' && (
+        <button type="button" className="sb-go sb-start-narrow" onClick={() => start()}>Start</button>
+      )}
       {phase === 'idle' && (
         <p className="sb-hint">{best.word && <>Best so far: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}. </>}Pick a bag, then Start. Two movements of three enemies — small, big, then a boss — each with a higher target to beat in four words. A word scores its length tier: base points plus letters, times the tier’s mult. Gold earns interest between fights.</p>
       )}

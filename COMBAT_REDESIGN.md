@@ -2,7 +2,12 @@
 
 Written 2026-09-05 from Jaxon's decision. This replaces the 2026-09-04 "set
 the phrase to words" plan, which is abandoned: combat is no longer real-time
-and the rope goes away. Nothing here is built yet.
+and the rope goes away.
+
+**Built as of 2026-09-07, see DEMO_PLAN.md** — the round below shipped as
+`src/sandbox/round.js`, and the run around it (movements, shop, inks, items,
+boss rules, skip, end screen) followed DEMO_PLAN.md; NIGHT_REPORT.md says
+what landed and what was cut. The rest of this file is the original plan.
 
 ## The loop
 
