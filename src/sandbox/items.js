@@ -66,14 +66,28 @@
 
   // Fire the run's items in held order. Returns [{ id, name, note }] for the
   // ones that did something.
+  // Each note also carries what the item DID to the accumulator -- dPts and
+  // dMult (additive) and ratio (a x-mult, 1 when none) -- so the scoring
+  // cascade (RoundSandbox) can narrate it without re-deriving the maths.
   Sandbox.applyItems = function (ctx, acc) {
     var notes = [];
     (ctx.items || []).forEach(function (id) {
       var it = Sandbox.ITEM_DEFS[id];
       if (!it || !it.score) return;
+      var p0 = acc.points, m0 = acc.mult;
       var note = it.score(ctx, acc);
-      if (note) notes.push({ id: id, name: it.name, note: note });
+      if (note) notes.push(Sandbox.describeDelta({ id: id, name: it.name, note: note }, p0, m0, acc));
     });
     return notes;
+  };
+  // Fill in dPts / dMult / ratio on a note from before-and-after accumulators.
+  Sandbox.describeDelta = function (note, p0, m0, acc) {
+    note.dPts = acc.points - p0;
+    var ratio = m0 ? acc.mult / m0 : 1;
+    var additive = Math.abs(ratio - 1) < 1e-9 || note.note.indexOf('\u00d7') < 0;
+    note.dMult = additive ? acc.mult - m0 : 0;
+    note.ratio = additive ? 1 : Math.round(ratio * 1000) / 1000;
+    note.kind = note.ratio !== 1 || note.dMult ? 'mult' : 'pts';
+    return note;
   };
 })();

@@ -71,7 +71,9 @@
 //     items: array of Sandbox.ITEMS ids (items.js), fired in order by
 //       scoreWordPoints
 //     round.rack, .pile, .score, .target, .playsLeft, .changeoutsLeft,
-//       .state ('live' | 'won' | 'lost'), .plays [{ word, breakdown }], .gold
+//       .state ('live' | 'won' | 'lost'), .plays [{ word, breakdown, tiles }],
+//       .gold; breakdown.steps is the ordered step list (Sandbox.scoreSteps)
+//       the UI's scoring cascade narrates
 //     round.scoreFor(word)          -> number, for ranking helper suggestions
 //     round.breakdownFor(word)      -> { points, mult, total, ... } for the
 //                                      current rack (see scoreWordPoints)
@@ -212,9 +214,15 @@
       isLastPlay: !!round && round.playsLeft === 1,
       playIndex: round ? round.plays.length : 0
     }, acc) : [];
+    var ruleNote = null;
     if (round && round.rule && round.rule.score) {
+      var p0 = acc.points, m0 = acc.mult;
       var rn = round.rule.score({ word: word, tiles: tilesUsed, round: round }, acc);
-      if (rn) b.itemNotes.push({ id: round.rule.id, name: round.rule.name, note: rn });
+      if (rn) {
+        ruleNote = { id: round.rule.id, name: round.rule.name, note: rn, rule: true };
+        if (Sandbox.describeDelta) Sandbox.describeDelta(ruleNote, p0, m0, acc);
+        b.itemNotes.push(ruleNote);
+      }
     }
     b.itemPoints = acc.points - before.points;
     b.itemMult = acc.mult - before.mult; // net, for the one-line summary
@@ -222,7 +230,61 @@
     b.mult = Math.round(acc.mult * b.bonusMult * b.holdMult * 100) / 100;
     b.lengthMult = b.tierMult; // kept for older readers of the breakdown
     b.total = Math.round(b.points * b.mult);
+    b.steps = Sandbox.scoreSteps(b, tilesUsed, ctx.heldTiles || [], tune);
     return b;
+  };
+
+  // The ORDERED STEP LIST the scoring cascade narrates: the same maths as
+  // the breakdown, one entry per thing that changed points or mult, in the
+  // order they fired. Each step is { kind, pts?, mult?, ratio?, label } plus
+  // kind-specific fields; running pts/mult after every step are `runPts`
+  // and `runMult` so the UI can count without re-adding.
+  //   tier   { name, level }
+  //   letter { tile, letter, ink } (pts = letter value; gilt adds pts,
+  //            bold adds mult; a tile bonus folds in as bonusPts)
+  //   hold   { tile } a steel tile left in the case (ratio)
+  //   item   { id, name, note }; rule { id, name, note } the tempo marking
+  //   tilex  the tile's own x-mult (Lexicon bonusMult), if any
+  Sandbox.scoreSteps = function (b, tilesUsed, heldTiles, tune) {
+    var Lexicon = window.Wordbound.Lexicon;
+    var steps = [];
+    var pts = 0, mult = 0;
+    function push(step) {
+      pts += step.pts || 0;
+      mult += step.mult || 0;
+      if (step.ratio && step.ratio !== 1) mult *= step.ratio;
+      step.runPts = pts;
+      step.runMult = Math.round(mult * 1000) / 1000;
+      steps.push(step);
+    }
+    push({ kind: 'tier', name: b.tierName, level: b.tierLevel, pts: b.tierPts, mult: b.tierMult, label: b.tierName });
+    // Letter values, tile bonuses and the played tiles' inks. Lexicon.scoreWord
+    // already summed these; here they are attributed tile by tile so the sum
+    // of the letter steps equals base + bonusFlat + variantFlat + inkPoints.
+    var perTile = tilesUsed.map(function (t) {
+      return { tile: t, pts: Lexicon.LETTER_VALUES[t.letter] || 0, mult: 0, ink: t.ink || null };
+    });
+    var letterSum = perTile.reduce(function (n, x) { return n + x.pts; }, 0);
+    // Anything scoreWord added beyond plain letter values (bonus squares,
+    // charged variants) lands on the first tile, so the running total stays
+    // honest even when a bonus cannot be attributed.
+    var extra = (b.base - letterSum) + (b.bonusFlat || 0) + (b.variantFlat || 0);
+    if (perTile.length && extra) perTile[0].bonusPts = extra;
+    perTile.forEach(function (x) {
+      var step = { kind: 'letter', tile: x.tile, letter: x.tile.letter, ink: x.ink, pts: x.pts + (x.bonusPts || 0), mult: 0, label: x.tile.letter };
+      if (x.ink === 'gilt') step.pts += tune.INK_GILT;
+      if (x.ink === 'bold') step.mult += tune.INK_BOLD;
+      push(step);
+    });
+    (b.itemNotes || []).forEach(function (n) {
+      push({ kind: n.rule ? 'rule' : 'item', id: n.id, name: n.name, note: n.note, label: n.name,
+        pts: n.dPts || 0, mult: n.dMult || 0, ratio: n.ratio || 1, tone: n.kind || 'pts' });
+    });
+    if (b.bonusMult && b.bonusMult !== 1) push({ kind: 'tilex', ratio: b.bonusMult, label: 'tile ×' + b.bonusMult, tone: 'mult' });
+    heldTiles.forEach(function (t) {
+      if (t.ink === 'steel') push({ kind: 'hold', tile: t, letter: t.letter, ratio: tune.INK_STEEL, label: 'steel ' + t.letter + ' held', tone: 'mult' });
+    });
+    return steps;
   };
 
   Sandbox.createRound = function (opts) {
@@ -338,7 +400,7 @@
       form.tilesUsed.forEach(function (t) { round.usedLetters[t.letter] = true; });
       round.score += breakdown.total;
       round.playsLeft -= 1;
-      round.plays.push({ word: upper, breakdown: breakdown, messages: messages });
+      round.plays.push({ word: upper, breakdown: breakdown, messages: messages, tiles: form.tilesUsed });
       settle();
       var res = { ok: true, word: upper, breakdown: breakdown, messages: messages };
       if (opts.onPlay) opts.onPlay(res);

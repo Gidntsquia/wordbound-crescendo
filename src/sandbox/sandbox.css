@@ -1579,3 +1579,68 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
   button { min-height: 44px; }
   .sb-card-order button, .sb-card-sell, .sb-card-use, .sb-seed-line button, .sb-vowel { min-height: 32px; }
 }
+
+/* ---- the scoring cascade (DEMO_PLAN_2 Phase 4) ------------------------- */
+/* Pops and lifts go on a WRAPPER; nothing here touches .sb-tile's transform
+   (the FLIP owns it). */
+.sb-tile-pop { position: relative; display: inline-flex; transform: translateY(-4px); transition: transform 90ms ease-out; }
+.sb-tile-pop.is-pop { animation: tile-pop 260ms cubic-bezier(0.2, 0.9, 0.3, 1); }
+@keyframes tile-pop {
+  0% { transform: translateY(-4px) scale(1); }
+  35% { transform: translateY(-12px) scale(1.2); }
+  100% { transform: translateY(-4px) scale(1); }
+}
+.sb-stick.is-locked { position: relative; }
+.sb-tile.is-lit { box-shadow: 0 0 0 2px var(--brass-hot), 0 0 18px rgba(242, 194, 96, 0.55); }
+.sb-tile.is-lit.is-ink-gilt { box-shadow: 0 0 0 2px var(--brass-hot), 0 0 22px rgba(242, 194, 96, 0.9); }
+.sb-tile.is-lit.is-ink-bold { box-shadow: 0 0 0 2px var(--rubric), 0 0 22px rgba(212, 97, 74, 0.8); }
+.sb-tile.is-lit.is-ink-steel { box-shadow: 0 0 0 2px var(--leaf), 0 0 22px rgba(237, 230, 212, 0.7); }
+.sb-float {
+  position: absolute; left: 50%; top: -8px; z-index: 6; pointer-events: none;
+  transform: translate(-50%, 0);
+  font-family: var(--figure); font-size: 13px; font-weight: 700; font-style: normal;
+  color: var(--brass-hot); white-space: nowrap;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+  animation: float-up 720ms ease-out forwards;
+}
+.sb-float.is-mult { color: var(--rubric); }
+.sb-float-card { top: -10px; font-size: 14px; }
+@keyframes float-up {
+  0% { opacity: 0; transform: translate(-50%, 6px); }
+  15% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -30px); }
+}
+.sb-card.is-jiggle { animation: card-jiggle 320ms ease-out; z-index: 2; }
+@keyframes card-jiggle {
+  0% { transform: rotate(0) scale(1); }
+  30% { transform: rotate(-3deg) scale(1.07); }
+  70% { transform: rotate(3deg) scale(1.05); }
+  100% { transform: rotate(0) scale(1); }
+}
+.sb-rule { position: relative; }
+.sb-rule.is-flash { animation: rule-flash 420ms ease-out; }
+@keyframes rule-flash {
+  0% { background: var(--pit-deep); }
+  30% { background: rgba(212, 97, 74, 0.35); }
+  100% { background: var(--pit-deep); }
+}
+.sb-stick-worth.is-scoring .sb-total { display: inline-block; min-width: 1.2em; }
+.sb-total.is-hit, .sb-dyn-mark.is-hit { animation: total-hit 460ms cubic-bezier(0.2, 0.9, 0.3, 1); display: inline-block; }
+@keyframes total-hit {
+  0% { transform: scale(1.7); color: #fff; }
+  55% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+.sb-crossed { color: var(--brass-hot); font-weight: 600; }
+.sb-board.is-hit-1 { animation: board-shake-1 280ms ease-out; }
+.sb-board.is-hit-2 { animation: board-shake-2 320ms ease-out; }
+.sb-board.is-hit-3 { animation: board-shake-3 380ms ease-out; }
+@keyframes board-shake-1 { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(1px, -1px); } 50% { transform: translate(-1px, 1px); } 75% { transform: translate(1px, 0); } }
+@keyframes board-shake-2 { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(2px, -2px); } 40% { transform: translate(-2px, 1px); } 60% { transform: translate(2px, 2px); } 80% { transform: translate(-1px, -1px); } }
+@keyframes board-shake-3 { 0%, 100% { transform: translate(0, 0); } 15% { transform: translate(3px, -3px); } 30% { transform: translate(-3px, 2px); } 45% { transform: translate(3px, 3px); } 60% { transform: translate(-2px, -2px); } 80% { transform: translate(1px, 1px); } }
+.sb-plays-word i { font-style: normal; display: inline-block; }
+@media (prefers-reduced-motion: reduce) {
+  .sb-tile-pop, .sb-tile-pop.is-pop, .sb-card.is-jiggle, .sb-board[class*='is-hit-'], .sb-total.is-hit, .sb-dyn-mark.is-hit {
+    animation: none !important; transform: none !important;
+  }
+}

@@ -73,6 +73,29 @@ const TUNE_LABELS = {
   INTEREST_CAP: 'Interest cap',
 };
 
+// THE SCORING CASCADE's timings (DEMO_PLAN_2 Phase 4), all in one place.
+// Every duration is multiplied by SMALL_SPEED..1 as `intensity` goes 0..1,
+// so a three-letter word is a tap and a seven-letter word with items is a
+// two-to-three second cascade.
+const CASCADE = {
+  LOCK_MS: 110,    // stick tiles snap up, brief freeze
+  TIER_MS: 160,    // the tier's base pts x mult land
+  LETTER_MS: 95,   // per tile, left to right
+  ITEM_MS: 260,    // per item that fired
+  RULE_MS: 320,    // the tempo marking
+  HOLD_MS: 200,    // a steel tile held, a tile's own x-mult
+  TOTAL_MS: 620,   // pts x mult collapse into the total, meter fills, board shakes
+  CLEAR_MS: 320,   // tiles fly to the plays list, rack refills
+  SMALL_SPEED: 0.5, // duration factor at intensity 0
+  SHAKE_TIERS: 3   // .sb-board.is-hit-1..3
+};
+// One knob for how big a play FEELS, in [0, 1]: shake, hit volume, chord
+// size, total scale and step timing all read it. A play worth the whole
+// target is 1; a fifth of it is about 0.3.
+function intensity(total, target) {
+  return Math.max(0, Math.min(1, Math.pow(total / Math.max(1, target), 0.7)));
+}
+
 // "FIVE · lvl 2 · 35 + letters 9 = 44 pts × 6" -- tier, points, then mult.
 function describeBreakdown(b) {
   const pts = [];
@@ -118,7 +141,7 @@ function cardBlurb(SB, c, run) {
 
 // What the run holds: items (sellable in the shop) and consumables (usable
 // any time an étude makes sense; inks need a tile, see Phase 4).
-function HeldRow({ run, SB, act, live, inShop, onInk }) {
+function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats }) {
   const tune = run.tune;
   return (
     <div className="sb-held">
@@ -127,7 +150,8 @@ function HeldRow({ run, SB, act, live, inShop, onInk }) {
         {run.items.map((id, i) => {
           const d = SB.ITEM_DEFS[id];
           return (
-            <span key={id} className={'sb-card sb-card-item is-' + (d.rarity || 'common')} title={itemBlurb(d)}>
+            <span key={id} className={'sb-card sb-card-item is-' + (d.rarity || 'common') + (lit === id ? ' is-jiggle' : '')} title={itemBlurb(d)}>
+              {(floats || []).filter((x) => x.on === id).map((x) => <i key={x.key} className={'sb-float sb-float-card is-' + x.tone}>{x.text}</i>)}
               <b>{d.name}</b><em>{itemBlurb(d)}</em>
               {run.items.length > 1 && (
                 <span className="sb-card-order" title="Items fire left to right">
@@ -399,6 +423,17 @@ export default function RoundSandbox() {
   }, []);
   const [indexing, setIndexing] = useState(false);
   const inputRef = useRef(null);
+  // THE SCORING CASCADE (Phase 4): while a word scores, phase is 'scoring'
+  // and this narrates breakdown.steps -- the stick still shows the played
+  // tiles (from `tiles`), the case shows `rackBefore` with hollows, the
+  // header shows `scoreBase` until the total lands. Any tap skips ahead.
+  const [scoring, setScoring] = useState(null);
+  const skipRef = useRef(false);
+  const waitRef = useRef(null);
+  const skipCascade = useCallback(() => {
+    skipRef.current = true;
+    if (waitRef.current) waitRef.current();
+  }, []);
 
   const pendingFlipFromRef = useRef({});
   function captureFlipFrom(tileId) {
@@ -632,6 +667,7 @@ export default function RoundSandbox() {
     return out;
   })();
   const pickedIds = new Set(slots.filter(Boolean).map((t) => t.id));
+  const playedIds = new Set(scoring ? scoring.tiles.map((t) => t.id) : []);
   const formable = !letters || pickedIds.size === letters.length;
 
   const finish = useCallback((r) => {
@@ -650,20 +686,96 @@ export default function RoundSandbox() {
     }
   }, [say, SB]);
 
+  const runCascade = useCallback(async (r, res, rackBefore, scoreBefore) => {
+    const b = res.breakdown;
+    const steps = b.steps || [];
+    const k = intensity(b.total, r.target);
+    const speed = CASCADE.SMALL_SPEED + (1 - CASCADE.SMALL_SPEED) * k;
+    skipRef.current = false;
+    const wait = (ms) => new Promise((resolve) => {
+      const id = setTimeout(() => { waitRef.current = null; resolve(); }, skipRef.current ? 0 : ms * speed);
+      waitRef.current = () => { clearTimeout(id); waitRef.current = null; resolve(); };
+    });
+    const play = r.plays[r.plays.length - 1];
+    const st = {
+      word: res.word, tiles: play.tiles, steps, breakdown: b, rackBefore, scoreBase: scoreBefore,
+      pts: 0, mult: 0, tier: null, litTile: null, litItem: null, floats: [], total: null, hit: 0, k,
+      crossed: scoreBefore < r.target && r.score >= r.target, cleared: false
+    };
+    let n = 0;
+    const show = () => setScoring({ ...st });
+    const float = (on, text, tone) => { st.floats = [...st.floats.slice(-6), { key: n++, on, text, tone }]; };
+    setPhase('scoring');
+    show();
+    sfx('lock', k);
+    await wait(CASCADE.LOCK_MS);
+    const letters = steps.filter((x) => x.kind === 'letter');
+    for (const step of steps) {
+      st.pts = step.runPts; st.mult = step.runMult;
+      st.litTile = null; st.litItem = null;
+      if (step.kind === 'tier') {
+        st.tier = step;
+        show();
+        await wait(CASCADE.TIER_MS);
+      } else if (step.kind === 'letter') {
+        const i = letters.indexOf(step);
+        st.litTile = step.tile.id;
+        float(step.tile.id, '+' + step.pts + (step.mult ? ' · +' + step.mult + ' mult' : ''), step.mult ? 'mult' : 'pts');
+        sfx('letter', i, letters.length, !!step.ink);
+        show();
+        await wait(CASCADE.LETTER_MS);
+      } else if (step.kind === 'item' || step.kind === 'rule') {
+        st.litItem = step.id;
+        float(step.id, step.note, step.tone);
+        sfx(step.kind === 'rule' ? 'rule' : 'item', step.tone);
+        show();
+        await wait(step.kind === 'rule' ? CASCADE.RULE_MS : CASCADE.ITEM_MS);
+      } else {
+        // a steel tile held, or the tile's own x-mult
+        if (step.tile) st.litTile = step.tile.id;
+        float(step.tile ? step.tile.id : 'stick', '×' + step.ratio, 'mult');
+        sfx('item', 'mult');
+        show();
+        await wait(CASCADE.HOLD_MS);
+      }
+    }
+    // The total lands.
+    st.litTile = null; st.litItem = null;
+    st.total = b.total;
+    st.scoreBase = r.score;
+    st.hit = 1 + Math.round(k * (CASCADE.SHAKE_TIERS - 1));
+    flyScore(b.total);
+    sfx('hit', k);
+    if (st.crossed) sfx('resolve');
+    show();
+    await wait(CASCADE.TOTAL_MS);
+    // Clear: the played tiles FLIP into the plays list, the case refills.
+    play.tiles.forEach((t) => captureFlipFrom(t.id));
+    st.cleared = true;
+    st.hit = 0;
+    sfx('riffle');
+    show();
+    await wait(CASCADE.CLEAR_MS);
+    setScoring(null);
+    if (r.state === 'live') setPhase('live'); else finish(r);
+    refresh();
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, [sfx, finish, refresh]);
+
   const playWord = useCallback((raw) => {
     const r = fight.current?.round;
     if (!r || phase !== 'live') return;
+    const rackBefore = r.rack.slice();
+    const scoreBefore = r.score;
     const res = r.playWord(raw);
     if (!res.ok) { say(res.reason); sfx('thud'); return; }
-    flyScore(res.breakdown.total);
     setWord('');
     setSuggestions([]);
     say(res.word + ' — ' + res.breakdown.total + ' (' + describeBreakdown(res.breakdown) + ')'
       + ' → ' + r.score + ' / ' + r.target + '.');
     res.messages.forEach((m) => say(m));
-    finish(r);
-    refresh();
-  }, [phase, say, finish, refresh]);
+    runCascade(r, res, rackBefore, scoreBefore);
+  }, [phase, say, sfx, runCascade]);
 
   const play = useCallback(() => {
     const r = fight.current?.round;
@@ -786,6 +898,9 @@ export default function RoundSandbox() {
   const moved = (arr, i, to) => { const a = arr.slice(); const x = a.splice(i, 1)[0]; a.splice(to, 0, x); return a; };
   const rackShown = (() => {
     if (!round) return [];
+    if (scoring && !scoring.cleared) {
+      return scoring.rackBefore.map((t, i) => ({ t, i, picked: playedIds.has(t.id), hollow: false }));
+    }
     let arr = round.rack.map((t, i) => ({ t, i, picked: pickedIds.has(t.id), hollow: false }));
     if (!preview || !preview.id) return arr;
     const i = arr.findIndex((x) => x.t.id === preview.id);
@@ -818,10 +933,12 @@ export default function RoundSandbox() {
   const spelt = !!(live && formable && !barredNow.length && round.isPlayable(letters));
   const worthHow = spelt ? round.breakdownFor(letters) : null;
   const worth = worthHow ? worthHow.total : 0;
-  const pct = round ? Math.min(100, (100 * round.score) / round.target) : 0;
+  const scoreShown = scoring ? scoring.scoreBase : round ? round.score : 0;
+  const pct = round ? Math.min(100, (100 * scoreShown) / round.target) : 0;
 
   return (
-    <div className={'sb' + (gearOpen ? ' is-gear-open' : '')} onClickCapture={showIntro ? dismissIntro : undefined}>
+    <div className={'sb' + (gearOpen ? ' is-gear-open' : '')} onClickCapture={showIntro ? dismissIntro : undefined}
+      onPointerDownCapture={scoring ? skipCascade : undefined}>
       {showIntro && (
         <div className="sb-intro" role="dialog" aria-label="How to play">
           <p>Spell a word from the tiles in your case. Longer words score a higher tier: base points plus letters, times the tier’s mult.</p>
@@ -839,7 +956,7 @@ export default function RoundSandbox() {
         {round && (
           <div className="sb-dyn">
             <span className="sb-dyn-label">{SB.KIND_LABEL[f.def.kind]} · score / target</span>
-            <span className="sb-dyn-mark">{round.score}<small> / {round.target}</small></span>
+            <span className={'sb-dyn-mark' + (scoring && scoring.total != null ? ' is-hit' : '')}>{scoreShown}<small> / {round.target}</small></span>
           </div>
         )}
       </header>
@@ -929,14 +1046,15 @@ export default function RoundSandbox() {
       )}
 
       {round && (
-        <section className="sb-board">
+        <section className={'sb-board' + (scoring && scoring.hit ? ' is-hit-' + scoring.hit : '')}>
           <div className="sb-meter" aria-label="Progress to target">
-            <div className={'sb-meter-fill' + (round.score >= round.target ? ' is-met' : '')}
+            <div className={'sb-meter-fill' + (scoreShown >= round.target ? ' is-met' : '')}
               style={{ width: pct + '%' }} />
             <span className="sb-meter-tick" />
           </div>
           {round.rule && (
-            <div className="sb-rule">
+            <div className={'sb-rule' + (scoring && scoring.litItem === round.rule.id ? ' is-flash' : '')}>
+              {scoring && scoring.floats.filter((x) => x.on === round.rule.id).map((x) => <i key={x.key} className={'sb-float sb-float-card is-' + x.tone}>{x.text}</i>)}
               <span className="sb-eyebrow">Tempo marking · {round.rule.name}</span>
               <q>{round.rule.text}</q>
             </div>
@@ -954,12 +1072,17 @@ export default function RoundSandbox() {
               <button type="button" onClick={skipFight}>Skip this fight</button>
             </div>
           )}
-          {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} onInk={useInk} />}
-          {round.plays.length > 0 && (
+          {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} onInk={useInk}
+            lit={scoring ? scoring.litItem : null} floats={scoring ? scoring.floats : null} />}
+          {round.plays.length > (scoring && !scoring.cleared ? 1 : 0) && (
             <ol className="sb-plays">
-              {round.plays.map((p, i) => (
+              {(scoring && !scoring.cleared ? round.plays.slice(0, -1) : round.plays).map((p, i) => (
                 <li key={i}>
-                  <span className="sb-plays-word">{p.word}</span>
+                  <span className="sb-plays-word">
+                    {i === round.plays.length - 1 && p.tiles
+                      ? p.tiles.map((t, j) => <i key={t.id} data-flip-tile-id={t.id}>{p.word[j]}</i>)
+                      : p.word}
+                  </span>
                   <span className="sb-plays-how">{describeBreakdown(p.breakdown)}</span>
                   <b className="sb-figure">{p.breakdown.total}</b>
                 </li>
@@ -994,7 +1117,8 @@ export default function RoundSandbox() {
             ) : (
               <button key={t.id} type="button" disabled={!live}
                 className={'sb-tile' + (hollow ? ' is-dragging' : '') + (t.ink ? ' is-ink-' + t.ink : '')
-                  + (inking && inking.ids.includes(t.id) ? ' is-inking' : '') + (round.isBarred(t) ? ' is-barred' : '')}
+                  + (inking && inking.ids.includes(t.id) ? ' is-inking' : '') + (round.isBarred(t) ? ' is-barred' : '')
+                  + (scoring && scoring.litTile === t.id ? ' is-lit' : '')}
                 data-flip-tile-id={t.id}
                 title={t.ink ? SB.INK_DEFS[t.ink].name + ' — ' + SB.INK_DEFS[t.ink].hint : undefined}
                 {...(inking ? {} : drag.bind('rack', i, t.id))}
@@ -1031,7 +1155,20 @@ export default function RoundSandbox() {
           <div className="sb-stick-wrap">
             <div className="sb-stick-head">
               <span className="sb-eyebrow">The composing stick</span>
-              {spelt && (
+              {scoring && (
+                <span className="sb-stick-worth is-hand is-scoring">
+                  <span className="sb-stick-math">
+                    <em className="sb-tier-name">{scoring.tier ? scoring.tier.name + (scoring.tier.level > 1 ? ' ' + scoring.tier.level : '') : '\u00a0'}</em>
+                    <b className="sb-figure sb-pts">{scoring.pts}</b>
+                    <i>×</i>
+                    <b className="sb-figure sb-mult">{scoring.mult}</b>
+                    <i>=</i>
+                  </span>
+                  <b className={'sb-figure sb-total' + (scoring.total != null ? ' is-hit' : '')}>{scoring.total != null ? scoring.total : '\u2026'}</b>
+                  {scoring.total != null && scoring.crossed && <span className="sb-crossed">meets the target</span>}
+                </span>
+              )}
+              {!scoring && spelt && (
                 <span className="sb-stick-worth is-hand">
                   <span className="sb-stick-math">
                     <em className="sb-tier-name">{worthHow.tierName}{worthHow.tierLevel > 1 ? ' ' + worthHow.tierLevel : ''}</em>
@@ -1046,8 +1183,19 @@ export default function RoundSandbox() {
                 </span>
               )}
             </div>
-            <div className={'sb-stick' + (formable ? '' : ' is-short')}>
-              {letters.length === 0 && (
+            <div className={'sb-stick' + (formable ? '' : ' is-short') + (scoring && !scoring.cleared ? ' is-locked' : '')}>
+              {scoring && !scoring.cleared && scoring.tiles.map((t) => (
+                <span key={t.id} className={'sb-tile-pop' + (scoring.litTile === t.id ? ' is-pop' : '')}>
+                  {scoring.floats.filter((x) => x.on === t.id).map((x) => <i key={x.key} className={'sb-float is-' + x.tone}>{x.text}</i>)}
+                  <button type="button" disabled data-flip-tile-id={t.id}
+                    className={'sb-tile is-set' + (t.ink ? ' is-ink-' + t.ink : '') + (scoring.litTile === t.id ? ' is-lit' : '')}>
+                    {t.letter === '?' ? '␣' : t.letter}
+                    <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
+                  </button>
+                </span>
+              ))}
+              {scoring && scoring.floats.filter((x) => x.on === 'stick').map((x) => <i key={x.key} className={'sb-float is-' + x.tone}>{x.text}</i>)}
+              {!scoring && letters.length === 0 && (
                 <span className="sb-stick-empty">tap the case, or type — then Play it or Change it out · one tile alone always plays</span>
               )}
               {stickShown.map(({ t, i, ch, hollow }) => (t ? (
