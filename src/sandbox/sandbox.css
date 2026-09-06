@@ -753,6 +753,33 @@ button:disabled {
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45), 0 0 0 1px var(--brass-hot);
 }
 
+/* DRAG TO REORDER (dragReorder.js). The tile being dragged goes hollow where
+   it stood -- its ghost is what the finger is holding -- and the tile the
+   drop would land beside carries a brass rule on that side. No transform:
+   the FLIP owns it. touch-action keeps a finger on a tile from scrolling the
+   page sideways while still letting a vertical swipe scroll. */
+.sb-tile { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.sb-tile.is-dragging { opacity: 0.25; }
+.sb-tile.is-drop-before { box-shadow: -4px 0 0 0 var(--brass-hot), 0 2px 0 rgba(0, 0, 0, 0.45); }
+.sb-tile.is-drop-after { box-shadow: 4px 0 0 0 var(--brass-hot), 0 2px 0 rgba(0, 0, 0, 0.45); }
+.sb-drag-ghost {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--brass-hot);
+  border: 1px solid var(--brass-hot);
+  border-radius: 2px;
+  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.55);
+}
+.sb-drag-ghost sub { position: absolute; right: 4px; bottom: 3px; font-size: 10px; color: rgba(26, 23, 16, 0.6); }
+
 /* THE HOLE A PLAYED TILE LEAVES. The case does not close up behind a tile --
    the row would reshuffle under the player's finger mid-word, and the FLIP
    needs somewhere for that tile to come home to. Same box, no face. */

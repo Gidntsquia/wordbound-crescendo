@@ -7,6 +7,7 @@
 // touches the score. The tile play (case + composing stick + FLIP slide) is
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
+import { createDragReorder } from './dragReorder.js';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Plain FLIP (see the long note in TugSandbox.jsx): record where the tile was,
@@ -329,6 +330,41 @@ export default function RoundSandbox() {
     setWord(letters.slice(0, i) + letters.slice(i + 1));
   };
 
+  // Drag a tile along its row to reorder it -- the case and the stick both.
+  // Every tile in the row is FLIPped so its neighbours slide aside; the
+  // dragged tile slides in from where the finger let go of its ghost.
+  const wordRef = useRef(letters); wordRef.current = letters;
+  const slotsRef = useRef(slots); slotsRef.current = slots;
+  const dragRef = useRef(null);
+  if (!dragRef.current) {
+    dragRef.current = createDragReorder({
+      onSettle: (id, ghostRect) => {
+        pendingFlipFromRef.current[id] = ghostRect;
+        refresh();
+      },
+      onReorder: (row, from, to, id, ghostRect) => {
+        const r = fight.current?.round;
+        if (!r) return;
+        if (row === 'rack') {
+          r.rack.forEach((t) => { if (t.id !== id) captureFlipFrom(t.id); });
+          pendingFlipFromRef.current[id] = ghostRect;
+          r.moveTile(from, to);
+          refresh();
+        } else {
+          const cur = wordRef.current;
+          if (from >= cur.length || to >= cur.length) return;
+          slotsRef.current.forEach((t) => { if (t && t.id !== id) captureFlipFrom(t.id); });
+          if (id) pendingFlipFromRef.current[id] = ghostRect;
+          const arr = cur.split('');
+          const ch = arr.splice(from, 1)[0];
+          arr.splice(to, 0, ch);
+          setWord(arr.join(''));
+        }
+      }
+    });
+  }
+  const drag = dragRef.current;
+
   const setConst = (key, value) => {
     setTune((t) => ({ ...t, [key]: value }));
     if (fight.current) fight.current.round.tune[key] = value;
@@ -477,11 +513,12 @@ export default function RoundSandbox() {
       {round && (
         <section className="sb-play">
           <div className="sb-rack">
-            {round.rack.map((t) => (pickedIds.has(t.id) ? (
+            {round.rack.map((t, i) => (pickedIds.has(t.id) ? (
               <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
             ) : (
               <button key={t.id} type="button" disabled={!live}
                 className="sb-tile" data-flip-tile-id={t.id}
+                {...drag.bind('rack', i, t.id)}
                 onClick={() => stageTile(t)}>
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
@@ -514,7 +551,8 @@ export default function RoundSandbox() {
               {slots.map((t, i) => (t ? (
                 <button key={t.id} type="button" disabled={!live}
                   className="sb-tile is-set" data-flip-tile-id={t.id}
-                  title="Send this tile home"
+                  title="Tap to send home · drag to reorder"
+                  {...drag.bind('stick', i, t.id)}
                   onClick={() => unstageAt(i)}>
                   {t.letter === '?' ? (letters[i] === '?' ? '␣' : letters[i]) : t.letter}
                   <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
@@ -523,6 +561,7 @@ export default function RoundSandbox() {
                 <button key={'gap' + i} type="button" disabled={!live}
                   className="sb-tile is-missing"
                   title="No tile in the case spells this"
+                  {...drag.bind('stick', i, null)}
                   onClick={() => unstageAt(i)}>
                   {letters[i]}
                 </button>

@@ -201,6 +201,14 @@
       return { ok: true, drawn: drawn, returned: back };
     };
 
+    // Rearrange the rack by hand: the player's own ordering, nothing scored.
+    round.moveTile = function (from, to) {
+      if (from === to || from < 0 || to < 0 || from >= round.rack.length || to >= round.rack.length) return false;
+      var t = round.rack.splice(from, 1)[0];
+      round.rack.splice(to, 0, t);
+      return true;
+    };
+
     return round;
   };
 
