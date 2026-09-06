@@ -49,8 +49,25 @@
     return m ? m.enemies[stage] : null;
   };
 
-  // Tempo markings -- boss rules. round.js reads these at creation; the UI
-  // shows `text` under the target. Filled in by Phase 6; the ids above are
-  // only applied once a rule is registered here.
-  Sandbox.RULES = {};
+  // Tempo markings -- boss rules. round.js reads these at creation (plays,
+  // targetMult), at scoring (score(ctx, acc) after the items) and at play
+  // (barsLetter(round, letter)); the UI shows `text` under the target in
+  // the enemy's voice and greys barred tiles.
+  Sandbox.RULES = {
+    four_knocks: {
+      id: 'four_knocks', name: 'Four knocks',
+      text: 'Four. Always four. A word of four letters strikes twice as hard here — ×2 mult.',
+      score: function (ctx, acc) { if (ctx.word.length !== 4) return null; acc.mult *= 2; return '×2 mult, four knocks'; }
+    },
+    presto: {
+      id: 'presto', name: 'Presto',
+      text: 'No time to dwell. Three words instead of four, and the target is lighter — ×0.8.',
+      plays: -1, targetMult: 0.8
+    },
+    no_repeats: {
+      id: 'no_repeats', name: 'No repeats',
+      text: 'Every letter you spend, it remembers. A letter played this round cannot be played again.',
+      barsLetter: function (round, letter) { return letter !== '?' && !!round.usedLetters[letter]; }
+    }
+  };
 })();

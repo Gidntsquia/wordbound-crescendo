@@ -62,7 +62,8 @@
 //       opens it, run.leaveShop() begins the next round
 //     run.consumables [{ kind: 'etude'|'ink', id }], run.useConsumable(i, ...)
 //     run.pack / run.pick(i) -- an opened pack (shop.js)
-//   createRound(opts)    -- { rng, deck, tune?, items?, target?, tierLevels? }
+//   createRound(opts)    -- { rng, deck, tune?, items?, target?, tierLevels?,
+//                              rule? } (rule: a Sandbox.RULES id, enemies.js)
 //     items: array of Sandbox.ITEMS ids (items.js), fired in order by
 //       scoreWordPoints
 //     round.rack, .pile, .score, .target, .playsLeft, .changeoutsLeft,
@@ -194,6 +195,10 @@
       isLastPlay: !!round && round.playsLeft === 1,
       playIndex: round ? round.plays.length : 0
     }, acc) : [];
+    if (round && round.rule && round.rule.score) {
+      var rn = round.rule.score({ word: word, tiles: tilesUsed, round: round }, acc);
+      if (rn) b.itemNotes.push({ id: round.rule.id, name: round.rule.name, note: rn });
+    }
     b.itemPoints = acc.points - before.points;
     b.itemMult = acc.mult - before.mult; // net, for the one-line summary
     b.points = acc.points;
@@ -211,14 +216,17 @@
     var tune = Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {});
     var items = (opts.items || []).slice();
     var tierLevels = opts.tierLevels || {};
+    var rule = (opts.rule && Sandbox.RULES && Sandbox.RULES[opts.rule]) || null;
 
     var round = {
       tune: tune,
-      target: opts.target != null ? opts.target : tune.MOVEMENT_BASE_1,
+      target: Math.round((opts.target != null ? opts.target : tune.MOVEMENT_BASE_1) * (rule && rule.targetMult ? rule.targetMult : 1)),
+      rule: rule,
+      usedLetters: {}, // letters played this round (the no_repeats rule)
       reward: opts.reward != null ? opts.reward : tune.GOLD_SMALL, // flat gold at the win
-      playsLeft: tune.PLAYS + items.reduce(function (n, id) {
+      playsLeft: Math.max(1, tune.PLAYS + (rule && rule.plays ? rule.plays : 0) + items.reduce(function (n, id) {
         var it = Sandbox.ITEM_DEFS[id]; return n + (it && it.plays ? it.plays : 0);
-      }, 0),
+      }, 0)),
       changeoutsLeft: tune.CHANGEOUTS,
       rackSize: tune.RACK_SIZE,
       items: items,
@@ -273,6 +281,14 @@
     };
     round.scoreFor = function (word) { return round.breakdownFor(word).total; };
 
+    // The rule's word on a tile: may it be played now?
+    round.isBarred = function (tile) {
+      return !!(round.rule && round.rule.barsLetter && round.rule.barsLetter(round, tile.letter));
+    };
+    round.barredIn = function (tiles) {
+      return tiles.filter(round.isBarred).map(function (t) { return t.letter; });
+    };
+
     // One tile is always a legal play; anything longer must be in the dictionary.
     round.isPlayable = function (word) {
       var upper = String(word || '').toUpperCase();
@@ -286,6 +302,8 @@
       if (!round.isPlayable(upper)) return { ok: false, reason: upper + ' isn’t in the dictionary.' };
       var form = Lexicon.canFormFromRack(upper, round.rack);
       if (!form.possible) return { ok: false, reason: upper + ' needs letters you don’t have.' };
+      var barred = round.barredIn(form.tilesUsed);
+      if (barred.length) return { ok: false, reason: barred.join(', ') + ' has been played this round — ' + round.rule.name + '.' };
 
       var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, {
         tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(form.tilesUsed), run: opts.run, round: round
@@ -300,6 +318,7 @@
       Lexicon.removeTiles(round.rack, form.tilesUsed);
       round.pile.discardPile.push.apply(round.pile.discardPile, form.tilesUsed);
       refill();
+      form.tilesUsed.forEach(function (t) { round.usedLetters[t.letter] = true; });
       round.score += breakdown.total;
       round.playsLeft -= 1;
       round.plays.push({ word: upper, breakdown: breakdown, messages: messages });
@@ -390,6 +409,7 @@
         rng: opts.rng, deck: run.deck, tune: tune, items: run.items, run: run,
         target: run.targetFor(run.movement, run.stage),
         reward: KIND_GOLD[run.enemy.kind],
+        rule: run.enemy.rule,
         tierLevels: run.tierLevels
       });
     }

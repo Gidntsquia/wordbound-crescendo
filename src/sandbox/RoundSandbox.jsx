@@ -642,7 +642,8 @@ export default function RoundSandbox() {
   })();
 
   const live = phase === 'live' && round;
-  const spelt = !!(live && formable && round.isPlayable(letters));
+  const barredNow = live ? slots.filter(Boolean).filter((t) => round.isBarred(t)) : [];
+  const spelt = !!(live && formable && !barredNow.length && round.isPlayable(letters));
   const worthHow = spelt ? round.breakdownFor(letters) : null;
   const worth = worthHow ? worthHow.total : 0;
   const pct = round ? Math.min(100, (100 * round.score) / round.target) : 0;
@@ -746,6 +747,12 @@ export default function RoundSandbox() {
               style={{ width: pct + '%' }} />
             <span className="sb-meter-tick" />
           </div>
+          {round.rule && (
+            <div className="sb-rule">
+              <span className="sb-eyebrow">Tempo marking · {round.rule.name}</span>
+              <q>{round.rule.text}</q>
+            </div>
+          )}
           <div className="sb-counters">
             <span><b>{round.playsLeft}</b> word{round.playsLeft === 1 ? '' : 's'} left</span>
             <span><b>{round.changeoutsLeft}</b> changeout{round.changeoutsLeft === 1 ? '' : 's'} left</span>
@@ -799,11 +806,11 @@ export default function RoundSandbox() {
             ) : (
               <button key={t.id} type="button" disabled={!live}
                 className={'sb-tile' + (hollow ? ' is-dragging' : '') + (t.ink ? ' is-ink-' + t.ink : '')
-                  + (inking && inking.ids.includes(t.id) ? ' is-inking' : '')}
+                  + (inking && inking.ids.includes(t.id) ? ' is-inking' : '') + (round.isBarred(t) ? ' is-barred' : '')}
                 data-flip-tile-id={t.id}
                 title={t.ink ? SB.INK_DEFS[t.ink].name + ' — ' + SB.INK_DEFS[t.ink].hint : undefined}
                 {...(inking ? {} : drag.bind('rack', i, t.id))}
-                onClick={() => (inking ? toggleInkTile(t.id) : stageTile(t))}>
+                onClick={() => (inking ? toggleInkTile(t.id) : round.isBarred(t) ? say(t.letter + ' has been played this round — ' + round.rule.name + '.') : stageTile(t))}>
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
               </button>
@@ -857,7 +864,7 @@ export default function RoundSandbox() {
               )}
               {stickShown.map(({ t, i, ch, hollow }) => (t ? (
                 <button key={t.id} type="button" disabled={!live}
-                  className={'sb-tile is-set' + (hollow ? ' is-dragging' : '') + (t.ink ? ' is-ink-' + t.ink : '')}
+                  className={'sb-tile is-set' + (hollow ? ' is-dragging' : '') + (t.ink ? ' is-ink-' + t.ink : '') + (round.isBarred(t) ? ' is-barred' : '')}
                   data-flip-tile-id={t.id}
                   title="Tap to send home · drag to reorder"
                   {...drag.bind('stick', i, t.id)}
@@ -927,6 +934,8 @@ export default function RoundSandbox() {
           </details>}
           {!formable && letters
             && <p className="sb-hint sb-warn-line">{letters} needs letters that aren’t in your rack.</p>}
+          {formable && barredNow.length > 0
+            && <p className="sb-hint sb-warn-line">{barredNow.map((t) => t.letter).join(', ')} has been played this round — {round.rule.name}.</p>}
         </section>
       )}
 
