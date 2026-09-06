@@ -46,7 +46,7 @@
 //   tierFor(word, tune)  -- the tier a word of that length scores as
 //   ITEMS                -- the sandbox's own items: each simply adds flat
 //                           POINTS and/or MULT to every word (see below)
-//   createRun(opts)      -- { rng, makeDeck, tune?, items? } -> a run down
+//   createRun(opts)      -- { rng, deck, tune?, items? } -> a run down
 //                           Sandbox.MOVEMENTS (enemies.js): two movements of
 //                           small / big / boss, targets MOVEMENT_BASE_n x
 //                           1 / BIG_MULT / BOSS_MULT, gold pooled with
@@ -55,7 +55,13 @@
 //     run.movement, run.stage (both 0-based), run.enemy, run.round,
 //       run.gold, run.state ('live' | 'won' | 'lost'), run.next()
 //     run.targetFor(movement, stage), run.interestPreview()
+//     run.deck -- the tiles every round's rack is drawn from, persisted and
+//       grown by the shop's tile packs
 //     run.tierLevels {tierId: level}, run.levelTier(tierId) -- études
+//     run.shop (shop.js) after every won fight short of the last; run.next()
+//       opens it, run.leaveShop() begins the next round
+//     run.consumables [{ kind: 'etude'|'ink', id }], run.useConsumable(i, ...)
+//     run.pack / run.pick(i) -- an opened pack (shop.js)
 //   createRound(opts)    -- { rng, deck, tune?, items?, target?, tierLevels? }
 //     items: array of Sandbox.ITEMS ids. Every one is folded straight into
 //       scoreWordPoints: points += item.points, mult += item.mult.
@@ -93,7 +99,19 @@
     GOLD_PER_WORD_LEFT: 1, // bonus per unplayed word at the win
     START_GOLD: 4,
     INTEREST_PER: 5,      // +1 gold per this much held at a round's end
-    INTEREST_CAP: 5
+    INTEREST_CAP: 5,
+    // The shop (shop.js).
+    ITEM_SLOTS: 5,
+    CONSUMABLE_SLOTS: 2,
+    CARD_SLOTS: 2,
+    CARD_ITEM: 70, CARD_INK: 15, CARD_ETUDE: 15, // card slot roll, by weight
+    PACK_SLOTS: 2,
+    PACK_PRICE: 4,
+    PACK_CHOICES: 3,      // keep one of this many
+    INK_PRICE: 3,
+    ETUDE_PRICE: 3,
+    REROLL_PRICE: 5,
+    REROLL_STEP: 1
   };
 
   // Balatro's hand types: a word scores as the tier of its length. An étude
@@ -131,13 +149,12 @@
   // nothing but a flat addition to every word's POINTS (before the mult) or
   // MULT. The shipped js/wordbound/items.js set is NOT used here.
   Sandbox.ITEMS = [
-    { id: 'brass_nib', name: 'Brass Nib', points: 10, hint: '+10 points on every word' },
-    { id: 'lead_weight', name: 'Lead Weight', points: 25, hint: '+25 points on every word' },
-    { id: 'second_ink', name: 'Second Ink', mult: 1, hint: '+1 mult on every word' },
-    { id: 'double_stop', name: 'Double Stop', mult: 2, hint: '+2 mult on every word' },
-    { id: 'gilded_edge', name: 'Gilded Edge', points: 10, mult: 1, hint: '+10 points and +1 mult' },
+    { id: 'brass_nib', name: 'Brass Nib', points: 10, rarity: 'common', price: 3, hint: '+10 points on every word' },
+    { id: 'lead_weight', name: 'Lead Weight', points: 25, rarity: 'uncommon', price: 6, hint: '+25 points on every word' },
+    { id: 'second_ink', name: 'Second Ink', mult: 1, rarity: 'common', price: 4, hint: '+1 mult on every word' },
+    { id: 'double_stop', name: 'Double Stop', mult: 2, rarity: 'rare', price: 8, hint: '+2 mult on every word' },
+    { id: 'gilded_edge', name: 'Gilded Edge', points: 10, mult: 1, rarity: 'uncommon', price: 5, hint: '+10 points and +1 mult' },
   ];
-  Sandbox.OFFER_SIZE = 3; // items offered after each felled enemy; take one
   Sandbox.ITEM_DEFS = {};
   Sandbox.ITEMS.forEach(function (it) { Sandbox.ITEM_DEFS[it.id] = it; });
 
@@ -286,10 +303,11 @@
   };
 
   // A RUN down the lineup in enemies.js: movements of small / big / boss,
-  // each a round with a higher target. Each round draws a fresh rack from a
-  // fresh deck (opts.makeDeck() is called per round). Gold pools across the
-  // run and earns INTEREST at every win. Lose a round and the run is lost;
-  // fell the last boss and the run is won.
+  // each a round with a higher target. Every round draws a fresh rack from
+  // run.deck -- one bag for the whole run, which the shop's tile packs and
+  // inks grow and mark. Gold pools across the run and earns INTEREST at every
+  // win, and every win short of the last opens the SHOP. Lose a round and the
+  // run is lost; fell the last boss and the run is won.
   Sandbox.createRun = function (opts) {
     var tune = Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {});
     var MOVEMENTS = Sandbox.MOVEMENTS || [];
@@ -300,9 +318,12 @@
       stage: 0,
       enemy: null,
       round: null,
+      deck: opts.deck || (opts.makeDeck ? opts.makeDeck() : []),
       items: (opts.items || []).slice(), // carried into every round from here on
       startItems: (opts.items || []).slice(), // what the run set out with
-      offer: null,   // after a won round: OFFER_SIZE item ids to choose one from
+      consumables: [], // inks and études held, CONSUMABLE_SLOTS deep
+      shop: null,    // open between fights (shop.js)
+      pack: null,    // an opened pack awaiting run.pick
       tierLevels: {}, // études: { tierId: level }, level 1 when absent
       gold: tune.START_GOLD,
       felled: [],    // enemy ids beaten so far
@@ -322,7 +343,7 @@
     function begin() {
       run.enemy = Sandbox.enemyAt(run.movement, run.stage);
       run.round = Sandbox.createRound({
-        rng: opts.rng, deck: opts.makeDeck(), tune: tune, items: run.items,
+        rng: opts.rng, deck: run.deck, tune: tune, items: run.items,
         target: run.targetFor(run.movement, run.stage),
         reward: KIND_GOLD[run.enemy.kind],
         tierLevels: run.tierLevels
@@ -334,26 +355,12 @@
       run.tierLevels[tierId] = (run.tierLevels[tierId] || 1) + 1;
       return true;
     };
-    // The reward for a felled enemy: a choice of OFFER_SIZE items the run does
-    // not already carry, drawn at random. Empty when there is nothing left.
-    function drawOffer() {
-      var pool = Sandbox.ITEMS.map(function (it) { return it.id; })
-        .filter(function (id) { return run.items.indexOf(id) < 0; });
-      var out = [];
-      while (pool.length && out.length < Sandbox.OFFER_SIZE) {
-        var i = opts.rng.randInt(0, pool.length - 1);
-        out.push(pool.splice(i, 1)[0]);
-      }
-      return out;
-    }
     // Settle the current round into the run: bank the reward, then the
-    // interest on what is held. A win on the way to the last boss puts up
-    // run.offer (choose one with run.choose) before the next round begins;
-    // if there is nothing left to offer the next round begins at once.
-    // Returns the run state.
+    // interest on what is held. A win on the way to the last boss opens the
+    // shop (run.shop; leave it with run.leaveShop). Returns the run state.
     run.next = function () {
       var r = run.round;
-      if (run.state !== 'live' || !r || r.state === 'live' || run.offer) return run.state;
+      if (run.state !== 'live' || !r || r.state === 'live' || run.shop) return run.state;
       if (r.state === 'lost') { run.state = 'lost'; return run.state; }
       run.gold += r.gold;
       var interest = run.interestPreview();
@@ -364,22 +371,44 @@
       if (last) { run.state = 'won'; return run.state; }
       run.stage += 1;
       if (run.stage >= MOVEMENTS[run.movement].enemies.length) { run.stage = 0; run.movement += 1; }
-      var offer = drawOffer();
-      if (offer.length) run.offer = offer;
-      else begin();
+      run.enemy = Sandbox.enemyAt(run.movement, run.stage); // the one ahead, for the shop's door
+      run.shop = Sandbox.createShop ? Sandbox.createShop(run, opts.rng) : null;
+      if (!run.shop) begin();
       return run.state;
     };
-    // Take one item from the offer (or null to take nothing) and begin the
-    // next round. Returns false if there is no offer or the id is not in it.
-    run.choose = function (id) {
-      if (!run.offer) return false;
-      if (id != null) {
-        if (run.offer.indexOf(id) < 0) return false;
-        run.items.push(id);
-      }
-      run.offer = null;
+    // Close the shop and begin the next round. Returns false if no shop is
+    // open or a pack is still unsettled.
+    run.leaveShop = function () {
+      if (!run.shop || run.pack) return false;
+      run.shop = null;
       begin();
       return true;
+    };
+    // Use a held consumable. An étude needs nothing else; an ink takes the
+    // ids of the tiles it is applied to (inks.js, Phase 4).
+    run.useConsumable = function (i, tileIds) {
+      var c = run.consumables[i];
+      if (!c) return { ok: false, reason: 'Nothing there.' };
+      if (c.kind === 'etude') {
+        run.levelTier(c.id);
+        run.consumables.splice(i, 1);
+        return { ok: true, used: c };
+      }
+      if (c.kind === 'ink' && Sandbox.applyInk) {
+        var res = Sandbox.applyInk(run, c.id, tileIds || []);
+        if (!res.ok) return res;
+        run.consumables.splice(i, 1);
+        return { ok: true, used: c, result: res };
+      }
+      return { ok: false, reason: 'That cannot be used yet.' };
+    };
+    run.sellConsumable = function (i) {
+      var c = run.consumables[i];
+      if (!c) return { ok: false, reason: 'Nothing there.' };
+      run.consumables.splice(i, 1);
+      var paid = Math.floor((c.kind === 'ink' ? tune.INK_PRICE : tune.ETUDE_PRICE) / 2);
+      run.gold += paid;
+      return { ok: true, paid: paid };
     };
     begin();
     return run;

@@ -45,6 +45,19 @@ const TUNE_LABELS = {
   PTS_5: 'Five · points', MULT_5: 'Five · mult',
   PTS_6: 'Six · points', MULT_6: 'Six · mult',
   PTS_7: 'Seven+ · points', MULT_7: 'Seven+ · mult',
+  ITEM_SLOTS: 'Item slots',
+  CONSUMABLE_SLOTS: 'Consumable slots',
+  CARD_SLOTS: 'Shop card slots',
+  CARD_ITEM: 'Card roll · item weight',
+  CARD_INK: 'Card roll · ink weight',
+  CARD_ETUDE: 'Card roll · étude weight',
+  PACK_SLOTS: 'Shop pack slots',
+  PACK_PRICE: 'Pack price',
+  PACK_CHOICES: 'Pack · choices shown',
+  INK_PRICE: 'Ink price',
+  ETUDE_PRICE: 'Étude price',
+  REROLL_PRICE: 'Reroll price',
+  REROLL_STEP: 'Reroll price step',
   GOLD_SMALL: 'Gold, small enemy',
   GOLD_BIG: 'Gold, big enemy',
   GOLD_BOSS: 'Gold, boss',
@@ -72,12 +85,158 @@ function describeBreakdown(b) {
   return out;
 }
 
+function itemBlurb(d) {
+  return d.hint || [d.points ? '+' + d.points + ' pts' : '', d.mult ? '+' + d.mult + ' mult' : ''].filter(Boolean).join(' ');
+}
+function consumableName(SB, c) {
+  if (c.kind === 'etude') return SB.TIER_DEFS[c.id].name + ' étude';
+  const ink = SB.INK_DEFS ? SB.INK_DEFS[c.id] : null;
+  return ink ? ink.name : c.id;
+}
+function consumableBlurb(SB, c, run) {
+  if (c.kind === 'etude') {
+    const t = SB.TIER_DEFS[c.id];
+    const lvl = (run.tierLevels[c.id] || 1);
+    return 'Level ' + t.name + ' to ' + (lvl + 1) + ': +' + t.lvlPts + ' pts, +' + t.lvlMult + ' mult';
+  }
+  const ink = SB.INK_DEFS ? SB.INK_DEFS[c.id] : null;
+  return ink ? ink.hint : '';
+}
+function cardName(SB, c) {
+  if (c.kind === 'item') return SB.ITEM_DEFS[c.id].name;
+  return consumableName(SB, c);
+}
+function cardBlurb(SB, c, run) {
+  if (c.kind === 'item') return itemBlurb(SB.ITEM_DEFS[c.id]);
+  return consumableBlurb(SB, c, run);
+}
+
+// What the run holds: items (sellable in the shop) and consumables (usable
+// any time an étude makes sense; inks need a tile, see Phase 4).
+function HeldRow({ run, SB, act, live, inShop, onInk }) {
+  const tune = run.tune;
+  return (
+    <div className="sb-held">
+      <div className="sb-held-row" aria-label="Items">
+        <span className="sb-eyebrow">Items · {run.items.length}/{tune.ITEM_SLOTS}</span>
+        {run.items.map((id, i) => {
+          const d = SB.ITEM_DEFS[id];
+          return (
+            <span key={id} className={'sb-card sb-card-item is-' + (d.rarity || 'common')} title={itemBlurb(d)}>
+              <b>{d.name}</b><em>{itemBlurb(d)}</em>
+              {inShop && (
+                <button type="button" className="sb-card-sell" title="Sell"
+                  onClick={() => act('Sold ' + d.name + '.', run.shop.sell(i))}>
+                  sell {Math.floor(SB.priceOf(d) / 2)}
+                </button>
+              )}
+            </span>
+          );
+        })}
+        {run.items.length === 0 && <span className="sb-hint">nothing yet</span>}
+      </div>
+      {(run.consumables.length > 0 || inShop) && (
+        <div className="sb-held-row" aria-label="Consumables">
+          <span className="sb-eyebrow">Consumables · {run.consumables.length}/{tune.CONSUMABLE_SLOTS}</span>
+          {run.consumables.map((c, i) => (
+            <span key={i} className={'sb-card sb-card-' + c.kind} title={consumableBlurb(SB, c, run)}>
+              <b>{consumableName(SB, c)}</b><em>{consumableBlurb(SB, c, run)}</em>
+              {(live || inShop) && c.kind === 'etude' && (
+                <button type="button" className="sb-card-use"
+                  onClick={() => act('Played the ' + consumableName(SB, c) + ' — ' + SB.TIER_DEFS[c.id].name + ' is level ' + ((run.tierLevels[c.id] || 1) + 1) + '.', run.useConsumable(i))}>use</button>
+              )}
+              {live && c.kind === 'ink' && onInk && (
+                <button type="button" className="sb-card-use" onClick={() => onInk(i)}>use</button>
+              )}
+              {inShop && (
+                <button type="button" className="sb-card-sell" title="Sell"
+                  onClick={() => act('Sold the ' + consumableName(SB, c) + '.', run.sellConsumable(i))}>
+                  sell {Math.floor((c.kind === 'ink' ? tune.INK_PRICE : tune.ETUDE_PRICE) / 2)}
+                </button>
+              )}
+            </span>
+          ))}
+          {run.consumables.length === 0 && <span className="sb-hint">none held</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// The shop between fights: two cards, two packs, reroll, and the door.
+function Shop({ run, SB, act, leave }) {
+  const shop = run.shop;
+  const next = SB.enemyAt(run.movement, run.stage);
+  const packDef = (kind) => SB.PACK_KINDS.find((k) => k.kind === kind);
+  return (
+    <div className="sb-shop">
+      <div className="sb-shop-head">
+        <span className="sb-eyebrow">The shop · between fights</span>
+        <span className="sb-purse"><b>{run.gold}</b> gold</span>
+      </div>
+      {run.pack && (
+        <div className="sb-pack-open">
+          <span className="sb-eyebrow">{packDef(run.pack.kind).name} · keep one</span>
+          <div className="sb-shop-row">
+            {run.pack.choices.map((c, i) => (
+              <button key={i} type="button" className={'sb-card sb-card-pick sb-card-' + c.kind}
+                title={c.kind === 'tile' ? 'A ' + c.tile.letter + ' for your case' : cardBlurb(SB, c, run)}
+                onClick={() => act('Kept ' + (c.kind === 'tile' ? 'the ' + c.tile.letter : 'the ' + cardName(SB, c)) + '.', run.pick(i))}>
+                {c.kind === 'tile' ? (
+                  <span className="sb-tile is-set sb-tile-static">{c.tile.letter}<sub>{SB.LETTER_VALUES ? SB.LETTER_VALUES[c.tile.letter] : window.Wordbound.Lexicon.LETTER_VALUES[c.tile.letter]}</sub></span>
+                ) : (<><b>{cardName(SB, c)}</b><em>{cardBlurb(SB, c, run)}</em></>)}
+              </button>
+            ))}
+            <button type="button" className="sb-offer-skip" onClick={() => act('Kept nothing.', run.pick(null))}>Keep nothing</button>
+          </div>
+        </div>
+      )}
+      {!run.pack && (<>
+        <div className="sb-shop-row" aria-label="Cards">
+          {shop.cards.map((c, i) => (
+            <button key={i} type="button" disabled={c.sold || run.gold < c.price}
+              className={'sb-card sb-card-buy sb-card-' + c.kind + (c.kind === 'item' ? ' is-' + (SB.ITEM_DEFS[c.id].rarity || 'common') : '') + (c.sold ? ' is-sold' : '')}
+              title={cardBlurb(SB, c, run)}
+              onClick={() => act('Bought ' + cardName(SB, c) + ' for ' + c.price + '.', shop.buy(i))}>
+              <span className="sb-card-kind">{c.kind}</span>
+              <b>{c.sold ? 'sold' : cardName(SB, c)}</b>
+              <em>{c.sold ? '' : cardBlurb(SB, c, run)}</em>
+              {!c.sold && <span className="sb-price">{c.price}</span>}
+            </button>
+          ))}
+          <button type="button" className="sb-reroll" disabled={run.gold < shop.rerollPrice()}
+            onClick={() => act('Rerolled.', shop.reroll())}>
+            Reroll <span className="sb-price">{shop.rerollPrice()}</span>
+          </button>
+        </div>
+        <div className="sb-shop-row" aria-label="Packs">
+          {shop.packs.map((p, i) => (
+            <button key={i} type="button" disabled={p.opened || run.gold < (p.free ? 0 : p.price)}
+              className={'sb-card sb-card-pack sb-pack-' + p.kind + (p.opened ? ' is-sold' : '')}
+              title={packDef(p.kind).hint}
+              onClick={() => act('Opened a ' + packDef(p.kind).name.toLowerCase() + '.', shop.openPack(i))}>
+              <span className="sb-card-kind">pack</span>
+              <b>{p.opened ? 'opened' : packDef(p.kind).name}</b>
+              <em>{p.opened ? '' : packDef(p.kind).hint}</em>
+              {!p.opened && <span className="sb-price">{p.free ? 'free' : p.price}</span>}
+            </button>
+          ))}
+        </div>
+        <HeldRow run={run} SB={SB} act={act} inShop />
+        <button type="button" className="sb-go sb-shop-leave" onClick={leave}>
+          Next fight · {next.glyph} {next.name} · target {run.targetFor(run.movement, run.stage)}
+        </button>
+      </>)}
+    </div>
+  );
+}
+
 export default function RoundSandbox() {
   const W = window.Wordbound;
   const SB = W.Sandbox;
   const fight = useRef(null);   // { run, round, seq, ctx, gain, def, piece }
   const [, forceRender] = useState(0);
-  // idle | live | won (round, run continues) | choose (pick a reward item) | lost | run-won
+  // idle | live | won (round, run continues) | shop (between fights) | lost | run-won
   const [phase, setPhase] = useState('idle');
   const [log, setLog] = useState([]);
   const [word, setWord] = useState('');
@@ -194,7 +353,7 @@ export default function RoundSandbox() {
     }
 
     const run = SB.createRun({
-      rng, makeDeck: () => SB.createBagDeck(bagId), tune, items: [...itemIds]
+      rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds]
     });
     fight.current = { ...(fight.current || {}), ctx, gain, seq: fight.current?.seq };
     setLog([]);
@@ -215,23 +374,30 @@ export default function RoundSandbox() {
       refresh();
       return;
     }
-    if (f.run.offer) {
-      setPhase('choose');
-      say('Spoils: choose one of ' + f.run.offer.map((id) => SB.ITEM_DEFS[id].name).join(', ') + '.');
+    if (f.run.shop) {
+      setPhase('shop');
+      say('The shop opens. ' + f.run.gold + ' gold in the purse.');
       refresh();
       return;
     }
     startStage(f.run);
   }, [phase, say, refresh, startStage, SB]);
 
-  // Take one of the offered items (or none) and go on to the next enemy.
-  const chooseItem = useCallback((id) => {
+  // Leave the shop and go on to the next enemy.
+  const leaveShop = useCallback(() => {
     const f = fight.current;
-    if (!f || !f.run || phase !== 'choose') return;
-    if (!f.run.choose(id)) return;
-    say(id ? 'Took ' + SB.ITEM_DEFS[id].name + '.' : 'Took nothing.');
+    if (!f || !f.run || phase !== 'shop') return;
+    if (!f.run.leaveShop()) return;
     startStage(f.run);
-  }, [phase, say, startStage, SB]);
+  }, [phase, startStage]);
+
+  // Every shop action funnels through here so the log and the render agree.
+  const act = useCallback((label, res) => {
+    if (!res || !res.ok) { say(res && res.reason ? res.reason : 'Nothing happened.'); return false; }
+    if (label) say(label);
+    refresh();
+    return true;
+  }, [say, refresh]);
 
   const f = fight.current;
   const run = f ? f.run : null;
@@ -444,7 +610,7 @@ export default function RoundSandbox() {
         </div>
         {round && (
           <div className="sb-dyn">
-            <span className="sb-dyn-label">{SB.KIND_LABEL[run.enemy.kind]} · score / target</span>
+            <span className="sb-dyn-label">{SB.KIND_LABEL[f.def.kind]} · score / target</span>
             <span className="sb-dyn-mark">{round.score}<small> / {round.target}</small></span>
           </div>
         )}
@@ -467,7 +633,7 @@ export default function RoundSandbox() {
               })}
             </span>
           ))}
-          <span className="sb-strip-enemy">{run.enemy.glyph} {run.enemy.name}</span>
+          <span className="sb-strip-enemy">{phase === 'shop' ? 'next · ' : ''}{run.enemy.glyph} {run.enemy.name}</span>
           <span className="sb-purse" title={'Interest: 1 gold per ' + run.tune.INTEREST_PER + ' held, up to ' + run.tune.INTEREST_CAP}>
             <b>{run.gold}</b> gold
             {run.interestPreview() > 0 && <em>+{run.interestPreview()} interest</em>}
@@ -537,12 +703,11 @@ export default function RoundSandbox() {
           <div className="sb-counters">
             <span><b>{round.playsLeft}</b> word{round.playsLeft === 1 ? '' : 's'} left</span>
             <span><b>{round.changeoutsLeft}</b> changeout{round.changeoutsLeft === 1 ? '' : 's'} left</span>
-            <span><b>{round.pile.drawPile.length}</b> in the bag</span>
-            {round.items.length > 0 && (
-              <span>{round.items.map((id) => SB.ITEM_DEFS[id].name).join(' · ')}</span>
-            )}
+            <span><b>{round.pile.drawPile.length}</b> in the bag of {run.deck.length}</span>
+
             <span className="sb-enemy">{SB.KIND_LABEL[run.enemy.kind]} · {f.def.glyph} {f.def.name} · {f.piece.title}</span>
           </div>
+          {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} />}
           {round.plays.length > 0 && (
             <ol className="sb-plays">
               {round.plays.map((p, i) => (
@@ -560,26 +725,12 @@ export default function RoundSandbox() {
               {run.interestPreview() > 0 && <> + {run.interestPreview()} interest</>}.
               {' '}
               <button type="button" className="sb-go" onClick={nextStage}>
-                {run.movement >= run.movements.length - 1 && run.enemy.kind === 'boss' ? 'Finish the run' : 'Claim the spoils'}
+                {run.movement >= run.movements.length - 1 && run.enemy.kind === 'boss' ? 'Finish the run' : 'To the shop'}
               </button>
             </div>
           )}
-          {phase === 'choose' && run.offer && (
-            <div className="sb-outcome sb-win sb-offer">
-              <span className="sb-eyebrow">Spoils · take one</span>
-              {run.offer.map((id) => {
-                const d = SB.ITEM_DEFS[id];
-                return (
-                  <button key={id} type="button" className="sb-item sb-offer-pick" title={d.hint}
-                    onClick={() => chooseItem(id)}>
-                    {d.name}<em>{[d.points ? '+' + d.points + ' pts' : '', d.mult ? '+' + d.mult + ' mult' : ''].filter(Boolean).join(' ')}</em>
-                  </button>
-                );
-              })}
-              <button type="button" className="sb-offer-skip" onClick={() => chooseItem(null)}>
-                Take nothing · on to {SB.enemyAt(run.movement, run.stage).name}
-              </button>
-            </div>
+          {phase === 'shop' && run.shop && (
+            <Shop run={run} SB={SB} act={act} leave={leaveShop} />
           )}
           {phase === 'run-won' && (
             <div className="sb-outcome sb-win">
@@ -588,7 +739,7 @@ export default function RoundSandbox() {
           )}
           {phase === 'lost' && (
             <div className="sb-outcome sb-lose">
-              Lost to {run.enemy.name} — {round.target - round.score} short of the target.
+              Lost to {f.def.name} — {round.target - round.score} short of the target.
             </div>
           )}
         </section>

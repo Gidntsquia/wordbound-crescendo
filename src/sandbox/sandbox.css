@@ -1340,17 +1340,75 @@ button:disabled {
 .sb-setup .sb-toggle input { margin: 0; accent-color: var(--brass); }
 .sb-outcome .sb-go { margin-left: 10px; }
 
-/* Spoils: after a felled enemy, three items to choose one from (or none). */
-.sb-board .sb-outcome.sb-offer {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
-  font-family: inherit; font-size: 13px; letter-spacing: 0.02em; color: var(--ink);
+/* Cards: the one shape for an item held, a card for sale, a consumable and
+   a pack. Kind is the eyebrow, name the body, blurb under it, price in the
+   corner. Rarity tints the border: common paper, uncommon brass, rare red. */
+.sb-card {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 128px;
+  max-width: 200px;
+  padding: 9px 12px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--pit-raise);
+  text-align: left;
+  font-family: var(--ui);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--leaf);
+  cursor: default;
 }
-.sb-offer .sb-eyebrow { margin-right: 6px; }
-.sb-offer-pick { background: none; font-family: inherit; padding: 10px 16px; font-size: 12px; color: var(--leaf); }
+.sb-card b { font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: 0; line-height: 1.15; padding-right: 26px; }
+.sb-card em { font-style: normal; font-weight: 400; color: var(--leaf-dim); line-height: 1.35; }
+.sb-card.is-uncommon { border-color: var(--brass); }
+.sb-card.is-rare { border-color: var(--rubric); }
+.sb-card-etude { border-style: dashed; }
+.sb-card-ink b { color: #6fb3e0; }
+.sb-card-kind { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--leaf-dim); }
+.sb-price {
+  position: absolute; top: 6px; right: 8px;
+  font-family: var(--figure); font-size: 13px; color: var(--brass-hot);
+}
+.sb-price::before { content: '\25C6\00a0'; font-size: 8px; vertical-align: 2px; }
+button.sb-card { cursor: pointer; min-height: 64px; }
+button.sb-card:hover:not(:disabled) { border-color: var(--brass-hot); color: var(--leaf); background: var(--pit); }
+button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
+.sb-card-sell, .sb-card-use {
+  margin-top: 4px; padding: 3px 8px; font-size: 9px; letter-spacing: 0.12em;
+}
+.sb-card-use { color: var(--ink); background: var(--brass-hot); border-color: var(--brass-hot); }
+.sb-tile-static { pointer-events: none; }
+
+.sb-held { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 2px; }
+.sb-held-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sb-held-row .sb-eyebrow { margin-right: 4px; min-width: 96px; }
+.sb-held .sb-hint { margin: 0; }
+
+/* THE SHOP: a raised counter under the won line. */
+.sb-shop {
+  margin-top: 14px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--brass);
+  background: var(--pit-deep);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.sb-shop-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sb-shop-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+.sb-reroll { align-self: center; padding: 10px 14px; }
+.sb-reroll .sb-price { position: static; margin-left: 6px; }
+.sb-shop-leave { align-self: flex-start; padding: 12px 18px; }
+.sb-pack-open { padding: 10px 12px; border: 1px dashed var(--brass); }
+.sb-pack-open .sb-eyebrow { display: block; margin-bottom: 8px; }
+.sb-card-pick { align-items: center; justify-content: center; }
 .sb-offer-skip {
   background: none; border: none; padding: 6px 4px; cursor: pointer;
   font: inherit; font-size: 11px; letter-spacing: 0.06em; color: var(--leaf-dim);
-  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration: underline; text-underline-offset: 3px; align-self: center;
 }
 .sb-offer-skip:hover { color: var(--brass-hot); }
 
