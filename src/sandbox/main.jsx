@@ -32,6 +32,8 @@ import './tileBags.js';
 // is generated from tools/audio-manifest.json by `npm run fetch:audio`.
 // Soundtrack only here.
 import './audioPiece.js';
+// Synthesized input sounds and the scoring cascade's hits (sfx.js).
+import './sfx.js';
 import './recordings.js';
 
 import RoundSandbox from './RoundSandbox.jsx';

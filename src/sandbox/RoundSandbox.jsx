@@ -139,7 +139,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk }) {
               )}
               {inShop && (
                 <button type="button" className="sb-card-sell" title="Sell"
-                  onClick={() => act('Sold ' + d.name + '.', run.shop.sell(i))}>
+                  onClick={() => act('Sold ' + d.name + '.', run.shop.sell(i), 'coin')}>
                   sell {Math.floor(SB.priceOf(d) / 2)}
                 </button>
               )}
@@ -163,7 +163,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk }) {
               )}
               {inShop && (
                 <button type="button" className="sb-card-sell" title="Sell"
-                  onClick={() => act('Sold the ' + consumableName(SB, c) + '.', run.sellConsumable(i))}>
+                  onClick={() => act('Sold the ' + consumableName(SB, c) + '.', run.sellConsumable(i), 'coin')}>
                   sell {Math.floor((c.kind === 'ink' ? tune.INK_PRICE : tune.ETUDE_PRICE) / 2)}
                 </button>
               )}
@@ -194,7 +194,7 @@ function Shop({ run, SB, act, leave, onInk }) {
             {run.pack.choices.map((c, i) => (
               <button key={i} type="button" className={'sb-card sb-card-pick sb-card-' + c.kind}
                 title={c.kind === 'tile' ? 'A ' + c.tile.letter + ' for your case' : cardBlurb(SB, c, run)}
-                onClick={() => act('Kept ' + (c.kind === 'tile' ? 'the ' + c.tile.letter : 'the ' + cardName(SB, c)) + '.', run.pick(i))}>
+                onClick={() => act('Kept ' + (c.kind === 'tile' ? 'the ' + c.tile.letter : 'the ' + cardName(SB, c)) + '.', run.pick(i), 'tick')}>
                 {c.kind === 'tile' ? (
                   <span className="sb-tile is-set sb-tile-static">{c.tile.letter}<sub>{SB.LETTER_VALUES ? SB.LETTER_VALUES[c.tile.letter] : window.Wordbound.Lexicon.LETTER_VALUES[c.tile.letter]}</sub></span>
                 ) : (<><b>{cardName(SB, c)}</b><em>{cardBlurb(SB, c, run)}</em></>)}
@@ -213,7 +213,7 @@ function Shop({ run, SB, act, leave, onInk }) {
                 || (c.kind === 'ink' && run.consumables.length >= run.tune.CONSUMABLE_SLOTS)}
               className={'sb-card sb-card-buy sb-card-' + c.kind + (c.kind === 'item' ? ' is-' + (SB.ITEM_DEFS[c.id].rarity || 'common') : '') + (c.sold ? ' is-sold' : '')}
               title={cardBlurb(SB, c, run)}
-              onClick={() => act('Bought ' + cardName(SB, c) + ' for ' + c.price + '.', shop.buy(i))}>
+              onClick={() => act('Bought ' + cardName(SB, c) + ' for ' + c.price + '.', shop.buy(i), 'coin')}>
               <span className="sb-card-kind">{c.kind}</span>
               <b>{c.sold ? 'sold' : cardName(SB, c)}</b>
               <em>{c.sold ? '' : cardBlurb(SB, c, run)}</em>
@@ -221,7 +221,7 @@ function Shop({ run, SB, act, leave, onInk }) {
             </button>
           ))}
           <button type="button" className="sb-reroll" disabled={run.gold < shop.rerollPrice()}
-            onClick={() => act('Rerolled.', shop.reroll())}>
+            onClick={() => act('Rerolled.', shop.reroll(), 'coin')}>
             Reroll <span className="sb-price">{shop.rerollPrice()}</span>
           </button>
         </div>
@@ -230,7 +230,7 @@ function Shop({ run, SB, act, leave, onInk }) {
             <button key={i} type="button" disabled={p.opened || run.gold < (p.free ? 0 : p.price)}
               className={'sb-card sb-card-pack sb-pack-' + p.kind + (p.opened ? ' is-sold' : '')}
               title={packDef(p.kind).hint}
-              onClick={() => act('Opened a ' + packDef(p.kind).name.toLowerCase() + '.', shop.openPack(i))}>
+              onClick={() => act('Opened a ' + packDef(p.kind).name.toLowerCase() + '.', shop.openPack(i), 'coin')}>
               <span className="sb-card-kind">pack</span>
               <b>{p.opened ? 'opened' : packDef(p.kind).name}</b>
               <em>{p.opened ? '' : packDef(p.kind).hint}</em>
@@ -369,6 +369,19 @@ export default function RoundSandbox() {
   const [helper, setHelper] = useState(false);
   const [bagId, setBagId] = useState('normal');
   const [volume, setVolume] = useState(0.4);
+  // Input sounds (sfx.js), on by default, remembered in wbc.sfx.
+  const [sfxOn, setSfxOn] = useState(() => {
+    try { return window.localStorage.getItem('wbc.sfx') !== '0'; } catch (e) { return true; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem('wbc.sfx', sfxOn ? '1' : '0'); } catch (e) { /* ignore */ }
+    if (fight.current?.sfx) fight.current.sfx.setEnabled(sfxOn);
+  }, [sfxOn]);
+  // The sound for an input event, if a run has opened the audio device.
+  const sfx = useCallback((name, ...a) => {
+    const s = fight.current?.sfx;
+    if (s && s[name]) s[name](...a);
+  }, []);
   const [tune, setTune] = useState(() => ({ ...SB.ROUND_DEFAULTS }));
   // Sample items, read at Start (a mid-round swap would half-apply).
   const [itemIds, setItemIds] = useState(() => new Set());
@@ -422,6 +435,7 @@ export default function RoundSandbox() {
   useEffect(() => {
     const f = fight.current;
     if (f && f.gain) f.gain.gain.value = volume;
+    if (f && f.sfx) f.sfx.setLevel(volume);
   }, [volume]);
 
   // Warm the recording for an enemy (bytes only; the decode waits for the
@@ -481,15 +495,19 @@ export default function RoundSandbox() {
 
     let ctx = fight.current?.ctx;
     let gain = fight.current?.gain;
+    let sfxNode = fight.current?.sfx;
     try {
-      if (ctx && ctx.state === 'closed') { ctx = null; gain = null; }
+      if (ctx && ctx.state === 'closed') { ctx = null; gain = null; sfxNode = null; }
       if (!ctx) {
         ctx = new (window.AudioContext || window.webkitAudioContext)();
         gain = ctx.createGain();
         gain.connect(ctx.destination);
+        sfxNode = SB.createSfx(ctx, ctx.destination);
       }
       if (ctx.state !== 'running') ctx.resume().catch(() => {});
       gain.gain.value = volume;
+      sfxNode.setLevel(volume);
+      sfxNode.setEnabled(sfxOn);
     } catch (err) {
       say('Could not open the audio device: ' + (err && err.message ? err.message : err));
       return;
@@ -498,13 +516,13 @@ export default function RoundSandbox() {
     const run = SB.createRun({
       rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds]
     });
-    fight.current = { ...(fight.current || {}), ctx, gain, seq: fight.current?.seq };
+    fight.current = { ...(fight.current || {}), ctx, gain, sfx: sfxNode, seq: fight.current?.seq };
     setLog([]);
     if (itemIds.size) {
       say('Carrying ' + [...itemIds].map((id) => SB.ITEM_DEFS[id].name).join(', ') + '.');
     }
     startStage(run);
-  }, [seed, bagId, volume, tune, itemIds, say, startStage]);
+  }, [seed, bagId, volume, sfxOn, tune, itemIds, say, startStage, SB]);
 
   // After a won round: bank the gold and move to the next enemy, or end the run.
   const nextStage = useCallback(() => {
@@ -551,12 +569,13 @@ export default function RoundSandbox() {
   }, [seed, say]);
 
   // Every shop action funnels through here so the log and the render agree.
-  const act = useCallback((label, res) => {
-    if (!res || !res.ok) { say(res && res.reason ? res.reason : 'Nothing happened.'); return false; }
+  const act = useCallback((label, res, sound) => {
+    if (!res || !res.ok) { say(res && res.reason ? res.reason : 'Nothing happened.'); sfx('thud'); return false; }
     if (label) say(label);
+    if (sound) sfx(sound);
     refresh();
     return true;
-  }, [say, refresh]);
+  }, [say, refresh, sfx]);
 
   // INKING: tapping a held ink enters "choose a tile" on the case; Apply
   // commits it. { index, ink, ids, vowel } while choosing.
@@ -569,7 +588,7 @@ export default function RoundSandbox() {
     const ink = SB.INK_DEFS[c.id];
     if (ink.targets === 0) {
       const res = r.useConsumable(i, []);
-      act(res.ok ? res.result.note : null, res);
+      act(res.ok ? res.result.note : null, res, 'shimmer');
       return;
     }
     setWord('');
@@ -579,7 +598,7 @@ export default function RoundSandbox() {
     const r = fight.current?.run;
     if (!r || !inking) return;
     const res = r.useConsumable(inking.index, inking.ids, { vowel: inking.vowel });
-    if (act(res.ok ? res.result.note : null, res)) setInking(null);
+    if (act(res.ok ? res.result.note : null, res, 'shimmer')) setInking(null);
   }, [inking, act]);
   const toggleInkTile = (id) => {
     setInking((k) => {
@@ -635,7 +654,7 @@ export default function RoundSandbox() {
     const r = fight.current?.round;
     if (!r || phase !== 'live') return;
     const res = r.playWord(raw);
-    if (!res.ok) { say(res.reason); return; }
+    if (!res.ok) { say(res.reason); sfx('thud'); return; }
     flyScore(res.breakdown.total);
     setWord('');
     setSuggestions([]);
@@ -650,29 +669,32 @@ export default function RoundSandbox() {
     const r = fight.current?.round;
     if (!r || phase !== 'live' || !letters) return;
     if (r.isPlayable(letters)) { playWord(letters); return; }
-    if (!formable) { say(letters + ' needs letters that aren’t in your rack.'); return; }
+    if (!formable) { say(letters + ' needs letters that aren’t in your rack.'); sfx('thud'); return; }
     // With the helper on, Play settles for the best word inside the letters.
     if (helper) {
       const found = SB.findWords(letters, (w) => r.scoreFor(w), 1);
       if (found.length > 0) { playWord(found[0].word); return; }
       say('Nothing spells out of ' + letters + '.');
+      sfx('thud');
       return;
     }
     say(letters + ' isn’t in the dictionary.');
-  }, [letters, formable, phase, helper, playWord, say, SB]);
+    sfx('thud');
+  }, [letters, formable, phase, helper, playWord, say, SB, sfx]);
 
   const changeout = useCallback(() => {
     const r = fight.current?.round;
     if (!r || phase !== 'live') return;
     const ids = slots.filter(Boolean).map((t) => t.id);
     const res = r.changeout(ids);
-    if (!res.ok) { say(res.reason); return; }
+    if (!res.ok) { say(res.reason); sfx('thud'); return; }
+    sfx('shuffle');
     setWord('');
     setSuggestions([]);
     say('Changed out ' + res.returned.map((t) => t.letter).join('') + ' for '
       + res.drawn.map((t) => t.letter).join('') + ' — ' + r.changeoutsLeft + ' left.');
     refresh();
-  }, [slots, phase, say, refresh]);
+  }, [slots, phase, say, refresh, sfx]);
 
   useEffect(() => {
     if (!helper || !letters || indexing) { setSuggestions([]); return; }
@@ -682,11 +704,13 @@ export default function RoundSandbox() {
 
   const stageTile = (tile) => {
     captureFlipFrom(tile.id);
+    sfx('tick', letters.length, 1);
     setWord(letters + (tile.letter === '?' ? '?' : tile.letter));
   };
   const unstageAt = (i) => {
     const t = slots[i];
     if (t) captureFlipFrom(t.id);
+    sfx('tick', i, -1);
     setWord(letters.slice(0, i) + letters.slice(i + 1));
   };
 
@@ -721,6 +745,7 @@ export default function RoundSandbox() {
         if (!r) return;
         setPreview(null);
         if (p.id) pendingFlipFromRef.current[p.id] = ghostRect;
+        sfx('tick', p.to, 0);
         const cur = wordRef.current;
         if (p.fromRow === 'rack') {
           const tile = r.rack[p.fromIndex];
@@ -862,6 +887,10 @@ export default function RoundSandbox() {
           <input type="range" min="0" max="1" step="0.05" value={volume}
             onChange={(e) => setVolume(Number(e.target.value))} />
         </label>
+        <label className="sb-toggle" title="Tile, swap, shop and ink sounds">
+          <input type="checkbox" checked={sfxOn} onChange={(e) => setSfxOn(e.target.checked)} />
+          SFX
+        </label>
         <label className="sb-toggle" title="Word suggestions, Best play, and Play settling for the best word in the letters">
           <input type="checkbox" checked={helper} onChange={(e) => setHelper(e.target.checked)} />
           Word helper
@@ -969,7 +998,7 @@ export default function RoundSandbox() {
                 data-flip-tile-id={t.id}
                 title={t.ink ? SB.INK_DEFS[t.ink].name + ' — ' + SB.INK_DEFS[t.ink].hint : undefined}
                 {...(inking ? {} : drag.bind('rack', i, t.id))}
-                onClick={() => (inking ? toggleInkTile(t.id) : round.isBarred(t) ? say(t.letter + ' has been played this round — ' + round.rule.name + '.') : stageTile(t))}>
+                onClick={() => (inking ? toggleInkTile(t.id) : round.isBarred(t) ? (sfx('thud'), say(t.letter + ' has been played this round — ' + round.rule.name + '.')) : stageTile(t))}>
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
               </button>
