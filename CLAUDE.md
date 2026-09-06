@@ -62,8 +62,9 @@ not something to reintroduce piecemeal mid-task.
   game.js/floor.js/monsters.js/combat.js/duel.js. Loads only namespace, rng,
   wordlist, lexicon, tiles, music + pieces. Combat is the Balatro-with-Scrabble
   RUN owned by `src/sandbox/round.js` (see COMBAT_REDESIGN.md):
-  `Sandbox.createRun` chains three rounds — two normal enemies drawn on the
-  seed, then the boss (The Vowelmaw) — with targets TARGET_1 / TARGET_2 /
+  `Sandbox.createRun` chains three rounds — a fixed lineup of The Bagatelle
+  (Für Elise), The Moonlight (Moonlight Sonata) and the boss Fate at the Door
+  (Symphony No. 5, I) — with targets TARGET_1 / TARGET_2 /
   TARGET_BOSS and gold pooled across the run; a lost round ends the run. Each
   round has PLAYS words, CHANGEOUTS tile swaps, Balatro-style POINTS × MULT
   scoring (`Sandbox.scoreWordPoints`: points from `Lexicon.scoreWord` minus its
@@ -89,13 +90,15 @@ not something to reintroduce piecemeal mid-task.
   artefact. ITEMS are sandbox-owned (`Sandbox.ITEMS` in round.js, checkboxes
   in the setup bar): each is nothing but a flat +points and/or +mult on every
   word, folded into scoreWordPoints. js/wordbound/items.js is NOT loaded.
-  `src/sandbox/audioPiece.js` + `recordedFurElise.js` play the RECORDED Für
-  Elise (public/audio/fur-elise.mp3) as the Bagatelle's soundtrack — the one
-  logged exception to the synthesized-only rule, kept because the sequenced
-  Für Elise sounds off. LEFTOVERS from the retired tug of war, not loaded by
-  main.jsx and due for deletion in the redesign's cleanup phase:
-  `tugOfWar.js`, `TugSandbox.jsx`, `sequencedSurges.js`,
-  `recordedMoonlight.js`. Add an engine module back to `src/sandbox/main.jsx`
+  `src/sandbox/audioPiece.js` plays the sandbox's three RECORDINGS under
+  public/audio/ — `recordedFurElise.js` and `recordedMoonlight.js` (Pixabay
+  tracks, permissive but not PD) and `recordedSymphony5.js` (Skidmore College
+  Orchestra via Wikimedia Commons, public domain, added 2026-09-06 at Jaxon's
+  direction). These are the logged exceptions to the synthesized-only rule;
+  the sandbox no longer loads music.js or the sequenced pieces at all.
+  LEFTOVERS from the retired tug of war, not loaded by main.jsx and due for
+  deletion in the redesign's cleanup phase: `tugOfWar.js`, `TugSandbox.jsx`,
+  `sequencedSurges.js`. Add an engine module back to `src/sandbox/main.jsx`
   only when tuning the mechanic it owns.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation,
   kept until the React port reaches full parity.

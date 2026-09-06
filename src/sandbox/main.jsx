@@ -18,15 +18,6 @@ import '../../js/core/rng.js';
 import '../../js/wordbound/wordlist.js';
 import '../../js/wordbound/lexicon.js';
 import '../../js/wordbound/tiles.js';
-import '../../js/wordbound/music.js';
-import '../../js/wordbound/pieces/fur-elise.js';
-import '../../js/wordbound/pieces/gymnopedie-1.js';
-import '../../js/wordbound/pieces/air-g-string.js';
-import '../../js/wordbound/pieces/morning-mood.js';
-import '../../js/wordbound/pieces/gnossienne-1.js';
-import '../../js/wordbound/pieces/invention-4.js';
-import '../../js/wordbound/pieces/czerny-299.js';
-import '../../js/wordbound/pieces/mountain-king.js';
 
 import './round.js';
 import './wordFinder.js';
@@ -37,6 +28,10 @@ import './tileBags.js';
 // because the sequenced Für Elise sounds off. Soundtrack only here.
 import './audioPiece.js';
 import './recordedFurElise.js';
+// Battle 2 and the boss: the Moonlight (Pixabay track, same footing as Für
+// Elise) and Symphony No. 5 (Skidmore College Orchestra, public domain).
+import './recordedMoonlight.js';
+import './recordedSymphony5.js';
 
 import RoundSandbox from './RoundSandbox.jsx';
 

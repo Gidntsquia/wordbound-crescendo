@@ -30,23 +30,14 @@ function flipTileTo(fromRect, toEl) {
   });
 }
 
-// Enemies: a name and the piece that plays under the round. The run draws
-// its two normal enemies from the non-boss entries and ends on the boss.
-const ENEMIES = [
-  // `recorded` names a Sandbox.* recorded piece (audioPiece.js) played back
-  // instead of a synthesized Pieces.* entry.
+// The run's fixed lineup: a name and the piece that plays under each round.
+// `recorded` names a Sandbox.* recorded piece (audioPiece.js); all three are
+// recordings (see recordedFurElise.js for the logged exception).
+const LINEUP = [
   { id: 'bagatelle', name: 'The Bagatelle', glyph: '\u{1F339}', recorded: 'recordedFurElise' },
-  { id: 'bagatelle-synth', name: 'The Bagatelle (synth)', glyph: '\u{1F3B9}', piece: 'furElise' },
-  { id: 'gymnopediste', name: 'The Gymnopédiste', glyph: '\u{1FA70}', piece: 'gymnopedie1' },
-  { id: 'gstring', name: 'The G String', glyph: '\u{1F3BB}', piece: 'airGString' },
-  { id: 'morningmood', name: 'Morning Mood', glyph: '\u{1F305}', piece: 'morningMood' },
-  { id: 'gnossienne', name: 'The Gnossienne', glyph: '\u{1F3B9}', piece: 'gnossienne1' },
-  { id: 'invention', name: 'The Invention', glyph: '\u{1F3BC}', piece: 'invention4' },
-  { id: 'metronome', name: 'The Metronome', glyph: '⏰', piece: 'czerny299' },
-  { id: 'vowelmaw', name: 'The Vowelmaw', glyph: '\u{1F451}', piece: 'mountainKing', boss: true },
+  { id: 'moonlight', name: 'The Moonlight', glyph: '\u{1F319}', recorded: 'recordedMoonlight' },
+  { id: 'fate', name: 'Fate at the Door', glyph: '\u{1F451}', recorded: 'recordedSymphony5', boss: true },
 ];
-const BOSS = ENEMIES.find((e) => e.boss);
-const NORMAL_ENEMIES = ENEMIES.filter((e) => !e.boss);
 const STAGE_NAMES = ['Battle 1', 'Battle 2', 'Boss'];
 
 const TUNE_LABELS = {
@@ -136,10 +127,12 @@ export default function RoundSandbox() {
     if (f && f.gain) f.gain.gain.value = volume;
   }, [volume]);
 
-  // Pull the recording down up front; the Bagatelle may come up in the run.
+  // Pull all three recordings down up front, not at each stage's start.
   useEffect(() => {
-    const piece = SB.recordedFurElise;
-    if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
+    LINEUP.forEach((def) => {
+      const piece = SB[def.recorded];
+      if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
+    });
   }, [SB]);
 
   // Start the soundtrack for the run's current stage against `def`.
@@ -149,10 +142,8 @@ export default function RoundSandbox() {
       if (f.seq.dispose) f.seq.dispose();
       else f.seq.stop();
     }
-    const piece = def.recorded ? SB[def.recorded] : W.Pieces[def.piece];
-    const seq = piece.audio
-      ? SB.createAudioPiece(f.ctx, f.gain, piece)
-      : W.Music.createSequencer(f.ctx, f.gain, piece);
+    const piece = SB[def.recorded];
+    const seq = SB.createAudioPiece(f.ctx, f.gain, piece);
     seq.on('load-failed', (err) => say('The recording did not load ('
       + (err && err.message ? err.message : err) + ') — Restart to try again.'));
     seq.on('piece-ended', () => {
@@ -193,10 +184,7 @@ export default function RoundSandbox() {
       return;
     }
 
-    // Two distinct normal enemies drawn on the seed, then the boss.
-    const pool = NORMAL_ENEMIES.slice();
-    const pick = () => pool.splice(Math.floor(rng.next() * pool.length), 1)[0];
-    const lineup = [pick(), pick(), BOSS];
+    const lineup = LINEUP;
     const run = SB.createRun({
       rng, makeDeck: () => SB.createBagDeck(bagId), tune, items: [...itemIds]
     });
