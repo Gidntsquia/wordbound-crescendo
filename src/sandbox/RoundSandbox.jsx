@@ -257,12 +257,8 @@ export default function RoundSandbox() {
   const finish = useCallback((r) => {
     if (r.state === 'won') {
       setPhase('won');
-      // The piece dies: it grinds to a halt, then the sting sounds its end.
-      const f = fight.current;
-      if (f && f.seq && f.seq.die) {
-        f.seq.die(SB.DEATH_STALL_SEC);
-        SB.playDeathSting(f.ctx, f.gain, SB.DEATH_STALL_SEC * 0.55, f.piece?.key);
-      }
+      // The piece simply stops; no death sound.
+      fight.current?.seq?.stop?.();
       say('Target met — ' + r.score + ' against ' + r.target + '. '
         + r.playsLeft + ' word' + (r.playsLeft === 1 ? '' : 's') + ' left → '
         + r.gold + ' gold.');

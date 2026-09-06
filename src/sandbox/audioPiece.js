@@ -175,25 +175,6 @@
         firedSurges = {};
       },
 
-      // The piece DIES: a plain diminuendo over `sec` -- the orchestra falls
-      // silent, no tape-warp (pitch-bending a real recording read as a
-      // broken cassette, not a defeat). See deathSting.js for what follows.
-      // Nothing here restarts it; a new stage makes a new piece.
-      die: function (sec) {
-        wantPlay = false;
-        if (!source) return;
-        var now = ctx.currentTime;
-        var end = now + (sec || 1.4);
-        trim.gain.cancelScheduledValues(now);
-        trim.gain.setValueAtTime(Math.max(trim.gain.value, 0.0005), now);
-        trim.gain.exponentialRampToValueAtTime(0.0005, end);
-        try { source.stop(end + 0.05); } catch (e) { /* already stopped */ }
-        var dying = source;
-        source = null;
-        playing = false;
-        api.isPlaying = false;
-        dying.onended = function () { try { dying.disconnect(); } catch (e) {} };
-      },
 
       // Fade the piece in from silence over `sec` -- the next enemy taking
       // the stage rather than cutting in on the previous one's last breath.

@@ -39,8 +39,6 @@
   Sandbox.recordedMoonlight = {
     id: 'moonlight-recording',
     title: 'Moonlight Sonata',
-    // Tonic for the death cadence (deathSting.js): semitones above A, minor.
-    key: 4,
     composer: 'Ludwig van Beethoven',
     // Relative so it resolves under GitHub Pages' project subpath and under
     // build-site.js's root-swap, both of which serve public/ verbatim.

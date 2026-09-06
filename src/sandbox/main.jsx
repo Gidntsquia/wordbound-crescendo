@@ -27,8 +27,6 @@ import './tileBags.js';
 // fronts it -- the one logged exception to the synthesized-only rule, kept
 // because the sequenced Für Elise sounds off. Soundtrack only here.
 import './audioPiece.js';
-// The enemy's death: tape-stop on the recording, then a synthesized sting.
-import './deathSting.js';
 import './recordedFurElise.js';
 // Battle 2 and the boss: the Moonlight (Pixabay track, same footing as Für
 // Elise) and Symphony No. 5 (Skidmore College Orchestra, public domain).
