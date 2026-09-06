@@ -3,9 +3,11 @@
 // Pointer events, not HTML5 drag-and-drop: the sandbox is played on a phone.
 // A press that travels less than SLOP is still a tap (the tile's onClick
 // fires as usual); past it the press becomes a drag, a GHOST copy of the tile
-// follows the finger, the tile itself goes hollow in place, and the row shows
-// a rule where the tile would land. Letting go calls onReorder(row, from, to)
-// and swallows the click that would otherwise follow.
+// follows the finger, and the tile itself goes hollow and MOVES with it: every
+// time the finger crosses into a new slot, onPreview(row, id, to, from) fires and
+// the caller re-renders the row with the hollow tile standing where the drop
+// would put it, its neighbours sliding aside. Letting go calls
+// onReorder(row, from, to) and swallows the click that would otherwise follow.
 //
 // Nothing here sets `transform` on a .sb-tile -- the ghost is its own element
 // on <body>, and the tile's slide into its new place is the FLIP the caller
@@ -45,11 +47,11 @@ export function createDragReorder(opts) {
     return g;
   }
 
-  // Which slot of the row the pointer is over: nearest child by centre, then
-  // before/after by which side of that centre the finger is on.
-  function targetIndex(rowEl, x, y) {
+  // Where the tile would end up among the OTHER tiles of the row: nearest
+  // sibling by centre, then before/after by which side of it the finger is.
+  function targetIndex(rowEl, dragEl, x, y) {
     var kids = Array.prototype.filter.call(rowEl.children, function (k) {
-      return k.classList.contains('sb-tile');
+      return k !== dragEl && k.classList.contains('sb-tile');
     });
     if (!kids.length) return 0;
     var best = -1; var bestD = Infinity; var bestRect = null;
@@ -62,21 +64,6 @@ export function createDragReorder(opts) {
     return x < bestRect.left + bestRect.width / 2 ? best : best + 1;
   }
 
-  function clearMarks(rowEl) {
-    Array.prototype.forEach.call(rowEl.querySelectorAll('.is-drop-before, .is-drop-after'), function (k) {
-      k.classList.remove('is-drop-before', 'is-drop-after');
-    });
-  }
-
-  function mark(rowEl, insertAt) {
-    clearMarks(rowEl);
-    var kids = Array.prototype.filter.call(rowEl.children, function (k) {
-      return k.classList.contains('sb-tile');
-    });
-    if (insertAt < kids.length) kids[insertAt].classList.add('is-drop-before');
-    else if (kids.length) kids[kids.length - 1].classList.add('is-drop-after');
-  }
-
   function move(e) {
     var a = active;
     if (!a) return;
@@ -85,17 +72,18 @@ export function createDragReorder(opts) {
       a.dragging = true;
       a.ghost = makeGhost(a.el);
       a.el.classList.add('is-dragging');
+      opts.onPreview && opts.onPreview(a.row, a.id, a.to, a.from);
       a.offX = a.startX - a.ghost.getBoundingClientRect().left;
       a.offY = a.startY - a.ghost.getBoundingClientRect().top;
     }
     e.preventDefault();
     a.ghost.style.left = (e.clientX - a.offX) + 'px';
     a.ghost.style.top = (e.clientY - a.offY) + 'px';
-    var insertAt = targetIndex(a.rowEl, e.clientX, e.clientY);
-    // Insertion index -> index the tile ends up at once it has left `from`.
-    var to = insertAt > a.from ? insertAt - 1 : insertAt;
-    a.to = to;
-    if (to === a.from) clearMarks(a.rowEl); else mark(a.rowEl, insertAt);
+    var to = targetIndex(a.rowEl, a.el, e.clientX, e.clientY);
+    if (to !== a.to) {
+      a.to = to;
+      opts.onPreview && opts.onPreview(a.row, a.id, to, a.from);
+    }
   }
 
   function end(e, cancelled) {
@@ -106,7 +94,6 @@ export function createDragReorder(opts) {
     if (!a.dragging) return;
     swallowClick = true;
     setTimeout(function () { swallowClick = false; }, 0);
-    clearMarks(a.rowEl);
     a.el.classList.remove('is-dragging');
     var ghostRect = a.ghost.getBoundingClientRect();
     a.ghost.remove();

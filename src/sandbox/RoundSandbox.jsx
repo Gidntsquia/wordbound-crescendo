@@ -335,25 +335,37 @@ export default function RoundSandbox() {
   // dragged tile slides in from where the finger let go of its ghost.
   const wordRef = useRef(letters); wordRef.current = letters;
   const slotsRef = useRef(slots); slotsRef.current = slots;
+  // While a drag is on, the row is drawn in PREVIEW order: the hollow tile
+  // stands where the drop would put it. `to` is its index among the others.
+  const [preview, setPreview] = useState(null);   // { row, id, to } | null
   const dragRef = useRef(null);
   if (!dragRef.current) {
+    const flipRow = (row, id) => {
+      const r = fight.current?.round;
+      if (!r) return;
+      (row === 'rack' ? r.rack : slotsRef.current).forEach((t) => { if (t && t.id !== id) captureFlipFrom(t.id); });
+    };
     dragRef.current = createDragReorder({
+      onPreview: (row, id, to, from) => {
+        flipRow(row, id);
+        setPreview({ row, id, to, from });
+      },
       onSettle: (id, ghostRect) => {
+        setPreview(null);
         pendingFlipFromRef.current[id] = ghostRect;
         refresh();
       },
       onReorder: (row, from, to, id, ghostRect) => {
         const r = fight.current?.round;
         if (!r) return;
+        setPreview(null);
         if (row === 'rack') {
-          r.rack.forEach((t) => { if (t.id !== id) captureFlipFrom(t.id); });
           pendingFlipFromRef.current[id] = ghostRect;
           r.moveTile(from, to);
           refresh();
         } else {
           const cur = wordRef.current;
           if (from >= cur.length || to >= cur.length) return;
-          slotsRef.current.forEach((t) => { if (t && t.id !== id) captureFlipFrom(t.id); });
           if (id) pendingFlipFromRef.current[id] = ghostRect;
           const arr = cur.split('');
           const ch = arr.splice(from, 1)[0];
@@ -369,6 +381,21 @@ export default function RoundSandbox() {
     setTune((t) => ({ ...t, [key]: value }));
     if (fight.current) fight.current.round.tune[key] = value;
   };
+
+  // Rows as drawn: the real order, or the drag's preview order.
+  const moved = (arr, i, to) => { const a = arr.slice(); const x = a.splice(i, 1)[0]; a.splice(to, 0, x); return a; };
+  const rackShown = (() => {
+    if (!round) return [];
+    if (!preview || preview.row !== 'rack') return round.rack.map((t, i) => ({ t, i }));
+    const arr = round.rack.map((t, i) => ({ t, i }));
+    const i = arr.findIndex((x) => x.t.id === preview.id);
+    return i < 0 ? arr : moved(arr, i, preview.to);
+  })();
+  const stickShown = (() => {
+    const arr = slots.map((t, i) => ({ t, i, ch: letters[i] }));
+    if (!preview || preview.row !== 'stick') return arr;
+    return preview.from < arr.length ? moved(arr, preview.from, preview.to) : arr;
+  })();
 
   const live = phase === 'live' && round;
   const spelt = !!(live && formable && round.isPlayable(letters));
@@ -513,11 +540,12 @@ export default function RoundSandbox() {
       {round && (
         <section className="sb-play">
           <div className="sb-rack">
-            {round.rack.map((t, i) => (pickedIds.has(t.id) ? (
+            {rackShown.map(({ t, i }) => (pickedIds.has(t.id) ? (
               <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
             ) : (
               <button key={t.id} type="button" disabled={!live}
-                className="sb-tile" data-flip-tile-id={t.id}
+                className={'sb-tile' + (preview && preview.id === t.id ? ' is-dragging' : '')}
+                data-flip-tile-id={t.id}
                 {...drag.bind('rack', i, t.id)}
                 onClick={() => stageTile(t)}>
                 {t.letter === '?' ? '␣' : t.letter}
@@ -548,22 +576,23 @@ export default function RoundSandbox() {
               {letters.length === 0 && (
                 <span className="sb-stick-empty">tap the case, or type — then Play it or Change it out · one tile alone always plays</span>
               )}
-              {slots.map((t, i) => (t ? (
+              {stickShown.map(({ t, i, ch }) => (t ? (
                 <button key={t.id} type="button" disabled={!live}
-                  className="sb-tile is-set" data-flip-tile-id={t.id}
+                  className={'sb-tile is-set' + (preview && preview.id === t.id ? ' is-dragging' : '')}
+                  data-flip-tile-id={t.id}
                   title="Tap to send home · drag to reorder"
                   {...drag.bind('stick', i, t.id)}
                   onClick={() => unstageAt(i)}>
-                  {t.letter === '?' ? (letters[i] === '?' ? '␣' : letters[i]) : t.letter}
+                  {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}
                   <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
                 </button>
               ) : (
                 <button key={'gap' + i} type="button" disabled={!live}
-                  className="sb-tile is-missing"
+                  className={'sb-tile is-missing' + (preview && preview.row === 'stick' && preview.from === i ? ' is-dragging' : '')}
                   title="No tile in the case spells this"
                   {...drag.bind('stick', i, null)}
                   onClick={() => unstageAt(i)}>
-                  {letters[i]}
+                  {ch}
                 </button>
               )))}
             </div>

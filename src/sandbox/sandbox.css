@@ -754,14 +754,12 @@ button:disabled {
 }
 
 /* DRAG TO REORDER (dragReorder.js). The tile being dragged goes hollow where
-   it stood -- its ghost is what the finger is holding -- and the tile the
-   drop would land beside carries a brass rule on that side. No transform:
+   it stood -- its ghost is what the finger is holding -- and that hollow
+   travels along the row to wherever the drop would land. No transform:
    the FLIP owns it. touch-action keeps a finger on a tile from scrolling the
    page sideways while still letting a vertical swipe scroll. */
 .sb-tile { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .sb-tile.is-dragging { opacity: 0.25; }
-.sb-tile.is-drop-before { box-shadow: -4px 0 0 0 var(--brass-hot), 0 2px 0 rgba(0, 0, 0, 0.45); }
-.sb-tile.is-drop-after { box-shadow: 4px 0 0 0 var(--brass-hot), 0 2px 0 rgba(0, 0, 0, 0.45); }
 .sb-drag-ghost {
   position: fixed;
   z-index: 50;
