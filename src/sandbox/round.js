@@ -55,6 +55,7 @@
 //     run.movement, run.stage (both 0-based), run.enemy, run.round,
 //       run.gold, run.state ('live' | 'won' | 'lost'), run.next()
 //     run.targetFor(movement, stage), run.interestPreview()
+//     run.pile -- { drawPile, discardPile }: the bag, shared by every round
 //     run.deck -- the tiles every round's rack is drawn from, persisted and
 //       grown by the shop's tile packs
 //     run.tierLevels {tierId: level}, run.levelTier(tierId) -- études
@@ -314,7 +315,10 @@
       gold: 0,
       state: 'live',
       plays: [],
-      pile: { drawPile: Tiles.shuffleIntoDrawPile(opts.deck, rng), discardPile: [] },
+      // The bag: the run's pile when there is a run (played and swapped tiles
+      // go to the discard, which only comes back once the bag runs dry), a
+      // fresh shuffle for a lone round.
+      pile: opts.pile || { drawPile: Tiles.shuffleIntoDrawPile(opts.deck, rng), discardPile: [] },
       rack: []
     };
 
@@ -462,6 +466,7 @@
       enemy: null,
       round: null,
       deck: opts.deck || (opts.makeDeck ? opts.makeDeck() : []),
+      pile: null,    // { drawPile, discardPile } shared by every round; set below
       items: (opts.items || []).slice(), // carried into every round from here on
       startItems: (opts.items || []).slice(), // what the run set out with
       consumables: [], // inks and études held, CONSUMABLE_SLOTS deep
@@ -488,10 +493,26 @@
     run.interestPreview = function () {
       return Math.min(tune.INTEREST_CAP, Math.floor(run.gold / tune.INTEREST_PER));
     };
+    // One bag for the whole run. Played and swapped tiles wait in the discard
+    // pile; the bag is only rebuilt from it when it runs dry. A round's
+    // leftover rack is discarded when the round ends.
+    run.pile = { drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(run.deck, opts.rng), discardPile: [] };
+    function discardRack() {
+      var r = run.round;
+      if (!r) return;
+      run.pile.discardPile.push.apply(run.pile.discardPile, r.rack);
+      r.rack = [];
+    }
+    // A tile bought in the shop is shuffled into what is left of the bag.
+    run.addTile = function (tile) {
+      run.deck.push(tile);
+      var at = opts.rng.randInt(0, run.pile.drawPile.length);
+      run.pile.drawPile.splice(at, 0, tile);
+    };
     function begin() {
       run.enemy = Sandbox.enemyAt(run.movement, run.stage);
       run.round = Sandbox.createRound({
-        rng: opts.rng, deck: run.deck, tune: tune, items: run.items, run: run,
+        rng: opts.rng, deck: run.deck, pile: run.pile, tune: tune, items: run.items, run: run,
         target: run.targetFor(run.movement, run.stage),
         reward: KIND_GOLD[run.enemy.kind],
         rule: run.enemy.rule,
@@ -519,6 +540,7 @@
       if (favour === 'bounty') run.gold += tune.BOUNTY_GOLD;
       else run.favours.push(favour);
       run.skipped.push(run.enemy.id);
+      discardRack();
       run.stage += 1;
       if (run.stage >= MOVEMENTS[run.movement].enemies.length) { run.stage = 0; run.movement += 1; }
       begin();
@@ -551,6 +573,7 @@
       run.felled.push(run.enemy.id);
       var last = run.movement >= MOVEMENTS.length - 1 && run.stage >= MOVEMENTS[run.movement].enemies.length - 1;
       if (last) { run.state = 'won'; return run.state; }
+      discardRack();
       run.stage += 1;
       if (run.stage >= MOVEMENTS[run.movement].enemies.length) { run.stage = 0; run.movement += 1; }
       run.enemy = Sandbox.enemyAt(run.movement, run.stage); // the one ahead, for the shop's door

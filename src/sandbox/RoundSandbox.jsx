@@ -1054,7 +1054,7 @@ export default function RoundSandbox() {
         <button type="button" className="sb-go" onClick={() => start()}>
           {phase === 'idle' ? 'Start with this seed' : 'Restart with this seed'}
         </button>
-        {round && <span className="sb-hint"><b>{round.pile.drawPile.length}</b> tiles left in the bag of {run.deck.length}</span>}
+        {round && <span className="sb-hint"><b>{round.pile.drawPile.length}</b> in the bag, <b>{round.pile.discardPile.length}</b> discarded, of {run.deck.length}</span>}
       </section>
 
       <section className="sb-items" role="group" aria-label="Sample items">
@@ -1293,6 +1293,19 @@ export default function RoundSandbox() {
             )}
           </div>
 
+          <details className="sb-piles" aria-label="The bag and the discard pile">
+            <summary>
+              <span><b>{round.pile.drawPile.length}</b> in the bag</span>
+              <span><b>{round.pile.discardPile.length}</b> discarded</span>
+              <em>played and swapped tiles wait here until the bag is empty</em>
+            </summary>
+            <div className="sb-pile-tiles">
+              {round.pile.discardPile.length === 0 && <span className="sb-hint">Nothing discarded yet.</span>}
+              {round.pile.discardPile.map((t) => (
+                <span key={t.id} className={'sb-pile-tile' + (t.ink ? ' is-' + t.ink : '')}>{t.letter}</span>
+              ))}
+            </div>
+          </details>
           {helper && <details className="sb-suggests-drop">
             <summary>
               <span className="sb-suggests-title">Words</span>

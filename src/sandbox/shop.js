@@ -182,7 +182,7 @@
       if (i == null) { run.pack = null; return { ok: true }; }
       var c = pack.choices[i];
       if (!c) return { ok: false, reason: 'Nothing there.' };
-      if (c.kind === 'tile') run.deck.push(c.tile);
+      if (c.kind === 'tile') { if (run.addTile) run.addTile(c.tile); else run.deck.push(c.tile); }
       else {
         var t = takeConsumable(c);
         if (!t.ok) return t;

@@ -927,6 +927,46 @@ button:disabled {
   margin-bottom: 14px;
 }
 
+/* The bag and the discard pile: a one-line summary, tap for the letters. */
+.sb-piles {
+  margin: -4px 0 12px;
+  font-size: 12px;
+  color: var(--leaf-dim);
+}
+.sb-piles summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-height: 40px;
+  padding: 6px 0;
+}
+.sb-piles summary::-webkit-details-marker { display: none; }
+.sb-piles summary b { color: var(--ink); font-weight: 700; }
+.sb-piles summary em { font-style: italic; opacity: 0.8; }
+.sb-piles[open] summary em { display: none; }
+.sb-pile-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0 8px;
+}
+.sb-pile-tile {
+  width: 22px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--leaf-dim);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  opacity: 0.75;
+}
+
 .sb-input input.is-unformable {
   border-color: var(--brass);
   color: var(--brass-hot);
