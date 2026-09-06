@@ -153,6 +153,8 @@ export default function RoundSandbox() {
       seq.play();
     });
     seq.play();
+    // Take the stage under the previous enemy's last breath, not over it.
+    seq.whenReady.then(() => { if (fight.current?.seq === seq) seq.fadeIn(1.2); });
     const round = run.round;
     fight.current = { ...f, run, round, seq, def, piece };
     window.__round = round;
@@ -238,6 +240,12 @@ export default function RoundSandbox() {
   const finish = useCallback((r) => {
     if (r.state === 'won') {
       setPhase('won');
+      // The piece dies: it grinds to a halt, then the sting sounds its end.
+      const f = fight.current;
+      if (f && f.seq && f.seq.die) {
+        f.seq.die(SB.DEATH_STALL_SEC);
+        SB.playDeathSting(f.ctx, f.gain, SB.DEATH_STALL_SEC * 0.8);
+      }
       say('Target met — ' + r.score + ' against ' + r.target + '. '
         + r.playsLeft + ' word' + (r.playsLeft === 1 ? '' : 's') + ' left → '
         + r.gold + ' gold.');
@@ -245,7 +253,7 @@ export default function RoundSandbox() {
       setPhase('lost');
       say('Out of words at ' + r.score + ' — ' + (r.target - r.score) + ' short.');
     }
-  }, [say]);
+  }, [say, SB]);
 
   const playWord = useCallback((raw) => {
     const r = fight.current?.round;

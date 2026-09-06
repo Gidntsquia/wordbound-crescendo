@@ -96,6 +96,10 @@ not something to reintroduce piecemeal mid-task.
   Orchestra via Wikimedia Commons, public domain, added 2026-09-06 at Jaxon's
   direction). These are the logged exceptions to the synthesized-only rule;
   the sandbox no longer loads music.js or the sequenced pieces at all.
+  `src/sandbox/deathSting.js` is the enemy's DEATH on a won round: the
+  recording tape-stops (`audioPiece` `die`, pitch and level sag over
+  DEATH_STALL_SEC) and a synthesized falling A-minor sting plays; the next
+  recording then fades in (`fadeIn`) rather than cutting in.
   LEFTOVERS from the retired tug of war, not loaded by main.jsx and due for
   deletion in the redesign's cleanup phase: `tugOfWar.js`, `TugSandbox.jsx`,
   `sequencedSurges.js`. Add an engine module back to `src/sandbox/main.jsx`

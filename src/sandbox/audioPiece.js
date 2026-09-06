@@ -175,6 +175,38 @@
         firedSurges = {};
       },
 
+      // TAPE-STOP. The piece sags to a halt over `sec`: pitch and level slide
+      // down together, then the source is cut. This is the enemy dying (see
+      // deathSting.js). Nothing here restarts it; a new stage makes a new piece.
+      die: function (sec) {
+        wantPlay = false;
+        if (!source) return;
+        var now = ctx.currentTime;
+        var end = now + (sec || 1.4);
+        source.playbackRate.cancelScheduledValues(now);
+        source.playbackRate.setValueAtTime(rate, now);
+        source.playbackRate.exponentialRampToValueAtTime(0.08, end);
+        trim.gain.cancelScheduledValues(now);
+        trim.gain.setValueAtTime(trim.gain.value, now);
+        trim.gain.exponentialRampToValueAtTime(0.0005, end);
+        try { source.stop(end + 0.05); } catch (e) { /* already stopped */ }
+        var dying = source;
+        source = null;
+        playing = false;
+        api.isPlaying = false;
+        dying.onended = function () { try { dying.disconnect(); } catch (e) {} };
+      },
+
+      // Fade the piece in from silence over `sec` -- the next enemy taking
+      // the stage rather than cutting in on the previous one's last breath.
+      fadeIn: function (sec) {
+        var target = trim.gain.value;
+        var now = ctx.currentTime;
+        trim.gain.cancelScheduledValues(now);
+        trim.gain.setValueAtTime(0.0005, now);
+        trim.gain.exponentialRampToValueAtTime(Math.max(target, 0.001), now + (sec || 1));
+      },
+
       // Same contract as the sequencer's: scale playback speed live.
       setTempoScale: function (scale) {
         var pos = position();
