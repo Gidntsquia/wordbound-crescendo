@@ -65,7 +65,11 @@ not something to reintroduce piecemeal mid-task.
   `Sandbox.createRun` chains three rounds — a fixed lineup of The Bagatelle
   (Für Elise), The Moonlight (Moonlight Sonata) and the boss Fate at the Door
   (Symphony No. 5, I) — with targets TARGET_1 / TARGET_2 /
-  TARGET_BOSS and gold pooled across the run; a lost round ends the run. Each
+  TARGET_BOSS and gold pooled across the run; a lost round ends the run.
+  After each felled enemy short of the boss the run puts up `run.offer`
+  (SPOILS: OFFER_SIZE = 3 items not yet carried, drawn from Sandbox.ITEMS)
+  and `run.choose(id | null)` takes one or none and starts the next round
+  with every item carried so far. Each
   round has PLAYS words, CHANGEOUTS tile swaps, Balatro-style POINTS × MULT
   scoring (`Sandbox.scoreWordPoints`: points from `Lexicon.scoreWord` minus its
   length bonus, mult = MULT_BASE + MULT_PER_LETTER per extra letter, so by

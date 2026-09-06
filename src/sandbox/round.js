@@ -76,6 +76,7 @@
     { id: 'double_stop', name: 'Double Stop', mult: 2, hint: '+2 mult on every word' },
     { id: 'gilded_edge', name: 'Gilded Edge', points: 10, mult: 1, hint: '+10 points and +1 mult' },
   ];
+  Sandbox.OFFER_SIZE = 3; // items offered after each felled enemy; take one
   Sandbox.ITEM_DEFS = {};
   Sandbox.ITEMS.forEach(function (it) { Sandbox.ITEM_DEFS[it.id] = it; });
 
@@ -218,26 +219,57 @@
       ],
       stage: 0,
       round: null,
+      items: (opts.items || []).slice(), // carried into every round from here on
+      startItems: (opts.items || []).slice(), // what the run set out with
+      offer: null,   // after a won round: OFFER_SIZE item ids to choose one from
       gold: 0,
       state: 'live'
     };
     function begin() {
       run.round = Sandbox.createRound({
-        rng: opts.rng, deck: opts.makeDeck(), tune: tune, items: opts.items,
+        rng: opts.rng, deck: opts.makeDeck(), tune: tune, items: run.items,
         target: run.stages[run.stage].target
       });
     }
-    // Settle the current round into the run; then, if it was won and there is
-    // a next stage, start it. Returns the run state.
+    // The reward for a felled enemy: a choice of OFFER_SIZE items the run does
+    // not already carry, drawn at random. Empty when there is nothing left.
+    function drawOffer() {
+      var pool = Sandbox.ITEMS.map(function (it) { return it.id; })
+        .filter(function (id) { return run.items.indexOf(id) < 0; });
+      var out = [];
+      while (pool.length && out.length < Sandbox.OFFER_SIZE) {
+        var i = opts.rng.randInt(0, pool.length - 1);
+        out.push(pool.splice(i, 1)[0]);
+      }
+      return out;
+    }
+    // Settle the current round into the run. A win on the way to the boss
+    // puts up run.offer (choose one with run.choose) before the next round
+    // begins; if there is nothing left to offer the next round begins at
+    // once. Returns the run state.
     run.next = function () {
       var r = run.round;
-      if (run.state !== 'live' || !r || r.state === 'live') return run.state;
+      if (run.state !== 'live' || !r || r.state === 'live' || run.offer) return run.state;
       if (r.state === 'lost') { run.state = 'lost'; return run.state; }
       run.gold += r.gold;
       if (run.stage >= run.stages.length - 1) { run.state = 'won'; return run.state; }
       run.stage += 1;
-      begin();
+      var offer = drawOffer();
+      if (offer.length) run.offer = offer;
+      else begin();
       return run.state;
+    };
+    // Take one item from the offer (or null to take nothing) and begin the
+    // next round. Returns false if there is no offer or the id is not in it.
+    run.choose = function (id) {
+      if (!run.offer) return false;
+      if (id != null) {
+        if (run.offer.indexOf(id) < 0) return false;
+        run.items.push(id);
+      }
+      run.offer = null;
+      begin();
+      return true;
     };
     begin();
     return run;

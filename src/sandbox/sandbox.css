@@ -1307,3 +1307,17 @@ button:disabled {
 .sb-setup .sb-toggle { flex-direction: row; align-items: center; gap: 7px; cursor: pointer; }
 .sb-setup .sb-toggle input { margin: 0; accent-color: var(--brass); }
 .sb-outcome .sb-go { margin-left: 10px; }
+
+/* Spoils: after a felled enemy, three items to choose one from (or none). */
+.sb-board .sb-outcome.sb-offer {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  font-family: inherit; font-size: 13px; letter-spacing: 0.02em; color: var(--ink);
+}
+.sb-offer .sb-eyebrow { margin-right: 6px; }
+.sb-offer-pick { background: none; font-family: inherit; padding: 10px 16px; font-size: 12px; color: var(--leaf); }
+.sb-offer-skip {
+  background: none; border: none; padding: 6px 4px; cursor: pointer;
+  font: inherit; font-size: 11px; letter-spacing: 0.06em; color: var(--leaf-dim);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.sb-offer-skip:hover { color: var(--brass-hot); }

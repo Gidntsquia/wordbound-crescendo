@@ -75,7 +75,7 @@ export default function RoundSandbox() {
   const SB = W.Sandbox;
   const fight = useRef(null);   // { run, round, seq, ctx, gain, def, piece }
   const [, forceRender] = useState(0);
-  // idle | live | won (round, run continues) | lost | run-won
+  // idle | live | won (round, run continues) | choose (pick a reward item) | lost | run-won
   const [phase, setPhase] = useState('idle');
   const [log, setLog] = useState([]);
   const [word, setWord] = useState('');
@@ -209,8 +209,23 @@ export default function RoundSandbox() {
       refresh();
       return;
     }
+    if (f.run.offer) {
+      setPhase('choose');
+      say('Spoils: choose one of ' + f.run.offer.map((id) => SB.ITEM_DEFS[id].name).join(', ') + '.');
+      refresh();
+      return;
+    }
     startStage(f.run, f.lineup[f.run.stage]);
-  }, [phase, say, refresh, startStage]);
+  }, [phase, say, refresh, startStage, SB]);
+
+  // Take one of the offered items (or none) and go on to the next enemy.
+  const chooseItem = useCallback((id) => {
+    const f = fight.current;
+    if (!f || !f.run || phase !== 'choose') return;
+    if (!f.run.choose(id)) return;
+    say(id ? 'Took ' + SB.ITEM_DEFS[id].name + '.' : 'Took nothing.');
+    startStage(f.run, f.lineup[f.run.stage]);
+  }, [phase, say, startStage, SB]);
 
   const f = fight.current;
   const run = f ? f.run : null;
@@ -367,7 +382,7 @@ export default function RoundSandbox() {
       </section>
 
       <section className="sb-items" role="group" aria-label="Sample items">
-        <span className="sb-eyebrow">Items · read at start</span>
+        <span className="sb-eyebrow">Starting items · read at start</span>
         {SB.ITEMS.map((d) => {
           const id = d.id;
           return (
@@ -383,7 +398,7 @@ export default function RoundSandbox() {
             </label>
           );
         })}
-        {round && [...itemIds].sort().join() !== round.items.slice().sort().join()
+        {run && [...itemIds].sort().join() !== run.startItems.slice().sort().join()
           && <em className="sb-bag-note">on restart</em>}
       </section>
 
@@ -424,8 +439,24 @@ export default function RoundSandbox() {
               Won — {round.gold} gold ({round.tune.GOLD_WIN} + {round.tune.GOLD_PER_WORD_LEFT} × {round.playsLeft} word{round.playsLeft === 1 ? '' : 's'} left).
               {' '}
               <button type="button" className="sb-go" onClick={nextStage}>
-                {run.stage >= run.stages.length - 1 ? 'Finish the run'
-                  : 'Next: ' + f.lineup[run.stage + 1].name + ' · target ' + run.stages[run.stage + 1].target}
+                {run.stage >= run.stages.length - 1 ? 'Finish the run' : 'Claim the spoils'}
+              </button>
+            </div>
+          )}
+          {phase === 'choose' && run.offer && (
+            <div className="sb-outcome sb-win sb-offer">
+              <span className="sb-eyebrow">Spoils · take one</span>
+              {run.offer.map((id) => {
+                const d = SB.ITEM_DEFS[id];
+                return (
+                  <button key={id} type="button" className="sb-item sb-offer-pick" title={d.hint}
+                    onClick={() => chooseItem(id)}>
+                    {d.name}<em>{[d.points ? '+' + d.points + ' pts' : '', d.mult ? '+' + d.mult + ' mult' : ''].filter(Boolean).join(' ')}</em>
+                  </button>
+                );
+              })}
+              <button type="button" className="sb-offer-skip" onClick={() => chooseItem(null)}>
+                Take nothing · on to {f.lineup[run.stage].name}
               </button>
             </div>
           )}
