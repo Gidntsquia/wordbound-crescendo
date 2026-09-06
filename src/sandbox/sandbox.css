@@ -1488,3 +1488,7 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
 .sb-vowels { display: inline-flex; gap: 4px; }
 .sb-vowel { padding: 6px 10px; font-family: var(--display); font-size: 15px; text-transform: none; letter-spacing: 0; }
 .sb-vowel.is-on { color: var(--ink); background: var(--leaf); border-color: var(--leaf); }
+.sb-card-order { display: inline-flex; gap: 3px; margin-top: 4px; margin-right: 6px; }
+.sb-card-order button { padding: 2px 7px; font-size: 12px; line-height: 1; }
+.sb-card .sb-card-order + .sb-card-sell { margin-top: 4px; }
+.sb-items .sb-item em { max-width: 180px; white-space: normal; line-height: 1.2; }

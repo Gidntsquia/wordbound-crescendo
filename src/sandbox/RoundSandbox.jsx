@@ -79,21 +79,18 @@ function describeBreakdown(b) {
   if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
   if (b.variantFlat) pts.push('charged +' + b.variantFlat);
   if (b.inkPoints) pts.push('gilt +' + b.inkPoints);
-  if (b.itemPoints) pts.push('items +' + b.itemPoints);
   let out = b.tierName + (b.tierLevel > 1 ? ' · lvl ' + b.tierLevel : '') + ' · ';
-  out += (pts.length > 1 ? pts.join(' + ') + ' = ' : '') + b.points + ' pts × ' + b.mult;
-  const multParts = [];
-  if (b.itemMult || b.inkMult) multParts.push('tier ' + b.tierMult + (b.inkMult ? ' + bold ' + b.inkMult : '') + (b.itemMult ? ' + items ' + b.itemMult : ''));
-  if (b.bonusMult !== 1) multParts.push('× tile ' + b.bonusMult);
-  if (b.holdMult && b.holdMult !== 1) multParts.push('× steel held ' + b.holdMult);
-  if (b.itemXMult && b.itemXMult !== 1) multParts.push('× items ' + b.itemXMult);
-  if (multParts.length) out += ' (' + multParts.join(' ') + ')';
+  const basePts = b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints;
+  out += (pts.length > 1 ? pts.join(' + ') + ' = ' : '') + basePts + ' pts × ' + (b.tierMult + b.inkMult);
+  if (b.inkMult) out += ' (tier ' + b.tierMult + ' + bold ' + b.inkMult + ')';
+  const fired = (b.itemNotes || []).map((n) => n.name + ' ' + n.note);
+  if (b.bonusMult !== 1) fired.push('tile × ' + b.bonusMult);
+  if (b.holdMult && b.holdMult !== 1) fired.push('steel held × ' + b.holdMult);
+  if (fired.length) out += ' → ' + fired.join(' → ') + ' → ' + b.points + ' × ' + b.mult;
   return out;
 }
 
-function itemBlurb(d) {
-  return d.hint || [d.points ? '+' + d.points + ' pts' : '', d.mult ? '+' + d.mult + ' mult' : ''].filter(Boolean).join(' ');
-}
+function itemBlurb(d) { return d.hint; }
 function consumableName(SB, c) {
   if (c.kind === 'etude') return SB.TIER_DEFS[c.id].name + ' étude';
   const ink = SB.INK_DEFS ? SB.INK_DEFS[c.id] : null;
@@ -130,6 +127,14 @@ function HeldRow({ run, SB, act, live, inShop, onInk }) {
           return (
             <span key={id} className={'sb-card sb-card-item is-' + (d.rarity || 'common')} title={itemBlurb(d)}>
               <b>{d.name}</b><em>{itemBlurb(d)}</em>
+              {run.items.length > 1 && (
+                <span className="sb-card-order" title="Items fire left to right">
+                  <button type="button" disabled={i === 0} aria-label="Move left"
+                    onClick={() => act(null, { ok: run.moveItem(i, i - 1) })}>‹</button>
+                  <button type="button" disabled={i === run.items.length - 1} aria-label="Move right"
+                    onClick={() => act(null, { ok: run.moveItem(i, i + 1) })}>›</button>
+                </span>
+              )}
               {inShop && (
                 <button type="button" className="sb-card-sell" title="Sell"
                   onClick={() => act('Sold ' + d.name + '.', run.shop.sell(i))}>
@@ -200,7 +205,10 @@ function Shop({ run, SB, act, leave, onInk }) {
       {!run.pack && (<>
         <div className="sb-shop-row" aria-label="Cards">
           {shop.cards.map((c, i) => (
-            <button key={i} type="button" disabled={c.sold || run.gold < c.price}
+            <button key={i} type="button"
+              disabled={c.sold || run.gold < c.price
+                || (c.kind === 'item' && run.items.length >= run.tune.ITEM_SLOTS)
+                || (c.kind === 'ink' && run.consumables.length >= run.tune.CONSUMABLE_SLOTS)}
               className={'sb-card sb-card-buy sb-card-' + c.kind + (c.kind === 'item' ? ' is-' + (SB.ITEM_DEFS[c.id].rarity || 'common') : '') + (c.sold ? ' is-sold' : '')}
               title={cardBlurb(SB, c, run)}
               onClick={() => act('Bought ' + cardName(SB, c) + ' for ' + c.price + '.', shop.buy(i))}>
@@ -719,7 +727,7 @@ export default function RoundSandbox() {
                   if (e.target.checked) next.add(id); else next.delete(id);
                   return next;
                 })} />
-              {d.name}<em>{[d.points ? '+' + d.points + ' pts' : '', d.mult ? '+' + d.mult + ' mult' : ''].filter(Boolean).join(' ')}</em>
+              {d.name}<em>{d.hint}</em>
             </label>
           );
         })}

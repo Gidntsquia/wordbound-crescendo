@@ -45,8 +45,7 @@
 //   TIERS                -- length tiers [{ id, name, minLen, pts, mult,
 //                           lvlPts, lvlMult }] (pts/mult read from tune)
 //   tierFor(word, tune)  -- the tier a word of that length scores as
-//   ITEMS                -- the sandbox's own items: each simply adds flat
-//                           POINTS and/or MULT to every word (see below)
+//   (ITEMS live in items.js, inks in inks.js, the shop in shop.js)
 //   createRun(opts)      -- { rng, deck, tune?, items? } -> a run down
 //                           Sandbox.MOVEMENTS (enemies.js): two movements of
 //                           small / big / boss, targets MOVEMENT_BASE_n x
@@ -64,8 +63,8 @@
 //     run.consumables [{ kind: 'etude'|'ink', id }], run.useConsumable(i, ...)
 //     run.pack / run.pick(i) -- an opened pack (shop.js)
 //   createRound(opts)    -- { rng, deck, tune?, items?, target?, tierLevels? }
-//     items: array of Sandbox.ITEMS ids. Every one is folded straight into
-//       scoreWordPoints: points += item.points, mult += item.mult.
+//     items: array of Sandbox.ITEMS ids (items.js), fired in order by
+//       scoreWordPoints
 //     round.rack, .pile, .score, .target, .playsLeft, .changeoutsLeft,
 //       .state ('live' | 'won' | 'lost'), .plays [{ word, breakdown }], .gold
 //     round.scoreFor(word)          -> number, for ranking helper suggestions
@@ -151,27 +150,23 @@
     };
   };
 
-  // The sandbox's own items, offered as checkboxes in the setup bar. Each is
-  // nothing but a flat addition to every word's POINTS (before the mult) or
-  // MULT. The shipped js/wordbound/items.js set is NOT used here.
-  Sandbox.ITEMS = [
-    { id: 'brass_nib', name: 'Brass Nib', points: 10, rarity: 'common', price: 3, hint: '+10 points on every word' },
-    { id: 'lead_weight', name: 'Lead Weight', points: 25, rarity: 'uncommon', price: 6, hint: '+25 points on every word' },
-    { id: 'second_ink', name: 'Second Ink', mult: 1, rarity: 'common', price: 4, hint: '+1 mult on every word' },
-    { id: 'double_stop', name: 'Double Stop', mult: 2, rarity: 'rare', price: 8, hint: '+2 mult on every word' },
-    { id: 'gilded_edge', name: 'Gilded Edge', points: 10, mult: 1, rarity: 'uncommon', price: 5, hint: '+10 points and +1 mult' },
-  ];
-  Sandbox.ITEM_DEFS = {};
-  Sandbox.ITEMS.forEach(function (it) { Sandbox.ITEM_DEFS[it.id] = it; });
-
   // POINTS x MULT for a word made of these tiles. `breakdown` keeps
-  // Lexicon.scoreWord's fields (base, bingoBonus, bonusFlat, variantFlat,
-  // bonusMult) so the UI can itemise, plus points / lengthMult / mult / total.
-  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, tune, items, tierLevels, heldTiles) {
+  // Lexicon.scoreWord's fields (base, bonusFlat, variantFlat, bonusMult) so
+  // the UI can itemise, plus the tier, ink and item parts, points / mult /
+  // total. ctx: { tune, items, tierLevels, heldTiles, run, round, preview }.
+  Sandbox.scoreWordPoints = function (word, tilesUsed, rackCapacity, ctx) {
     var Lexicon = window.Wordbound.Lexicon;
+    var tune = ctx.tune;
     var b = Lexicon.scoreWord(word, tilesUsed, rackCapacity);
     b.lengthBonus = 0;
     b.bingoBonus = 0; // length is the tier now; no separate bingo
+    var tier = Sandbox.tierFor(word);
+    var ts = Sandbox.tierStats(tier, tune, ctx.tierLevels ? ctx.tierLevels[tier.id] : 1);
+    b.tier = tier;
+    b.tierName = tier.name;
+    b.tierLevel = ts.level;
+    b.tierPts = ts.pts;
+    b.tierMult = ts.mult;
     // Inked tiles (inks.js): gilt and bold on the tiles played, steel on the
     // tiles left waiting in the case.
     b.inkPoints = 0;
@@ -182,31 +177,28 @@
       if (t.ink === 'gilt') { b.inkPoints += tune.INK_GILT; b.inkNotes.push('gilt ' + t.letter + ' +' + tune.INK_GILT); }
       else if (t.ink === 'bold') { b.inkMult += tune.INK_BOLD; b.inkNotes.push('bold ' + t.letter + ' +' + tune.INK_BOLD + ' mult'); }
     });
-    (heldTiles || []).forEach(function (t) {
+    (ctx.heldTiles || []).forEach(function (t) {
       if (t.ink === 'steel') { b.holdMult *= tune.INK_STEEL; b.inkNotes.push('steel ' + t.letter + ' held ×' + tune.INK_STEEL); }
     });
     b.holdMult = Math.round(b.holdMult * 1000) / 1000;
-    var tier = Sandbox.tierFor(word);
-    var ts = Sandbox.tierStats(tier, tune, tierLevels ? tierLevels[tier.id] : 1);
-    b.tier = tier;
-    b.tierName = tier.name;
-    b.tierLevel = ts.level;
-    b.tierPts = ts.pts;
-    b.tierMult = ts.mult;
-    b.itemPoints = 0;
-    b.itemMult = 0;
-    b.itemXMult = 1;
-    b.itemNotes = [];
-    (items || []).forEach(function (id) {
-      var it = Sandbox.ITEM_DEFS[id];
-      if (!it) return;
-      b.itemPoints += it.points || 0;
-      b.itemMult += it.mult || 0;
-    });
-    b.points = b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints + b.itemPoints;
+    // Items fire left to right on the running points and mult.
+    var acc = {
+      points: b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints,
+      mult: b.tierMult + b.inkMult
+    };
+    var before = { points: acc.points, mult: acc.mult };
+    var round = ctx.round;
+    b.itemNotes = Sandbox.applyItems ? Sandbox.applyItems({
+      word: word, tiles: tilesUsed, held: ctx.heldTiles || [], items: ctx.items || [],
+      run: ctx.run, round: round, tune: tune, preview: !!ctx.preview,
+      isLastPlay: !!round && round.playsLeft === 1,
+      playIndex: round ? round.plays.length : 0
+    }, acc) : [];
+    b.itemPoints = acc.points - before.points;
+    b.itemMult = acc.mult - before.mult; // net, for the one-line summary
+    b.points = acc.points;
+    b.mult = Math.round(acc.mult * b.bonusMult * b.holdMult * 100) / 100;
     b.lengthMult = b.tierMult; // kept for older readers of the breakdown
-    b.mult = (b.tierMult + b.inkMult + b.itemMult) * b.bonusMult * b.holdMult * b.itemXMult;
-    b.mult = Math.round(b.mult * 100) / 100;
     b.total = Math.round(b.points * b.mult);
     return b;
   };
@@ -224,7 +216,9 @@
       tune: tune,
       target: opts.target != null ? opts.target : tune.MOVEMENT_BASE_1,
       reward: opts.reward != null ? opts.reward : tune.GOLD_SMALL, // flat gold at the win
-      playsLeft: tune.PLAYS,
+      playsLeft: tune.PLAYS + items.reduce(function (n, id) {
+        var it = Sandbox.ITEM_DEFS[id]; return n + (it && it.plays ? it.plays : 0);
+      }, 0),
       changeoutsLeft: tune.CHANGEOUTS,
       rackSize: tune.RACK_SIZE,
       items: items,
@@ -251,6 +245,10 @@
       if (round.score >= round.target) {
         round.state = 'won';
         round.gold = round.reward + tune.GOLD_PER_WORD_LEFT * round.playsLeft;
+        items.forEach(function (id) {
+          var it = Sandbox.ITEM_DEFS[id];
+          if (it && it.goldAtWin) round.gold += it.goldAtWin(round);
+        });
       } else if (round.playsLeft <= 0) {
         round.state = 'lost';
       }
@@ -269,7 +267,9 @@
       var form = Lexicon.canFormFromRack(upper, round.rack);
       var tiles = form.possible ? form.tilesUsed
         : upper.split('').map(function (l) { return { letter: l, bonus: null, variant: null }; });
-      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, tune, items, tierLevels, held(tiles));
+      return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, {
+        tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(tiles), run: opts.run, round: round, preview: true
+      });
     };
     round.scoreFor = function (word) { return round.breakdownFor(word).total; };
 
@@ -287,7 +287,15 @@
       var form = Lexicon.canFormFromRack(upper, round.rack);
       if (!form.possible) return { ok: false, reason: upper + ' needs letters you don’t have.' };
 
-      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, tune, items, tierLevels, held(form.tilesUsed));
+      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, {
+        tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(form.tilesUsed), run: opts.run, round: round
+      });
+      if (opts.run) {
+        items.forEach(function (id) {
+          var it = Sandbox.ITEM_DEFS[id];
+          if (it && it.onPlayed) it.onPlayed(opts.run, breakdown);
+        });
+      }
       var messages = [];
       Lexicon.removeTiles(round.rack, form.tilesUsed);
       round.pile.discardPile.push.apply(round.pile.discardPile, form.tilesUsed);
@@ -357,6 +365,7 @@
       items: (opts.items || []).slice(), // carried into every round from here on
       startItems: (opts.items || []).slice(), // what the run set out with
       consumables: [], // inks and études held, CONSUMABLE_SLOTS deep
+      itemState: {},   // scaling items' counters (items.js), e.g. refrain
       shop: null,    // open between fights (shop.js)
       pack: null,    // an opened pack awaiting run.pick
       tierLevels: {}, // études: { tierId: level }, level 1 when absent
@@ -378,12 +387,19 @@
     function begin() {
       run.enemy = Sandbox.enemyAt(run.movement, run.stage);
       run.round = Sandbox.createRound({
-        rng: opts.rng, deck: run.deck, tune: tune, items: run.items,
+        rng: opts.rng, deck: run.deck, tune: tune, items: run.items, run: run,
         target: run.targetFor(run.movement, run.stage),
         reward: KIND_GOLD[run.enemy.kind],
         tierLevels: run.tierLevels
       });
     }
+    // Reorder the held items: they fire left to right.
+    run.moveItem = function (from, to) {
+      if (from === to || from < 0 || to < 0 || from >= run.items.length || to >= run.items.length) return false;
+      var id = run.items.splice(from, 1)[0];
+      run.items.splice(to, 0, id);
+      return true;
+    };
     // An étude: raise one length tier a level for the rest of the run.
     run.levelTier = function (tierId) {
       if (!Sandbox.TIER_DEFS[tierId]) return false;
