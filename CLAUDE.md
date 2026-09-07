@@ -141,6 +141,9 @@ not something to reintroduce piecemeal mid-task.
 - `DIVERGENCE_PLAN.md` — the 2026-09-07 plan for leaving Balatro's shape:
   crescendo-effect contract, second-axis quills, stolen letters meta,
   premium slots on the stick.
+- `NEXT_LEVEL_PLAN.md` — the 2026-09-07 plan for after the divergence
+  work: feel pass, the music attacks (strike/parry), chords, run choices
+  and keys, meta past letters, identity/polish.
 - `THEME.md` — world/style bible. `ROADMAP.md` — north star + known gaps.
   `COMBAT_REDESIGN.md` — the 2026-09-05 plan: Balatro-with-Scrabble rounds
   (4 words, 3 changeouts, beat a point target, gold, shop) replacing the tug
