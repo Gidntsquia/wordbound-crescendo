@@ -1,6 +1,7 @@
 // src/sandbox/items.js
-// THE ITEM ROSTER -- Balatro's jokers, sandbox-owned (js/wordbound/items.js
-// is NOT loaded here). A run holds up to ITEM_SLOTS of them, bought in the
+// THE ITEM ROSTER -- on screen these are QUILLS (the player is on the words
+// side; the code keeps "item"). Sandbox-owned: js/wordbound/items.js is NOT
+// loaded here. A run holds up to ITEM_SLOTS of them, bought in the
 // shop (shop.js) and sold for half. Each fires on every word, LEFT TO RIGHT
 // in the order held, on an accumulator { points, mult }: additive points and
 // mult first in the row score less than the same item after a x-mult, so
@@ -9,7 +10,9 @@
 // An item is { id, name, rarity, price, hint, score?(ctx, acc), plays?,
 // goldAtWin?(round) }. `score` mutates acc and may return a note for the
 // breakdown line. ctx = { word, tiles (played), held, run, round, tune,
-// isLastPlay, playIndex, preview } -- `preview` is true when the UI is only
+// isLastPlay, playIndex, crescendo, preview } -- `crescendo` is true when the
+// word lands inside the recording's crescendo window (audioPiece.js
+// `crescendo()`); `preview` is true when the UI is only
 // asking what a word WOULD score; scaling state (Refrain) is advanced by
 // round.js's playWord afterwards via `onPlayed`, never inside score.
 //
@@ -25,6 +28,19 @@
     tiles.forEach(function (t) { if (set[t.letter]) n++; });
     return n;
   }
+
+  // The second scoring axis: WHAT KIND of word, not how long. Libretto pays
+  // for words that are also musical terms. Short common ones are in on
+  // purpose so it fires a few times a run off a normal rack.
+  var MUSIC_WORDS = ('AIR ALTO ARIA BAR BASS BEAT BELL BOW BRASS CANON CHANT CHOIR CHORD CLEF CODA DRUM DUET ECHO ' +
+    'FLAT FLUTE FORTE FRET FUGUE GONG HARP HORN HYMN JAZZ JIG KEY LUTE LYRE MARCH MELODY METER MINOR MAJOR MUSIC NOTE ' +
+    'OBOE OCTAVE OPERA OPUS ORGAN PIANO PIPE PITCH REED REEL REST RHYTHM ROCK SCALE SCORE SHARP SING SOLO SONG STAFF ' +
+    'STRING SUITE TEMPO TENOR TIE TONE TRIO TUBA TUNE VIOL VIOLA VOICE WALTZ BAND BEAT DRONE HUM LILT MUTE TRILL RIFF ' +
+    'CHIME TUNING STRUM PLUCK BOWING SOPRANO SONATA ROUND CAROL BALLAD ANTHEM VERSE CHORUS LYRIC RONDO ETUDE ' +
+    'CELLO VIOLIN GUITAR BANJO FIDDLE BUGLE CORNET SNARE CYMBAL TIMBRE TREBLE ALTOS BEATS NOTES SONGS KEYS TUNES TONES CHORDS').split(' ');
+  var MUSIC = {};
+  MUSIC_WORDS.forEach(function (w) { MUSIC[w] = 1; });
+  Sandbox.isMusicWord = function (word) { return !!MUSIC[String(word).toUpperCase()]; };
 
   Sandbox.ITEMS = [
     // Common
@@ -56,6 +72,13 @@
       score: function (c, a) { if (!c.tiles.some(function (t) { return t.ink; })) return null; a.points += 20; return '+20'; } },
     { id: 'miser', name: 'Miser', rarity: 'uncommon', price: 5, hint: '+1 gold per unused changeout at a win',
       goldAtWin: function (round) { return round.changeoutsLeft; } },
+    { id: 'libretto', name: 'Libretto', rarity: 'uncommon', price: 6, hint: '×2 mult if the word is a musical term (NOTE, HARP, TEMPO…)',
+      score: function (c, a) { if (!Sandbox.isMusicWord(c.word)) return null; a.mult *= 2; return '×2 mult, a musical term'; } },
+    // The crescendo item: lit only while the recording's window is open
+    // (audioPiece.js `crescendo()`); the card counts down to it.
+    { id: 'climax', name: 'Climax', rarity: 'uncommon', price: 7, crescendo: true,
+      hint: '×3 mult if the word lands on a crescendo — the card counts down to each one',
+      score: function (c, a) { if (!c.crescendo) return null; a.mult *= 3; return '×3 mult, on the crescendo'; } },
     // Rare
     { id: 'double_stop', name: 'Double Stop', rarity: 'rare', price: 8, hint: '×2 mult',
       score: function (c, a) { a.mult *= 2; return '×2 mult'; } },

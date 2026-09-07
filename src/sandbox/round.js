@@ -213,6 +213,7 @@
     b.itemNotes = Sandbox.applyItems ? Sandbox.applyItems({
       word: word, tiles: tilesUsed, held: ctx.heldTiles || [], items: ctx.items || [],
       run: ctx.run, round: round, tune: tune, preview: !!ctx.preview,
+      crescendo: !!ctx.crescendo,
       isLastPlay: !!round && round.playsLeft === 1,
       playIndex: round ? round.plays.length : 0
     }, acc) : [];
@@ -298,6 +299,9 @@
     var items = (opts.items || []).slice();
     var tierLevels = opts.tierLevels || {};
     var rule = (opts.rule && Sandbox.RULES && Sandbox.RULES[opts.rule]) || null;
+    // Is the soundtrack inside a crescendo window right now? Supplied by the
+    // UI (it owns the audio); absent in a headless round, so never true.
+    function onCrescendo() { return !!(opts.crescendo && opts.crescendo()); }
 
     var round = {
       tune: tune,
@@ -360,7 +364,8 @@
       var tiles = form.possible ? form.tilesUsed
         : upper.split('').map(function (l) { return { letter: l, bonus: null, variant: null }; });
       return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, {
-        tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(tiles), run: opts.run, round: round, preview: true
+        tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(tiles), run: opts.run, round: round, preview: true,
+        crescendo: onCrescendo()
       });
     };
     round.scoreFor = function (word) { return round.breakdownFor(word).total; };
@@ -390,7 +395,8 @@
       if (barred.length) return { ok: false, reason: barred.join(', ') + ' has been played this round — ' + round.rule.name + '.' };
 
       var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, {
-        tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(form.tilesUsed), run: opts.run, round: round
+        tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(form.tilesUsed), run: opts.run, round: round,
+        crescendo: onCrescendo()
       });
       if (opts.run) {
         items.forEach(function (id) {
@@ -513,6 +519,7 @@
       run.pile = { drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(run.deck, opts.rng), discardPile: [] };
       run.round = Sandbox.createRound({
         rng: opts.rng, deck: run.deck, pile: run.pile, tune: tune, items: run.items, run: run,
+        crescendo: opts.crescendo,
         target: run.targetFor(run.movement, run.stage),
         reward: KIND_GOLD[run.enemy.kind],
         rule: run.enemy.rule,

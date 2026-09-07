@@ -135,7 +135,7 @@
       var used = null;
       var ink = null;
       if (c.kind === 'item') {
-        if (run.items.length >= tune.ITEM_SLOTS) return { ok: false, reason: 'All ' + tune.ITEM_SLOTS + ' item slots are full — sell one first.' };
+        if (run.items.length >= tune.ITEM_SLOTS) return { ok: false, reason: 'All ' + tune.ITEM_SLOTS + ' quill slots are full — sell one first.' };
         run.items.push(c.id);
       } else {
         var t = takeConsumable(c);

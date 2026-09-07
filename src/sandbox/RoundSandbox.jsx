@@ -46,10 +46,10 @@ const TUNE_LABELS = {
   PTS_5: 'Five · points', MULT_5: 'Five · mult',
   PTS_6: 'Six · points', MULT_6: 'Six · mult',
   PTS_7: 'Seven+ · points', MULT_7: 'Seven+ · mult',
-  ITEM_SLOTS: 'Item slots',
+  ITEM_SLOTS: 'Quill slots',
   CONSUMABLE_SLOTS: 'Consumable slots',
   CARD_SLOTS: 'Shop card slots',
-  CARD_ITEM: 'Card roll · item weight',
+  CARD_ITEM: 'Card roll · quill weight',
   CARD_INK: 'Card roll · ink weight',
   CARD_ETUDE: 'Card roll · étude weight',
   PACK_SLOTS: 'Shop pack slots',
@@ -141,20 +141,36 @@ function cardBlurb(SB, c, run) {
 
 // What the run holds: items (sellable in the shop) and consumables (usable
 // any time an étude makes sense; inks need a tile, see Phase 4).
-function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats }) {
+// A crescendo quill's badge: greyed and silent between swells, a countdown
+// while one approaches, lit with the seconds left while the window is open.
+function cresBadge(cres) {
+  if (!cres || cres.phase === 'idle') return 'waiting for a crescendo';
+  if (cres.phase === 'soon') return 'crescendo in ' + Math.ceil(cres.secs);
+  return 'NOW · ' + cres.secs.toFixed(1) + 's';
+}
+
+function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats, cres }) {
   const tune = run.tune;
   return (
     <div className="sb-held">
-      <div className="sb-held-row" aria-label="Items">
-        <span className="sb-eyebrow">Items · {run.items.length}/{tune.ITEM_SLOTS}</span>
+      <div className="sb-held-row" aria-label="Quills">
+        <span className="sb-eyebrow">Quills · {run.items.length}/{tune.ITEM_SLOTS}</span>
         {run.items.map((id, i) => {
           const d = SB.ITEM_DEFS[id];
+          const cresState = d.crescendo ? (live && cres ? cres.phase : 'idle') : null;
           return (
-            <span key={id} className={'sb-card sb-card-item is-' + (d.rarity || 'common') + (lit === id ? ' is-jiggle' : '')} title={itemBlurb(d)}>
+            <span key={id} className={'sb-card sb-card-item is-' + (d.rarity || 'common') + (lit === id ? ' is-jiggle' : '')
+              + (cresState ? ' sb-card-cres is-cres-' + cresState : '')} title={itemBlurb(d)}>
               {(floats || []).filter((x) => x.on === id).map((x) => <i key={x.key} className={'sb-float sb-float-card is-' + x.tone}>{x.text}</i>)}
               <b>{d.name}</b><em>{itemBlurb(d)}</em>
+              {cresState && (
+                <span className="sb-cres-badge" aria-live="polite">
+                  {cresState === 'soon' && <i className="sb-cres-ring" style={{ '--t': Math.max(0, Math.min(1, cres.secs / SB.CRESCENDO.countdown)) }} />}
+                  {cresBadge(live ? cres : null)}
+                </span>
+              )}
               {run.items.length > 1 && (
-                <span className="sb-card-order" title="Items fire left to right">
+                <span className="sb-card-order" title="Quills fire left to right">
                   <button type="button" disabled={i === 0} aria-label="Move left"
                     onClick={() => act(null, { ok: run.moveItem(i, i - 1) })}>‹</button>
                   <button type="button" disabled={i === run.items.length - 1} aria-label="Move right"
@@ -212,7 +228,7 @@ function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard,
         <span className="sb-eyebrow">The shop · between fights{shop.coupon ? ' · coupon: cards are free' : ''}{shop.packs.some((p) => p.free && !p.opened) ? ' · a free pack' : ''}</span>
         <span className="sb-purse"><b>{run.gold}</b> gold</span>
       </div>
-      {firstVisit && !selecting && <div className="sb-callout sb-callout-inline">Items score every word. Gold carries over.</div>}
+      {firstVisit && !selecting && <div className="sb-callout sb-callout-inline">Quills score every word. Gold carries over.</div>}
       {selecting && (
         <div className="sb-pack-open sb-ink-decide">
           <span className="sb-eyebrow">{selecting.name}{selecting.from === 'shop' ? ' · ' + selecting.price + ' gold' : ''}</span>
@@ -280,7 +296,7 @@ function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard,
               className={'sb-card sb-card-buy sb-card-' + c.kind + (c.kind === 'item' ? ' is-' + (SB.ITEM_DEFS[c.id].rarity || 'common') : '') + (c.sold ? ' is-sold' : '')}
               title={cardBlurb(SB, c, run)}
               onClick={() => buyCard(i)}>
-              <span className="sb-card-kind">{c.kind}</span>
+              <span className="sb-card-kind">{c.kind === 'item' ? 'quill' : c.kind}</span>
               <b>{c.sold ? 'sold' : cardName(SB, c)}</b>
               <em>{c.sold ? '' : cardBlurb(SB, c, run)}</em>
               {!c.sold && <span className="sb-price">{c.price}</span>}
@@ -497,6 +513,15 @@ export default function RoundSandbox() {
   // tiles (from `tiles`), the case shows `rackBefore` with hollows, the
   // header shows `scoreBase` until the total lands. Any tap skips ahead.
   const [scoring, setScoring] = useState(null);
+  // The soundtrack's crescendo window, polled while a crescendo quill is held
+  // (audioPiece.js `crescendo()`): { phase: 'idle' | 'soon' | 'live', secs }.
+  const [cres, setCres] = useState({ phase: 'idle' });
+  const holdsCrescendoItem = (run) => !!run && run.items.some((id) => SB.ITEM_DEFS[id] && SB.ITEM_DEFS[id].crescendo);
+  const crescendoNow = useCallback(() => {
+    const s = fight.current?.seq;
+    const c = s && s.crescendo ? s.crescendo() : null;
+    return !!c && c.phase === 'live';
+  }, []);
   const skipRef = useRef(false);
   const waitRef = useRef(null);
   const skipCascade = useCallback(() => {
@@ -650,7 +675,7 @@ export default function RoundSandbox() {
     }
 
     const run = SB.createRun({
-      rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds]
+      rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds], crescendo: crescendoNow
     });
     fight.current = { ...(fight.current || {}), ctx, gain, sfx: sfxNode, seq: fight.current?.seq };
     setLog([]);
@@ -658,7 +683,28 @@ export default function RoundSandbox() {
       say('Carrying ' + [...itemIds].map((id) => SB.ITEM_DEFS[id].name).join(', ') + '.');
     }
     startStage(run);
-  }, [seed, bagId, volume, sfxOn, tune, itemIds, say, startStage, SB]);
+  }, [seed, bagId, volume, sfxOn, tune, itemIds, say, startStage, SB, crescendoNow]);
+
+  // Poll the crescendo window for the card's countdown. Only runs while a
+  // round is live and a crescendo quill is held; 100 ms keeps the seconds
+  // readout honest without redrawing when nothing has changed.
+  useEffect(() => {
+    if (phase !== 'live' || !holdsCrescendoItem(fight.current?.run)) { setCres({ phase: 'idle' }); return undefined; }
+    let last = '', lastPhase = 'idle';
+    const id = setInterval(() => {
+      const s = fight.current?.seq;
+      const c = s && s.crescendo ? s.crescendo() : { phase: 'idle' };
+      const key = c.phase + ':' + (c.secs == null ? '' : c.phase === 'live' ? c.secs.toFixed(1) : Math.ceil(c.secs));
+      if (key === last) return;
+      last = key;
+      // The window opening gets a sound of its own so the ear is told too.
+      if (c.phase === 'live' && lastPhase !== 'live') sfx('shimmer');
+      lastPhase = c.phase;
+      setCres(c);
+    }, 100);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, fight.current?.run?.items.length]);
 
   // After a won round: bank the gold and move to the next enemy, or end the run.
   const nextStage = useCallback(() => {
@@ -1135,7 +1181,7 @@ export default function RoundSandbox() {
           <p className="sb-title-line">Spell words. Beat the target before your words run out.</p>
           <button type="button" className="sb-go sb-title-play" onClick={() => start(randomSeed())}>Play</button>
           <p className="sb-hint sb-title-best">
-            {best.word ? <>Best: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}</> : 'Nine enemies, each with its own piece of music. Gold between fights buys items that score every word.'}
+            {best.word ? <>Best: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}</> : 'Nine enemies, each with its own piece of music. Gold between fights buys quills that score every word.'}
           </p>
         </section>
       )}
@@ -1198,8 +1244,8 @@ export default function RoundSandbox() {
         {round && <span className="sb-hint"><b>{round.pile.drawPile.length}</b> in the bag, <b>{round.pile.discardPile.length}</b> discarded, of {run.deck.length}</span>}
       </section>
 
-      <section className="sb-items" role="group" aria-label="Sample items">
-        <span className="sb-eyebrow">Starting items · read at start</span>
+      <section className="sb-items" role="group" aria-label="Starting quills">
+        <span className="sb-eyebrow">Starting quills · read at start</span>
         {SB.ITEMS.map((d) => {
           const id = d.id;
           return (
@@ -1257,7 +1303,7 @@ export default function RoundSandbox() {
               <button type="button" onClick={skipFight}>Skip for the bonus</button>
             </div>
           )}
-          {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} onInk={useInk}
+          {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} onInk={useInk} cres={cres}
             lit={scoring ? scoring.litItem : null} floats={scoring ? scoring.floats : null} />}
           {round.plays.length > (scoring && !scoring.cleared ? 1 : 0) && (
             <ol className="sb-plays">

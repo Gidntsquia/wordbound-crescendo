@@ -56,6 +56,32 @@
   // the fight teaches two different reflexes.
   Sandbox.TELEGRAPH_LEAD_SEC = LEAD_SEC;
 
+  // THE CRESCENDO WINDOW, for items that fire "on a crescendo" (items.js,
+  // Climax). The dense surge list is curated down to the BIG swells -- at
+  // least CRES_MIN_MAG against the recording's own peaks, and at least
+  // CRES_MIN_GAP seconds apart -- which lands one window every 15-20 s in
+  // every recording. A word played from CRES_BEFORE s ahead of the peak to
+  // CRES_AFTER s past it counts: the leniency is deliberately on the late
+  // side, because the player hears the swell and then taps. The countdown
+  // starts CRES_COUNTDOWN s out so the swell is telegraphed before it is
+  // audible.
+  var CRES_MIN_MAG = 0.6;
+  var CRES_MIN_GAP = 12;
+  var CRES_BEFORE = 0.4;
+  var CRES_AFTER = 1.0;
+  var CRES_COUNTDOWN = 5;
+  Sandbox.CRESCENDO = { before: CRES_BEFORE, after: CRES_AFTER, countdown: CRES_COUNTDOWN };
+
+  function curateSurges(surges) {
+    var out = [], last = -Infinity;
+    surges.forEach(function (s) {
+      if (s.mag < CRES_MIN_MAG || s.sec - last < CRES_MIN_GAP) return;
+      out.push(s);
+      last = s.sec;
+    });
+    return out;
+  }
+
   var bufferCache = {};  // url -> Promise<AudioBuffer>, decoded once
   var bytesCache = {};   // url -> Promise<ArrayBuffer>, fetched once
 
@@ -119,6 +145,7 @@
 
     var keyframes = (piece.dynamics && piece.dynamics.keyframes) || [];
     var surges = (piece.dynamics && piece.dynamics.surges) || [];
+    var bigSurges = curateSurges(surges);
     var duration = piece.durationSec || 0;
 
     function emit(name, payload) {
@@ -201,6 +228,25 @@
 
       getIntensity: function () { return intensityAt(position()); },
       currentBeat: function () { return position(); },
+
+      // Where the playhead stands against the next big swell:
+      //   { phase: 'idle' }                       nothing within the countdown
+      //   { phase: 'soon', secs, peakSec }        counting down to the peak
+      //   { phase: 'live', secs, peakSec }        the window is open; secs
+      //                                           left until it shuts
+      // Read on the play itself (round.js) and polled by the UI for the card.
+      crescendo: function () {
+        if (!playing || !bigSurges.length) return { phase: 'idle' };
+        var pos = position();
+        for (var i = 0; i < bigSurges.length; i++) {
+          var peak = bigSurges[i].sec;
+          if (pos > peak + CRES_AFTER) continue;
+          if (pos >= peak - CRES_BEFORE) return { phase: 'live', secs: peak + CRES_AFTER - pos, peakSec: peak };
+          if (pos >= peak - CRES_COUNTDOWN) return { phase: 'soon', secs: peak - pos, peakSec: peak };
+          return { phase: 'idle', secs: peak - pos, peakSec: peak };
+        }
+        return { phase: 'idle' };
+      },
 
       // Beat IS seconds for a recording, so this is the playback-rate map
       // from a position in the piece to a moment on the AudioContext clock.

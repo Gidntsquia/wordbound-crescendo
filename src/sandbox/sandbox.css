@@ -1439,6 +1439,33 @@ button:disabled {
 .sb-card.is-uncommon { border-color: var(--brass); }
 .sb-card.is-rare { border-color: var(--rubric); }
 .sb-card-etude { border-style: dashed; }
+/* A crescendo quill (items.js `crescendo: true`): asleep between swells,
+   counting down as one approaches, lit while the window is open. The
+   transform on the card is fine -- the rule against it is for .sb-tile. */
+.sb-card-cres { transition: opacity 240ms ease, box-shadow 240ms ease, border-color 240ms ease; }
+.sb-card-cres.is-cres-idle { opacity: 0.45; filter: saturate(0.4); }
+.sb-card-cres.is-cres-soon { opacity: 0.85; border-color: var(--brass-hot); }
+.sb-card-cres.is-cres-live {
+  opacity: 1; border-color: var(--brass-hot); color: var(--brass-hot);
+  box-shadow: 0 0 0 2px var(--brass-hot), 0 0 22px 4px rgba(242, 194, 96, 0.55);
+  animation: cres-throb 500ms ease-in-out infinite alternate;
+}
+.sb-card-cres.is-cres-live b, .sb-card-cres.is-cres-live em { color: var(--brass-hot); }
+@keyframes cres-throb {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+.sb-cres-badge {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 3px;
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--leaf-dim);
+}
+.is-cres-soon .sb-cres-badge { color: var(--brass-hot); font-weight: 600; }
+.is-cres-live .sb-cres-badge { color: var(--ink); background: var(--brass-hot); padding: 2px 6px; border-radius: 2px; font-weight: 700; }
+/* The countdown ring drains as the peak approaches (--t is 1..0). */
+.sb-cres-ring {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  background: conic-gradient(var(--brass-hot) calc(var(--t) * 360deg), var(--rule) 0);
+}
 .sb-card-ink b { color: #6fb3e0; }
 .sb-card-kind { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--leaf-dim); }
 .sb-price {

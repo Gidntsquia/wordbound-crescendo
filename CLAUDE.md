@@ -84,8 +84,12 @@ not something to reintroduce piecemeal mid-task.
     DISCARD PILE, refilled only when the bag runs dry) at every fight; `run.shop` after every won fight short of
     the last; `run.skip()` a small/big enemy for a favour; `run.bestPlay`).
     Its header carries the Phase 0 calibration table.
-  - `items.js` — `Sandbox.ITEMS`, fifteen jokers with `score(ctx, acc)`
-    hooks, rarity and price; `run.moveItem` reorders them.
+  - `items.js` — `Sandbox.ITEMS`, seventeen jokers (on screen: QUILLS; the
+    code keeps "item") with `score(ctx, acc)` hooks, rarity and price;
+    `run.moveItem` reorders them. `climax` is the first CRESCENDO EFFECT
+    (`crescendo: true`; fires when `ctx.crescendo`, which round.js reads
+    from the run's `crescendo()` callback the UI supplies); `libretto` is
+    the first second-axis quill (word KIND: `MUSIC_WORDS`).
   - `shop.js` — `Sandbox.createShop(run, rng)`: two card slots (item / ink /
     étude by weight), two packs (tile / ink / étude, keep one of three),
     reroll, sell for half; consumables live in `run.consumables`.
@@ -115,7 +119,10 @@ not something to reintroduce piecemeal mid-task.
     (tick climbing the stick, shuffle, thud, coin, shimmer) and the
     cascade's hits (lock, letter, item, rule, hit, resolve, riffle);
     `SFX_DEFAULTS` is the table.
-  - `audioPiece.js` + `recordings.js` (generated import index) +
+  - `audioPiece.js` (also owns THE CRESCENDO WINDOW: `seq.crescendo()` →
+    idle / soon / live from the big surges, `Sandbox.CRESCENDO` holds the
+    0.4 s-before / 1.0 s-after / 5 s-countdown numbers; the quill card in
+    RoundSandbox polls it) + `recordings.js` (generated import index) +
     `recorded*.js` ×9 — the nine RECORDINGS under public/audio/, one per
     enemy. `tools/audio-manifest.json` is the source of truth (URL, licence,
     performer, trim, sha256); `npm run fetch:audio` (tools/fetch-audio.js)
@@ -131,6 +138,9 @@ not something to reintroduce piecemeal mid-task.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation,
   kept until the React port reaches full parity.
 - `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`, `fetch-wiktionary.js` (`npm run fetch:words`: pulls Wiktionary's English lemmas into the GENERATED WIKT_EXTRA block of `js/wordbound/wordlist.js`, 4+ letter lowercase titles only; cache in `.cache/wiktionary/`).
+- `DIVERGENCE_PLAN.md` — the 2026-09-07 plan for leaving Balatro's shape:
+  crescendo-effect contract, second-axis quills, stolen letters meta,
+  premium slots on the stick.
 - `THEME.md` — world/style bible. `ROADMAP.md` — north star + known gaps.
   `COMBAT_REDESIGN.md` — the 2026-09-05 plan: Balatro-with-Scrabble rounds
   (4 words, 3 changeouts, beat a point target, gold, shop) replacing the tug
