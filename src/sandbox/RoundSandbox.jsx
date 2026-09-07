@@ -201,7 +201,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats }) {
 }
 
 // The shop between fights: two cards, two packs, reroll, and the door.
-function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard }) {
+function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard }) {
   const shop = run.shop;
   const next = SB.enemyAt(run.movement, run.stage);
   const packDef = (kind) => SB.PACK_KINDS.find((k) => k.kind === kind);
@@ -219,7 +219,7 @@ function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard }) {
             {run.pack.choices.map((c, i) => (
               <button key={i} type="button" className={'sb-card sb-card-pick sb-card-' + c.kind}
                 title={c.kind === 'tile' ? 'A ' + c.tile.letter + ' for your rack' : cardBlurb(SB, c, run)}
-                onClick={() => act('Kept ' + (c.kind === 'tile' ? 'the ' + c.tile.letter : 'the ' + cardName(SB, c)) + '.', run.pick(i), 'tick')}>
+                onClick={() => pickCard(i)}>
                 {c.kind === 'tile' ? (
                   <span className="sb-tile is-set sb-tile-static">{c.tile.letter}<sub>{SB.LETTER_VALUES ? SB.LETTER_VALUES[c.tile.letter] : window.Wordbound.Lexicon.LETTER_VALUES[c.tile.letter]}</sub></span>
                 ) : (<><b>{cardName(SB, c)}</b><em>{cardBlurb(SB, c, run)}</em></>)}
@@ -670,36 +670,44 @@ export default function RoundSandbox() {
     return true;
   }, [say, refresh, sfx]);
 
-  // INKING: tapping a held ink enters "choose a tile" — normally on the
-  // live case. A shop-bought ink used on the spot (see below) instead
-  // carries its own one-hand-sized `hand` of tiles to choose from and an
-  // `adhocId` in place of an index, since it was never stored. Apply
-  // commits it. { index, ink, ids, vowel } | { adhocId, hand, ink, ids,
-  // vowel } while choosing.
+  // INKING: an ink is never held in run.consumables (see shop.js
+  // takeConsumable) -- buying or keeping one from a pack plays it at once: a
+  // no-target ink (Coin) immediately, a targeted one via openAdhocInk below,
+  // which carries its own one-hand-sized `hand` of tiles to choose from and
+  // an `adhocId` in place of an index. Apply commits it. { adhocId, hand,
+  // ink, ids, vowel } while choosing.
   const [inking, setInking] = useState(null);
-  // Buying a consumable with every slot full: an étude or a no-target ink
-  // (Coin) plays on the spot. A targeted ink is never stored -- shop.buy
-  // hands back one hand's worth of the deck, drawn fresh, to tap a tile and
-  // use the ink right there (Balatro-style — see shop.js takeConsumable).
+  const openAdhocInk = useCallback((res) => {
+    say('Tap a tile to use it now.');
+    sfx('coin');
+    setWord('');
+    setInking({ adhocId: res.adhoc.id, hand: res.adhoc.hand, ink: SB.INK_DEFS[res.adhoc.id], ids: [], vowel: null });
+    refresh();
+  }, [say, sfx, refresh, SB]);
   const buyCard = useCallback((i) => {
-    const r = fight.current?.run;
-    const shop = r?.shop;
+    const shop = fight.current?.run?.shop;
     const c = shop?.cards[i];
     const res = shop?.buy(i);
     if (!res || !res.ok) { act(null, res); return; }
-    if (res.adhoc) {
-      say('Bought ' + cardName(SB, c) + ' — tap a tile to use it now.');
-      sfx('coin');
-      setWord('');
-      setInking({ adhocId: res.adhoc.id, hand: res.adhoc.hand, ink: SB.INK_DEFS[res.adhoc.id], ids: [], vowel: null });
-      refresh();
-      return;
-    }
+    if (res.adhoc) { openAdhocInk(res); return; }
     const label = res.used
       ? 'Bought ' + cardName(SB, c) + ' and used it — ' + res.used
       : 'Bought ' + cardName(SB, c) + ' for ' + c.price + '.';
     act(label, res, res.used ? 'shimmer' : 'coin');
-  }, [act, say, sfx, refresh, SB]);
+  }, [act, openAdhocInk, SB]);
+  // Ink packs go through the same instant-use path -- keeping an ink from a
+  // pack never lands it in run.consumables either.
+  const pickCard = useCallback((i) => {
+    const run = fight.current?.run;
+    const c = run?.pack?.choices[i];
+    const res = run?.pick(i);
+    if (!res || !res.ok) { act(null, res); return; }
+    if (res.adhoc) { openAdhocInk(res); return; }
+    const label = res.used
+      ? 'Kept ' + cardName(SB, c) + ' and used it — ' + res.used
+      : 'Kept ' + (c.kind === 'tile' ? 'the ' + c.tile.letter : 'the ' + cardName(SB, c)) + '.';
+    act(label, res, 'tick');
+  }, [act, openAdhocInk, SB]);
   const useInk = useCallback((i) => {
     const r = fight.current?.run;
     if (!r) return;
@@ -1193,7 +1201,7 @@ export default function RoundSandbox() {
             </div>
           )}
           {phase === 'shop' && run.shop && (
-            <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} firstVisit={!seen.has('shop')} buyCard={buyCard} />
+            <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} firstVisit={!seen.has('shop')} buyCard={buyCard} pickCard={pickCard} />
           )}
           {phase === 'shop' && inking && (
             <div className="sb-inking sb-inking-shop">

@@ -109,24 +109,24 @@
     shop.rerollPrice = function () { return tune.REROLL_PRICE + tune.REROLL_STEP * shop.rerolls; };
 
     function takeConsumable(c) {
+      // An ink is never held in run.consumables -- buying one always plays
+      // it on the spot: a no-target ink (Coin) at once, a targeted one by
+      // handing back one hand's worth (RACK_SIZE) of the deck, drawn fresh,
+      // to tap a tile and apply it right there. That is what lets it be
+      // bought regardless of CONSUMABLE_SLOTS.
+      var inkDef = c.kind === 'ink' && Sandbox.INK_DEFS && Sandbox.INK_DEFS[c.id];
+      if (inkDef && inkDef.targets === 0) {
+        var res = Sandbox.applyInk(run, c.id, [], {});
+        return res.ok ? { ok: true, used: true, note: res.note } : res;
+      }
+      if (inkDef) {
+        var Tiles = window.Wordbound.Tiles;
+        var hand = Tiles.shuffleIntoDrawPile(run.deck, rng).slice(0, Math.min(tune.RACK_SIZE, run.deck.length));
+        return { ok: true, adhoc: { id: c.id, hand: hand } };
+      }
+      // An étude with nowhere to go is played on the spot too.
       if (run.consumables.length >= tune.CONSUMABLE_SLOTS) {
-        // An étude with nowhere to go is played on the spot. A no-target ink
-        // (Coin) with nowhere to go is played on the spot too. A targeted
-        // ink is never stored -- the caller is handed one hand's worth
-        // (RACK_SIZE) of the deck, drawn fresh, to tap a tile and use the
-        // ink on the spot (Balatro: buying a full-handed card still lets
-        // you use it, rather than refusing the purchase or holding it).
         if (c.kind === 'etude') { run.levelTier(c.id); return { ok: true, used: true }; }
-        var inkDef = c.kind === 'ink' && Sandbox.INK_DEFS && Sandbox.INK_DEFS[c.id];
-        if (inkDef && inkDef.targets === 0) {
-          var res = Sandbox.applyInk(run, c.id, [], {});
-          return res.ok ? { ok: true, used: true, note: res.note } : res;
-        }
-        if (inkDef) {
-          var Tiles = window.Wordbound.Tiles;
-          var hand = Tiles.shuffleIntoDrawPile(run.deck, rng).slice(0, Math.min(tune.RACK_SIZE, run.deck.length));
-          return { ok: true, adhoc: { id: c.id, hand: hand } };
-        }
         return { ok: false, reason: 'No room for another consumable — use or sell one first.' };
       }
       run.consumables.push({ kind: c.kind, id: c.id });
@@ -209,13 +209,17 @@
       if (i == null) { run.pack = null; return { ok: true }; }
       var c = pack.choices[i];
       if (!c) return { ok: false, reason: 'Nothing there.' };
+      var used = null;
+      var adhoc = null;
       if (c.kind === 'tile') { if (run.addTile) run.addTile(c.tile); else run.deck.push(c.tile); }
       else {
         var t = takeConsumable(c);
         if (!t.ok) return t;
+        if (t.used) used = t.note || null;
+        if (t.adhoc) adhoc = t.adhoc;
       }
       run.pack = null;
-      return { ok: true, choice: c };
+      return { ok: true, choice: c, used: used, adhoc: adhoc };
     };
 
     rollCards();
