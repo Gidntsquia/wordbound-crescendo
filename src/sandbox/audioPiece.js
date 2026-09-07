@@ -147,6 +147,13 @@
     var surges = (piece.dynamics && piece.dynamics.surges) || [];
     var bigSurges = curateSurges(surges);
     var duration = piece.durationSec || 0;
+    // Sustain (items.js): a crescendo hit can hold the window open past its
+    // own peak's CRES_AFTER, for exactly one more play. sustainUntil is a
+    // position in the recording's own seconds; sustainPeak/sustainMag are
+    // that peak's own values, reused while the extension holds.
+    var sustainUntil = null;
+    var sustainPeak = null;
+    var sustainMag = null;
 
     function emit(name, payload) {
       (listeners[name] || []).forEach(function (cb) { cb(payload); });
@@ -238,8 +245,13 @@
       //                                           (Fortissimo, items.js)
       // Read on the play itself (round.js) and polled by the UI for the card.
       crescendo: function () {
-        if (!playing || !bigSurges.length) return { phase: 'idle' };
+        if (!playing) return { phase: 'idle' };
         var pos = position();
+        if (sustainUntil != null) {
+          if (pos <= sustainUntil) return { phase: 'live', secs: sustainUntil - pos, peakSec: sustainPeak, mag: sustainMag, sustained: true };
+          sustainUntil = null;
+        }
+        if (!bigSurges.length) return { phase: 'idle' };
         for (var i = 0; i < bigSurges.length; i++) {
           var peak = bigSurges[i].sec;
           var mag = bigSurges[i].mag;
@@ -249,6 +261,17 @@
           return { phase: 'idle', secs: peak - pos, peakSec: peak };
         }
         return { phase: 'idle' };
+      },
+
+      // Sustain (items.js): hold the window open extraSec longer than now,
+      // reusing whichever peak was (or still is) live so the card and
+      // Fortissimo keep reading a sensible mag. A no-op with no live window.
+      extendCrescendo: function (extraSec) {
+        var c = api.crescendo();
+        if (c.phase !== 'live') return;
+        sustainPeak = c.peakSec;
+        sustainMag = c.mag;
+        sustainUntil = position() + extraSec;
       },
 
       // Beat IS seconds for a recording, so this is the playback-rate map

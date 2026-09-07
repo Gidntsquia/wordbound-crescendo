@@ -686,7 +686,8 @@ export default function RoundSandbox() {
     }
 
     const run = SB.createRun({
-      rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds], crescendo: crescendoNow
+      rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds], crescendo: crescendoNow,
+      extendCrescendo: (extraSec) => { const s = fight.current?.seq; if (s && s.extendCrescendo) s.extendCrescendo(extraSec); }
     });
     fight.current = { ...(fight.current || {}), ctx, gain, sfx: sfxNode, seq: fight.current?.seq };
     setLog([]);

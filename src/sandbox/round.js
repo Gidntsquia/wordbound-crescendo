@@ -262,6 +262,10 @@
         b.itemNotes.push(ruleNote);
       }
     }
+    // Whether this play landed on a live crescendo window -- read by
+    // onPlayed hooks after the play resolves (Sustain, items.js), not just
+    // by score() during it.
+    b.crescendo = !!(ctx.crescendo && ctx.crescendo.phase === 'live');
     b.itemPoints = acc.points - before.points;
     b.itemMult = acc.mult - before.mult; // net, for the one-line summary
     b.points = acc.points;
@@ -572,6 +576,9 @@
       r.rack = [];
     }
     run.addTile = function (tile) { run.deck.push(tile); };
+    // Sustain (items.js): hold the soundtrack's crescendo window open extraSec
+    // longer. Supplied by the UI (it owns the audio); a no-op headless.
+    run.extendCrescendo = opts.extendCrescendo || function () {};
     function begin() {
       run.enemy = Sandbox.enemyAt(run.movement, run.stage);
       run.pile = { drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(run.deck, opts.rng), discardPile: [] };

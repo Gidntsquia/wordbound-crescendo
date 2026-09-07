@@ -45,6 +45,22 @@
   MUSIC_WORDS.forEach(function (w) { MUSIC[w] = 1; });
   Sandbox.isMusicWord = function (word) { return !!MUSIC[String(word).toUpperCase()]; };
 
+  // A third scoring axis, for Bard: theatrical/archaic vocabulary a
+  // Shakespeare-guided run would reward, curated here rather than pulled
+  // from shakespeareGuide.js (which holds only the one-time intro text, not
+  // a vocabulary list).
+  var BARD_WORDS = ('THOU THEE THY THINE HATH DOTH ART WHEREFORE PRITHEE ALAS VERILY FORSOOTH ' +
+    'BEHOLD YONDER HARK MORROW KNAVE VILLAIN JESTER FOOL KING QUEEN PRINCE DUKE CROWN THRONE ' +
+    'SWORD DAGGER GHOST WITCH CURSE FATE DESTINY HONOR VALOR TRAITOR TRAGEDY COMEDY SONNET ' +
+    'VERSE STAGE PLAYER ACTOR JEST MERRY FOLLY MADNESS LOVE HATE REVENGE MURDER POISON GRAVE ' +
+    'TOMB SPIRIT SOUL HEART STAR MOON NIGHT DREAM SLEEP DEATH LIFE TIME WORLD NATURE STORM ' +
+    'TEMPEST ISLAND FOREST CASTLE BALCONY DANCE FEAST WINE BLOOD TEARS SMILE KISS MARRIAGE ' +
+    'WEDDING FUNERAL BETRAYAL JEALOUSY AMBITION GREED MERCY JUSTICE TRUTH SECRET DISGUISE ' +
+    'MASK MISCHIEF').split(' ');
+  var BARD = {};
+  BARD_WORDS.forEach(function (w) { BARD[w] = 1; });
+  Sandbox.isBardWord = function (word) { return !!BARD[String(word).toUpperCase()]; };
+
   Sandbox.ITEMS = [
     // Common
     { id: 'brass_nib', name: 'Brass Nib', rarity: 'common', price: 3, hint: '+10 points on every word',
@@ -77,6 +93,29 @@
       goldAtWin: function (round) { return round.changeoutsLeft; } },
     { id: 'libretto', name: 'Libretto', rarity: 'uncommon', price: 6, hint: '×2 mult if the word is a musical term (NOTE, HARP, TEMPO…)',
       score: function (c, a) { if (!Sandbox.isMusicWord(c.word)) return null; a.mult *= 2; return '×2 mult, a musical term'; } },
+    // More second-axis quills (DIVERGENCE_PLAN.md).
+    { id: 'dissonance', name: 'Dissonance', rarity: 'uncommon', price: 6, hint: '×2 mult if the word has no vowels (RHYTHM, MYTH, LYNX…)',
+      score: function (c, a) { if (/[AEIOU]/.test(c.word)) return null; a.mult *= 2; return '×2 mult, no vowels'; } },
+    { id: 'notation', name: 'Notation', rarity: 'uncommon', price: 6, hint: '+4 mult per letter A–G played (the note names)',
+      score: function (c, a) {
+        var n = 0;
+        c.tiles.forEach(function (t) { if ('ABCDEFG'.indexOf(t.letter) >= 0) n++; });
+        if (!n) return null;
+        a.mult += 4 * n;
+        return '+' + (4 * n) + ' mult';
+      } },
+    { id: 'bard', name: 'Bard', rarity: 'uncommon', price: 6, hint: '×2 mult for a word in Shakespeare’s vocabulary (THOU, CROWN, GHOST…)',
+      score: function (c, a) { if (!Sandbox.isBardWord(c.word)) return null; a.mult *= 2; return '×2 mult, a bard’s word'; } },
+    { id: 'rhyme', name: 'Rhyme', rarity: 'uncommon', price: 5,
+      hint: '+20 points if the word ends the same two letters as the last one played this round',
+      score: function (c, a) {
+        var plays = c.round ? c.round.plays : null;
+        var prev = plays && plays.length ? plays[plays.length - 1].word : null;
+        if (!prev || prev.length < 2 || c.word.length < 2) return null;
+        if (prev.slice(-2) !== c.word.slice(-2)) return null;
+        a.points += 20;
+        return '+20, rhymes with ' + prev;
+      } },
     // The crescendo item: lit only while the recording's window is open
     // (audioPiece.js `crescendo()`); the card counts down to it.
     { id: 'climax', name: 'Climax', rarity: 'uncommon', price: 7, crescendo: true,
@@ -97,6 +136,12 @@
     { id: 'anticipation', name: 'Anticipation', rarity: 'uncommon', price: 6, crescendo: true,
       hint: '+2 mult if the word is played during a crescendo’s countdown',
       score: function (c, a) { if (!c.crescendoSoon) return null; a.mult += 2; return '+2 mult, anticipating'; } },
+    // A third crescendo effect: no score of its own, just holds the window
+    // open 2s longer after a crescendo hit so the NEXT word can land in it
+    // too (Sandbox.CRESCENDO's window in audioPiece.js, run.extendCrescendo).
+    { id: 'sustain', name: 'Sustain', rarity: 'uncommon', price: 6, crescendo: true,
+      hint: 'A crescendo hit holds the window open 2s longer for your next word',
+      onPlayed: function (run, breakdown) { if (breakdown.crescendo && run.extendCrescendo) run.extendCrescendo(2); } },
     // The second scoring axis again: a word that reads the same forwards and
     // back is rare enough to be a build-around.
     { id: 'palindrome', name: 'Palindrome', rarity: 'uncommon', price: 6,

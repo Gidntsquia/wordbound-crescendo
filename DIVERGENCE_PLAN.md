@@ -80,9 +80,9 @@ as `ctx.crescendoMag`) and **Anticipation** (+2 mult on `crescendoSoon`, the
 countdown phase, via the same `ctx.crescendo` object's `.phase`). Both use
 the existing card/UI, no new screen.
 
-Ideas that fit the contract, for later:
-
-- **Sustain** — a crescendo hit extends the window for the NEXT play by 2 s.
+Shipped 2026-09-07 (part 5): **Sustain** — a crescendo hit holds the window
+open 2 s longer for the next play (`audioPiece.js`
+`seq.extendCrescendo(extraSec)`, `run.extendCrescendo`).
 
 Tuning to watch on the phone: whether 5 s is enough warning to assemble a
 word (it is probably not, if the rack is cold — the honest play is to have
@@ -94,16 +94,18 @@ frequent once the player has two crescendo quills.
 Poker has hand types; words have kinds the dictionary already knows. One
 shipped (Libretto). Candidates, cheapest first:
 
-- **Dissonance** — ×2 mult for a word with no A, E, I, O, U (RHYTHM, MYTH,
-  LYNX, CRYPT). A real word class and on theme.
-- **Notation** — +4 mult per letter in A–G (the note names). Rewards
-  BADGE, FACADE, CABBAGE; every rack has some.
+- ~~**Dissonance**~~ shipped 2026-09-07 (part 5) — ×2 mult for a word with
+  no A, E, I, O, U.
+- ~~**Notation**~~ shipped 2026-09-07 (part 5) — +4 mult per letter in A–G,
+  counted per tile played (so BADGE's B, A, D, G, E all count).
 - ~~**Palindrome**~~ shipped 2026-09-07 (part 4) — ×3 mult, word === its
   own reverse.
-- **Bard** — ×2 mult for a word in Shakespeare's vocabulary. Needs a word
-  list; `js/wordbound/shakespeareGuide.js` may seed it.
-- **Rhyme** — +20 points if the word ends in the same two letters as the
-  last word played this round. Sequence, not kind, but the same axis.
+- ~~**Bard**~~ shipped 2026-09-07 (part 5) — ×2 mult for a word in a curated
+  theatrical/archaic vocabulary (`BARD_WORDS`, items.js — not pulled from
+  `js/wordbound/shakespeareGuide.js`, which turned out to hold only the
+  one-time guide intro text, no vocabulary list).
+- ~~**Rhyme**~~ shipped 2026-09-07 (part 5) — +20 points if the word ends
+  the same two letters as the last one played this round.
 
 ## Stolen letters as the meta (next big build)
 
@@ -166,7 +168,7 @@ position.
    `PREMIUM_CHANCE`/`DL`/`TL`/`DW`.
 3. ~~Stolen letters~~ shipped 2026-09-07 — play a full run on the phone to
    feel the locked alphabet and the boss letter-choice screen.
-4. More crescendo and second-axis quills once 1–3 have settled the feel:
-   ~~Fortissimo, Anticipation, Palindrome~~ shipped 2026-09-07 (part 4) —
-   Dissonance, Notation, Bard and Rhyme (second axis) and Sustain
-   (crescendo) remain, along with all four items' phone tuning.
+4. ~~More crescendo and second-axis quills once 1–3 have settled the
+   feel~~ shipped 2026-09-07 (parts 4–5): Fortissimo, Anticipation,
+   Sustain (crescendo) and Palindrome, Dissonance, Notation, Bard, Rhyme
+   (second axis). All nine remain untested on the phone.
