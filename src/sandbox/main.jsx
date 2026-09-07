@@ -46,3 +46,11 @@ import './recordings.js';
 import RoundSandbox from './RoundSandbox.jsx';
 
 createRoot(document.getElementById('sandbox-root')).render(<RoundSandbox />);
+
+// Offline audio cache (public/sw.js, stage 5): registers after load so it
+// never competes with the first paint or the first piece's own fetch.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}

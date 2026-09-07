@@ -695,6 +695,7 @@ export default function RoundSandbox() {
     setPhase('live');
     say('Movement ' + SB.MOVEMENTS[run.movement].numeral + ' · ' + SB.KIND_LABEL[def.kind] + ' — '
       + def.name + ' takes up ' + piece.title + '. Target ' + round.target + '.');
+    if (def.flavour) say(def.glyph + ' "' + def.flavour + '"');
     if (run.movementIIIQuillFound) {
       say('Movement III: you discover ' + SB.ITEM_DEFS[run.movementIIIQuillFound].name + '.');
       run.movementIIIQuillFound = null;
@@ -1047,7 +1048,7 @@ export default function RoundSandbox() {
       } else if (step.kind === 'slot') {
         st.litSlot = step.tile.id;
         float(step.tile.id, step.tone === 'mult' ? '×' + step.ratio : '+' + step.pts, step.tone);
-        sfx('item', step.tone);
+        sfx('shimmer', step.slotKind);
         show();
         await wait(CASCADE.ITEM_MS);
       } else {
@@ -1302,7 +1303,7 @@ export default function RoundSandbox() {
                 return (
                   <span key={e.id} title={e.name + ' · target ' + run.targetFor(mi, si)}
                     className={'sb-pip sb-pip-' + e.kind + (now ? ' is-now' : '') + (done ? ' is-done' : '')}>
-                    {e.kind === 'boss' ? '♩' : '·'}
+                    {now || done ? e.glyph : (e.kind === 'boss' ? '♩' : '·')}
                   </span>
                 );
               })}

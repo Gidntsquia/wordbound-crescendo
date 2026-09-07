@@ -187,11 +187,26 @@
       tone('sine', T.COIN_HZ, T.COIN_GAIN * level, t, T.COIN_MS);
       tone('sine', T.COIN_HZ * 1.5, T.COIN_GAIN * level, t + T.COIN_GAP_MS / 1000, T.COIN_MS);
     };
-    api.shimmer = function () {
+    api.shimmer = function (kind) {
       if (!on()) return;
       var t = now();
-      tone('triangle', T.SHIMMER_HZ, T.SHIMMER_GAIN * level, t, T.SHIMMER_MS, 8);
-      tone('triangle', T.SHIMMER_HZ + T.SHIMMER_DETUNE, T.SHIMMER_GAIN * level, t, T.SHIMMER_MS, 8);
+      // A distinct shimmer per premium kind (NEXT_LEVEL_PLAN.md stage 5):
+      // dl is the plain pair, tl adds a third voice a fifth above (three
+      // letters, three notes), dw widens the detune into a fuller chord
+      // (the whole word, not one tile). Any other caller (ink/étude use,
+      // a crescendo opening) gets the plain pair, unchanged.
+      if (kind === 'tl') {
+        tone('triangle', T.SHIMMER_HZ, T.SHIMMER_GAIN * level, t, T.SHIMMER_MS, 8);
+        tone('triangle', T.SHIMMER_HZ + T.SHIMMER_DETUNE, T.SHIMMER_GAIN * level, t, T.SHIMMER_MS, 8);
+        tone('triangle', T.SHIMMER_HZ * 1.5, T.SHIMMER_GAIN * level * 0.85, t, T.SHIMMER_MS, 8);
+      } else if (kind === 'dw') {
+        tone('triangle', T.SHIMMER_HZ, T.SHIMMER_GAIN * level, t, T.SHIMMER_MS * 1.4, 8);
+        tone('triangle', T.SHIMMER_HZ + T.SHIMMER_DETUNE * 2.5, T.SHIMMER_GAIN * level, t, T.SHIMMER_MS * 1.4, 8);
+        tone('triangle', T.SHIMMER_HZ * 1.25, T.SHIMMER_GAIN * level * 0.7, t, T.SHIMMER_MS * 1.4, 8);
+      } else {
+        tone('triangle', T.SHIMMER_HZ, T.SHIMMER_GAIN * level, t, T.SHIMMER_MS, 8);
+        tone('triangle', T.SHIMMER_HZ + T.SHIMMER_DETUNE, T.SHIMMER_GAIN * level, t, T.SHIMMER_MS, 8);
+      }
     };
 
     // ---- Phase 4: the scoring cascade ----
