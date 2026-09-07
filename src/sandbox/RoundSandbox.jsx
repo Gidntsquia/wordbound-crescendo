@@ -202,7 +202,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats }) {
 
 // The shop between fights: two cards, two packs, reroll, and the door.
 function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard,
-  pendingInk, useInkNow, saveInk, inking, toggleInkTile, applyInk, cancelInking }) {
+  selecting, commitSelecting, cancelSelecting, toggleSelectTile }) {
   const shop = run.shop;
   const next = SB.enemyAt(run.movement, run.stage);
   const packDef = (kind) => SB.PACK_KINDS.find((k) => k.kind === kind);
@@ -212,55 +212,49 @@ function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard,
         <span className="sb-eyebrow">The shop · between fights{shop.coupon ? ' · coupon: cards are free' : ''}{shop.packs.some((p) => p.free && !p.opened) ? ' · a free pack' : ''}</span>
         <span className="sb-purse"><b>{run.gold}</b> gold</span>
       </div>
-      {firstVisit && !pendingInk && !inking && <div className="sb-callout sb-callout-inline">Items score every word. Gold carries over.</div>}
-      {pendingInk && (
+      {firstVisit && !selecting && <div className="sb-callout sb-callout-inline">Items score every word. Gold carries over.</div>}
+      {selecting && (
         <div className="sb-pack-open sb-ink-decide">
-          <span className="sb-eyebrow">{SB.INK_DEFS[pendingInk.id].name}</span>
-          <span className="sb-hint">{pendingInk.label} {SB.INK_DEFS[pendingInk.id].hint}</span>
-          <div className="sb-shop-row">
-            <button type="button" className="sb-go" onClick={useInkNow}>Use it now</button>
-            <button type="button" onClick={saveInk} disabled={run.consumables.length >= run.tune.CONSUMABLE_SLOTS}>
-              Save it ({run.consumables.length}/{run.tune.CONSUMABLE_SLOTS} slots)
-            </button>
-          </div>
-        </div>
-      )}
-      {!pendingInk && inking && (
-        <div className="sb-pack-open sb-ink-decide">
-          <span className="sb-eyebrow">{inking.ink.name} · a hand drawn from your deck</span>
+          <span className="sb-eyebrow">{selecting.name}{selecting.from === 'shop' ? ' · ' + selecting.price + ' gold' : ''}</span>
           <span className="sb-hint">
-            {inking.ink.targets === 1 ? 'tap one of your tiles' : 'tap up to ' + inking.ink.targets + ' of your tiles'}
-            {' · '}{inking.ink.hint}
+            {selecting.ink.targets === 0 ? selecting.ink.hint
+              : (selecting.ink.targets === 1 ? 'Tap one of your tiles to apply on the spot, or just buy it — ' : 'Tap up to ' + selecting.ink.targets + ' of your tiles to apply on the spot, or just buy it — ') + selecting.ink.hint}
           </span>
-          <div className="sb-rack">
-            {inking.hand.map((t) => (
-              <button key={t.id} type="button"
-                className={'sb-tile' + (t.ink ? ' is-ink-' + t.ink : '') + (inking.ids.includes(t.id) ? ' is-inking' : '')}
-                title={t.ink ? SB.INK_DEFS[t.ink].name + ' — ' + SB.INK_DEFS[t.ink].hint : undefined}
-                onClick={() => toggleInkTile(t.id)}>
-                {t.letter === '?' ? '␣' : t.letter}
-                <sub>{SB.LETTER_VALUES ? SB.LETTER_VALUES[t.letter] : window.Wordbound.Lexicon.LETTER_VALUES[t.letter]}</sub>
-              </button>
-            ))}
-          </div>
-          {inking.ink.needsVowel && (
+          {selecting.ink.targets > 0 && (
+            <div className="sb-rack">
+              {selecting.hand.map((t) => (
+                <button key={t.id} type="button"
+                  className={'sb-tile' + (t.ink ? ' is-ink-' + t.ink : '') + (selecting.ids.includes(t.id) ? ' is-inking' : '')}
+                  title={t.ink ? SB.INK_DEFS[t.ink].name + ' — ' + SB.INK_DEFS[t.ink].hint : undefined}
+                  onClick={() => toggleSelectTile(t.id)}>
+                  {t.letter === '?' ? '␣' : t.letter}
+                  <sub>{SB.LETTER_VALUES ? SB.LETTER_VALUES[t.letter] : window.Wordbound.Lexicon.LETTER_VALUES[t.letter]}</sub>
+                </button>
+              ))}
+            </div>
+          )}
+          {selecting.ink.needsVowel && selecting.ids.length > 0 && (
             <span className="sb-vowels">
               {SB.VOWELS.map((v) => (
-                <button key={v} type="button" className={'sb-vowel' + (inking.vowel === v ? ' is-on' : '')}
-                  onClick={() => toggleInkTile(null, v)}>{v}</button>
+                <button key={v} type="button" className={'sb-vowel' + (selecting.vowel === v ? ' is-on' : '')}
+                  onClick={() => toggleSelectTile(null, v)}>{v}</button>
               ))}
             </span>
           )}
           <div className="sb-shop-row">
-            <button type="button" className="sb-go" onClick={applyInk}
-              disabled={!inking.ids.length || (inking.ink.needsVowel && !inking.vowel)}>
-              Apply{inking.ids.length ? ' to ' + inking.ids.length : ''}
+            <button type="button" onClick={() => commitSelecting(false)}
+              disabled={run.consumables.length >= run.tune.CONSUMABLE_SLOTS}>
+              Buy ({run.consumables.length}/{run.tune.CONSUMABLE_SLOTS} slots)
             </button>
-            <button type="button" onClick={cancelInking}>Skip (forfeit it)</button>
+            <button type="button" className="sb-go" onClick={() => commitSelecting(true)}
+              disabled={selecting.ink.targets > 0 && (!selecting.ids.length || (selecting.ink.needsVowel && !selecting.vowel))}>
+              Buy &amp; apply{selecting.ids.length ? ' to ' + selecting.ids.length : ''}
+            </button>
+            <button type="button" onClick={cancelSelecting}>Never mind</button>
           </div>
         </div>
       )}
-      {!pendingInk && !inking && run.pack && (
+      {!selecting && run.pack && (
         <div className="sb-pack-open">
           <span className="sb-eyebrow">{packDef(run.pack.kind).name} · keep one</span>
           <div className="sb-shop-row">
@@ -277,7 +271,7 @@ function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard,
           </div>
         </div>
       )}
-      {!pendingInk && !inking && !run.pack && (<>
+      {!selecting && !run.pack && (<>
         <div className="sb-shop-row" aria-label="Cards">
           {shop.cards.map((c, i) => (
             <button key={i} type="button"
@@ -727,59 +721,74 @@ export default function RoundSandbox() {
     return true;
   }, [say, refresh, sfx]);
 
-  // INKING: buying an ink (shop.buy) or keeping one from a pack (run.pick)
-  // deducts gold / settles the pack but leaves the ink itself as `res.ink`
-  // (an id) instead of deciding its fate -- pendingInk holds that choice
-  // until the player taps either "use it now" (drawInkHand + useAdhocInk,
-  // via the same `inking` overlay, marked with `adhocId`) or "save it"
-  // (run.saveInk, into run.consumables, CONSUMABLE_SLOTS deep).
+  // INKING (mid-round, from a held consumable): unchanged -- `inking` picks
+  // tiles for run.useConsumable.
   const [inking, setInking] = useState(null);
-  const [pendingInk, setPendingInk] = useState(null);
+  // SELECTING (shop/pack): clicking an ink card doesn't spend anything yet.
+  // It draws a hand right away (run.drawInkHand -- free, just a preview of
+  // the deck to tap) and offers Buy (shop.buy/run.pick, then run.saveInk --
+  // straight to the inventory) or Apply (same purchase, then run.useAdhocInk
+  // on the tiles picked here) so the tile choice happens before gold moves.
+  const [selecting, setSelecting] = useState(null);
   const buyCard = useCallback((i) => {
-    const shop = fight.current?.run?.shop;
+    const run = fight.current?.run;
+    const shop = run?.shop;
     const c = shop?.cards[i];
-    const res = shop?.buy(i);
+    if (!c) return;
+    if (c.kind === 'ink') {
+      const ink = SB.INK_DEFS[c.id];
+      setWord('');
+      setSelecting({ from: 'shop', index: i, price: c.price, name: cardName(SB, c), ink, hand: run.drawInkHand(), ids: [], vowel: null });
+      return;
+    }
+    const res = shop.buy(i);
     if (!res || !res.ok) { act(null, res); return; }
-    if (res.ink) { setPendingInk({ id: res.ink, label: 'Bought ' + cardName(SB, c) + '.' }); refresh(); return; }
     const label = res.used
       ? 'Bought ' + cardName(SB, c) + ' and used it — ' + res.used
       : 'Bought ' + cardName(SB, c) + ' for ' + c.price + '.';
     act(label, res, res.used ? 'shimmer' : 'coin');
-  }, [act, refresh, SB]);
+  }, [act, SB]);
   const pickCard = useCallback((i) => {
     const run = fight.current?.run;
     const c = run?.pack?.choices[i];
-    const res = run?.pick(i);
+    if (!c) return;
+    if (c.kind === 'ink') {
+      const ink = SB.INK_DEFS[c.id];
+      setWord('');
+      setSelecting({ from: 'pack', index: i, name: cardName(SB, c), ink, hand: run.drawInkHand(), ids: [], vowel: null });
+      return;
+    }
+    const res = run.pick(i);
     if (!res || !res.ok) { act(null, res); return; }
-    if (res.ink) { setPendingInk({ id: res.ink, label: 'Kept ' + cardName(SB, c) + '.' }); refresh(); return; }
     const label = res.used
       ? 'Kept ' + cardName(SB, c) + ' and used it — ' + res.used
       : 'Kept ' + (c.kind === 'tile' ? 'the ' + c.tile.letter : 'the ' + cardName(SB, c)) + '.';
     act(label, res, 'tick');
-  }, [act, refresh, SB]);
-  const useInkNow = useCallback(() => {
-    const r = fight.current?.run;
-    if (!r || !pendingInk) return;
-    const ink = SB.INK_DEFS[pendingInk.id];
-    setPendingInk(null);
-    if (ink.targets === 0) {
-      const res = r.useAdhocInk(pendingInk.id, [], {});
-      act(res.ok ? res.note : null, res, 'shimmer');
+  }, [act, SB]);
+  const commitSelecting = useCallback((apply) => {
+    const run = fight.current?.run;
+    if (!run || !selecting) return;
+    const purchase = selecting.from === 'shop' ? run.shop.buy(selecting.index) : run.pick(selecting.index);
+    if (!purchase || !purchase.ok) { act(null, purchase); return; }
+    const verb = selecting.from === 'shop' ? 'Bought' : 'Kept';
+    if (!apply) {
+      const res = run.saveInk(purchase.ink);
+      if (act(res.ok ? verb + ' ' + selecting.name + ' — saved for later.' : null, res, 'tick')) setSelecting(null);
       return;
     }
-    say('Tap a tile to use it now.');
-    sfx('coin');
-    setWord('');
-    setInking({ adhocId: pendingInk.id, hand: r.drawInkHand(), ink, ids: [], vowel: null });
-    refresh();
-  }, [pendingInk, act, say, sfx, refresh, SB]);
-  const saveInk = useCallback(() => {
-    const r = fight.current?.run;
-    if (!r || !pendingInk) return;
-    const res = r.saveInk(pendingInk.id);
-    setPendingInk(null);
-    act(res.ok ? 'Saved the ink for later.' : null, res, 'tick');
-  }, [pendingInk, act]);
+    const res = run.useAdhocInk(purchase.ink, selecting.ids, { vowel: selecting.vowel });
+    if (act(res.ok ? verb + ' ' + selecting.name + ' and used it — ' + res.note : null, res, 'shimmer')) setSelecting(null);
+  }, [selecting, act]);
+  const cancelSelecting = useCallback(() => setSelecting(null), []);
+  const toggleSelectTile = (id, vowel) => {
+    setSelecting((k) => {
+      if (!k) return k;
+      if (vowel !== undefined) return { ...k, vowel };
+      const ids = k.ids.includes(id) ? k.ids.filter((x) => x !== id)
+        : k.ids.length >= k.ink.targets ? [...k.ids.slice(1), id] : [...k.ids, id];
+      return { ...k, ids };
+    });
+  };
   const useInk = useCallback((i) => {
     const r = fight.current?.run;
     if (!r) return;
@@ -1278,9 +1287,8 @@ export default function RoundSandbox() {
           {phase === 'shop' && run.shop && (
             <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} firstVisit={!seen.has('shop')}
               buyCard={buyCard} pickCard={pickCard}
-              pendingInk={pendingInk} useInkNow={useInkNow} saveInk={saveInk}
-              inking={inking} toggleInkTile={toggleInkTile} applyInk={applyInk}
-              cancelInking={() => setInking(null)} />
+              selecting={selecting} commitSelecting={commitSelecting} cancelSelecting={cancelSelecting}
+              toggleSelectTile={toggleSelectTile} />
           )}
           {(phase === 'run-won' || phase === 'lost') && (
             <EndScreen run={run} won={phase === 'run-won'} SB={SB} seed={seed} best={best}
