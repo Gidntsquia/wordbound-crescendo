@@ -5,20 +5,14 @@ import react from '@vitejs/plugin-react';
 // path (itch.io zip, GitHub Pages project subpath, etc.) without extra config.
 // outDir is dist/app (not bare dist/) so `vite build`'s emptyOutDir never
 // collides with tools/build-itch.js's dist/wordbound-itch.zip.
+//
+// One entry: index.html -> src/sandbox/main.jsx. The former React app that
+// lived at index.html was deleted 2026-09-07 (NEXT_LEVEL_PLAN.md stage 5);
+// the ROUND SANDBOX is the app now.
 export default defineConfig({
   base: './',
   plugins: [react()],
   build: {
     outDir: 'dist/app',
-    // Two entries: the real app (index.html) and the bare-bones one-fight
-    // duel sandbox (sandbox.html -> src/sandbox/). The sandbox exists so the
-    // duel mechanics can be tuned without loading the whole run structure;
-    // see src/sandbox/DuelSandbox.jsx's header.
-    rollupOptions: {
-      input: {
-        main: 'index.html',
-        sandbox: 'sandbox.html',
-      },
-    },
   },
 });

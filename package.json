@@ -1,17 +1,14 @@
 {
   "name": "wordbound-crescendo",
   "private": true,
-  "description": "Wordbound: Crescendo, a words-vs-music browser game engine-forked from Wordbound. Built with Vite + React (`npm run dev` / `npm run build`); game logic stays framework-agnostic plain JS.",
+  "description": "Wordbound: Crescendo, a words-vs-music browser game. Built with Vite + React (`npm run dev` / `npm run build`); game logic stays framework-agnostic plain JS.",
   "scripts": {
-    "dev": "vite",
-    "dev:sandbox": "vite --open /sandbox.html",
+    "dev": "vite --open",
     "build": "vite build",
     "build:site": "node tools/build-site.js",
     "deploy": "bash tools/deploy.sh",
     "preview": "vite preview",
     "build:itch": "node tools/build-itch.js",
-    "prerecord:gameplay": "node tools/ensure-deps.js @playwright/test",
-    "record:gameplay": "node tools/record-gameplay.js",
     "fetch:audio": "node tools/fetch-audio.js",
     "fetch:words": "node tools/fetch-wiktionary.js"
   },
