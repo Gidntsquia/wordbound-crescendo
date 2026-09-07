@@ -146,6 +146,33 @@
     { id: 'dw', name: 'Double Word', weight: 1 }
   ];
 
+  // KEYS (NEXT_LEVEL_PLAN.md stage 3): Balatro's stakes, named for musical
+  // keys. Each is the one before it plus one rule, so applyKey below just
+  // layers effects up to the chosen key's index. C major is the base game.
+  Sandbox.KEYS = [
+    { id: 'c_major', name: 'C major', hint: 'the base game' },
+    { id: 'g_major', name: 'G major', hint: 'targets ×1.15' },
+    { id: 'd_major', name: 'D major', hint: 'one fewer swap per round' },
+    { id: 'a_minor', name: 'A minor', hint: 'the premium slot never appears on boss rounds' },
+    { id: 'e_minor', name: 'E minor', hint: 'shop reroll starts at 7' },
+    { id: 'b_minor', name: 'B minor', hint: 'no skip favours' }
+  ];
+  Sandbox.KEY_DEFS = {};
+  Sandbox.KEYS.forEach(function (k, i) { k.index = i; Sandbox.KEY_DEFS[k.id] = k; });
+  // Layers every key's rule up to and including `keyId` onto a copy of tune.
+  // KEY_TARGET_MULT/KEY_NO_BOSS_PREMIUM/KEY_NO_SKIP are read by targetFor,
+  // rollPremium (via createRun's opts.noPremium) and run.skip respectively.
+  Sandbox.applyKey = function (tune, keyId) {
+    var key = Sandbox.KEY_DEFS[keyId] || Sandbox.KEYS[0];
+    var out = Object.assign({}, tune);
+    if (key.index >= 1) out.KEY_TARGET_MULT = 1.15; // G major
+    if (key.index >= 2) out.CHANGEOUTS = Math.max(0, out.CHANGEOUTS - 1); // D major
+    if (key.index >= 3) out.KEY_NO_BOSS_PREMIUM = true; // A minor
+    if (key.index >= 4) out.REROLL_PRICE = 7; // E minor
+    if (key.index >= 5) out.KEY_NO_SKIP = true; // B minor
+    return out;
+  };
+
   // The favours a skipped enemy pays. One is drawn per skippable round and
   // shown on the round screen as the price of not fighting.
   Sandbox.FAVOURS = [
@@ -401,6 +428,7 @@
     };
     (function rollPremium() {
       if (rule && rule.noPremium) return;
+      if (opts.noPremium) return; // A minor: never on a boss round
       if (!rng.chance(tune.PREMIUM_CHANCE)) return;
       var kind = rng.weightedChoice(Sandbox.PREMIUM_KINDS, function (k) { return k.weight; });
       if (!kind) return;
@@ -549,9 +577,10 @@
   // win, and every win short of the last opens the SHOP. Lose a round and the
   // run is lost; fell the last boss and the run is won.
   Sandbox.createRun = function (opts) {
-    var tune = Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {});
+    var tune = Sandbox.applyKey(Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {}), opts.key);
     var MOVEMENTS = Sandbox.MOVEMENTS || [];
     var run = {
+      key: opts.key || Sandbox.KEYS[0].id,
       tune: tune,
       movements: MOVEMENTS,
       movement: 0,
@@ -582,7 +611,7 @@
     run.targetFor = function (movement, stage) {
       var e = Sandbox.enemyAt(movement, stage);
       var base = tune['MOVEMENT_BASE_' + (movement + 1)] || tune.MOVEMENT_BASE_1 * Math.pow(2.5, movement);
-      return Math.round(base * (e ? KIND_MULT[e.kind] || 1 : 1));
+      return Math.round(base * (e ? KIND_MULT[e.kind] || 1 : 1) * (tune.KEY_TARGET_MULT || 1));
     };
     run.interestPreview = function () {
       return Math.min(tune.INTEREST_CAP, Math.floor(run.gold / tune.INTEREST_PER));
@@ -606,6 +635,7 @@
       run.round = Sandbox.createRound({
         rng: opts.rng, deck: run.deck, pile: run.pile, tune: tune, items: run.items, run: run,
         crescendo: opts.crescendo,
+        noPremium: !!(tune.KEY_NO_BOSS_PREMIUM && run.enemy.kind === 'boss'),
         target: run.targetFor(run.movement, run.stage),
         reward: KIND_GOLD[run.enemy.kind],
         rule: run.enemy.rule,
@@ -627,6 +657,7 @@
     run.skip = function () {
       var r = run.round;
       if (run.state !== 'live' || !r || r.state !== 'live' || run.shop) return { ok: false, reason: 'Nothing to skip.' };
+      if (tune.KEY_NO_SKIP) return { ok: false, reason: 'No skipping in B minor.' };
       if (!r.favour) return { ok: false, reason: 'The boss cannot be skipped.' };
       if (r.plays.length) return { ok: false, reason: 'Too late — a word has been played.' };
       var favour = r.favour;

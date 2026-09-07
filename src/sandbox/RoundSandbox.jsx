@@ -360,8 +360,33 @@ function recordRun(run, won) {
   }
   out.wins = (best.wins || 0) + (won ? 1 : 0);
   out.runs = (best.runs || 0) + 1;
+  if (won && run.key) {
+    out.winsByKey = { ...(best.winsByKey || {}) };
+    out.winsByKey[run.key] = (out.winsByKey[run.key] || 0) + 1;
+  }
   writeBest(out);
   return out;
+}
+
+// Keys (stage 3): the title screen offers the next key once the current
+// highest-unlocked one has been won at least once. wbc.keyUnlocked is the
+// index of the highest key on offer; wbc.key is the player's current pick.
+const KEY_UNLOCKED_KEY = 'wbc.keyUnlocked';
+function readKeyUnlocked() {
+  try { return Math.max(0, parseInt(window.localStorage.getItem(KEY_UNLOCKED_KEY), 10) || 0); } catch (e) { return 0; }
+}
+function writeKeyUnlocked(i) {
+  try { window.localStorage.setItem(KEY_UNLOCKED_KEY, String(i)); } catch (e) { /* ignore */ }
+}
+function readKeyChoice(unlocked, SB) {
+  try {
+    const saved = window.localStorage.getItem('wbc.key');
+    if (saved && SB.KEY_DEFS[saved] && SB.KEY_DEFS[saved].index <= unlocked) return saved;
+  } catch (e) { /* ignore */ }
+  return SB.KEYS[0].id;
+}
+function writeKeyChoice(id) {
+  try { window.localStorage.setItem('wbc.key', id); } catch (e) { /* ignore */ }
 }
 function randomSeed() {
   const words = ['sonata', 'cadenza', 'fugue', 'rondo', 'largo', 'vivace', 'minuet', 'coda', 'aria', 'canon'];
@@ -501,6 +526,18 @@ export default function RoundSandbox() {
     if (s && s[name]) s[name](...a);
   }, []);
   const [tune, setTune] = useState(() => ({ ...SB.ROUND_DEFAULTS }));
+  const [keyUnlocked, setKeyUnlocked] = useState(() => readKeyUnlocked());
+  const [key, setKey] = useState(() => readKeyChoice(readKeyUnlocked(), SB));
+  // A win on the highest-unlocked key offers the next one (stage 3).
+  const unlockNextKey = useCallback((wonRun) => {
+    const wonIndex = SB.KEY_DEFS[wonRun.key] ? SB.KEY_DEFS[wonRun.key].index : 0;
+    setKeyUnlocked((prev) => {
+      if (wonIndex < prev || prev >= SB.KEYS.length - 1) return prev;
+      const next = Math.min(SB.KEYS.length - 1, prev + 1);
+      writeKeyUnlocked(next);
+      return next;
+    });
+  }, [SB]);
   // Sample items, read at Start (a mid-round swap would half-apply).
   const [itemIds, setItemIds] = useState(() => new Set());
   const [suggestions, setSuggestions] = useState([]);
@@ -686,7 +723,7 @@ export default function RoundSandbox() {
     }
 
     const run = SB.createRun({
-      rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds], crescendo: crescendoNow,
+      rng, deck: SB.createBagDeck(bagId), tune, items: [...itemIds], crescendo: crescendoNow, key,
       extendCrescendo: (extraSec) => { const s = fight.current?.seq; if (s && s.extendCrescendo) s.extendCrescendo(extraSec); }
     });
     fight.current = { ...(fight.current || {}), ctx, gain, sfx: sfxNode, seq: fight.current?.seq };
@@ -695,7 +732,7 @@ export default function RoundSandbox() {
       say('Carrying ' + [...itemIds].map((id) => SB.ITEM_DEFS[id].name).join(', ') + '.');
     }
     startStage(run);
-  }, [seed, bagId, volume, sfxOn, tune, itemIds, say, startStage, SB, crescendoNow]);
+  }, [seed, bagId, volume, sfxOn, tune, itemIds, key, say, startStage, SB, crescendoNow]);
 
   // Poll the crescendo window for the card's countdown. Only runs while a
   // round is live and a crescendo quill is held; 100 ms keeps the seconds
@@ -727,6 +764,7 @@ export default function RoundSandbox() {
       setPhase('run-won');
       say('The last boss falls. Run won with ' + f.run.gold + ' gold.');
       setBest(recordRun(f.run, true));
+      unlockNextKey(f.run);
       refresh();
       return;
     }
@@ -744,7 +782,7 @@ export default function RoundSandbox() {
       return;
     }
     startStage(f.run);
-  }, [phase, say, refresh, startStage, SB, warm]);
+  }, [phase, say, refresh, startStage, SB, warm, unlockNextKey]);
 
   // Take a letter offered after a boss, then resume into the shop or the win screen.
   const pickLetter = useCallback((letter) => {
@@ -754,6 +792,7 @@ export default function RoundSandbox() {
       setPhase('run-won');
       say('The last boss falls. Run won with ' + f.run.gold + ' gold.');
       setBest(recordRun(f.run, true));
+      unlockNextKey(f.run);
       refresh();
       return;
     }
@@ -765,7 +804,7 @@ export default function RoundSandbox() {
       return;
     }
     startStage(f.run);
-  }, [phase, say, refresh, startStage, SB, warm]);
+  }, [phase, say, refresh, startStage, SB, warm, unlockNextKey]);
 
   // Leave the shop and go on to the next enemy.
   const leaveShop = useCallback(() => {
@@ -1214,7 +1253,7 @@ export default function RoundSandbox() {
       onPointerDownCapture={scoring ? skipCascade : undefined}>
       <header className="sb-head">
         <div className="sb-wordmark">
-          <span className="sb-eyebrow">{phase === 'idle' ? 'Words against music' : 'Movement ' + SB.MOVEMENTS[run.movement].numeral + ' · ' + SB.KIND_LABEL[run.enemy.kind]}</span>
+          <span className="sb-eyebrow">{phase === 'idle' ? 'Words against music' : 'Movement ' + SB.MOVEMENTS[run.movement].numeral + ' · ' + SB.KIND_LABEL[run.enemy.kind] + (run.key && run.key !== 'c_major' ? ' · ' + SB.KEY_DEFS[run.key].name : '')}</span>
           <h1>Wordbound<span className="sb-amp">·</span>Crescendo</h1>
         </div>
         <button type="button" className="sb-gear" aria-label="Setup and tuning" title="Setup and tuning"
@@ -1224,9 +1263,18 @@ export default function RoundSandbox() {
       {phase === 'idle' && (
         <section className="sb-title">
           <p className="sb-title-line">Spell words. Beat the target before your words run out.</p>
+          {keyUnlocked > 0 && (
+            <div className="sb-keys" role="group" aria-label="Key">
+              {SB.KEYS.map((k) => (
+                <button key={k.id} type="button" title={k.hint} disabled={k.index > keyUnlocked}
+                  className={'sb-key' + (k.id === key ? ' is-on' : '') + (k.index > keyUnlocked ? ' is-locked' : '')}
+                  onClick={() => { setKey(k.id); writeKeyChoice(k.id); }}>{k.name}</button>
+              ))}
+            </div>
+          )}
           <button type="button" className="sb-go sb-title-play" onClick={() => start(randomSeed())}>Play</button>
           <p className="sb-hint sb-title-best">
-            {best.word ? <>Best: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}</> : 'Nine enemies, each with its own piece of music. Gold between fights buys quills that score every word.'}
+            {best.word ? <>Best: {best.word.word} for {best.word.total} · {best.wins || 0} win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run{best.runs === 1 ? '' : 's'}{best.winsByKey && best.winsByKey[key] ? <> ({best.winsByKey[key]} in {SB.KEY_DEFS[key].name})</> : ''}</> : 'Nine enemies, each with its own piece of music. Gold between fights buys quills that score every word.'}
           </p>
         </section>
       )}
@@ -1270,6 +1318,16 @@ export default function RoundSandbox() {
                 onClick={() => setBagId(b.id)}>{b.label}</button>
             ))}
           </div>
+        </div>
+        <div className="sb-key-tune" role="group" aria-label="Keys">
+          <span className="sb-bags-head">Keys</span>
+          <ul className="sb-key-list">
+            {SB.KEYS.map((k) => (
+              <li key={k.id} className={k.index > keyUnlocked ? 'is-locked' : ''}>
+                <b>{k.name}</b> — {k.hint}
+              </li>
+            ))}
+          </ul>
         </div>
         {SB.availableLetters && (
           <div className="sb-alphabet" role="group" aria-label="Letters won back">

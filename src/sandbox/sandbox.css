@@ -217,6 +217,56 @@ body {
   border-color: var(--brass-hot);
 }
 
+/* Keys (NEXT_LEVEL_PLAN.md stage 3): a row on the title screen once a
+   second key is unlocked, and a read-only list of all six in the tuning
+   panel. Reuses .sb-bag's button look rather than inventing a new one. */
+.sb-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 18px;
+}
+
+.sb-key {
+  padding: 6px 12px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sb-key.is-on {
+  color: var(--ink);
+  background: var(--leaf);
+  border-color: var(--leaf);
+}
+
+.sb-key.is-locked { opacity: 0.35; }
+
+.sb-key-tune {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--leaf-dim);
+}
+
+.sb-key-list {
+  margin: 0;
+  padding: 0 0 0 14px;
+  list-style: disc;
+}
+
+.sb-key-list li.is-locked { opacity: 0.4; }
+
+.sb-key-list b {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--leaf-dim);
+}
+
 /* The stolen-letters meta (DIVERGENCE_PLAN.md): every letter, hollow where
    still stolen. Won letters read the same as the bag chooser's active tab. */
 .sb-alphabet { display: flex; flex-direction: column; gap: 5px; }
