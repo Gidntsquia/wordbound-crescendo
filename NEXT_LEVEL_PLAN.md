@@ -19,6 +19,14 @@ Jaxon's decisions, 2026-09-07:
 - **Identity and polish, all of it**, minus strike/parry sounds.
 - **Delete the old app** (`/app.html`, `wordbound.html`, `css/`, and the
   engine modules only they used).
+- **Jaxon is asleep while this is built.** No input is available until he
+  wakes. The AI must unblock itself wherever possible: make every routine
+  call with the plan's recommendation, write the decision and its reason
+  into this file's "Decided overnight" section, and keep going. A stage
+  whose gate is a played run is not a stop — build it, verify with a
+  headless Chromium driver as in NIGHT_REPORT.md, deploy, and list the feel
+  question for the morning. Stop only for something destructive beyond
+  the deletion already approved here.
 
 ## Stage 1 — Feel pass (before anything new)
 
@@ -40,6 +48,8 @@ full runs on the phone, then tune before building on top of it.
   (NIGHT_REPORT.md). `MOVEMENT_BASE_2/3`.
 - Write the numbers that change into `ROUND_DEFAULTS` and one line each
   here. Gate: Jaxon says the three shipped systems feel right.
+- **Overnight:** this stage is Jaxon's and is skipped. Leave the numbers
+  as they are; list every feel question under "For the morning" below.
 
 ## Stage 2 — Harmony: the chord quill
 
@@ -116,20 +126,30 @@ The pass before a build people outside the household play.
 - **Itch build.** tools/build-itch.js exists from the sibling repo; point
   it at the sandbox entry and test the zip.
 
-## Order of work
+## Order of work (overnight)
 
-1. Stage 1 — Jaxon plays; the numbers are his.
-2. Stage 5's first item, deleting the old app — do it before any new
-   feature so nothing new is built against dead code.
-3. Stage 2 (Harmony) — one afternoon.
-4. Stage 3 (keys) — cheap, a day with tuning.
-5. Stage 4 (quill discovery) — after a week of play, when the pool needs
-   a reason to grow.
-6. The rest of stage 5 — when someone outside the household is going to
-   play.
+1. Stage 5's first item, deleting the old app — first, so nothing new is
+   built against dead code. Approved above.
+2. Stage 2 (Harmony).
+3. Stage 3 (keys) — use the six rules as written; they are the AI's
+   proposal and Jaxon can rename or reorder them in the morning.
+4. Stage 4 (quill discovery) — starting set: the plain length and mult
+   quills, chosen by the AI; hidden: every crescendo and second-axis quill.
+5. The rest of stage 5. The name stays "Wordbound: Crescendo" until Jaxon
+   changes it.
+6. Stage 1 waits for Jaxon.
 
-Jaxon-only decisions along the way: the six key rules (stage 3), the
-starting quill set (stage 4) and the game's name (stage 5).
+One commit per stage with the `SANDBOX:` prefix, `npm run deploy` after
+each, main pushed. Verification per stage: `npm run build` clean and a
+headless driver run at 1280 wide and 390×844 with zero page errors.
+
+## Decided overnight
+
+(The AI appends one line per decision made without Jaxon, with the reason.)
+
+## For the morning
+
+(The AI appends every feel question here, most important first.)
 
 Not doing, on purpose: enemy strikes or any punishment tied to the music,
 chords as a base mechanic, movement choice, encore, daily seed, vouchers
