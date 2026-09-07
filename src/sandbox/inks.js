@@ -1,21 +1,26 @@
 // src/sandbox/inks.js
 // INKS -- Balatro's tarot cards. A consumable that marks one or two tiles of
-// the current case (they are the same objects as run.deck's, so the mark
-// lasts the run), turns a letter, destroys a tile, or pays gold. The marks
-// are scored by round.js's scoreWordPoints (tile.ink):
+// the player's whole deck (a mark lasts the run whether the tile is sitting
+// in the current case or not), turns a letter, destroys a tile, or pays
+// gold. The marks are scored by round.js's scoreWordPoints (tile.ink):
 //   gilt   +INK_GILT points when the tile is played
 //   bold   +INK_BOLD mult when the tile is played
 //   steel  x INK_STEEL mult for each steel tile left in the case after a play
 //   blank  the tile is a wildcard ('?', worth 0, spells anything)
 // and the rest act at once:
 //   vowel  the tile becomes the vowel of choice
-//   erase  the tile is destroyed (out of the deck and the case; the case refills)
+//   erase  the tile is destroyed (out of the deck, and out of the case too
+//          if a round is live -- the case refills)
 //   coin   gold doubles, up to +INK_COIN_CAP
+//
+// Targeting the whole deck (not just the live case) is what lets an ink
+// bought in the shop with every slot full be used on the spot, tapping any
+// tile the player owns, rather than waiting for the next fight.
 //
 // PUBLIC API (window.Wordbound.Sandbox):
 //   INKS [{ id, name, targets (0-2), needsVowel?, hint }], INK_DEFS
 //   applyInk(run, inkId, tileIds, extra?) -> { ok, note } | { ok:false, reason }
-//     extra.vowel for 'vowel'. Tiles must stand in run.round.rack.
+//     extra.vowel for 'vowel'. Tiles must stand in run.deck.
 (function () {
   window.Wordbound = window.Wordbound || {};
   var Sandbox = (window.Wordbound.Sandbox = window.Wordbound.Sandbox || {});
@@ -46,20 +51,19 @@
       run.gold += gain;
       return { ok: true, note: 'Coin: +' + gain + ' gold.' };
     }
-    var round = run.round;
-    if (!round || round.state !== 'live') return { ok: false, reason: 'Inks are applied to the case mid-fight.' };
     var ids = (tileIds || []).slice(0, ink.targets);
-    if (!ids.length) return { ok: false, reason: 'Pick a tile in the case first.' };
+    if (!ids.length) return { ok: false, reason: 'Pick a tile first.' };
     var tiles = ids.map(function (id) {
-      return round.rack.find(function (t) { return t.id === id; });
+      return run.deck.find(function (t) { return t.id === id; });
     }).filter(Boolean);
-    if (tiles.length !== ids.length) return { ok: false, reason: 'Those tiles aren’t in the case.' };
+    if (tiles.length !== ids.length) return { ok: false, reason: 'Those tiles aren’t in your deck.' };
     var letters = tiles.map(function (t) { return t.letter; }).join(', ');
     if (ink.id === 'erase') {
+      var round = run.round && run.round.state === 'live' ? run.round : null;
       tiles.forEach(function (t) {
         var d = run.deck.indexOf(t);
         if (d >= 0) run.deck.splice(d, 1);
-        round.destroyTile(t.id);
+        if (round) round.destroyTile(t.id);
       });
       return { ok: true, note: 'Erased ' + letters + '.' };
     }

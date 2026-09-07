@@ -112,18 +112,22 @@
       if (run.consumables.length >= tune.CONSUMABLE_SLOTS) {
         // An étude with nowhere to go is played on the spot. A no-target ink
         // (Coin) with nowhere to go is played on the spot too. A targeted
-        // ink can't be played outside a live round (it marks case tiles), so
-        // it is bought into an extra slot beyond CONSUMABLE_SLOTS instead of
-        // being blocked (Balatro: buying a full-handed card still lets you
-        // hold and use it, rather than refusing the purchase) -- that one
-        // overflow slot clears itself the moment the ink is used or sold.
+        // ink is bought into an extra slot beyond CONSUMABLE_SLOTS instead
+        // of being blocked (Balatro: buying a full-handed card still lets
+        // you hold and use it, rather than refusing the purchase) -- the
+        // caller opens the tile picker on it immediately (applyInk targets
+        // the whole deck, not just a live case), and the overflow slot
+        // clears itself the moment the ink is used or sold.
         if (c.kind === 'etude') { run.levelTier(c.id); return { ok: true, used: true }; }
         var inkDef = c.kind === 'ink' && Sandbox.INK_DEFS && Sandbox.INK_DEFS[c.id];
         if (inkDef && inkDef.targets === 0) {
           var res = Sandbox.applyInk(run, c.id, [], {});
           return res.ok ? { ok: true, used: true, note: res.note } : res;
         }
-        if (inkDef) { run.consumables.push({ kind: c.kind, id: c.id }); return { ok: true, overflow: true }; }
+        if (inkDef) {
+          run.consumables.push({ kind: c.kind, id: c.id });
+          return { ok: true, overflow: true, index: run.consumables.length - 1 };
+        }
         return { ok: false, reason: 'No room for another consumable — use or sell one first.' };
       }
       run.consumables.push({ kind: c.kind, id: c.id });
@@ -135,6 +139,7 @@
       if (!c || c.sold) return { ok: false, reason: 'Nothing there.' };
       if (run.gold < c.price) return { ok: false, reason: 'Not enough gold.' };
       var used = null;
+      var overflowIndex = -1;
       if (c.kind === 'item') {
         if (run.items.length >= tune.ITEM_SLOTS) return { ok: false, reason: 'All ' + tune.ITEM_SLOTS + ' item slots are full — sell one first.' };
         run.items.push(c.id);
@@ -142,10 +147,11 @@
         var t = takeConsumable(c);
         if (!t.ok) return t;
         if (t.used) used = t.note || null;
+        if (t.overflow) overflowIndex = t.index;
       }
       run.gold -= c.price;
       c.sold = true;
-      return { ok: true, card: c, used: used };
+      return { ok: true, card: c, used: used, overflowIndex: overflowIndex };
     };
 
     shop.sell = function (itemIndex) {
