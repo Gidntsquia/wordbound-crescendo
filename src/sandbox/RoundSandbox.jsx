@@ -505,18 +505,27 @@ export default function RoundSandbox() {
   // foreground -- leaving both music and sfx silent until the player
   // manually restarts the run. Resume on return to visibility instead.
   useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
+    const tryResume = () => {
       const ctx = fight.current?.ctx;
       if (ctx && ctx.state !== 'closed' && ctx.state !== 'running') {
         ctx.resume().catch(() => {});
       }
     };
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      tryResume();
+    };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
+    // A tab backgrounded for a few minutes can leave some mobile browsers
+    // (Firefox on Android in particular) refusing resume() unless it rides
+    // on an actual user gesture -- visibilitychange alone does not count.
+    // The player's first tap back on the page doubles as that gesture.
+    document.addEventListener('pointerdown', tryResume);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
+      document.removeEventListener('pointerdown', tryResume);
     };
   }, []);
 
