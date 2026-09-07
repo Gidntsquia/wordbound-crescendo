@@ -217,6 +217,19 @@ body {
   border-color: var(--brass-hot);
 }
 
+/* The stolen-letters meta (DIVERGENCE_PLAN.md): every letter, hollow where
+   still stolen. Won letters read the same as the bag chooser's active tab. */
+.sb-alphabet { display: flex; flex-direction: column; gap: 5px; }
+.sb-alphabet-row { display: flex; flex-wrap: wrap; gap: 3px; }
+.sb-letter {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  border: 1px solid var(--brass); border-radius: 2px;
+  font-family: var(--display); font-size: 11px; text-transform: uppercase;
+  color: var(--leaf);
+}
+.sb-letter.is-hollow { opacity: 0.35; border-style: dashed; color: var(--leaf-dim); }
+
 .sb-tune label {
   display: flex;
   flex-direction: column;
@@ -1594,6 +1607,8 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
 .sb-tile.is-premium-dl::before { content: 'DL'; color: #6fd0c8; }
 .sb-tile.is-premium-tl::before { content: 'TL'; color: #e08a4a; }
 .sb-tile.is-premium-dw::before { content: 'DW'; color: #d468c9; }
+.sb-letter-row { display: flex; gap: 10px; margin: 10px 0; }
+.sb-letter-pick { border-style: dashed; }
 .sb-premium-slot {
   display: inline-flex; align-items: center; justify-content: center;
   opacity: 0.55; font-family: var(--figure); font-size: 11px;

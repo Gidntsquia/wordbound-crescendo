@@ -727,6 +727,33 @@ export default function RoundSandbox() {
       refresh();
       return;
     }
+    if (f.run.letterChoice) {
+      setPhase('letter');
+      say('The boss falls — choose a letter to win back.');
+      refresh();
+      return;
+    }
+    if (f.run.shop) {
+      warm(f.run.movement, f.run.stage);
+      setPhase('shop');
+      say('The shop opens. ' + f.run.gold + ' gold in the purse.');
+      refresh();
+      return;
+    }
+    startStage(f.run);
+  }, [phase, say, refresh, startStage, SB, warm]);
+
+  // Take a letter offered after a boss, then resume into the shop or the win screen.
+  const pickLetter = useCallback((letter) => {
+    const f = fight.current;
+    if (!f || !f.run || phase !== 'letter' || !f.run.pickLetter(letter)) return;
+    if (f.run.state === 'won') {
+      setPhase('run-won');
+      say('The last boss falls. Run won with ' + f.run.gold + ' gold.');
+      setBest(recordRun(f.run, true));
+      refresh();
+      return;
+    }
     if (f.run.shop) {
       warm(f.run.movement, f.run.stage);
       setPhase('shop');
@@ -1241,6 +1268,17 @@ export default function RoundSandbox() {
             ))}
           </div>
         </div>
+        {SB.availableLetters && (
+          <div className="sb-alphabet" role="group" aria-label="Letters won back">
+            <span className="sb-bags-head">Letters</span>
+            <div className="sb-alphabet-row">
+              {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((l) => (
+                <span key={l} className={'sb-letter' + (SB.isAvailable(l) ? '' : ' is-hollow')}
+                  title={SB.isAvailable(l) ? l : l + ' — stolen; win it back by felling a boss'}>{l}</span>
+              ))}
+            </div>
+          </div>
+        )}
         <label>Volume
           <input type="range" min="0" max="1" step="0.05" value={volume}
             onChange={(e) => setVolume(Number(e.target.value))} />
@@ -1343,6 +1381,19 @@ export default function RoundSandbox() {
               <button type="button" className="sb-go" onClick={nextStage}>
                 {run.movement >= run.movements.length - 1 && run.enemy.kind === 'boss' ? 'Finish the run' : 'To the shop'}
               </button>
+            </div>
+          )}
+          {phase === 'letter' && run.letterChoice && (
+            <div className="sb-outcome sb-letter-choice">
+              <span className="sb-eyebrow">The boss falls — choose a letter to win back</span>
+              <div className="sb-letter-row">
+                {run.letterChoice.options.map((l) => (
+                  <button key={l} type="button" className="sb-tile sb-letter-pick" onClick={() => pickLetter(l)}>
+                    {l}<sub>{W.Lexicon.LETTER_VALUES[l] || 0}</sub>
+                  </button>
+                ))}
+              </div>
+              <p className="sb-hint">It joins every future run’s bag, win or lose this one.</p>
             </div>
           )}
           {phase === 'shop' && run.shop && (

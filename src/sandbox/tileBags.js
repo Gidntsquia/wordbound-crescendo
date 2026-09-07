@@ -100,11 +100,16 @@
   // written with its letters in a different order cannot shuffle differently
   // under the same seed -- the bags are meant to be compared against each
   // other on one seed, and that only works if the seed means the same thing.
+  // A letter still stolen (stolenLetters.js) is dropped from the bag entirely
+  // rather than reduced in count, same as the plan's "missing letters cannot
+  // appear in any bag" -- when stolenLetters.js isn't loaded (other sandbox
+  // entries), every letter is available.
   Sandbox.createBagDeck = function (bagId) {
     var counts = Sandbox.getTileBag(bagId).counts;
     var Tiles = window.Wordbound.Tiles;
     var deck = [];
     Object.keys(counts).sort().forEach(function (letter) {
+      if (Sandbox.isAvailable && !Sandbox.isAvailable(letter)) return;
       for (var i = 0; i < counts[letter]; i++) deck.push(Tiles.createTile(letter, null));
     });
     return deck;

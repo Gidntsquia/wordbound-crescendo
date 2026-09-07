@@ -35,6 +35,22 @@ a different game within one round.
   picks up a matching dashed rim. Scored as its own `slot` step between the
   letter steps and the items, narrated by the cascade with its own pop.
 
+## Shipped today (2026-09-07, part 3)
+
+- **Stolen letters, the meta.** `src/sandbox/stolenLetters.js`: `wbc.letters`
+  in localStorage, a JSON array of won letters. A fresh install locks J, Q,
+  X, Z, K, W (`STOLEN_ORDER`'s first six; vowels are never touched), leaving
+  20 available. `tileBags.js`'s `createBagDeck` and the shop's tile pack
+  (shop.js) both drop any letter still locked. Felling a boss (any of the
+  three, `run.next()` in round.js) pauses the win with `run.letterChoice =
+  { options, last }` — up to three still-missing letters, offered win or
+  lose the round after; `run.pickLetter(letter)` persists the pick and
+  resumes the shop/finish flow. RoundSandbox.jsx's `phase === 'letter'`
+  screen shows the pick; the gear panel's alphabet row shows the missing
+  ones hollow. Packs stay limited to won letters (the plan's open question
+  answered by inference from "missing letters cannot appear in any bag,
+  pack or ink result").
+
 ## The crescendo-effect contract
 
 Every quill flagged `crescendo: true` in items.js follows these rules, so
@@ -145,5 +161,6 @@ position.
 1. Play Climax and Libretto on the phone; tune the window and countdown.
 2. ~~Premium slots~~ shipped 2026-09-07 — play it on the phone and tune
    `PREMIUM_CHANCE`/`DL`/`TL`/`DW`.
-3. Stolen letters (touches persistence, the title screen and the bag).
+3. ~~Stolen letters~~ shipped 2026-09-07 — play a full run on the phone to
+   feel the locked alphabet and the boss letter-choice screen.
 4. More crescendo and second-axis quills once 1–3 have settled the feel.

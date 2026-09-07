@@ -179,7 +179,10 @@
         var Tiles = window.Wordbound.Tiles;
         var counts = Sandbox.getTileBag('strong').counts;
         var letters = [];
-        Object.keys(counts).forEach(function (l) { for (var k = 0; k < counts[l]; k++) letters.push(l); });
+        Object.keys(counts).forEach(function (l) {
+          if (Sandbox.isAvailable && !Sandbox.isAvailable(l)) return;
+          for (var k = 0; k < counts[l]; k++) letters.push(l);
+        });
         for (var a = 0; a < n; a++) choices.push({ kind: 'tile', tile: Tiles.createTile(pick(rng, letters), null) });
       } else if (p.kind === 'etude') {
         var etudeTaken = [];

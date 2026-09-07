@@ -537,6 +537,7 @@
       consumables: [], // inks and études held, CONSUMABLE_SLOTS deep
       itemState: {},   // scaling items' counters (items.js), e.g. refrain
       shop: null,    // open between fights (shop.js)
+      letterChoice: null, // { options, last } offered after a boss (stolenLetters.js)
       pack: null,    // an opened pack awaiting run.pick
       tierLevels: {}, // études: { tierId: level }, level 1 when absent
       gold: tune.START_GOLD,
@@ -620,19 +621,9 @@
       run.tierLevels[tierId] = (run.tierLevels[tierId] || 1) + 1;
       return true;
     };
-    // Settle the current round into the run: bank the reward, then the
-    // interest on what is held. A win on the way to the last boss opens the
-    // shop (run.shop; leave it with run.leaveShop). Returns the run state.
-    run.next = function () {
-      var r = run.round;
-      if (run.state !== 'live' || !r || r.state === 'live' || run.shop) return run.state;
-      if (r.state === 'lost') { run.state = 'lost'; return run.state; }
-      run.gold += r.gold;
-      var interest = run.interestPreview();
-      run.gold += interest;
-      run.lastWin = { reward: r.gold, interest: interest };
-      run.felled.push(run.enemy.id);
-      var last = run.movement >= MOVEMENTS.length - 1 && run.stage >= MOVEMENTS[run.movement].enemies.length - 1;
+    // Finish settling a win once any letter choice is resolved (or there was
+    // none to offer): open the shop or, for the last boss, end the run.
+    function finishWin(last) {
       if (last) { run.state = 'won'; return run.state; }
       discardRack();
       run.stage += 1;
@@ -641,6 +632,39 @@
       run.shop = Sandbox.createShop ? Sandbox.createShop(run, opts.rng) : null;
       if (!run.shop) begin();
       return run.state;
+    }
+    // Settle the current round into the run: bank the reward, then the
+    // interest on what is held. Felling a boss may pause here with
+    // run.letterChoice open (stolenLetters.js) -- run.pickLetter resumes. A
+    // win on the way to the last boss opens the shop (run.shop; leave it with
+    // run.leaveShop). Returns the run state.
+    run.next = function () {
+      var r = run.round;
+      if (run.state !== 'live' || !r || r.state === 'live' || run.shop || run.letterChoice) return run.state;
+      if (r.state === 'lost') { run.state = 'lost'; return run.state; }
+      run.gold += r.gold;
+      var interest = run.interestPreview();
+      run.gold += interest;
+      run.lastWin = { reward: r.gold, interest: interest };
+      run.felled.push(run.enemy.id);
+      var wasBoss = run.enemy.kind === 'boss';
+      var last = run.movement >= MOVEMENTS.length - 1 && run.stage >= MOVEMENTS[run.movement].enemies.length - 1;
+      if (wasBoss && Sandbox.rollLetterChoice) {
+        var choices = Sandbox.rollLetterChoice(opts.rng, 3);
+        if (choices && choices.length) { run.letterChoice = { options: choices, last: last }; return run.state; }
+      }
+      return finishWin(last);
+    };
+    // Take one of the letters offered by run.letterChoice, persist it
+    // (stolenLetters.js), and resume the win it interrupted.
+    run.pickLetter = function (letter) {
+      if (!run.letterChoice) return false;
+      if (run.letterChoice.options.indexOf(letter) < 0) return false;
+      if (Sandbox.winLetter) Sandbox.winLetter(letter);
+      var last = run.letterChoice.last;
+      run.letterChoice = null;
+      finishWin(last);
+      return true;
     };
     // Close the shop and begin the next round. Returns false if no shop is
     // open or a pack is still unsettled.
