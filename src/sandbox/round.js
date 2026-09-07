@@ -614,6 +614,20 @@
       if (!Sandbox.applyInk) return { ok: false, reason: 'That cannot be used yet.' };
       return Sandbox.applyInk(run, id, tileIds || [], extra);
     };
+    // A fresh hand drawn to use an ink on the spot, right after buying or
+    // keeping it -- before either of run.useAdhocInk or run.saveInk decides
+    // what happens to it.
+    run.drawInkHand = function () {
+      var Tiles = window.Wordbound.Tiles;
+      return Tiles.shuffleIntoDrawPile(run.deck, opts.rng).slice(0, Math.min(tune.RACK_SIZE, run.deck.length));
+    };
+    // Hold an ink just bought or kept in run.consumables instead of using it
+    // now -- the other half of the choice offered alongside run.useAdhocInk.
+    run.saveInk = function (id) {
+      if (run.consumables.length >= tune.CONSUMABLE_SLOTS) return { ok: false, reason: 'No room for another ink — use or sell one first.' };
+      run.consumables.push({ kind: 'ink', id: id });
+      return { ok: true };
+    };
     run.sellConsumable = function (i) {
       var c = run.consumables[i];
       if (!c) return { ok: false, reason: 'Nothing there.' };

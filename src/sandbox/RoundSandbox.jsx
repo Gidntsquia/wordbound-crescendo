@@ -670,44 +670,59 @@ export default function RoundSandbox() {
     return true;
   }, [say, refresh, sfx]);
 
-  // INKING: an ink is never held in run.consumables (see shop.js
-  // takeConsumable) -- buying or keeping one from a pack plays it at once: a
-  // no-target ink (Coin) immediately, a targeted one via openAdhocInk below,
-  // which carries its own one-hand-sized `hand` of tiles to choose from and
-  // an `adhocId` in place of an index. Apply commits it. { adhocId, hand,
-  // ink, ids, vowel } while choosing.
+  // INKING: buying an ink (shop.buy) or keeping one from a pack (run.pick)
+  // deducts gold / settles the pack but leaves the ink itself as `res.ink`
+  // (an id) instead of deciding its fate -- pendingInk holds that choice
+  // until the player taps either "use it now" (drawInkHand + useAdhocInk,
+  // via the same `inking` overlay, marked with `adhocId`) or "save it"
+  // (run.saveInk, into run.consumables, CONSUMABLE_SLOTS deep).
   const [inking, setInking] = useState(null);
-  const openAdhocInk = useCallback((res) => {
-    say('Tap a tile to use it now.');
-    sfx('coin');
-    setWord('');
-    setInking({ adhocId: res.adhoc.id, hand: res.adhoc.hand, ink: SB.INK_DEFS[res.adhoc.id], ids: [], vowel: null });
-    refresh();
-  }, [say, sfx, refresh, SB]);
+  const [pendingInk, setPendingInk] = useState(null);
   const buyCard = useCallback((i) => {
     const shop = fight.current?.run?.shop;
     const c = shop?.cards[i];
     const res = shop?.buy(i);
     if (!res || !res.ok) { act(null, res); return; }
-    if (res.adhoc) { openAdhocInk(res); return; }
+    if (res.ink) { setPendingInk({ id: res.ink, label: 'Bought ' + cardName(SB, c) + '.' }); refresh(); return; }
     const label = res.used
       ? 'Bought ' + cardName(SB, c) + ' and used it — ' + res.used
       : 'Bought ' + cardName(SB, c) + ' for ' + c.price + '.';
     act(label, res, res.used ? 'shimmer' : 'coin');
-  }, [act, openAdhocInk, SB]);
-  // Ink packs go through the same instant-use path -- keeping an ink from a
-  // pack never lands it in run.consumables either.
+  }, [act, refresh, SB]);
   const pickCard = useCallback((i) => {
     const run = fight.current?.run;
     const c = run?.pack?.choices[i];
     const res = run?.pick(i);
     if (!res || !res.ok) { act(null, res); return; }
-    if (res.adhoc) { openAdhocInk(res); return; }
+    if (res.ink) { setPendingInk({ id: res.ink, label: 'Kept ' + cardName(SB, c) + '.' }); refresh(); return; }
     const label = res.used
       ? 'Kept ' + cardName(SB, c) + ' and used it — ' + res.used
       : 'Kept ' + (c.kind === 'tile' ? 'the ' + c.tile.letter : 'the ' + cardName(SB, c)) + '.';
     act(label, res, 'tick');
-  }, [act, openAdhocInk, SB]);
+  }, [act, refresh, SB]);
+  const useInkNow = useCallback(() => {
+    const r = fight.current?.run;
+    if (!r || !pendingInk) return;
+    const ink = SB.INK_DEFS[pendingInk.id];
+    setPendingInk(null);
+    if (ink.targets === 0) {
+      const res = r.useAdhocInk(pendingInk.id, [], {});
+      act(res.ok ? res.note : null, res, 'shimmer');
+      return;
+    }
+    say('Tap a tile to use it now.');
+    sfx('coin');
+    setWord('');
+    setInking({ adhocId: pendingInk.id, hand: r.drawInkHand(), ink, ids: [], vowel: null });
+    refresh();
+  }, [pendingInk, act, say, sfx, refresh, SB]);
+  const saveInk = useCallback(() => {
+    const r = fight.current?.run;
+    if (!r || !pendingInk) return;
+    const res = r.saveInk(pendingInk.id);
+    setPendingInk(null);
+    act(res.ok ? 'Saved the ink for later.' : null, res, 'tick');
+  }, [pendingInk, act]);
   const useInk = useCallback((i) => {
     const r = fight.current?.run;
     if (!r) return;
@@ -1202,6 +1217,16 @@ export default function RoundSandbox() {
           )}
           {phase === 'shop' && run.shop && (
             <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} firstVisit={!seen.has('shop')} buyCard={buyCard} pickCard={pickCard} />
+          )}
+          {phase === 'shop' && pendingInk && (
+            <div className="sb-inking sb-inking-shop">
+              <span className="sb-eyebrow">{SB.INK_DEFS[pendingInk.id].name}</span>
+              <span className="sb-hint">{pendingInk.label} {SB.INK_DEFS[pendingInk.id].hint}</span>
+              <button type="button" className="sb-go" onClick={useInkNow}>Use it now</button>
+              <button type="button" onClick={saveInk} disabled={run.consumables.length >= run.tune.CONSUMABLE_SLOTS}>
+                Save it ({run.consumables.length}/{run.tune.CONSUMABLE_SLOTS} slots)
+              </button>
+            </div>
           )}
           {phase === 'shop' && inking && (
             <div className="sb-inking sb-inking-shop">

@@ -109,22 +109,13 @@
     shop.rerollPrice = function () { return tune.REROLL_PRICE + tune.REROLL_STEP * shop.rerolls; };
 
     function takeConsumable(c) {
-      // An ink is never held in run.consumables -- buying one always plays
-      // it on the spot: a no-target ink (Coin) at once, a targeted one by
-      // handing back one hand's worth (RACK_SIZE) of the deck, drawn fresh,
-      // to tap a tile and apply it right there. That is what lets it be
-      // bought regardless of CONSUMABLE_SLOTS.
+      // An ink is bought or kept regardless of CONSUMABLE_SLOTS -- the UI
+      // then offers a choice between using it on the spot (run.drawInkHand
+      // + run.useAdhocInk) or holding it (run.saveInk), the latter only
+      // when a slot is free.
       var inkDef = c.kind === 'ink' && Sandbox.INK_DEFS && Sandbox.INK_DEFS[c.id];
-      if (inkDef && inkDef.targets === 0) {
-        var res = Sandbox.applyInk(run, c.id, [], {});
-        return res.ok ? { ok: true, used: true, note: res.note } : res;
-      }
-      if (inkDef) {
-        var Tiles = window.Wordbound.Tiles;
-        var hand = Tiles.shuffleIntoDrawPile(run.deck, rng).slice(0, Math.min(tune.RACK_SIZE, run.deck.length));
-        return { ok: true, adhoc: { id: c.id, hand: hand } };
-      }
-      // An étude with nowhere to go is played on the spot too.
+      if (inkDef) return { ok: true, ink: c.id };
+      // An étude with nowhere to go is played on the spot instead.
       if (run.consumables.length >= tune.CONSUMABLE_SLOTS) {
         if (c.kind === 'etude') { run.levelTier(c.id); return { ok: true, used: true }; }
         return { ok: false, reason: 'No room for another consumable — use or sell one first.' };
@@ -138,7 +129,7 @@
       if (!c || c.sold) return { ok: false, reason: 'Nothing there.' };
       if (run.gold < c.price) return { ok: false, reason: 'Not enough gold.' };
       var used = null;
-      var adhoc = null;
+      var ink = null;
       if (c.kind === 'item') {
         if (run.items.length >= tune.ITEM_SLOTS) return { ok: false, reason: 'All ' + tune.ITEM_SLOTS + ' item slots are full — sell one first.' };
         run.items.push(c.id);
@@ -146,11 +137,11 @@
         var t = takeConsumable(c);
         if (!t.ok) return t;
         if (t.used) used = t.note || null;
-        if (t.adhoc) adhoc = t.adhoc;
+        if (t.ink) ink = t.ink;
       }
       run.gold -= c.price;
       c.sold = true;
-      return { ok: true, card: c, used: used, adhoc: adhoc };
+      return { ok: true, card: c, used: used, ink: ink };
     };
 
     shop.sell = function (itemIndex) {
@@ -210,16 +201,16 @@
       var c = pack.choices[i];
       if (!c) return { ok: false, reason: 'Nothing there.' };
       var used = null;
-      var adhoc = null;
+      var ink = null;
       if (c.kind === 'tile') { if (run.addTile) run.addTile(c.tile); else run.deck.push(c.tile); }
       else {
         var t = takeConsumable(c);
         if (!t.ok) return t;
         if (t.used) used = t.note || null;
-        if (t.adhoc) adhoc = t.adhoc;
+        if (t.ink) ink = t.ink;
       }
       run.pack = null;
-      return { ok: true, choice: c, used: used, adhoc: adhoc };
+      return { ok: true, choice: c, used: used, ink: ink };
     };
 
     rollCards();
