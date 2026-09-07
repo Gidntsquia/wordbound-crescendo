@@ -1193,7 +1193,9 @@ export default function RoundSandbox() {
           )}
           {phase === 'live' && round.favour && round.plays.length === 0 && (
             <div className="sb-skip">
-              <span className="sb-hint">Or skip {f.def.name} for a bonus — <b>{SB.FAVOUR_DEFS[round.favour].name}</b>: {SB.FAVOUR_DEFS[round.favour].hint}. No shop after a skip.</span>
+              <span className="sb-hint" title={SB.FAVOUR_DEFS[round.favour].name + ': ' + SB.FAVOUR_DEFS[round.favour].hint + '. No shop after a skip.'}>
+                Or skip for <b>{SB.FAVOUR_DEFS[round.favour].name}</b>
+              </span>
               <button type="button" onClick={skipFight}>Skip for the bonus</button>
             </div>
           )}
@@ -1369,7 +1371,7 @@ export default function RoundSandbox() {
               ))}
               {scoring && scoring.floats.filter((x) => x.on === 'stick').map((x) => <i key={x.key} className={'sb-float is-' + x.tone}>{x.text}</i>)}
               {!scoring && letters.length === 0 && (
-                <span className="sb-stick-empty">tap tiles above, or type — then Play, or Swap them for new tiles · one tile alone always plays</span>
+                <span className="sb-stick-empty" title="Tap tiles above, or type, then Play or Swap them for new tiles. One tile alone always plays.">tap tiles, or type</span>
               )}
               {stickShown.map(({ t, i, ch, hollow }) => (t ? (
                 <button key={t.id} type="button" disabled={!live}
@@ -1420,10 +1422,9 @@ export default function RoundSandbox() {
           </div>
 
           <details className="sb-piles" aria-label="The bag and the discard pile">
-            <summary>
+            <summary title="Played and swapped tiles wait here until the bag is empty; the bag reshuffles each fight.">
               <span><b>{round.pile.drawPile.length}</b> in the bag</span>
               <span><b>{round.pile.discardPile.length}</b> discarded</span>
-              <em>played and swapped tiles wait here until the bag is empty; the bag reshuffles each fight</em>
             </summary>
             <div className="sb-pile-tiles">
               {round.pile.discardPile.length === 0 && <span className="sb-hint">Nothing discarded yet.</span>}
@@ -1483,9 +1484,14 @@ export default function RoundSandbox() {
       </details>
       </div>
 
-      <section className="sb-log">
-        {log.map((line, i) => <div key={log.length - i}>{line}</div>)}
-      </section>
+      {log.length > 0 && (
+        <details className="sb-log">
+          <summary>Log · {log[0]}</summary>
+          <div className="sb-log-lines">
+            {log.map((line, i) => <div key={log.length - i}>{line}</div>)}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
