@@ -526,6 +526,8 @@ export default function RoundSandbox() {
     if (s && s[name]) s[name](...a);
   }, []);
   const [tune, setTune] = useState(() => ({ ...SB.ROUND_DEFAULTS }));
+  const [discovered, setDiscovered] = useState(() => new Set(SB.discoveredQuills ? SB.discoveredQuills() : []));
+  const refreshDiscovered = useCallback(() => setDiscovered(new Set(SB.discoveredQuills())), [SB]);
   const [keyUnlocked, setKeyUnlocked] = useState(() => readKeyUnlocked());
   const [key, setKey] = useState(() => readKeyChoice(readKeyUnlocked(), SB));
   // A win on the highest-unlocked key offers the next one (stage 3).
@@ -693,9 +695,14 @@ export default function RoundSandbox() {
     setPhase('live');
     say('Movement ' + SB.MOVEMENTS[run.movement].numeral + ' · ' + SB.KIND_LABEL[def.kind] + ' — '
       + def.name + ' takes up ' + piece.title + '. Target ' + round.target + '.');
+    if (run.movementIIIQuillFound) {
+      say('Movement III: you discover ' + SB.ITEM_DEFS[run.movementIIIQuillFound].name + '.');
+      run.movementIIIQuillFound = null;
+      refreshDiscovered();
+    }
     if (def.rule) setTimeout(() => markSeen('boss'), 6000);
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [say, W, SB, warmAhead, markSeen]);
+  }, [say, W, SB, warmAhead, markSeen, refreshDiscovered]);
 
   const start = useCallback((seedOverride) => {
     const useSeed = typeof seedOverride === 'string' ? seedOverride : seed;
@@ -760,6 +767,11 @@ export default function RoundSandbox() {
     const f = fight.current;
     if (!f || !f.run || phase !== 'won') return;
     const state = f.run.next();
+    if (f.run.quillFound) {
+      say('The boss also yields a new quill: ' + SB.ITEM_DEFS[f.run.quillFound].name + '.');
+      f.run.quillFound = null;
+      refreshDiscovered();
+    }
     if (state === 'won') {
       setPhase('run-won');
       say('The last boss falls. Run won with ' + f.run.gold + ' gold.');
@@ -782,7 +794,7 @@ export default function RoundSandbox() {
       return;
     }
     startStage(f.run);
-  }, [phase, say, refresh, startStage, SB, warm, unlockNextKey]);
+  }, [phase, say, refresh, startStage, SB, warm, unlockNextKey, refreshDiscovered]);
 
   // Take a letter offered after a boss, then resume into the shop or the win screen.
   const pickLetter = useCallback((letter) => {
@@ -1336,6 +1348,19 @@ export default function RoundSandbox() {
               {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((l) => (
                 <span key={l} className={'sb-letter' + (SB.isAvailable(l) ? '' : ' is-hollow')}
                   title={SB.isAvailable(l) ? l : l + ' — stolen; win it back by felling a boss'}>{l}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {SB.ITEMS && (
+          <div className="sb-alphabet" role="group" aria-label="Quills discovered">
+            <span className="sb-bags-head">Quills · {discovered.size}/{SB.ITEMS.length}</span>
+            <div className="sb-alphabet-row sb-quill-row">
+              {SB.ITEMS.map((it) => (
+                <span key={it.id} className={'sb-letter' + (discovered.has(it.id) ? '' : ' is-hollow')}
+                  title={discovered.has(it.id) ? it.name : it.name + ' — undiscovered; felling a boss or reaching Movement III may reveal it'}>
+                  {discovered.has(it.id) ? it.name[0] : '?'}
+                </span>
               ))}
             </div>
           </div>

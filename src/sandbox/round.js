@@ -630,6 +630,13 @@
     // longer. Supplied by the UI (it owns the audio); a no-op headless.
     run.extendCrescendo = opts.extendCrescendo || function () {};
     function begin() {
+      // Quill discovery: reaching Movement III (index 2) reveals one more,
+      // once per run, on top of whatever a boss has already found.
+      if (run.movement >= 2 && !run.movementIIIQuillDone && Sandbox.rollQuillDiscovery) {
+        run.movementIIIQuillDone = true;
+        var found3 = Sandbox.rollQuillDiscovery(opts.rng);
+        if (found3 && Sandbox.discoverQuill(found3)) run.movementIIIQuillFound = found3;
+      }
       run.enemy = Sandbox.enemyAt(run.movement, run.stage);
       run.pile = { drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(run.deck, opts.rng), discardPile: [] };
       run.round = Sandbox.createRound({
@@ -711,6 +718,13 @@
       run.felled.push(run.enemy.id);
       var wasBoss = run.enemy.kind === 'boss';
       var last = run.movement >= MOVEMENTS.length - 1 && run.stage >= MOVEMENTS[run.movement].enemies.length - 1;
+      // Quill discovery (NEXT_LEVEL_PLAN.md stage 4): felling a boss reveals
+      // one hidden quill alongside the letter choice.
+      run.quillFound = null;
+      if (wasBoss && Sandbox.rollQuillDiscovery) {
+        var found = Sandbox.rollQuillDiscovery(opts.rng);
+        if (found && Sandbox.discoverQuill(found)) run.quillFound = found;
+      }
       if (wasBoss && Sandbox.rollLetterChoice) {
         var choices = Sandbox.rollLetterChoice(opts.rng, 3);
         if (choices && choices.length) { run.letterChoice = { options: choices, last: last }; return run.state; }

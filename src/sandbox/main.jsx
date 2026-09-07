@@ -31,6 +31,9 @@ import './tileBags.js';
 // The stolen-letters meta: which letters are locked out of every bag/pack
 // until a boss is felled and one is won back (localStorage wbc.letters).
 import './stolenLetters.js';
+// The quill-discovery meta: which quills are hidden from the shop/packs
+// until a boss is felled or Movement III is reached (localStorage wbc.quills).
+import './quillDiscovery.js';
 // The player that fronts a RECORDING (the logged exception to the
 // synthesized-only rule) and the nine recordings themselves -- recordings.js
 // is generated from tools/audio-manifest.json by `npm run fetch:audio`.

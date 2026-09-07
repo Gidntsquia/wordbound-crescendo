@@ -47,6 +47,7 @@
 
     function itemPool(taken) {
       return Sandbox.ITEMS.map(function (it) { return it.id; }).filter(function (id) {
+        if (Sandbox.isQuillDiscovered && !Sandbox.isQuillDiscovered(id)) return false;
         return run.items.indexOf(id) < 0 && taken.indexOf(id) < 0;
       });
     }
