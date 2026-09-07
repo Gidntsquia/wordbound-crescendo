@@ -400,7 +400,11 @@
       }
       var messages = [];
       Lexicon.removeTiles(round.rack, form.tilesUsed);
+      // The whole rack turns over on a play: the tiles just used AND whatever
+      // was left waiting both go to the discard, so the next turn is a fresh draw.
       round.pile.discardPile.push.apply(round.pile.discardPile, form.tilesUsed);
+      round.pile.discardPile.push.apply(round.pile.discardPile, round.rack);
+      round.rack = [];
       refill();
       form.tilesUsed.forEach(function (t) { round.usedLetters[t.letter] = true; });
       round.score += breakdown.total;
