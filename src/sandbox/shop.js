@@ -50,8 +50,12 @@
         return run.items.indexOf(id) < 0 && taken.indexOf(id) < 0;
       });
     }
-    function rollEtude() {
-      return { kind: 'etude', id: pick(rng, Sandbox.TIERS).id };
+    function rollEtude(exclude) {
+      var tiers = Sandbox.TIERS.filter(function (t) {
+        return !exclude || exclude.indexOf(t.id) < 0;
+      });
+      if (!tiers.length) tiers = Sandbox.TIERS;
+      return { kind: 'etude', id: pick(rng, tiers).id };
     }
     function rollInk(exclude) {
       var inks = (Sandbox.INKS || []).filter(function (ink) {
@@ -178,7 +182,12 @@
         Object.keys(counts).forEach(function (l) { for (var k = 0; k < counts[l]; k++) letters.push(l); });
         for (var a = 0; a < n; a++) choices.push({ kind: 'tile', tile: Tiles.createTile(pick(rng, letters), null) });
       } else if (p.kind === 'etude') {
-        for (var b = 0; b < n; b++) choices.push(rollEtude());
+        var etudeTaken = [];
+        for (var b = 0; b < n; b++) {
+          var etudeChoice = rollEtude(etudeTaken);
+          etudeTaken.push(etudeChoice.id);
+          choices.push(etudeChoice);
+        }
       } else {
         var inkTaken = [];
         for (var c = 0; c < n; c++) {
