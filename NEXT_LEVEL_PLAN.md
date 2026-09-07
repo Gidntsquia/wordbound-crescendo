@@ -147,9 +147,92 @@ headless driver run at 1280 wide and 390×844 with zero page errors.
 
 (The AI appends one line per decision made without Jaxon, with the reason.)
 
+- Stage 2, Harmony's chord price/rarity: rare, 9 gold. Reason: it is a
+  build-around that pays off only with steel ink or deliberate leftover
+  planning, in line with Double Stop/Fermata's rare pricing.
+- Stage 2, chord points formula: the leftover word's tier base points (tune
+  `PTS_t*` at level 1) plus its plain letter values -- no ink/item/level
+  scaling, no mult. Reason: the plan says "base points... points only, no
+  mult"; a simpler number is easier to read in the cascade and keeps Harmony
+  from silently compounding with tier levels bought elsewhere.
+- Stage 3, the six keys are exactly the plan's proposal (targets ×1.15 / one
+  fewer swap / no boss premium / reroll 7 / no skip), applied cumulatively
+  as written ("each is the one before plus one rule"). Reason: plan says
+  these are the AI's proposal and Jaxon can rename/reorder in the morning;
+  no reason to invent a different six overnight.
+- Stage 3, key progression: a win on the current highest-unlocked key
+  unlocks the next; there is no way to jump ahead or skip down except by not
+  yet having won. Reason: mirrors Balatro's stake unlocking and needs no new
+  UI beyond a locked/unlocked button row.
+- Stage 4, starting (discovered-from-install) quill set: brass_nib,
+  second_ink, short_form, long_form, lead_weight, gilded_edge, half_note,
+  double_stop, fermata, miser (10, matching the plan's "~10"). Hidden: every
+  crescendo quill, every second-axis quill (libretto, dissonance, notation,
+  bard, rhyme, palindrome), vowel_song, hard_consonant, refrain, coda,
+  anagram, and Harmony. Reason: "plain length and mult" read as flat
+  points/mult with no word-kind, position, or scaling condition; vowel_song/
+  hard_consonant (letter-kind) and refrain/coda/anagram (conditional/
+  scaling) are closer in spirit to the second-axis quills the plan says to
+  hide than to the flat ones it says to keep.
+- Stage 4, "two prizes, one screen" after a boss: implemented as a spoken
+  line ("The boss also yields a new quill: ...") alongside the existing
+  letter-choice screen, not a second pick-one-of-three UI. Reason: the plan
+  says discovery just happens (no player choice described, unlike the
+  letter pick which explicitly offers three) -- only the letter choice is a
+  choice; the quill is a reveal. Building a second choice widget would have
+  been scope well past what stage 4 asks for.
+- Stage 5 order: did the app deletion first (already true of the working
+  tree when this session started), then stages 2-4, then the rest of stage
+  5, matching "Order of work" exactly.
+- Stage 5, itch build: rewrote tools/build-itch.js to run the real `vite
+  build` and zip dist/app/ directly instead of hand-staging a dependency
+  list against the now-deleted wordbound.html. Reason: the old script's
+  entire premise (two different games sharing a repo, itch wanting the
+  other one) no longer holds now that the sandbox is the only app.
+- Stage 5, offline: scoped the service worker to public/audio/*.mp3 only,
+  never index.html or the hashed JS/CSS bundle. Reason: caching the app
+  shell itself risks silently serving a stale build after a deploy, which
+  conflicts with the LIVE DEPLOY rule (Jaxon watches the live link and
+  expects to see what was just pushed); the audio is large, slow to fetch,
+  and never changes once fetched, so it's the one thing worth caching hard.
+- Stage 5, title screen background recording: not implemented. See "For the
+  morning."
+
 ## For the morning
 
 (The AI appends every feel question here, most important first.)
+
+- Stage 1 (feel pass) is still untouched, as instructed -- the crescendo
+  window/frequency, premium slot visibility, locked-alphabet difficulty and
+  Movement II/III tuning all still need your played-on-the-phone judgement
+  before anything else gets tuned against them.
+- Keys (stage 3): does G major's ×1.15 target actually feel like "a real
+  step up," and is B minor beatable? These were picked from the plan's own
+  proposal, completely untested against a real run -- they may need
+  softening or sharpening once you've played a few.
+- Quill discovery (stage 4): does felling a boss ever feel like it front-
+  loads too much (a letter AND a quill on the same screen, same beat)? If
+  it's too much at once, the Movement III reveal could move earlier/later
+  to spread the "new thing" moments out instead.
+- Title screen: I did not add background music autoplay. Browsers block
+  audio before a user gesture, so a silently-failing autoplay attempt
+  seemed worse than none -- the title screen still shows the alphabet and
+  the new quill-discovery row as the progress display the plan asked for,
+  just no recording. If you want music there, the cleanest option is
+  probably starting it muted and unmuting on the first tap anywhere on the
+  page, but that's a design call, not just an implementation one.
+- Title/name: still "Wordbound: Crescendo" per your explicit instruction not
+  to decide this overnight.
+- The itch zip (`npm run build:itch`) could not be tested end-to-end in
+  this environment -- the `zip` CLI isn't installed here. The script itself
+  is straightforward (build, then zip dist/app/'s contents) and dist/app/
+  builds clean, but please run `npm run build:itch` once on your machine
+  and sanity-check the zip uploads/plays on itch before relying on it.
+- Harmony (stage 2) is a rare, 9-gold quill with a fairly narrow payoff
+  window (needs exactly 2-3 leftover tiles that spell something). It's
+  untested against a real run for whether that's fun or just fiddly --
+  worth a specific look during your Stage 1 pass since it changes what
+  "leaving letters behind" means for the first time.
 
 Not doing, on purpose: enemy strikes or any punishment tied to the music,
 chords as a base mechanic, movement choice, encore, daily seed, vouchers
