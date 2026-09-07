@@ -1,17 +1,24 @@
 # Next-level plan — from a good sandbox to a game people finish
 
-Written 2026-09-07, after DIVERGENCE_PLAN.md items 1–4 all shipped in one day.
-Jaxon likes where the game is. This file is the build order for what comes
-after: the stages, in order, each with a gate that is a played run on the
-phone, not a build passing. BALATRO_NOTES.md §3 is still the source for the
-"where to diverge" rule: copy Balatro on economy, pacing and legibility;
-diverge on what a hand is.
+Written 2026-09-07, after DIVERGENCE_PLAN.md items 1–4 all shipped in one day;
+revised the same day to Jaxon's cuts (below). The build order for what comes
+after the divergence work: each stage gated on a played run on the phone,
+not a build passing. BALATRO_NOTES.md §3 is still the rule for where to
+diverge: copy Balatro on economy, pacing and legibility; diverge on what a
+hand is.
 
-The one-sentence goal: **the music stops being a soundtrack and becomes the
-opponent.** Today the recording plays under the round and only quills care
-about it. ROADMAP.md's pitch — bosses attack on the crescendos, a word landed
-on the crescendo parries — is not in the sandbox yet. That is stage 2 and it
-is the biggest single thing on this list.
+Jaxon's decisions, 2026-09-07:
+
+- **No enemy strikes.** The music never attacks. Crescendos stay a reward
+  layer (the crescendo quills), never a punishment. The ROADMAP.md
+  strike/parry pitch is dropped for the sandbox.
+- **Chords are one quill**, not a base mechanic.
+- **From run choices, only keys** (difficulty tiers). No movement choice,
+  no encore, no daily seed.
+- **Quill discovery** is in.
+- **Identity and polish, all of it**, minus strike/parry sounds.
+- **Delete the old app** (`/app.html`, `wordbound.html`, `css/`, and the
+  engine modules only they used).
 
 ## Stage 1 — Feel pass (before anything new)
 
@@ -34,127 +41,97 @@ full runs on the phone, then tune before building on top of it.
 - Write the numbers that change into `ROUND_DEFAULTS` and one line each
   here. Gate: Jaxon says the three shipped systems feel right.
 
-## Stage 2 — The music attacks (the pitch, finally)
+## Stage 2 — Harmony: the chord quill
 
-The recording's big swells become the enemy's turns. This makes every
-enemy a different fight because every recording has a different shape,
-which is the thing Balatro cannot have.
+BALATRO_NOTES §3.6, as a single quill. **Harmony** (rare): after a play,
+if two or three tiles left in the case spell a word, that word's base
+points are added as a `chord` step in the cascade (points only, no mult).
+Without the quill nothing in the case scores, so the base game is
+unchanged.
 
-- **The strike.** When a crescendo window closes with no word played in
-  it, the enemy strikes. Small enemies: the target rises by a few percent.
-  Big enemies: one tile in the case is BARRED for the next play (like
-  no_repeats' strike-through). Bosses: a play is lost, or a stick slot is
-  locked. All strikes go through one `round.strike(kind)` in round.js and
-  one `STRIKES` table; the tempo marking chooses the kind.
-- **The parry.** A word played inside the window cancels the strike and
-  scores normally (the crescendo quills stack on top). This makes the
-  window matter for every player, not only quill owners; the quills become
-  the "and get paid for it" layer.
-- **Pacing.** The window curation is per recording; early enemies should
-  strike rarely (THEME.md: early tier "rare weak crescendos", late tier
-  "frequent, powerful"). Add a `strikeMag` threshold per enemy in
-  enemies.js so Gymnopédie almost never strikes and Night on Bald Mountain
-  does every 12 s. Audit each of the nine curated surge lists by ear.
-- **Timer honesty.** A player thinking over a rack must not be ambushed. The
-  countdown ring is already there; add the enemy's name pulsing on the
-  run strip and a low synthesized rumble from sfx.js at "soon".
-- **Pause.** The recording pauses when the tab hides or the shop opens
-  (it should already); a "hold" button during a round is a design decision —
-  recommend none, because the pressure is the game.
-- Feel target: a player who has never seen a quill understands within one
-  round that the music is doing something to them and that words stop it.
-- Gate: a round of Mountain King is tense; a round of Gymnopédie is
-  calm. If both feel the same, the strikes are wrong, not the music.
+- `scoreWordPoints` gains the `chord` step after the items, only when an
+  item sets `acc.chord`; the cascade narrates it with its own pop.
+- The chord is found with the existing anagram map in wordFinder.js over
+  the tiles still in the case (longest word wins, ties by points).
+- Steel ink (held ×1.2) is its natural partner and needs no change.
+- Gate: does a Harmony owner start leaving letters behind on purpose?
 
-## Stage 3 — Chords: held tiles score
+## Stage 3 — Keys (difficulty tiers)
 
-BALATRO_NOTES §3.6. The case is currently dead weight between plays. A
-"chord" is two or three tiles left in the case after a play that spell a
-word themselves; they score as a small extra step in the cascade.
+Balatro's stakes, named for musical keys. After a first win the title
+screen offers the next key; each is the one before plus one rule.
 
-- `scoreWordPoints` gets a `chord` step after the items: base points only
-  (no mult), so it is a bonus and never the build.
-- Quills unlock it as a build: **Harmony** (chords ×3), **Drone** (a chord
-  of the same letter counts), **Counterpoint** (the chord's mult applies
-  to the main word). These are second-axis quills of a new kind: the
-  first ones that reward what you DON'T play.
-- Steel ink (held ×1.2) already lives here; the chord gives it company.
-- Gate: does the player start leaving letters behind on purpose?
+- C major — the base game.
+- G major — targets ×1.15.
+- D major — one fewer swap per round.
+- A minor — the premium slot never appears on boss rounds.
+- E minor — shop reroll starts at 7.
+- B minor — no skip favours.
 
-## Stage 4 — A run with choices
+`wbc.key` next to `wbc.best`; the end screen shows wins per key; the
+tuning panel exposes each key's numbers. Gate: G major is a real step up
+and B minor is beatable by Jaxon.
 
-Today the run is a fixed lineup of nine. Add the shape that makes a second
-run different from the first without a map screen.
+## Stage 4 — Quill discovery
 
-- **Movement choice.** Before each movement, pick one of two enemies for
-  the small and big slots (the recording's name, its tempo marking and its
-  strike rate shown). Bosses fixed. This is `MOVEMENTS` gaining
-  alternates in enemies.js and one picker screen in RoundSandbox.jsx.
-- **Keys** (Balatro's stakes): after a first win, the title screen offers
-  the run in a harder key — C major (base), G major (targets ×1.15),
-  D minor (strikes lock a tile on small enemies too), and so on up to six.
-  Persist `wbc.key` next to `wbc.best`. Wins per key on the end screen.
-- **Encore** (endless): after the last boss, keep going with the targets
-  climbing until a loss; best encore movement on the end screen.
-- **Daily seed.** A seed derived from the date, one attempt, its own
-  best. The share text already exists; daily makes it worth sharing.
-- Gate: run 3 should look different from run 1 in the run strip alone.
+The second meta after stolen letters. New quills are not in the shop or
+pack pool until first discovered.
 
-## Stage 5 — The meta grows past letters
+- `wbc.quills` in localStorage, a JSON array like `wbc.letters`; a
+  fresh install knows ~10 starting quills (the plain length and mult
+  ones), the rest hidden.
+- Discovery: felling a boss offers a quill alongside the letter choice
+  (one screen, two prizes), and any run reaching Movement III reveals one
+  more at random. A lost run never loses a quill.
+- shop.js and the packs filter the pool by `wbc.quills`; the gear panel
+  gains a quill list with the undiscovered ones hollow, next to the
+  alphabet row.
+- Gate: run five still shows a quill the player has not seen.
 
-Stolen letters are the first meta. Two more give a reason for run ten.
+## Stage 5 — Identity and polish
 
-- **Repertoire.** Enemies felled at least once are marked in a gear-panel
-  list with the recording's name and performer (the manifest already holds
-  this). Felling every enemy in a movement unlocks its alternate enemy
-  (stage 4) — so the roster reveals itself instead of arriving all at once.
-- **Quill discovery.** New quills are not in the shop pool until first
-  seen in a pack or earned by a boss; `wbc.quills` like `wbc.letters`.
-  Keep the starting pool at ~10 so early runs are legible.
-- **No currency, no grind.** Same rule as letters: a lost run never loses
-  progress; nothing is bought with anything but a felled enemy.
+The pass before a build people outside the household play.
 
-## Stage 6 — Identity and polish
-
-The last pass before a build people outside the household play.
-
-- **Enemy faces.** One portrait or emblem per enemy on the run strip and
-  the target card, plus one line in the enemy's voice on the rule card
-  (the tempo-marking cards already speak). THEME.md's Mountain King /
-  Fiddler / Valkyrie Marshal should replace the placeholder boss names
-  where the recording matches.
-- **Title screen.** A name decision (ROADMAP: Jaxon's call), the recording
-  of the day playing quietly, the alphabet with its hollow letters as the
-  progress display.
-- **Sound.** One synthesized strike sound and one parry sound in sfx.js;
-  a distinct shimmer per premium kind.
+- **Delete the old app.** Remove `index.html` + `src/main.jsx`, `src/App.jsx`
+  and `src/components/`, `wordbound.html`, `css/`, and the engine modules
+  only they used (duel, duelCombat, combat, music + pieces, floor, game,
+  monsters, characters, items, intents, traits, bossEntrances,
+  shakespeareGuide, shopkeepers, achievements, events, the engine's
+  stolenLetters). Keep namespace, rng, wordlist, lexicon, tiles. The
+  sandbox becomes the app: `sandbox.html` is renamed `index.html`,
+  `dev:sandbox` becomes `dev`, build-site stops moving anything to
+  `/app.html`. CLAUDE.md's map shrinks by half.
+- **Enemy faces.** One emblem per enemy on the run strip and the target
+  card, plus one line in the enemy's voice on the rule card. THEME.md's
+  Mountain King / Fiddler / Valkyrie Marshal replace placeholder boss
+  names where the recording matches.
+- **Title screen.** A name decision (ROADMAP: Jaxon's call), a recording
+  playing quietly, the alphabet with its hollow letters and the quill
+  count as the progress display.
+- **Sound.** A distinct shimmer per premium kind in sfx.js. No strike or
+  parry sounds — there are no strikes.
 - **Offline.** The seven fetched MP3s are not committed; a service worker
-  caching `public/audio/` after first play makes the phone build work on
-  the train. `build:site` already fetches them.
-- **Retire the old app.** `/app.html` (the React run app) and
-  `wordbound.html` (the pre-React reference) are no longer where the game
-  is. Decide: delete both and make the sandbox the app, or keep them behind
-  a note. Recommend delete; CLAUDE.md's map shrinks by half.
+  caching `public/audio/` after first play makes the phone build work
+  without signal. `build:site` already fetches them.
 - **Itch build.** tools/build-itch.js exists from the sibling repo; point
   it at the sandbox entry and test the zip.
 
-## Order of work and what is Jaxon's call
+## Order of work
 
 1. Stage 1 — Jaxon plays; the numbers are his.
-2. Stage 2 — build the strike/parry loop; this is the work that decides
-   whether the pitch holds. Everything after it assumes it does.
-3. Stage 3 — small, one afternoon, do it right after 2 while the cascade
-   is warm.
-4. Stage 4 — keys and daily are cheap; movement choice and encore are a
-   day.
-5. Stage 5 — after a week of play, when the roster needs a reason to grow.
-6. Stage 6 — when someone outside the household is going to play.
+2. Stage 5's first item, deleting the old app — do it before any new
+   feature so nothing new is built against dead code.
+3. Stage 2 (Harmony) — one afternoon.
+4. Stage 3 (keys) — cheap, a day with tuning.
+5. Stage 4 (quill discovery) — after a week of play, when the pool needs
+   a reason to grow.
+6. The rest of stage 5 — when someone outside the household is going to
+   play.
 
-Jaxon-only decisions along the way: the strike kinds per enemy tier (stage
-2), whether a hold button exists (stage 2, recommend no), the game's name
-(stage 6), and whether the old app is deleted (stage 6, recommend yes).
+Jaxon-only decisions along the way: the six key rules (stage 3), the
+starting quill set (stage 4) and the game's name (stage 5).
 
-Not doing, on purpose: vouchers and editions (Balatro's own economy
-layers, and the game has enough quills), an overworld map (movement
-choice does the job in one screen), multiplayer, and any recording that is
+Not doing, on purpose: enemy strikes or any punishment tied to the music,
+chords as a base mechanic, movement choice, encore, daily seed, vouchers
+and editions, an overworld map, multiplayer, and any recording that is
 not public domain or already logged as an exception.
