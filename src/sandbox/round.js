@@ -128,8 +128,23 @@
     INK_STEEL: 1.2,       // x mult per steel tile left in the case
     INK_COIN_CAP: 10,
     // Skipping a small or big enemy (run.skip) pays a favour (Sandbox.FAVOURS).
-    BOUNTY_GOLD: 8
+    BOUNTY_GOLD: 8,
+    // Premium slots (DIVERGENCE_PLAN.md): one stick position may carry a
+    // bonus for the round, rolled at creation. DL/TL multiply that tile's
+    // own letter points; DW multiplies the whole word's mult.
+    PREMIUM_CHANCE: 0.55, // odds a round has a premium slot at all
+    PREMIUM_DL: 2,        // x letter points on the tile in the slot
+    PREMIUM_TL: 3,
+    PREMIUM_DW: 2         // x mult, whole word
   };
+
+  // The three premium kinds a stick slot can roll (weighted; DW is scarcer
+  // since it multiplies the whole word rather than one tile).
+  Sandbox.PREMIUM_KINDS = [
+    { id: 'dl', name: 'Double Letter', weight: 3 },
+    { id: 'tl', name: 'Triple Letter', weight: 2 },
+    { id: 'dw', name: 'Double Word', weight: 1 }
+  ];
 
   // The favours a skipped enemy pays. One is drawn per skippable round and
   // shown on the round screen as the price of not fighting.
@@ -203,10 +218,28 @@
       if (t.ink === 'steel') { b.holdMult *= tune.INK_STEEL; b.inkNotes.push('steel ' + t.letter + ' held ×' + tune.INK_STEEL); }
     });
     b.holdMult = Math.round(b.holdMult * 1000) / 1000;
+    // The round's premium slot (Sandbox.PREMIUM_KINDS): a fixed stick
+    // position that bonuses whichever tile lands there. Only fires if the
+    // played word actually reaches that position.
+    b.slotPoints = 0;
+    b.slotMultRatio = 1;
+    b.slotKind = null;
+    b.slotTile = null;
+    var round0 = ctx.round;
+    if (round0 && round0.premium && tilesUsed[round0.premium.pos]) {
+      var slotTile = tilesUsed[round0.premium.pos];
+      var slotLetterVal = Lexicon.LETTER_VALUES[slotTile.letter] || 0;
+      var kind = round0.premium.kind;
+      if (kind === 'dl') b.slotPoints = slotLetterVal * (tune.PREMIUM_DL - 1);
+      else if (kind === 'tl') b.slotPoints = slotLetterVal * (tune.PREMIUM_TL - 1);
+      else if (kind === 'dw') b.slotMultRatio = tune.PREMIUM_DW;
+      b.slotKind = kind;
+      b.slotTile = slotTile;
+    }
     // Items fire left to right on the running points and mult.
     var acc = {
-      points: b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints,
-      mult: b.tierMult + b.inkMult
+      points: b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints + b.slotPoints,
+      mult: (b.tierMult + b.inkMult) * b.slotMultRatio
     };
     var before = { points: acc.points, mult: acc.mult };
     var round = ctx.round;
@@ -246,6 +279,8 @@
   //   letter { tile, letter, ink } (pts = letter value; gilt adds pts,
   //            bold adds mult; a tile bonus folds in as bonusPts)
   //   hold   { tile } a steel tile left in the case (ratio)
+  //   slot   { slotKind, tile } the round's premium stick slot, if the word
+  //            reached it (dl/tl: pts on that tile; dw: ratio on the mult)
   //   item   { id, name, note }; rule { id, name, note } the tempo marking
   //   tilex  the tile's own x-mult (Lexicon bonusMult), if any
   Sandbox.scoreSteps = function (b, tilesUsed, heldTiles, tune) {
@@ -279,6 +314,12 @@
       if (x.ink === 'bold') step.mult += tune.INK_BOLD;
       push(step);
     });
+    if (b.slotKind) {
+      var slotLabel = b.slotKind === 'dw' ? 'DOUBLE WORD' : (b.slotKind === 'tl' ? 'TRIPLE LETTER' : 'DOUBLE LETTER');
+      push({ kind: 'slot', slotKind: b.slotKind, tile: b.slotTile, letter: b.slotTile.letter,
+        pts: b.slotPoints, mult: 0, ratio: b.slotMultRatio, label: slotLabel,
+        tone: b.slotKind === 'dw' ? 'mult' : 'pts' });
+    }
     (b.itemNotes || []).forEach(function (n) {
       push({ kind: n.rule ? 'rule' : 'item', id: n.id, name: n.name, note: n.note, label: n.name,
         pts: n.dPts || 0, mult: n.dMult || 0, ratio: n.ratio || 1, tone: n.kind || 'pts' });
@@ -324,8 +365,21 @@
       // go to the discard, which only comes back once the bag runs dry), a
       // fresh shuffle for a lone round.
       pile: opts.pile || { drawPile: Tiles.shuffleIntoDrawPile(opts.deck, rng), discardPile: [] },
-      rack: []
+      rack: [],
+      // The premium slot (DIVERGENCE_PLAN.md): one stick position, rolled
+      // now so it can be drawn empty before any tile lands there. A boss's
+      // tempo marking may fix the position (rule.premiumPos).
+      premium: null
     };
+    (function rollPremium() {
+      if (rule && rule.noPremium) return;
+      if (!rng.chance(tune.PREMIUM_CHANCE)) return;
+      var kind = rng.weightedChoice(Sandbox.PREMIUM_KINDS, function (k) { return k.weight; });
+      if (!kind) return;
+      var pos = rule && rule.premiumPos != null ? rule.premiumPos
+        : rng.weightedChoice([0, 1, 2, 3, 4], function (p) { return [1, 2, 3, 2, 1][p]; });
+      round.premium = { pos: pos, kind: kind.id };
+    })();
 
     function draw(count) {
       return Tiles.draw(round.pile, count, rng);

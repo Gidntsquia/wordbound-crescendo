@@ -1577,6 +1577,29 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
 .sb-tile.is-ink-blank::after { background: #6fb3e0; }
 .sb-tile.is-inking { background: var(--brass-hot); border-color: var(--brass-hot); }
 
+/* PREMIUM STICK SLOT (DIVERGENCE_PLAN.md): the round's one bonus position.
+   A dashed rim distinguishes it from an ink's solid one; the corner badge
+   names the kind. */
+.sb-tile.is-premium-dl, .sb-tile.is-premium-tl, .sb-tile.is-premium-dw {
+  border-style: dashed;
+}
+.sb-tile.is-premium-dl { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px #6fd0c8; }
+.sb-tile.is-premium-tl { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px #e08a4a; }
+.sb-tile.is-premium-dw { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px #d468c9; }
+.sb-tile.is-premium-dl::before, .sb-tile.is-premium-tl::before, .sb-tile.is-premium-dw::before {
+  content: attr(data-premium-label);
+  position: absolute; bottom: 2px; right: 3px;
+  font-family: var(--figure); font-size: 8px; letter-spacing: 0.02em;
+}
+.sb-tile.is-premium-dl::before { content: 'DL'; color: #6fd0c8; }
+.sb-tile.is-premium-tl::before { content: 'TL'; color: #e08a4a; }
+.sb-tile.is-premium-dw::before { content: 'DW'; color: #d468c9; }
+.sb-premium-slot {
+  display: inline-flex; align-items: center; justify-content: center;
+  opacity: 0.55; font-family: var(--figure); font-size: 11px;
+  background: transparent;
+}
+
 .sb-inking {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
   margin: 10px 0 4px; padding: 8px 12px;

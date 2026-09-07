@@ -25,6 +25,16 @@ a different game within one round.
   `MUSIC_WORDS` in items.js; short common terms (NOTE, KEY, HARP, BEAT) are
   in on purpose so it fires a few times a run.
 
+## Shipped today (2026-09-07, part 2)
+
+- **Premium slots.** One stick position per round (rolled at creation,
+  weighted toward the middle) may carry DOUBLE LETTER, TRIPLE LETTER or
+  DOUBLE WORD (`Sandbox.PREMIUM_KINDS`, `round.premium`, tuning keys
+  `PREMIUM_CHANCE/DL/TL/DW` in round.js). Drawn on the empty stick as a
+  dashed placeholder before any tile is placed; the tile that lands there
+  picks up a matching dashed rim. Scored as its own `slot` step between the
+  letter steps and the items, narrated by the cascade with its own pop.
+
 ## The crescendo-effect contract
 
 Every quill flagged `crescendo: true` in items.js follows these rules, so
@@ -133,6 +143,7 @@ position.
 ## Order of work
 
 1. Play Climax and Libretto on the phone; tune the window and countdown.
-2. Premium slots (small, self-contained, immediately felt).
+2. ~~Premium slots~~ shipped 2026-09-07 — play it on the phone and tune
+   `PREMIUM_CHANCE`/`DL`/`TL`/`DW`.
 3. Stolen letters (touches persistence, the title screen and the bag).
 4. More crescendo and second-axis quills once 1–3 have settled the feel.

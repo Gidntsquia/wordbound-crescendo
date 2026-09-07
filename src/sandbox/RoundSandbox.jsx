@@ -71,7 +71,16 @@ const TUNE_LABELS = {
   START_GOLD: 'Starting gold',
   INTEREST_PER: 'Interest: 1 gold per',
   INTEREST_CAP: 'Interest cap',
+  PREMIUM_CHANCE: 'Premium slot · odds per round',
+  PREMIUM_DL: 'Premium · double letter ×',
+  PREMIUM_TL: 'Premium · triple letter ×',
+  PREMIUM_DW: 'Premium · double word ×',
 };
+
+// The premium stick slot (DIVERGENCE_PLAN.md): a fixed position that
+// bonuses whichever tile lands there.
+const PREMIUM_HINT = { dl: 'Double letter', tl: 'Triple letter', dw: 'Double word' };
+const PREMIUM_ICON = { dl: 'DL', tl: 'TL', dw: 'DW' };
 
 // THE SCORING CASCADE's timings (DEMO_PLAN_2 Phase 4), all in one place.
 // Every duration is multiplied by SMALL_SPEED..1 as `intensity` goes 0..1,
@@ -923,7 +932,7 @@ export default function RoundSandbox() {
     const play = r.plays[r.plays.length - 1];
     const st = {
       word: res.word, tiles: play.tiles, steps, breakdown: b, rackBefore, scoreBase: scoreBefore,
-      pts: 0, mult: 0, tier: null, litTile: null, litItem: null, floats: [], total: null, hit: 0, k,
+      pts: 0, mult: 0, tier: null, litTile: null, litItem: null, litSlot: null, floats: [], total: null, hit: 0, k,
       crossed: scoreBefore < r.target && r.score >= r.target, cleared: false
     };
     let n = 0;
@@ -936,7 +945,7 @@ export default function RoundSandbox() {
     const letters = steps.filter((x) => x.kind === 'letter');
     for (const step of steps) {
       st.pts = step.runPts; st.mult = step.runMult;
-      st.litTile = null; st.litItem = null;
+      st.litTile = null; st.litItem = null; st.litSlot = null;
       if (step.kind === 'tier') {
         st.tier = step;
         show();
@@ -954,6 +963,12 @@ export default function RoundSandbox() {
         sfx(step.kind === 'rule' ? 'rule' : 'item', step.tone);
         show();
         await wait(step.kind === 'rule' ? CASCADE.RULE_MS : CASCADE.ITEM_MS);
+      } else if (step.kind === 'slot') {
+        st.litSlot = step.tile.id;
+        float(step.tile.id, step.tone === 'mult' ? '×' + step.ratio : '+' + step.pts, step.tone);
+        sfx('item', step.tone);
+        show();
+        await wait(CASCADE.ITEM_MS);
       } else {
         // a steel tile held, or the tile's own x-mult
         if (step.tile) st.litTile = step.tile.id;
@@ -964,7 +979,7 @@ export default function RoundSandbox() {
       }
     }
     // The total lands.
-    st.litTile = null; st.litItem = null;
+    st.litTile = null; st.litItem = null; st.litSlot = null;
     st.total = b.total;
     st.scoreBase = r.score;
     st.hit = 1 + Math.round(k * (CASCADE.SHAKE_TIERS - 1));
@@ -1423,11 +1438,13 @@ export default function RoundSandbox() {
               )}
             </div>
             <div className={'sb-stick' + (formable ? '' : ' is-short') + (scoring && !scoring.cleared ? ' is-locked' : '')}>
-              {scoring && !scoring.cleared && scoring.tiles.map((t) => (
-                <span key={t.id} className={'sb-tile-pop' + (scoring.litTile === t.id ? ' is-pop' : '')}>
+              {scoring && !scoring.cleared && scoring.tiles.map((t, i) => (
+                <span key={t.id} className={'sb-tile-pop' + (scoring.litTile === t.id || scoring.litSlot === t.id ? ' is-pop' : '')}>
                   {scoring.floats.filter((x) => x.on === t.id).map((x) => <i key={x.key} className={'sb-float is-' + x.tone}>{x.text}</i>)}
                   <button type="button" disabled data-flip-tile-id={t.id}
-                    className={'sb-tile is-set' + (t.ink ? ' is-ink-' + t.ink : '') + (scoring.litTile === t.id ? ' is-lit' : '')}>
+                    className={'sb-tile is-set' + (t.ink ? ' is-ink-' + t.ink : '') + (scoring.litTile === t.id ? ' is-lit' : '')
+                      + (round.premium && round.premium.pos === i ? ' is-premium-' + round.premium.kind : '')
+                      + (scoring.litSlot === t.id ? ' is-lit' : '')}>
                     {t.letter === '?' ? '␣' : t.letter}
                     <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
                   </button>
@@ -1437,11 +1454,14 @@ export default function RoundSandbox() {
               {!scoring && letters.length === 0 && (
                 <span className="sb-stick-empty" title="Tap tiles above, or type, then Play or Swap them for new tiles. One tile alone always plays.">tap tiles, or type</span>
               )}
-              {stickShown.map(({ t, i, ch, hollow }) => (t ? (
+              {stickShown.map(({ t, i, ch, hollow }) => {
+                const premiumHere = round.premium && round.premium.pos === i;
+                return t ? (
                 <button key={t.id} type="button" disabled={!live}
-                  className={'sb-tile is-set' + (hollow ? ' is-dragging' : '') + (t.ink ? ' is-ink-' + t.ink : '') + (round.isBarred(t) ? ' is-barred' : '')}
+                  className={'sb-tile is-set' + (hollow ? ' is-dragging' : '') + (t.ink ? ' is-ink-' + t.ink : '') + (round.isBarred(t) ? ' is-barred' : '')
+                    + (premiumHere ? ' is-premium-' + round.premium.kind : '')}
                   data-flip-tile-id={t.id}
-                  title="Tap to send home · drag to reorder"
+                  title={(premiumHere ? PREMIUM_HINT[round.premium.kind] + ' · ' : '') + 'Tap to send home · drag to reorder'}
                   {...drag.bind('stick', i, t.id)}
                   onClick={() => unstageAt(i)}>
                   {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}
@@ -1455,7 +1475,13 @@ export default function RoundSandbox() {
                   onClick={() => unstageAt(i)}>
                   {ch}
                 </button>
-              )))}
+              );})}
+              {round.premium && round.premium.pos >= stickShown.length && (
+                <span key="premium-preview" className={'sb-tile sb-premium-slot is-premium-' + round.premium.kind}
+                  title={PREMIUM_HINT[round.premium.kind] + ' — lands on stick position ' + (round.premium.pos + 1)}>
+                  {PREMIUM_ICON[round.premium.kind]}
+                </span>
+              )}
             </div>
           </div>
 
