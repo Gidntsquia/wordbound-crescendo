@@ -201,7 +201,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats }) {
 }
 
 // The shop between fights: two cards, two packs, reroll, and the door.
-function Shop({ run, SB, act, leave, onInk, firstVisit }) {
+function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard }) {
   const shop = run.shop;
   const next = SB.enemyAt(run.movement, run.stage);
   const packDef = (kind) => SB.PACK_KINDS.find((k) => k.kind === kind);
@@ -234,11 +234,10 @@ function Shop({ run, SB, act, leave, onInk, firstVisit }) {
           {shop.cards.map((c, i) => (
             <button key={i} type="button"
               disabled={c.sold || run.gold < c.price
-                || (c.kind === 'item' && run.items.length >= run.tune.ITEM_SLOTS)
-                || (c.kind === 'ink' && run.consumables.length >= run.tune.CONSUMABLE_SLOTS)}
+                || (c.kind === 'item' && run.items.length >= run.tune.ITEM_SLOTS)}
               className={'sb-card sb-card-buy sb-card-' + c.kind + (c.kind === 'item' ? ' is-' + (SB.ITEM_DEFS[c.id].rarity || 'common') : '') + (c.sold ? ' is-sold' : '')}
               title={cardBlurb(SB, c, run)}
-              onClick={() => act('Bought ' + cardName(SB, c) + ' for ' + c.price + '.', shop.buy(i), 'coin')}>
+              onClick={() => buyCard(i)}>
               <span className="sb-card-kind">{c.kind}</span>
               <b>{c.sold ? 'sold' : cardName(SB, c)}</b>
               <em>{c.sold ? '' : cardBlurb(SB, c, run)}</em>
@@ -501,6 +500,26 @@ export default function RoundSandbox() {
     if (f && f.sfx) f.sfx.setLevel(volume);
   }, [volume]);
 
+  // Mobile browsers suspend the AudioContext when the tab is backgrounded and
+  // do not always resume it on their own when it comes back to the
+  // foreground -- leaving both music and sfx silent until the player
+  // manually restarts the run. Resume on return to visibility instead.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const ctx = fight.current?.ctx;
+      if (ctx && ctx.state !== 'closed' && ctx.state !== 'running') {
+        ctx.resume().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, []);
+
   // Warm the recording for an enemy (bytes only; the decode waits for the
   // fight). Nine excerpts are ~25 MB, too much to pull up front on a phone,
   // so only the enemy on stage and the one after it are warmed.
@@ -654,6 +673,20 @@ export default function RoundSandbox() {
   // INKING: tapping a held ink enters "choose a tile" on the case; Apply
   // commits it. { index, ink, ids, vowel } while choosing.
   const [inking, setInking] = useState(null);
+  // Buying a consumable with every slot full: an étude or a no-target ink
+  // (Coin) plays on the spot; a targeted ink still can't be applied outside
+  // a live round, so it lands in an extra slot beyond CONSUMABLE_SLOTS
+  // instead of being refused (Balatro-style) -- see shop.js takeConsumable.
+  const buyCard = useCallback((i) => {
+    const shop = fight.current?.run?.shop;
+    const c = shop?.cards[i];
+    const res = shop?.buy(i);
+    if (!res || !res.ok) { act(null, res); return; }
+    const label = res.used
+      ? 'Bought ' + cardName(SB, c) + ' and used it — ' + res.used
+      : 'Bought ' + cardName(SB, c) + ' for ' + c.price + '.';
+    act(label, res, res.used ? 'shimmer' : 'coin');
+  }, [act, SB]);
   const useInk = useCallback((i) => {
     const r = fight.current?.run;
     if (!r) return;
@@ -1144,7 +1177,7 @@ export default function RoundSandbox() {
             </div>
           )}
           {phase === 'shop' && run.shop && (
-            <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} firstVisit={!seen.has('shop')} />
+            <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} firstVisit={!seen.has('shop')} buyCard={buyCard} />
           )}
           {(phase === 'run-won' || phase === 'lost') && (
             <EndScreen run={run} won={phase === 'run-won'} SB={SB} seed={seed} best={best}

@@ -66,8 +66,8 @@
       "sourcePage": "https://commons.wikimedia.org/wiki/File:Musopen_-_In_the_Hall_Of_The_Mountain_King.ogg",
       "url": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Musopen_-_In_the_Hall_Of_The_Mountain_King.ogg",
       "trim": {
-        "start": 0,
-        "seconds": 160
+        "start": 85,
+        "seconds": 70
       },
       "sha256": "3bfa7424d3a148f1482a44688b77eb9138a7cea6cff7474799f1329181ab3342"
     },
