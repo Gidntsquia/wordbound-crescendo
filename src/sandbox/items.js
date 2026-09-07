@@ -10,9 +10,12 @@
 // An item is { id, name, rarity, price, hint, score?(ctx, acc), plays?,
 // goldAtWin?(round) }. `score` mutates acc and may return a note for the
 // breakdown line. ctx = { word, tiles (played), held, run, round, tune,
-// isLastPlay, playIndex, crescendo, preview } -- `crescendo` is true when the
-// word lands inside the recording's crescendo window (audioPiece.js
-// `crescendo()`); `preview` is true when the UI is only
+// isLastPlay, playIndex, crescendo, crescendoSoon, crescendoMag, preview } --
+// `crescendo` is true when the word lands inside the recording's crescendo
+// window (audioPiece.js `crescendo()`); `crescendoSoon` is true during the
+// countdown just before one opens (Anticipation); `crescendoMag` is the
+// live swell's own 0..1 size (1 when there is no live window -- Fortissimo
+// only reads it when `crescendo` is true); `preview` is true when the UI is only
 // asking what a word WOULD score; scaling state (Refrain) is advanced by
 // round.js's playWord afterwards via `onPlayed`, never inside score.
 //
@@ -79,6 +82,31 @@
     { id: 'climax', name: 'Climax', rarity: 'uncommon', price: 7, crescendo: true,
       hint: '×3 mult if the word lands on a crescendo — the card counts down to each one',
       score: function (c, a) { if (!c.crescendo) return null; a.mult *= 3; return '×3 mult, on the crescendo'; } },
+    // A second crescendo effect (DIVERGENCE_PLAN.md "ideas for later"): the
+    // swell's own size pays, so a bigger crescendo is worth more.
+    { id: 'fortissimo', name: 'Fortissimo', rarity: 'uncommon', price: 7, crescendo: true,
+      hint: '+50 points × the crescendo’s own size, on a crescendo',
+      score: function (c, a) {
+        if (!c.crescendo) return null;
+        var pts = Math.round(50 * (c.crescendoMag || 1));
+        a.points += pts;
+        return '+' + pts;
+      } },
+    // The opposite reflex to Climax: paid for playing INTO the swell rather
+    // than on it, off the same countdown card (crescendoSoon, RoundSandbox).
+    { id: 'anticipation', name: 'Anticipation', rarity: 'uncommon', price: 6, crescendo: true,
+      hint: '+2 mult if the word is played during a crescendo’s countdown',
+      score: function (c, a) { if (!c.crescendoSoon) return null; a.mult += 2; return '+2 mult, anticipating'; } },
+    // The second scoring axis again: a word that reads the same forwards and
+    // back is rare enough to be a build-around.
+    { id: 'palindrome', name: 'Palindrome', rarity: 'uncommon', price: 6,
+      hint: '×3 mult if the word is a palindrome (LEVEL, ROTOR, REFER…)',
+      score: function (c, a) {
+        var w = c.word;
+        if (w.length < 3 || w !== w.split('').reverse().join('')) return null;
+        a.mult *= 3;
+        return '×3 mult, a palindrome';
+      } },
     // Rare
     { id: 'double_stop', name: 'Double Stop', rarity: 'rare', price: 8, hint: '×2 mult',
       score: function (c, a) { a.mult *= 2; return '×2 mult'; } },

@@ -232,16 +232,19 @@
       // Where the playhead stands against the next big swell:
       //   { phase: 'idle' }                       nothing within the countdown
       //   { phase: 'soon', secs, peakSec }        counting down to the peak
-      //   { phase: 'live', secs, peakSec }        the window is open; secs
-      //                                           left until it shuts
+      //   { phase: 'live', secs, peakSec, mag }   the window is open; secs
+      //                                           left until it shuts, mag is
+      //                                           this swell's own 0..1 size
+      //                                           (Fortissimo, items.js)
       // Read on the play itself (round.js) and polled by the UI for the card.
       crescendo: function () {
         if (!playing || !bigSurges.length) return { phase: 'idle' };
         var pos = position();
         for (var i = 0; i < bigSurges.length; i++) {
           var peak = bigSurges[i].sec;
+          var mag = bigSurges[i].mag;
           if (pos > peak + CRES_AFTER) continue;
-          if (pos >= peak - CRES_BEFORE) return { phase: 'live', secs: peak + CRES_AFTER - pos, peakSec: peak };
+          if (pos >= peak - CRES_BEFORE) return { phase: 'live', secs: peak + CRES_AFTER - pos, peakSec: peak, mag: mag };
           if (pos >= peak - CRES_COUNTDOWN) return { phase: 'soon', secs: peak - pos, peakSec: peak };
           return { phase: 'idle', secs: peak - pos, peakSec: peak };
         }

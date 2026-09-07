@@ -74,12 +74,14 @@ the player learns one reflex and it works for all of them.
    the instant of the play (round.js); the item reads `ctx.crescendo`.
    Headless rounds have no callback and never fire it.
 
+Shipped 2026-09-07 (part 4): **Fortissimo** (+50 points × the swell's `mag`;
+`seq.crescendo()`'s live phase now carries `mag`, threaded through round.js
+as `ctx.crescendoMag`) and **Anticipation** (+2 mult on `crescendoSoon`, the
+countdown phase, via the same `ctx.crescendo` object's `.phase`). Both use
+the existing card/UI, no new screen.
+
 Ideas that fit the contract, for later:
 
-- **Fortissimo** — the crescendo's own points: +50 points × the swell's
-  `mag`, so bigger swells pay more.
-- **Anticipation** — a word played during the COUNTDOWN (not the window)
-  gets +2 mult; the opposite reflex to Climax.
 - **Sustain** — a crescendo hit extends the window for the NEXT play by 2 s.
 
 Tuning to watch on the phone: whether 5 s is enough warning to assemble a
@@ -96,7 +98,8 @@ shipped (Libretto). Candidates, cheapest first:
   LYNX, CRYPT). A real word class and on theme.
 - **Notation** — +4 mult per letter in A–G (the note names). Rewards
   BADGE, FACADE, CABBAGE; every rack has some.
-- **Palindrome** — ×3 mult; rare enough to be a build-around.
+- ~~**Palindrome**~~ shipped 2026-09-07 (part 4) — ×3 mult, word === its
+  own reverse.
 - **Bard** — ×2 mult for a word in Shakespeare's vocabulary. Needs a word
   list; `js/wordbound/shakespeareGuide.js` may seed it.
 - **Rhyme** — +20 points if the word ends in the same two letters as the
@@ -163,4 +166,7 @@ position.
    `PREMIUM_CHANCE`/`DL`/`TL`/`DW`.
 3. ~~Stolen letters~~ shipped 2026-09-07 — play a full run on the phone to
    feel the locked alphabet and the boss letter-choice screen.
-4. More crescendo and second-axis quills once 1–3 have settled the feel.
+4. More crescendo and second-axis quills once 1–3 have settled the feel:
+   ~~Fortissimo, Anticipation, Palindrome~~ shipped 2026-09-07 (part 4) —
+   Dissonance, Notation, Bard and Rhyme (second axis) and Sustain
+   (crescendo) remain, along with all four items' phone tuning.

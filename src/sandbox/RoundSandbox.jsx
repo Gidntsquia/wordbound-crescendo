@@ -526,10 +526,12 @@ export default function RoundSandbox() {
   // (audioPiece.js `crescendo()`): { phase: 'idle' | 'soon' | 'live', secs }.
   const [cres, setCres] = useState({ phase: 'idle' });
   const holdsCrescendoItem = (run) => !!run && run.items.some((id) => SB.ITEM_DEFS[id] && SB.ITEM_DEFS[id].crescendo);
+  // Returns audioPiece.js's own crescendo state ({ phase, mag?, ... }) or
+  // null with no recording playing -- round.js reads .phase and .mag off it
+  // (Climax/Fortissimo need 'live', Anticipation needs 'soon').
   const crescendoNow = useCallback(() => {
     const s = fight.current?.seq;
-    const c = s && s.crescendo ? s.crescendo() : null;
-    return !!c && c.phase === 'live';
+    return s && s.crescendo ? s.crescendo() : null;
   }, []);
   const skipRef = useRef(false);
   const waitRef = useRef(null);

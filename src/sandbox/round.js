@@ -246,7 +246,9 @@
     b.itemNotes = Sandbox.applyItems ? Sandbox.applyItems({
       word: word, tiles: tilesUsed, held: ctx.heldTiles || [], items: ctx.items || [],
       run: ctx.run, round: round, tune: tune, preview: !!ctx.preview,
-      crescendo: !!ctx.crescendo,
+      crescendo: !!(ctx.crescendo && ctx.crescendo.phase === 'live'),
+      crescendoSoon: !!(ctx.crescendo && ctx.crescendo.phase === 'soon'),
+      crescendoMag: ctx.crescendo && ctx.crescendo.mag != null ? ctx.crescendo.mag : 1,
       isLastPlay: !!round && round.playsLeft === 1,
       playIndex: round ? round.plays.length : 0
     }, acc) : [];
@@ -340,9 +342,10 @@
     var items = (opts.items || []).slice();
     var tierLevels = opts.tierLevels || {};
     var rule = (opts.rule && Sandbox.RULES && Sandbox.RULES[opts.rule]) || null;
-    // Is the soundtrack inside a crescendo window right now? Supplied by the
-    // UI (it owns the audio); absent in a headless round, so never true.
-    function onCrescendo() { return !!(opts.crescendo && opts.crescendo()); }
+    // The soundtrack's crescendo state right now ({ phase, mag?, ... }) or
+    // null. Supplied by the UI (it owns the audio); absent in a headless
+    // round, so always null there -- crescendo/soon items never fire.
+    function onCrescendo() { return (opts.crescendo && opts.crescendo()) || null; }
 
     var round = {
       tune: tune,
