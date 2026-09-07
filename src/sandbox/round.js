@@ -187,6 +187,18 @@
     };
   };
 
+  // A word's plain base points at tier level 1 -- no ink, no items, no run
+  // scaling. Used only by Harmony (items.js) to price the chord it finds in
+  // the leftover case tiles; deliberately simpler than scoreWordPoints.
+  Sandbox.chordPoints = function (word, tune) {
+    var Lexicon = window.Wordbound.Lexicon;
+    var tier = Sandbox.tierFor(word);
+    var base = tune['PTS_' + tier.id.slice(1)] || 0;
+    var letters = 0;
+    word.split('').forEach(function (ch) { letters += Lexicon.LETTER_VALUES[ch] || 0; });
+    return base + letters;
+  };
+
   // POINTS x MULT for a word made of these tiles. `breakdown` keeps
   // Lexicon.scoreWord's fields (base, bonusFlat, variantFlat, bonusMult) so
   // the UI can itemise, plus the tier, ink and item parts, points / mult /
@@ -252,6 +264,15 @@
       isLastPlay: !!round && round.playsLeft === 1,
       playIndex: round ? round.plays.length : 0
     }, acc) : [];
+    // Harmony's chord (items.js sets acc.chord instead of touching acc.points
+    // directly, so it lands as its own cascade step after the items).
+    b.chordWord = null;
+    if (acc.chord) {
+      acc.points += acc.chord.points;
+      b.chordWord = acc.chord.word;
+      b.itemNotes.push({ id: 'harmony', name: 'Chord', note: '+' + acc.chord.points + ', ' + acc.chord.word,
+        chord: true, dPts: acc.chord.points, dMult: 0, ratio: 1, kind: 'pts' });
+    }
     var ruleNote = null;
     if (round && round.rule && round.rule.score) {
       var p0 = acc.points, m0 = acc.mult;
@@ -327,7 +348,7 @@
         tone: b.slotKind === 'dw' ? 'mult' : 'pts' });
     }
     (b.itemNotes || []).forEach(function (n) {
-      push({ kind: n.rule ? 'rule' : 'item', id: n.id, name: n.name, note: n.note, label: n.name,
+      push({ kind: n.rule ? 'rule' : (n.chord ? 'chord' : 'item'), id: n.id, name: n.name, note: n.note, label: n.name,
         pts: n.dPts || 0, mult: n.dMult || 0, ratio: n.ratio || 1, tone: n.kind || 'pts' });
     });
     if (b.bonusMult && b.bonusMult !== 1) push({ kind: 'tilex', ratio: b.bonusMult, label: 'tile ×' + b.bonusMult, tone: 'mult' });

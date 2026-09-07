@@ -155,7 +155,25 @@
     // Rare
     { id: 'double_stop', name: 'Double Stop', rarity: 'rare', price: 8, hint: '×2 mult',
       score: function (c, a) { a.mult *= 2; return '×2 mult'; } },
-    { id: 'fermata', name: 'Fermata', rarity: 'rare', price: 8, hint: '+1 word every round', plays: 1 }
+    { id: 'fermata', name: 'Fermata', rarity: 'rare', price: 8, hint: '+1 word every round', plays: 1 },
+    // Harmony (NEXT_LEVEL_PLAN.md stage 2): the one chord quill. If the case
+    // is left holding exactly two or three tiles that themselves spell a
+    // word, that word's own base points land as a separate `chord` step in
+    // the cascade (points only, no mult -- see scoreWordPoints/scoreSteps).
+    // Without this quill nothing in the case ever scores; steel ink is its
+    // natural partner since a held tile it doesn't use to score still pays
+    // its ×held mult.
+    { id: 'harmony', name: 'Harmony', rarity: 'rare', price: 9,
+      hint: 'If two or three tiles left in the case spell a word, add that word’s base points',
+      score: function (c, a) {
+        var held = (c.held || []).filter(function (t) { return t && t.letter; });
+        if (held.length !== 2 && held.length !== 3) return null;
+        var letters = held.map(function (t) { return t.letter; }).join('');
+        var found = Sandbox.findWords(letters, null, 1);
+        if (!found.length) return null;
+        a.chord = { word: found[0].word, points: Sandbox.chordPoints(found[0].word, c.tune) };
+        return null;
+      } }
   ];
   Sandbox.ITEM_DEFS = {};
   Sandbox.ITEMS.forEach(function (it) { Sandbox.ITEM_DEFS[it.id] = it; });

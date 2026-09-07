@@ -987,7 +987,7 @@ export default function RoundSandbox() {
         sfx('letter', i, letters.length, !!step.ink);
         show();
         await wait(CASCADE.LETTER_MS);
-      } else if (step.kind === 'item' || step.kind === 'rule') {
+      } else if (step.kind === 'item' || step.kind === 'rule' || step.kind === 'chord') {
         st.litItem = step.id;
         float(step.id, step.note, step.tone);
         sfx(step.kind === 'rule' ? 'rule' : 'item', step.tone);
