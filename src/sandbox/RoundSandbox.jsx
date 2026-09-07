@@ -671,26 +671,27 @@ export default function RoundSandbox() {
   }, [say, refresh, sfx]);
 
   // INKING: tapping a held ink enters "choose a tile" — normally on the
-  // live case, but a shop-bought overflow ink (see below) opens the tile
-  // picker over the whole deck instead. Apply commits it.
-  // { index, ink, ids, vowel } while choosing.
+  // live case. A shop-bought ink used on the spot (see below) instead
+  // carries its own one-hand-sized `hand` of tiles to choose from and an
+  // `adhocId` in place of an index, since it was never stored. Apply
+  // commits it. { index, ink, ids, vowel } | { adhocId, hand, ink, ids,
+  // vowel } while choosing.
   const [inking, setInking] = useState(null);
   // Buying a consumable with every slot full: an étude or a no-target ink
-  // (Coin) plays on the spot. A targeted ink lands in an extra slot beyond
-  // CONSUMABLE_SLOTS instead of being refused (Balatro-style — see shop.js
-  // takeConsumable) and opens the tile picker right there over the whole
-  // deck (applyInk no longer needs a live round) so it can be used at once.
+  // (Coin) plays on the spot. A targeted ink is never stored -- shop.buy
+  // hands back one hand's worth of the deck, drawn fresh, to tap a tile and
+  // use the ink right there (Balatro-style — see shop.js takeConsumable).
   const buyCard = useCallback((i) => {
     const r = fight.current?.run;
     const shop = r?.shop;
     const c = shop?.cards[i];
     const res = shop?.buy(i);
     if (!res || !res.ok) { act(null, res); return; }
-    if (res.overflowIndex >= 0) {
-      say('Bought ' + cardName(SB, c) + ' — slots were full, so tap a tile to use it now.');
+    if (res.adhoc) {
+      say('Bought ' + cardName(SB, c) + ' — tap a tile to use it now.');
       sfx('coin');
       setWord('');
-      setInking({ index: res.overflowIndex, ink: SB.INK_DEFS[c.id], ids: [], vowel: null });
+      setInking({ adhocId: res.adhoc.id, hand: res.adhoc.hand, ink: SB.INK_DEFS[res.adhoc.id], ids: [], vowel: null });
       refresh();
       return;
     }
@@ -716,8 +717,11 @@ export default function RoundSandbox() {
   const applyInk = useCallback(() => {
     const r = fight.current?.run;
     if (!r || !inking) return;
-    const res = r.useConsumable(inking.index, inking.ids, { vowel: inking.vowel });
-    if (act(res.ok ? res.result.note : null, res, 'shimmer')) setInking(null);
+    const res = inking.adhocId
+      ? r.useAdhocInk(inking.adhocId, inking.ids, { vowel: inking.vowel })
+      : r.useConsumable(inking.index, inking.ids, { vowel: inking.vowel });
+    const label = inking.adhocId ? (res.ok ? res.note : null) : (res.ok ? res.result.note : null);
+    if (act(label, res, 'shimmer')) setInking(null);
   }, [inking, act]);
   const toggleInkTile = (id) => {
     setInking((k) => {
@@ -1193,13 +1197,13 @@ export default function RoundSandbox() {
           )}
           {phase === 'shop' && inking && (
             <div className="sb-inking sb-inking-shop">
-              <span className="sb-eyebrow">{inking.ink.name} · your whole hand</span>
+              <span className="sb-eyebrow">{inking.ink.name} · a hand drawn from your deck</span>
               <span className="sb-hint">
                 {inking.ink.targets === 1 ? 'tap one of your tiles' : 'tap up to ' + inking.ink.targets + ' of your tiles'}
                 {' · '}{inking.ink.hint}
               </span>
               <div className="sb-rack">
-                {run.deck.map((t) => (
+                {inking.hand.map((t) => (
                   <button key={t.id} type="button"
                     className={'sb-tile' + (t.ink ? ' is-ink-' + t.ink : '') + (inking.ids.includes(t.id) ? ' is-inking' : '')}
                     title={t.ink ? SB.INK_DEFS[t.ink].name + ' — ' + SB.INK_DEFS[t.ink].hint : undefined}
@@ -1221,7 +1225,7 @@ export default function RoundSandbox() {
                 disabled={!inking.ids.length || (inking.ink.needsVowel && !inking.vowel)}>
                 Apply{inking.ids.length ? ' to ' + inking.ids.length : ''}
               </button>
-              <button type="button" onClick={() => setInking(null)}>Later</button>
+              <button type="button" onClick={() => setInking(null)}>Skip (forfeit it)</button>
             </div>
           )}
           {(phase === 'run-won' || phase === 'lost') && (

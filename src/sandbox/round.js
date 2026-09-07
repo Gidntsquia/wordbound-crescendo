@@ -607,6 +607,13 @@
       }
       return { ok: false, reason: 'That cannot be used yet.' };
     };
+    // Play an ink bought straight out of the shop while every consumable
+    // slot was full (shop.js takeConsumable) -- it was never stored, so
+    // there is nothing to splice out of run.consumables afterward.
+    run.useAdhocInk = function (id, tileIds, extra) {
+      if (!Sandbox.applyInk) return { ok: false, reason: 'That cannot be used yet.' };
+      return Sandbox.applyInk(run, id, tileIds || [], extra);
+    };
     run.sellConsumable = function (i) {
       var c = run.consumables[i];
       if (!c) return { ok: false, reason: 'Nothing there.' };
