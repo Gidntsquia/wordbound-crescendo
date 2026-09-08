@@ -1499,6 +1499,38 @@ button:disabled {
 }
 .sb-card b { font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: 0; line-height: 1.15; padding-right: 26px; }
 .sb-card em { font-style: normal; font-weight: 400; color: var(--leaf-dim); line-height: 1.35; }
+/* Quills as an icon + hover tooltip (the `title` attr) instead of a name +
+   description block -- a full loadout no longer needs several lines each
+   to fit on a phone screen. */
+.sb-card-glyphed { min-width: 44px; max-width: 60px; padding: 6px 4px; align-items: center; text-align: center; cursor: pointer; }
+.sb-card-icon { display: block; font-size: 24px; line-height: 1; }
+.sb-card-name-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Touch has no hover, so `title` never shows a quill's effect -- tap
+   anywhere on the card (not just the icon) to toggle a small popover. */
+.sb-card-name-btn {
+  padding: 0; margin: 0; border: 0; background: none;
+  min-height: 0; text-align: left; letter-spacing: 0.04em; text-transform: none;
+}
+.sb-card-name-btn:hover:not(:disabled) { border: 0; background: none; }
+.sb-card-name-btn b { display: block; }
+.sb-card-tip {
+  position: absolute; left: 50%; bottom: calc(100% + 6px); z-index: 5;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 2px;
+  width: max-content; max-width: 180px;
+  padding: 7px 9px; border: 1px solid var(--brass); border-radius: 3px;
+  background: var(--pit-deep); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  font-size: 11px; text-align: left; white-space: normal;
+}
+.sb-card-tip b { font-family: var(--display); font-size: 13px; padding-right: 0; }
+.sb-card-tip em { font-style: normal; color: var(--leaf-dim); line-height: 1.3; }
+/* The shop's quill cards aren't a single buy-button any more (tapping the
+   card would spend the gold with no way to preview it first) -- a plain
+   span holding the icon-preview button and a distinct Buy button. */
+.sb-card-buy-btn {
+  margin-top: 2px; padding: 4px 10px; font-size: 10px; align-self: stretch;
+}
+.sb-card-buy-btn:disabled { opacity: 0.4; }
 .sb-card.is-uncommon { border-color: var(--brass); }
 .sb-card.is-rare { border-color: var(--rubric); }
 .sb-card-etude { border-style: dashed; }
@@ -1531,6 +1563,7 @@ button:disabled {
 }
 .sb-card-ink b { color: #6fb3e0; }
 .sb-card-kind { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--leaf-dim); }
+.sb-card-item .sb-card-kind { letter-spacing: 0; text-transform: none; white-space: normal; line-height: 1.15; }
 .sb-price {
   position: absolute; top: 6px; right: 8px;
   font-family: var(--figure); font-size: 13px; color: var(--brass-hot);
@@ -1663,7 +1696,16 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
   display: inline-flex; align-items: center; justify-content: center;
   opacity: 0.55; font-family: var(--figure); font-size: 11px;
   background: transparent;
+  border-style: dashed;
 }
+/* An ordinary future stick position, shown only to hold the premium slot's
+   place -- so its bonus reads as "position N", fixed from the moment a
+   round starts, rather than a badge that always seems to trail your last
+   typed letter. */
+.sb-premium-slot.is-slot-empty { border-color: var(--rule); }
+.sb-premium-slot.is-premium-dl { color: #6fd0c8; }
+.sb-premium-slot.is-premium-tl { color: #e08a4a; }
+.sb-premium-slot.is-premium-dw { color: #d468c9; }
 
 .sb-inking {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
@@ -1719,18 +1761,6 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
 .sb-seed-line code { font-family: var(--figure); color: var(--leaf); }
 .sb-seed-line button { padding: 3px 8px; font-size: 9px; }
 
-/* FIRST RUN: three lines over everything, gone on the first tap. */
-.sb-intro {
-  position: fixed; inset: 0; z-index: 60;
-  display: flex; flex-direction: column; justify-content: center; align-items: center;
-  gap: 14px; padding: 32px 24px;
-  background: rgba(10, 11, 22, 0.94);
-  font-family: var(--display); font-size: clamp(17px, 2.6vw, 24px); line-height: 1.4;
-  text-align: center; color: var(--leaf);
-}
-.sb-intro p { margin: 0; max-width: 620px; }
-.sb-intro p:last-child { color: var(--brass-hot); }
-
 /* The score flying from the stick to the readout. Its own element. */
 .sb-score-fly {
   position: fixed; z-index: 55; pointer-events: none;
@@ -1762,6 +1792,60 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
   .sb-plays-how { font-size: 10px; }
   button { min-height: 44px; }
   .sb-card-order button, .sb-card-sell, .sb-card-use, .sb-vowel { min-height: 32px; }
+  /* Consumables no longer print their description inline (tap the name for
+     a popover instead) so they no longer need a wide card. */
+  .sb-card-etude, .sb-card-ink { min-width: 76px; padding: 6px 8px; gap: 2px; }
+  .sb-card-icon { font-size: 22px; }
+  .sb-held { margin: 8px 0 0; gap: 6px; }
+  .sb-held-row { gap: 6px; }
+  .sb-held-row .sb-eyebrow { min-width: 0; width: 100%; }
+}
+
+/* ---- mobile: pin to one screen, no page scroll --------------------------
+   Margin-trimming alone can't guarantee a fit -- the plays list grows a
+   line per word, the held row grows a card per quill bought, the shop
+   lists a variable number of cards. Those are the parts that push the
+   rack/stick/input (what you need to actually play) below the fold.
+   So instead: `.sb` is pinned to the viewport height and never scrolls
+   itself; `.sb-play` (rack, stick, word input -- always needed) is
+   flex:none so it's always fully visible; `.sb-board` (score, enemy,
+   quills, word history, shop, end screen -- the variable-height stuff)
+   is the one flex:1 region allowed to scroll internally when it doesn't
+   fit. The held-quill row scrolls sideways instead of wrapping to a
+   second line, so buying more quills eats board scroll, not board height. */
+@media (max-width: 620px) {
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  #sandbox-root { height: 100%; }
+  .sb {
+    height: 100dvh;
+    max-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 10px 12px 8px;
+  }
+  .sb.is-title { overflow-y: auto; }
+  .sb-head, .sb-strip, .sb-title { flex: none; }
+  .sb-gear-panel { flex: none; max-height: 55vh; overflow-y: auto; }
+  .sb-board {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+  }
+  .sb-play { flex: none; }
+  /* Once the round is won the rack is inert; drop it so the outcome line and
+     its "To the shop" button get the screen instead of a 40px scroll slit. */
+  .sb.is-phase-won .sb-play { display: none; }
+  .sb-held-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .sb-held-row .sb-card { flex: none; }
 }
 
 /* ---- the scoring cascade (DEMO_PLAN_2 Phase 4) ------------------------- */
@@ -1849,6 +1933,17 @@ button.sb-card.is-sold, button.sb-card:disabled { opacity: 0.4; }
 .sb-rule q { font-size: 13px; color: var(--leaf-dim); }
 .sb-rule.is-pulse { animation: rule-pulse 1.6s ease-in-out 3; }
 @keyframes rule-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(212, 97, 74, 0); } 50% { box-shadow: 0 0 0 3px rgba(212, 97, 74, 0.55); } }
+
+/* The pre-fight card: fight this enemy, or skip it for a bonus. Replaces
+   the old in-battle skip button so the board stays clear once a word is
+   in play. */
+.sb-intro { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 4px 0 10px; }
+.sb-intro .sb-enemy-line { margin: 0; }
+.sb-intro-flavour { font-family: var(--display); font-style: italic; font-size: 14px; color: var(--leaf-dim); margin: 0; quotes: none; }
+.sb-intro-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; }
+.sb-skip-btn { background: none; border: 1px solid var(--brass-dim, var(--brass)); color: var(--leaf-dim); border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.sb-skip-btn b { color: var(--brass-hot); font-weight: 600; }
+.sb-skip-btn:hover { border-color: var(--brass-hot); color: var(--leaf); }
 .sb-callout {
   pointer-events: none;
   display: inline-block; margin: 0 0 8px; padding: 6px 12px;

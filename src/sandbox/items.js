@@ -63,40 +63,40 @@
 
   Sandbox.ITEMS = [
     // Common
-    { id: 'brass_nib', name: 'Brass Nib', rarity: 'common', price: 3, hint: '+10 points on every word',
+    { id: 'brass_nib', name: 'Brass Nib', glyph: '🖋️', rarity: 'common', price: 3, hint: '+10 points on every word',
       score: function (c, a) { a.points += 10; return '+10'; } },
-    { id: 'second_ink', name: 'Second Ink', rarity: 'common', price: 4, hint: '+1 mult on every word',
+    { id: 'second_ink', name: 'Second Ink', glyph: '🖊️', rarity: 'common', price: 4, hint: '+1 mult on every word',
       score: function (c, a) { a.mult += 1; return '+1 mult'; } },
-    { id: 'vowel_song', name: 'Vowel Song', rarity: 'common', price: 5, hint: '+3 mult for every vowel played',
+    { id: 'vowel_song', name: 'Vowel Song', glyph: '🎵', rarity: 'common', price: 5, hint: '+3 mult for every vowel played',
       score: function (c, a) { var n = count(c.tiles, VOWELS); if (!n) return null; a.mult += 3 * n; return '+' + 3 * n + ' mult'; } },
-    { id: 'hard_consonant', name: 'Hard Consonant', rarity: 'common', price: 4, hint: '+15 points for every K, Q, X, Z or J played',
+    { id: 'hard_consonant', name: 'Hard Consonant', glyph: '⚙️', rarity: 'common', price: 4, hint: '+15 points for every K, Q, X, Z or J played',
       score: function (c, a) { var n = count(c.tiles, HARD); if (!n) return null; a.points += 15 * n; return '+' + 15 * n; } },
-    { id: 'short_form', name: 'Short Form', rarity: 'common', price: 4, hint: '+4 mult if the word is 4 letters or fewer',
+    { id: 'short_form', name: 'Short Form', glyph: '✂️', rarity: 'common', price: 4, hint: '+4 mult if the word is 4 letters or fewer',
       score: function (c, a) { if (c.word.length > 4) return null; a.mult += 4; return '+4 mult'; } },
-    { id: 'long_form', name: 'Long Form', rarity: 'common', price: 4, hint: '+30 points if the word is 6 letters or more',
+    { id: 'long_form', name: 'Long Form', glyph: '📜', rarity: 'common', price: 4, hint: '+30 points if the word is 6 letters or more',
       score: function (c, a) { if (c.word.length < 6) return null; a.points += 30; return '+30'; } },
     // Uncommon
-    { id: 'lead_weight', name: 'Lead Weight', rarity: 'uncommon', price: 6, hint: '+25 points on every word',
+    { id: 'lead_weight', name: 'Lead Weight', glyph: '⚖️', rarity: 'uncommon', price: 6, hint: '+25 points on every word',
       score: function (c, a) { a.points += 25; return '+25'; } },
-    { id: 'gilded_edge', name: 'Gilded Edge', rarity: 'uncommon', price: 5, hint: '+10 points and +1 mult',
+    { id: 'gilded_edge', name: 'Gilded Edge', glyph: '🖼️', rarity: 'uncommon', price: 5, hint: '+10 points and +1 mult',
       score: function (c, a) { a.points += 10; a.mult += 1; return '+10, +1 mult'; } },
-    { id: 'half_note', name: 'Half Note', rarity: 'uncommon', price: 6, hint: '×1.5 mult',
+    { id: 'half_note', name: 'Half Note', glyph: '♩', rarity: 'uncommon', price: 6, hint: '×1.5 mult',
       score: function (c, a) { a.mult *= 1.5; return '×1.5 mult'; } },
-    { id: 'refrain', name: 'Refrain', rarity: 'uncommon', price: 6, hint: '+1 mult for every word played this run so far',
+    { id: 'refrain', name: 'Refrain', glyph: '🔁', rarity: 'uncommon', price: 6, hint: '+1 mult for every word played this run so far',
       score: function (c, a) { var n = c.run ? (c.run.itemState.refrain || 0) : 0; if (!n) return null; a.mult += n; return '+' + n + ' mult'; },
       onPlayed: function (run) { run.itemState.refrain = (run.itemState.refrain || 0) + 1; } },
-    { id: 'coda', name: 'Coda', rarity: 'uncommon', price: 7, hint: 'The last word of a round scores ×2 mult',
+    { id: 'coda', name: 'Coda', glyph: '𝄌', rarity: 'uncommon', price: 7, hint: 'The last word of a round scores ×2 mult',
       score: function (c, a) { if (!c.isLastPlay) return null; a.mult *= 2; return '×2 mult, last word'; } },
-    { id: 'anagram', name: 'Anagram', rarity: 'uncommon', price: 5, hint: '+20 points if the word uses an inked tile',
+    { id: 'anagram', name: 'Anagram', glyph: '🔀', rarity: 'uncommon', price: 5, hint: '+20 points if the word uses an inked tile',
       score: function (c, a) { if (!c.tiles.some(function (t) { return t.ink; })) return null; a.points += 20; return '+20'; } },
-    { id: 'miser', name: 'Miser', rarity: 'uncommon', price: 5, hint: '+1 gold per unused changeout at a win',
+    { id: 'miser', name: 'Miser', glyph: '💰', rarity: 'uncommon', price: 5, hint: '+1 gold per unused changeout at a win',
       goldAtWin: function (round) { return round.changeoutsLeft; } },
-    { id: 'libretto', name: 'Libretto', rarity: 'uncommon', price: 6, hint: '×2 mult if the word is a musical term (NOTE, HARP, TEMPO…)',
+    { id: 'libretto', name: 'Libretto', glyph: '📖', rarity: 'uncommon', price: 6, hint: '×2 mult if the word is a musical term (NOTE, HARP, TEMPO…)',
       score: function (c, a) { if (!Sandbox.isMusicWord(c.word)) return null; a.mult *= 2; return '×2 mult, a musical term'; } },
     // More second-axis quills (DIVERGENCE_PLAN.md).
-    { id: 'dissonance', name: 'Dissonance', rarity: 'uncommon', price: 6, hint: '×2 mult if the word has no vowels (RHYTHM, MYTH, LYNX…)',
+    { id: 'dissonance', name: 'Dissonance', glyph: '💥', rarity: 'uncommon', price: 6, hint: '×2 mult if the word has no vowels (RHYTHM, MYTH, LYNX…)',
       score: function (c, a) { if (/[AEIOU]/.test(c.word)) return null; a.mult *= 2; return '×2 mult, no vowels'; } },
-    { id: 'notation', name: 'Notation', rarity: 'uncommon', price: 6, hint: '+4 mult per letter A–G played (the note names)',
+    { id: 'notation', name: 'Notation', glyph: '🎼', rarity: 'uncommon', price: 6, hint: '+4 mult per letter A–G played (the note names)',
       score: function (c, a) {
         var n = 0;
         c.tiles.forEach(function (t) { if ('ABCDEFG'.indexOf(t.letter) >= 0) n++; });
@@ -104,9 +104,9 @@
         a.mult += 4 * n;
         return '+' + (4 * n) + ' mult';
       } },
-    { id: 'bard', name: 'Bard', rarity: 'uncommon', price: 6, hint: '×2 mult for a word in Shakespeare’s vocabulary (THOU, CROWN, GHOST…)',
+    { id: 'bard', name: 'Bard', glyph: '🎭', rarity: 'uncommon', price: 6, hint: '×2 mult for a word in Shakespeare’s vocabulary (THOU, CROWN, GHOST…)',
       score: function (c, a) { if (!Sandbox.isBardWord(c.word)) return null; a.mult *= 2; return '×2 mult, a bard’s word'; } },
-    { id: 'rhyme', name: 'Rhyme', rarity: 'uncommon', price: 5,
+    { id: 'rhyme', name: 'Rhyme', glyph: '🪶', rarity: 'uncommon', price: 5,
       hint: '+20 points if the word ends the same two letters as the last one played this round',
       score: function (c, a) {
         var plays = c.round ? c.round.plays : null;
@@ -118,12 +118,12 @@
       } },
     // The crescendo item: lit only while the recording's window is open
     // (audioPiece.js `crescendo()`); the card counts down to it.
-    { id: 'climax', name: 'Climax', rarity: 'uncommon', price: 7, crescendo: true,
+    { id: 'climax', name: 'Climax', glyph: '🌋', rarity: 'uncommon', price: 7, crescendo: true,
       hint: '×3 mult if the word lands on a crescendo — the card counts down to each one',
       score: function (c, a) { if (!c.crescendo) return null; a.mult *= 3; return '×3 mult, on the crescendo'; } },
     // A second crescendo effect (DIVERGENCE_PLAN.md "ideas for later"): the
     // swell's own size pays, so a bigger crescendo is worth more.
-    { id: 'fortissimo', name: 'Fortissimo', rarity: 'uncommon', price: 7, crescendo: true,
+    { id: 'fortissimo', name: 'Fortissimo', glyph: '🔊', rarity: 'uncommon', price: 7, crescendo: true,
       hint: '+50 points × the crescendo’s own size, on a crescendo',
       score: function (c, a) {
         if (!c.crescendo) return null;
@@ -133,18 +133,18 @@
       } },
     // The opposite reflex to Climax: paid for playing INTO the swell rather
     // than on it, off the same countdown card (crescendoSoon, RoundSandbox).
-    { id: 'anticipation', name: 'Anticipation', rarity: 'uncommon', price: 6, crescendo: true,
+    { id: 'anticipation', name: 'Anticipation', glyph: '⏳', rarity: 'uncommon', price: 6, crescendo: true,
       hint: '+2 mult if the word is played during a crescendo’s countdown',
       score: function (c, a) { if (!c.crescendoSoon) return null; a.mult += 2; return '+2 mult, anticipating'; } },
     // A third crescendo effect: no score of its own, just holds the window
     // open 2s longer after a crescendo hit so the NEXT word can land in it
     // too (Sandbox.CRESCENDO's window in audioPiece.js, run.extendCrescendo).
-    { id: 'sustain', name: 'Sustain', rarity: 'uncommon', price: 6, crescendo: true,
+    { id: 'sustain', name: 'Sustain', glyph: '🎐', rarity: 'uncommon', price: 6, crescendo: true,
       hint: 'A crescendo hit holds the window open 2s longer for your next word',
       onPlayed: function (run, breakdown) { if (breakdown.crescendo && run.extendCrescendo) run.extendCrescendo(2); } },
     // The second scoring axis again: a word that reads the same forwards and
     // back is rare enough to be a build-around.
-    { id: 'palindrome', name: 'Palindrome', rarity: 'uncommon', price: 6,
+    { id: 'palindrome', name: 'Palindrome', glyph: '♻️', rarity: 'uncommon', price: 6,
       hint: '×3 mult if the word is a palindrome (LEVEL, ROTOR, REFER…)',
       score: function (c, a) {
         var w = c.word;
@@ -153,9 +153,9 @@
         return '×3 mult, a palindrome';
       } },
     // Rare
-    { id: 'double_stop', name: 'Double Stop', rarity: 'rare', price: 8, hint: '×2 mult',
+    { id: 'double_stop', name: 'Double Stop', glyph: '🎻', rarity: 'rare', price: 8, hint: '×2 mult',
       score: function (c, a) { a.mult *= 2; return '×2 mult'; } },
-    { id: 'fermata', name: 'Fermata', rarity: 'rare', price: 8, hint: '+1 word every round', plays: 1 },
+    { id: 'fermata', name: 'Fermata', glyph: '𝄐', rarity: 'rare', price: 8, hint: '+1 word every round', plays: 1 },
     // Harmony (NEXT_LEVEL_PLAN.md stage 2): the one chord quill. If the case
     // is left holding exactly two or three tiles that themselves spell a
     // word, that word's own base points land as a separate `chord` step in
@@ -163,7 +163,7 @@
     // Without this quill nothing in the case ever scores; steel ink is its
     // natural partner since a held tile it doesn't use to score still pays
     // its ×held mult.
-    { id: 'harmony', name: 'Harmony', rarity: 'rare', price: 9,
+    { id: 'harmony', name: 'Harmony', glyph: '🎶', rarity: 'rare', price: 9,
       hint: 'If two or three tiles left in the case spell a word, add that word’s base points',
       score: function (c, a) {
         var held = (c.held || []).filter(function (t) { return t && t.letter; });

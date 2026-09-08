@@ -158,7 +158,7 @@ function cresBadge(cres) {
   return 'NOW · ' + cres.secs.toFixed(1) + 's';
 }
 
-function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats, cres }) {
+function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats, cres, tip, setTip }) {
   const tune = run.tune;
   return (
     <div className="sb-held">
@@ -167,11 +167,22 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats, cres }) {
         {run.items.map((id, i) => {
           const d = SB.ITEM_DEFS[id];
           const cresState = d.crescendo ? (live && cres ? cres.phase : 'idle') : null;
+          const tipId = 'item:' + id;
           return (
-            <span key={id} className={'sb-card sb-card-item is-' + (d.rarity || 'common') + (lit === id ? ' is-jiggle' : '')
-              + (cresState ? ' sb-card-cres is-cres-' + cresState : '')} title={itemBlurb(d)}>
+            <span key={id} className={'sb-card sb-card-item sb-card-glyphed is-' + (d.rarity || 'common') + (lit === id ? ' is-jiggle' : '')
+              + (cresState ? ' sb-card-cres is-cres-' + cresState : '')}
+              role="button" tabIndex={0} aria-label={d.name + ' — ' + itemBlurb(d)}
+              onClick={() => setTip((t) => (t === tipId ? null : tipId))}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTip((t) => (t === tipId ? null : tipId)); } }}>
               {(floats || []).filter((x) => x.on === id).map((x) => <i key={x.key} className={'sb-float sb-float-card is-' + x.tone}>{x.text}</i>)}
-              <b>{d.name}</b><em>{itemBlurb(d)}</em>
+              <span className="sb-card-icon" aria-hidden="true">{d.glyph || '❖'}</span>
+              <b className="sb-card-name-sr">{d.name}</b>
+              {tip === tipId && (
+                <span className="sb-card-tip" role="tooltip">
+                  <b>{d.name}</b>
+                  <em>{itemBlurb(d)}</em>
+                </span>
+              )}
               {cresState && (
                 <span className="sb-cres-badge" aria-live="polite">
                   {cresState === 'soon' && <i className="sb-cres-ring" style={{ '--t': Math.max(0, Math.min(1, cres.secs / SB.CRESCENDO.countdown)) }} />}
@@ -181,14 +192,14 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats, cres }) {
               {run.items.length > 1 && (
                 <span className="sb-card-order" title="Quills fire left to right">
                   <button type="button" disabled={i === 0} aria-label="Move left"
-                    onClick={() => act(null, { ok: run.moveItem(i, i - 1) })}>‹</button>
+                    onClick={(e) => { e.stopPropagation(); act(null, { ok: run.moveItem(i, i - 1) }); }}>‹</button>
                   <button type="button" disabled={i === run.items.length - 1} aria-label="Move right"
-                    onClick={() => act(null, { ok: run.moveItem(i, i + 1) })}>›</button>
+                    onClick={(e) => { e.stopPropagation(); act(null, { ok: run.moveItem(i, i + 1) }); }}>›</button>
                 </span>
               )}
               {inShop && (
                 <button type="button" className="sb-card-sell" title="Sell"
-                  onClick={() => act('Sold ' + d.name + '.', run.shop.sell(i), 'coin')}>
+                  onClick={(e) => { e.stopPropagation(); act('Sold ' + d.name + '.', run.shop.sell(i), 'coin'); }}>
                   sell {Math.floor(SB.priceOf(d) / 2)}
                 </button>
               )}
@@ -200,9 +211,17 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats, cres }) {
       {(run.consumables.length > 0 || inShop) && (
         <div className="sb-held-row" aria-label="Consumables">
           <span className="sb-eyebrow">Consumables · {run.consumables.length}/{tune.CONSUMABLE_SLOTS}</span>
-          {run.consumables.map((c, i) => (
-            <span key={i} className={'sb-card sb-card-' + c.kind} title={consumableBlurb(SB, c, run)}>
-              <b>{consumableName(SB, c)}</b><em>{consumableBlurb(SB, c, run)}</em>
+          {run.consumables.map((c, i) => {
+            const tipId = 'cons:' + c.kind + ':' + i;
+            return (
+            <span key={i} className={'sb-card sb-card-' + c.kind}>
+              <button type="button" className="sb-card-name-btn"
+                onClick={() => setTip((t) => (t === tipId ? null : tipId))}>
+                <b>{consumableName(SB, c)}</b>
+              </button>
+              {tip === tipId && (
+                <span className="sb-card-tip" role="tooltip"><em>{consumableBlurb(SB, c, run)}</em></span>
+              )}
               {(live || inShop) && c.kind === 'etude' && (
                 <button type="button" className="sb-card-use"
                   onClick={() => act('Played the ' + consumableName(SB, c) + ' — ' + SB.TIER_DEFS[c.id].name + ' is level ' + ((run.tierLevels[c.id] || 1) + 1) + '.', run.useConsumable(i))}>use</button>
@@ -217,7 +236,8 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats, cres }) {
                 </button>
               )}
             </span>
-          ))}
+            );
+          })}
           {run.consumables.length === 0 && <span className="sb-hint">none held</span>}
         </div>
       )}
@@ -227,7 +247,7 @@ function HeldRow({ run, SB, act, live, inShop, onInk, lit, floats, cres }) {
 
 // The shop between fights: two cards, two packs, reroll, and the door.
 function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard,
-  selecting, commitSelecting, cancelSelecting, toggleSelectTile }) {
+  selecting, commitSelecting, cancelSelecting, toggleSelectTile, tip, setTip }) {
   const shop = run.shop;
   const next = SB.enemyAt(run.movement, run.stage);
   const packDef = (kind) => SB.PACK_KINDS.find((k) => k.kind === kind);
@@ -298,19 +318,47 @@ function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard,
       )}
       {!selecting && !run.pack && (<>
         <div className="sb-shop-row" aria-label="Cards">
-          {shop.cards.map((c, i) => (
+          {shop.cards.map((c, i) => {
+            const disabled = c.sold || run.gold < c.price
+              || (c.kind === 'item' && run.items.length >= run.tune.ITEM_SLOTS);
+            const tipId = 'shop:' + i;
+            if (c.kind === 'item' && !c.sold) {
+              // Tapping the whole card would buy it on the spot -- with no
+              // hover on touch, that left no way to read a quill's effect
+              // before spending gold on it. The icon toggles a preview
+              // instead; a separate Buy button commits.
+              return (
+                <span key={i} className={'sb-card sb-card-buy sb-card-item sb-card-glyphed is-' + (SB.ITEM_DEFS[c.id].rarity || 'common')}
+                  role="button" tabIndex={0} aria-label={cardName(SB, c) + ' — ' + cardBlurb(SB, c, run)}
+                  onClick={() => setTip((t) => (t === tipId ? null : tipId))}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTip((t) => (t === tipId ? null : tipId)); } }}>
+                  <span className="sb-card-kind">{cardName(SB, c)}</span>
+                  <span className="sb-card-icon" aria-hidden="true">{SB.ITEM_DEFS[c.id].glyph || '❖'}</span>
+                  {tip === tipId && (
+                    <span className="sb-card-tip" role="tooltip">
+                      <b>{cardName(SB, c)}</b>
+                      <em>{cardBlurb(SB, c, run)}</em>
+                    </span>
+                  )}
+                  <span className="sb-price">{c.price}</span>
+                  <button type="button" className="sb-card-buy-btn" disabled={disabled}
+                    onClick={(e) => { e.stopPropagation(); buyCard(i); }}>Buy</button>
+                </span>
+              );
+            }
+            return (
             <button key={i} type="button"
-              disabled={c.sold || run.gold < c.price
-                || (c.kind === 'item' && run.items.length >= run.tune.ITEM_SLOTS)}
-              className={'sb-card sb-card-buy sb-card-' + c.kind + (c.kind === 'item' ? ' is-' + (SB.ITEM_DEFS[c.id].rarity || 'common') : '') + (c.sold ? ' is-sold' : '')}
-              title={cardBlurb(SB, c, run)}
+              disabled={disabled}
+              className={'sb-card sb-card-buy sb-card-' + c.kind + (c.sold ? ' is-sold' : '')}
+              title={c.sold ? 'sold' : cardName(SB, c) + ' — ' + cardBlurb(SB, c, run)}
               onClick={() => buyCard(i)}>
-              <span className="sb-card-kind">{c.kind === 'item' ? 'quill' : c.kind}</span>
-              <b>{c.sold ? 'sold' : cardName(SB, c)}</b>
+              <span className="sb-card-kind">{c.kind}</span>
               <em>{c.sold ? '' : cardBlurb(SB, c, run)}</em>
+              <b>{c.sold ? 'sold' : cardName(SB, c)}</b>
               {!c.sold && <span className="sb-price">{c.price}</span>}
             </button>
-          ))}
+            );
+          })}
           <button type="button" className="sb-reroll" disabled={run.gold < shop.rerollPrice()}
             onClick={() => act('Rerolled.', shop.reroll(), 'coin')}>
             Reroll <span className="sb-price">{shop.rerollPrice()}</span>
@@ -329,7 +377,7 @@ function Shop({ run, SB, act, leave, onInk, firstVisit, buyCard, pickCard,
             </button>
           ))}
         </div>
-        <HeldRow run={run} SB={SB} act={act} inShop onInk={onInk} />
+        <HeldRow run={run} SB={SB} act={act} inShop onInk={onInk} tip={tip} setTip={setTip} />
         <button type="button" className="sb-go sb-shop-leave" onClick={leave}>
           Continue<small>next: {next.glyph} {next.name} · target {run.targetFor(run.movement, run.stage)}</small>
         </button>
@@ -502,7 +550,16 @@ export default function RoundSandbox() {
   const W = window.Wordbound;
   const SB = W.Sandbox;
   const fight = useRef(null);   // { run, round, seq, ctx, gain, def, piece }
+  // The round the player has actually entered -- fight the enemy, or skip
+  // it, from the pre-fight card. A fresh round object (a new stage, from
+  // start() or after a skip/win) never matches this, so the card reappears
+  // automatically with no extra bookkeeping at the call sites.
+  const readyRound = useRef(null);
   const [, forceRender] = useState(0);
+  // Mirrors of the volume/sfx-on state for the zero-dep resume effect below,
+  // which needs the LATEST value without re-subscribing on every change.
+  const volumeRef = useRef(0.4);
+  const sfxOnRef = useRef(true);
   // idle | live | won (round, run continues) | shop (between fights) | lost | run-won
   const [phase, setPhase] = useState('idle');
   const [log, setLog] = useState([]);
@@ -512,10 +569,12 @@ export default function RoundSandbox() {
   const [helper, setHelper] = useState(false);
   const [bagId, setBagId] = useState('normal');
   const [volume, setVolume] = useState(0.4);
+  volumeRef.current = volume;
   // Input sounds (sfx.js), on by default, remembered in wbc.sfx.
   const [sfxOn, setSfxOn] = useState(() => {
     try { return window.localStorage.getItem('wbc.sfx') !== '0'; } catch (e) { return true; }
   });
+  sfxOnRef.current = sfxOn;
   useEffect(() => {
     try { window.localStorage.setItem('wbc.sfx', sfxOn ? '1' : '0'); } catch (e) { /* ignore */ }
     if (fight.current?.sfx) fight.current.sfx.setEnabled(sfxOn);
@@ -546,6 +605,15 @@ export default function RoundSandbox() {
   const [best, setBest] = useState(() => readBest());
   // Narrow screens keep the setup bar, starting items and tuning behind a gear.
   const [gearOpen, setGearOpen] = useState(false);
+  // Which quill/consumable's tap-tooltip is open (mobile has no hover, so
+  // `title` never shows -- tapping the icon toggles this instead).
+  const [tip, setTip] = useState(null);
+  useEffect(() => {
+    if (!tip) return undefined;
+    const close = (e) => { if (!e.target.closest('.sb-card')) setTip(null); };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [tip]);
   // Which one-time callouts have been shown (see readSeen).
   const [seen, setSeen] = useState(() => readSeen());
   const markSeen = useCallback((id) => {
@@ -621,10 +689,47 @@ export default function RoundSandbox() {
   // do not always resume it on their own when it comes back to the
   // foreground -- leaving both music and sfx silent until the player
   // manually restarts the run. Resume on return to visibility instead.
+  //
+  // A few minutes backgrounded goes further on some mobile browsers (iOS
+  // Safari in particular): the OS doesn't just suspend the context, it
+  // CLOSES it outright to free the audio hardware, and a closed context can
+  // never resume -- ctx.resume() silently no-ops on it forever. That is the
+  // "leave for a bit and the whole app goes silent for good" failure. When
+  // that's happened, rebuild the graph and the current piece from scratch
+  // rather than trying to resume something that's gone.
   useEffect(() => {
+    const rebuildClosed = () => {
+      const f = fight.current;
+      if (!f || !f.ctx || f.ctx.state !== 'closed') return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const gain = ctx.createGain();
+        gain.connect(ctx.destination);
+        gain.gain.value = volumeRef.current;
+        const sfxNode = SB.createSfx(ctx, ctx.destination);
+        sfxNode.setLevel(volumeRef.current);
+        sfxNode.setEnabled(sfxOnRef.current);
+        let seq = null;
+        if (f.piece) {
+          seq = SB.createAudioPiece(ctx, gain, f.piece);
+          seq.on('load-failed', (err) => say('The recording did not load ('
+            + (err && err.message ? err.message : err) + ') — Restart to try again.'));
+          seq.on('piece-ended', () => {
+            const g = fight.current;
+            if (!g || g.seq !== seq) return;
+            seq.stop();
+            seq.play();
+          });
+          seq.play();
+        }
+        fight.current = { ...f, ctx, gain, sfx: sfxNode, seq };
+        if (seq) say('The soundtrack dropped out while the tab was in the background — restarted.');
+      } catch (err) { /* still no audio device available; leave it silent */ }
+    };
     const tryResume = () => {
       const ctx = fight.current?.ctx;
-      if (ctx && ctx.state !== 'closed' && ctx.state !== 'running') {
+      if (ctx && ctx.state === 'closed') { rebuildClosed(); return; }
+      if (ctx && ctx.state !== 'running') {
         ctx.resume().catch(() => {});
       }
     };
@@ -1254,6 +1359,8 @@ export default function RoundSandbox() {
   })();
 
   const live = phase === 'live' && round;
+  const showIntro = phase === 'live' && round && readyRound.current !== round;
+  const enterFight = useCallback(() => { readyRound.current = round; refresh(); }, [round, refresh]);
   const barredNow = live ? slots.filter(Boolean).filter((t) => round.isBarred(t)) : [];
   const spelt = !!(live && formable && !barredNow.length && round.isPlayable(letters));
   const worthHow = spelt ? round.breakdownFor(letters) : null;
@@ -1262,7 +1369,7 @@ export default function RoundSandbox() {
   const pct = round ? Math.min(100, (100 * scoreShown) / round.target) : 0;
 
   return (
-    <div className={'sb' + (gearOpen ? ' is-gear-open' : '') + (phase === 'idle' ? ' is-title' : '')}
+    <div className={'sb is-phase-' + phase + (gearOpen ? ' is-gear-open' : '') + (phase === 'idle' ? ' is-title' : '')}
       onPointerDownCapture={scoring ? skipCascade : undefined}>
       <header className="sb-head">
         <div className="sb-wordmark">
@@ -1409,6 +1516,34 @@ export default function RoundSandbox() {
 
       {round && (
         <section className={'sb-board' + (scoring && scoring.hit ? ' is-hit-' + scoring.hit : '')}>
+          {showIntro ? (
+            <div className="sb-intro">
+              <div className="sb-enemy-line">
+                <span className="sb-enemy">{f.def.glyph} {f.def.name}</span>
+                <span className="sb-piece">{f.piece.title}{f.piece.composer ? ' · ' + f.piece.composer : ''}</span>
+              </div>
+              {f.def.flavour && <q className="sb-intro-flavour">{f.def.flavour}</q>}
+              {round.rule ? (
+                <div className="sb-rule is-pulse">
+                  <span className="sb-eyebrow">Tempo marking · {round.rule.name}</span>
+                  <b className="sb-rule-plain">{round.rule.plain}</b>
+                  <q>{round.rule.text}</q>
+                </div>
+              ) : (
+                <span className="sb-hint">Target {round.target}</span>
+              )}
+              <div className="sb-intro-row">
+                <button type="button" className="sb-go" onClick={enterFight}>Fight {f.def.name}</button>
+                {round.favour && (
+                  <button type="button" className="sb-skip-btn"
+                    title={SB.FAVOUR_DEFS[round.favour].name + ': ' + SB.FAVOUR_DEFS[round.favour].hint + '. No shop after a skip.'}
+                    onClick={skipFight}>
+                    Skip for <b>{SB.FAVOUR_DEFS[round.favour].name}</b>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (<>
           <div className="sb-scoreline" aria-label="Score against the target">
             <span className={'sb-dyn-mark' + (scoring && scoring.total != null ? ' is-hit' : '')}>{scoreShown}</span>
             <div className="sb-meter" aria-label="Progress to target">
@@ -1435,16 +1570,9 @@ export default function RoundSandbox() {
               <q>{round.rule.text}</q>
             </div>
           )}
-          {phase === 'live' && round.favour && round.plays.length === 0 && (
-            <div className="sb-skip">
-              <span className="sb-hint" title={SB.FAVOUR_DEFS[round.favour].name + ': ' + SB.FAVOUR_DEFS[round.favour].hint + '. No shop after a skip.'}>
-                Or skip for <b>{SB.FAVOUR_DEFS[round.favour].name}</b>
-              </span>
-              <button type="button" onClick={skipFight}>Skip for the bonus</button>
-            </div>
-          )}
+          </>)}
           {phase !== 'shop' && <HeldRow run={run} SB={SB} act={act} live={phase === 'live'} onInk={useInk} cres={cres}
-            lit={scoring ? scoring.litItem : null} floats={scoring ? scoring.floats : null} />}
+            lit={scoring ? scoring.litItem : null} floats={scoring ? scoring.floats : null} tip={tip} setTip={setTip} />}
           {round.plays.length > (scoring && !scoring.cleared ? 1 : 0) && (
             <ol className="sb-plays">
               {(scoring && !scoring.cleared ? round.plays.slice(0, -1) : round.plays).map((p, i) => (
@@ -1487,7 +1615,7 @@ export default function RoundSandbox() {
             <Shop run={run} SB={SB} act={act} leave={leaveShop} onInk={useInk} firstVisit={!seen.has('shop')}
               buyCard={buyCard} pickCard={pickCard}
               selecting={selecting} commitSelecting={commitSelecting} cancelSelecting={cancelSelecting}
-              toggleSelectTile={toggleSelectTile} />
+              toggleSelectTile={toggleSelectTile} tip={tip} setTip={setTip} />
           )}
           {(phase === 'run-won' || phase === 'lost') && (
             <EndScreen run={run} won={phase === 'run-won'} SB={SB} seed={seed} best={best}
@@ -1496,7 +1624,7 @@ export default function RoundSandbox() {
         </section>
       )}
 
-      {round && (phase === 'live' || phase === 'scoring' || phase === 'won') && (
+      {round && !showIntro && (phase === 'live' || phase === 'scoring' || phase === 'won') && (
         <section className="sb-play" ref={playRef}>
           {live && !seen.has('rack') && round.plays.length === 0 && (
             <div className="sb-callout">Tap letters to spell a word</div>
@@ -1589,9 +1717,6 @@ export default function RoundSandbox() {
                 </span>
               ))}
               {scoring && scoring.floats.filter((x) => x.on === 'stick').map((x) => <i key={x.key} className={'sb-float is-' + x.tone}>{x.text}</i>)}
-              {!scoring && letters.length === 0 && (
-                <span className="sb-stick-empty" title="Tap tiles above, or type, then Play or Swap them for new tiles. One tile alone always plays.">tap tiles, or type</span>
-              )}
               {stickShown.map(({ t, i, ch, hollow }) => {
                 const premiumHere = round.premium && round.premium.pos === i;
                 return t ? (
@@ -1614,12 +1739,21 @@ export default function RoundSandbox() {
                   {ch}
                 </button>
               );})}
-              {round.premium && round.premium.pos >= stickShown.length && (
-                <span key="premium-preview" className={'sb-tile sb-premium-slot is-premium-' + round.premium.kind}
-                  title={PREMIUM_HINT[round.premium.kind] + ' — lands on stick position ' + (round.premium.pos + 1)}>
-                  {PREMIUM_ICON[round.premium.kind]}
-                </span>
-              )}
+              {(() => {
+                const minEnd = Math.max(5, round.premium ? round.premium.pos : 0);
+                return minEnd >= stickShown.length &&
+                Array.from({ length: minEnd - stickShown.length + 1 }, (_, k) => stickShown.length + k).map((i) =>
+                  round.premium && i === round.premium.pos ? (
+                    <span key="premium-preview" className={'sb-tile sb-premium-slot is-premium-' + round.premium.kind}
+                      title={PREMIUM_HINT[round.premium.kind] + ' — lands on stick position ' + (round.premium.pos + 1)}>
+                      {PREMIUM_ICON[round.premium.kind]}
+                    </span>
+                  ) : (
+                    <span key={'premium-gap' + i} className="sb-tile sb-premium-slot is-slot-empty"
+                      title={'Stick position ' + (i + 1)} />
+                  )
+                );
+              })()}
             </div>
           </div>
 
@@ -1627,10 +1761,10 @@ export default function RoundSandbox() {
             <div className="sb-callout">Swap tiles you don’t want — {round.tune.CHANGEOUTS} per fight</div>
           )}
           <div className="sb-input">
-            <input ref={inputRef} value={word} disabled={!live}
+            <input ref={inputRef} value={word} disabled={!live} readOnly inputMode="none"
               className={formable ? '' : 'is-unformable'}
-              placeholder="Tap tiles, or type"
-              onChange={(e) => setWord(e.target.value)}
+              placeholder="Tap tiles"
+              onFocus={(e) => e.target.blur()}
               onKeyDown={(e) => { if (e.key === 'Enter') play(); }} />
             <button type="button" className="sb-go" onClick={play}
               disabled={!live || !letters}>Play</button>
