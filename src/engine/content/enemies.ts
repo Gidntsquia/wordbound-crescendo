@@ -2,6 +2,11 @@
 // lineup (MOVEMENTS) and the boss tempo markings (RULES). Still attaches to
 // window.Wordbound.Sandbox for the untyped sandbox modules that read it off
 // the global (round.js, RoundSandbox.jsx, ...).
+//
+// Names/flavour rewritten to READ_SLOWLY_PLAN.md stage B ("slow down and
+// read"): antagonists are tempos a reader outlasts, not villains. `id`,
+// `kind`, `recorded`, and `rule` are unchanged -- only the on-screen name
+// and flavour text moved.
 import '../sandboxGlobal';
 
 export type EnemyKind = 'small' | 'big' | 'boss';
@@ -53,23 +58,25 @@ export interface Rule {
 export const MOVEMENTS: Movement[] = [
   {
     numeral: 'I',
-    name: 'First Movement',
+    name: 'Chapter 1: The Commute',
     enemies: [
       {
         id: 'bagatelle',
-        name: 'The Bagatelle',
-        glyph: '\u{1F339}',
+        name: 'The Doomscroll',
+        glyph: '\u{1F4F1}',
         recorded: 'recordedFurElise',
         kind: 'small',
-        flavour: 'A trifle. It only wants to be hummed.',
+        flavour:
+          'A commuter, hypnotised by a phone. Thumb moving, eyes glazed.',
       },
       {
         id: 'moonlight',
-        name: 'The Moonlight',
+        name: 'The Deadline',
         glyph: '\u{1F319}',
         recorded: 'recordedMoonlight',
         kind: 'big',
-        flavour: 'Slow, and it does not blink.',
+        flavour:
+          'The same commuter, now at a desk. A clock face where the phone was.',
       },
       {
         id: 'fate',
@@ -77,30 +84,32 @@ export const MOVEMENTS: Movement[] = [
         glyph: '\u{1F451}',
         recorded: 'recordedSymphony5',
         kind: 'boss',
-        flavour: 'Four knocks. It is not asking.',
+        flavour: 'The deadline arrives in person. Four knocks. Not asking.',
         rule: 'four_knocks',
       },
     ],
   },
   {
     numeral: 'II',
-    name: 'Second Movement',
+    name: 'Chapter 2: The Square',
     enemies: [
       {
         id: 'aria',
-        name: 'The Aria',
-        glyph: '\u{1F54A}\uFE0F',
+        name: 'The Bored Bench',
+        glyph: '\u{1FA91}',
         recorded: 'recordedGoldbergAria',
         kind: 'small',
-        flavour: 'A single line, unhurried. It will wait for you.',
+        flavour:
+          'Someone with nothing to do, and no idea a book counts as something.',
       },
       {
         id: 'mountain_king',
-        name: 'The Mountain King',
-        glyph: '\u{1F3D4}\uFE0F',
+        name: 'The Loudspeaker',
+        glyph: '\u{1F3D4}️',
         recorded: 'recordedMountainKing',
         kind: 'big',
-        flavour: 'It starts on tiptoe. It does not stay there.',
+        flavour:
+          'A leader who talks so no one has to think. The bench-sitter is in the crowd.',
         rule: 'presto',
       },
       {
@@ -109,30 +118,32 @@ export const MOVEMENTS: Movement[] = [
         glyph: '\u{1F40E}',
         recorded: 'recordedWilliamTell',
         kind: 'boss',
-        flavour: 'Every letter you spend, it remembers.',
+        flavour:
+          'The parade that never stops for anyone. Every letter you spend, it remembers.',
         rule: 'no_repeats',
       },
     ],
   },
   {
     numeral: 'III',
-    name: 'Third Movement',
+    name: 'Chapter 3: The Tower',
     enemies: [
       {
         id: 'gymnopedie',
-        name: 'The Gymnopédie',
-        glyph: '\u{1F32B}\uFE0F',
+        name: 'The Waiting Room',
+        glyph: '\u{1F3E2}',
         recorded: 'recordedGymnopedie',
         kind: 'small',
-        flavour: 'Slow and sorrowful. It has nowhere to be.',
+        flavour:
+          'A person staring at a wall, so bored they have forgotten boredom has a cure.',
       },
       {
         id: 'serenade',
-        name: 'The Serenade',
-        glyph: '\u{1F3BB}',
+        name: 'The Chancellor',
+        glyph: '\u{1F3DB}️',
         recorded: 'recordedNachtmusik',
         kind: 'big',
-        flavour: 'A little night music. It knows every step.',
+        flavour: 'Hegemony. A hall repeating the same word after a podium.',
       },
       {
         id: 'bald_mountain',
@@ -140,7 +151,8 @@ export const MOVEMENTS: Movement[] = [
         glyph: '\u{1F311}',
         recorded: 'recordedBaldMountain',
         kind: 'boss',
-        flavour: 'Speak softly here. The loud words are taken from you.',
+        flavour:
+          'The whole night of noise. Speak softly here; loud words are taken from you.',
         rule: 'sotto_voce',
       },
     ],
@@ -148,9 +160,9 @@ export const MOVEMENTS: Movement[] = [
 ];
 
 export const KIND_LABEL: Record<EnemyKind, string> = {
-  small: 'Small',
-  big: 'Big',
-  boss: 'Boss',
+  small: 'Distraction',
+  big: 'Pressure',
+  boss: 'Finale',
 };
 
 export function enemyAt(movement: number, stage: number): Enemy | null {
@@ -158,10 +170,11 @@ export function enemyAt(movement: number, stage: number): Enemy | null {
   return m ? (m.enemies[stage] ?? null) : null;
 }
 
-// Tempo markings -- boss rules. round.js reads these at creation (plays,
-// targetMult), at scoring (score(ctx, acc) after the items) and at play
-// (barsLetter(round, letter)); the UI shows `text` under the target in the
-// enemy's voice and greys barred tiles.
+// Tempo markings -- boss rules, on screen as READING CONDITIONS.
+// round.js reads these at creation (plays, targetMult), at scoring
+// (score(ctx, acc) after the items) and at play (barsLetter(round, letter));
+// the UI shows `text` under the target in the enemy's voice and greys
+// barred tiles.
 export const RULES: Record<string, Rule> = {
   four_knocks: {
     id: 'four_knocks',
