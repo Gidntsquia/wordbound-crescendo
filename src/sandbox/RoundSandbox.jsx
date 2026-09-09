@@ -310,10 +310,13 @@ export default function RoundSandbox() {
   // plain re-render nudge, not a model of fight.current's actual state (see
   // src/app/store.ts's header).
   const [, dispatchRefresh] = useReducer(refreshReducer, 0);
-  // A3: the tuning panel's tune-override mutation, routed through a typed
-  // dispatch instead of a direct `fight.current.round.tune[key] = value`
-  // call -- see src/app/store.ts's fightReducer for why this is the one
-  // run/round call site converted so far.
+  // A3: run/round mutation call sites routed through a typed dispatch
+  // instead of direct calls -- see src/app/store.ts's fightReducer. The
+  // shop/pack/mark-selecting flow (buyCard, pickCard, commitSelecting,
+  // useInk, applyInk) stays as direct calls: it's a tightly nested
+  // selecting/inking state machine layered on top of the run mutations,
+  // and converting it carries more transcription risk than this pass's
+  // browser-verification budget covers.
   const [, dispatchFight] = useReducer(fightReducer, 0);
   // Mirrors of the volume/sfx-on state for the zero-dep resume effect below,
   // which needs the LATEST value without re-subscribing on every change.
@@ -779,42 +782,21 @@ export default function RoundSandbox() {
 
   // After a won round: bank the gold and move to the next enemy, or end the run.
   const nextStage = useCallback(() => {
-    const f = fight.current;
-    if (!f || !f.run || phase !== 'won') return;
-    const state = f.run.next();
-    if (f.run.quillFound) {
-      say(
-        'The boss also yields a new quill: ' +
-          SB.ITEM_DEFS[f.run.quillFound].name +
-          '.',
-      );
-      f.run.quillFound = null;
-      refreshDiscovered();
-    }
-    if (state === 'won') {
-      setPhase('run-won');
-      say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
-      setBest(recordRun(f.run, true));
-      unlockNextKey(f.run);
-      SB.unlockNext(f.run.character);
-      refresh();
-      return;
-    }
-    if (f.run.letterChoice) {
-      setPhase('letter');
-      say('The boss falls — choose a letter to win back.');
-      SB.unlockNext(f.run.character);
-      refresh();
-      return;
-    }
-    if (f.run.shop) {
-      warm(f.run.movement, f.run.stage);
-      setPhase('shop');
-      say('The shop opens. ' + f.run.ink + ' ink in the purse.');
-      refresh();
-      return;
-    }
-    startStage(f.run);
+    dispatchFight({
+      type: 'fight/nextStage',
+      fight,
+      phase,
+      say,
+      refresh,
+      startStage,
+      SB,
+      warm,
+      unlockNextKey,
+      refreshDiscovered,
+      setPhase,
+      setBest,
+      recordRun,
+    });
   }, [
     phase,
     say,
@@ -829,58 +811,33 @@ export default function RoundSandbox() {
   // Take a letter offered after a boss, then resume into the shop or the win screen.
   const pickLetter = useCallback(
     (letter) => {
-      const f = fight.current;
-      if (!f || !f.run || phase !== 'letter' || !f.run.pickLetter(letter))
-        return;
-      if (f.run.state === 'won') {
-        setPhase('run-won');
-        say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
-        setBest(recordRun(f.run, true));
-        unlockNextKey(f.run);
-        SB.unlockNext(f.run.character);
-        refresh();
-        return;
-      }
-      if (f.run.shop) {
-        warm(f.run.movement, f.run.stage);
-        setPhase('shop');
-        say('The shop opens. ' + f.run.ink + ' ink in the purse.');
-        refresh();
-        return;
-      }
-      startStage(f.run);
+      dispatchFight({
+        type: 'fight/pickLetter',
+        fight,
+        phase,
+        letter,
+        say,
+        refresh,
+        startStage,
+        SB,
+        warm,
+        unlockNextKey,
+        setPhase,
+        setBest,
+        recordRun,
+      });
     },
     [phase, say, refresh, startStage, SB, warm, unlockNextKey],
   );
 
   // Leave the shop and go on to the next enemy.
   const leaveShop = useCallback(() => {
-    const f = fight.current;
-    if (!f || !f.run || phase !== 'shop') return;
-    if (!f.run.leaveShop()) return;
-    markSeen('shop');
-    startStage(f.run);
+    dispatchFight({ type: 'fight/leaveShop', fight, phase, markSeen, startStage });
   }, [phase, startStage, markSeen]);
 
   // Walk past a small or big enemy for its favour.
   const skipFight = useCallback(() => {
-    const f = fight.current;
-    if (!f || !f.run || phase !== 'live') return;
-    const res = f.run.skip();
-    if (!res.ok) {
-      say(res.reason);
-      return;
-    }
-    say(
-      'Skipped ' +
-        f.def.name +
-        ' for a bonus — ' +
-        SB.FAVOUR_DEFS[res.favour].name +
-        ': ' +
-        SB.FAVOUR_DEFS[res.favour].hint +
-        '.',
-    );
-    startStage(f.run);
+    dispatchFight({ type: 'fight/skip', fight, phase, say, startStage, SB });
   }, [phase, say, startStage, SB]);
   const copySeed = useCallback(() => {
     try {
@@ -1308,34 +1265,19 @@ export default function RoundSandbox() {
 
   const playWord = useCallback(
     (raw) => {
-      const r = fight.current?.round;
-      if (!r || phase !== 'live') return;
-      const rackBefore = r.rack.slice();
-      const scoreBefore = r.score;
-      const res = r.playWord(raw);
-      if (!res.ok) {
-        say(res.reason);
-        sfx('thud');
-        return;
-      }
-      markSeen('stick');
-      setWord('');
-      setSuggestions([]);
-      say(
-        res.word +
-          ' — ' +
-          res.breakdown.total +
-          ' (' +
-          describeBreakdown(res.breakdown) +
-          ')' +
-          ' → ' +
-          r.score +
-          ' / ' +
-          r.target +
-          '.',
-      );
-      res.messages.forEach((m) => say(m));
-      runCascade(r, res, rackBefore, scoreBefore);
+      dispatchFight({
+        type: 'fight/playWord',
+        fight,
+        phase,
+        raw,
+        say,
+        sfx,
+        markSeen,
+        setWord,
+        setSuggestions,
+        describeBreakdown,
+        runCascade,
+      });
     },
     [phase, say, sfx, runCascade, markSeen],
   );
@@ -1368,31 +1310,19 @@ export default function RoundSandbox() {
   }, [letters, formable, phase, helper, playWord, say, SB, sfx]);
 
   const changeout = useCallback(() => {
-    const r = fight.current?.round;
-    if (!r || phase !== 'live') return;
     const ids = slots.filter(Boolean).map((t) => t.id);
-    const res = r.changeout(ids);
-    if (!res.ok) {
-      say(res.reason);
-      sfx('thud');
-      return;
-    }
-    sfx('shuffle');
-    markSeen('swap');
-    setWord('');
-    setSuggestions([]);
-    say(
-      'Swapped ' +
-        res.returned.map((t) => t.letter).join('') +
-        ' for ' +
-        res.drawn.map((t) => t.letter).join('') +
-        ' — ' +
-        r.changeoutsLeft +
-        ' swap' +
-        (r.changeoutsLeft === 1 ? '' : 's') +
-        ' left.',
-    );
-    refresh();
+    dispatchFight({
+      type: 'fight/changeout',
+      fight,
+      phase,
+      ids,
+      say,
+      sfx,
+      markSeen,
+      setWord,
+      setSuggestions,
+      refresh,
+    });
   }, [slots, phase, say, refresh, sfx, markSeen]);
 
   useEffect(() => {
@@ -1463,8 +1393,7 @@ export default function RoundSandbox() {
           const tile = r.rack[p.fromIndex];
           if (!tile) return;
           if (p.toRow === 'rack') {
-            r.moveTile(p.fromIndex, p.to);
-            refresh();
+            dispatchFight({ type: 'fight/moveTile', fight, fromIndex: p.fromIndex, to: p.to, refresh });
             return;
           }
           // Case -> stick: stage the letter at the finger's slot.
@@ -1484,8 +1413,11 @@ export default function RoundSandbox() {
         setWord(arr.join(''));
         if (p.id) {
           const i = r.rack.findIndex((t) => t.id === p.id);
-          if (i >= 0) r.moveTile(i, p.to);
-          refresh();
+          if (i >= 0) {
+            dispatchFight({ type: 'fight/moveTile', fromIndex: i, to: p.to, fight, refresh });
+          } else {
+            refresh();
+          }
         }
       },
     });

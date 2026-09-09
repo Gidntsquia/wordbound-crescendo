@@ -66,35 +66,290 @@ export function refreshReducer(state: number, action: RefreshAction): number {
   }
 }
 
-// The first (and, for now, only) run/round mutation routed through a typed
-// dispatch instead of a direct call. Every other run/round call site in
-// RoundSandbox.jsx (playWord, changeout, next, skip, leaveShop, pickLetter,
-// moveTile, useAdhocMark, saveMark, drawMarkHand, ...) is embedded in a
-// useCallback closure alongside several other component-local callbacks
-// (say, startStage, markSeen, warm, unlockNextKey) and/or branching control
-// flow -- moving those into a reducer case would mean either duplicating
-// that surrounding logic here (real risk of a transcription mismatch that
-// only playing the game would catch) or threading those closures through
-// action payloads (which stops being a faithful 1:1 relocation and starts
-// being a redesign). Neither is safe without browser verification, so they
-// stay direct calls. This one line -- `fight.current.round.tune[key] =
-// value` from the tuning panel's setConst -- is the one mutation call site
-// that IS a single, unbranching, no-closure-dependency statement, so it's
-// the one converted this pass. `fight` itself, and round.ts/items.ts's
-// mutable object shape, are untouched either way: this only changes how
-// the UI reaches the mutation, not what the mutation does.
-export type FightAction = {
-  type: 'fight/setTune';
-  fight: { current: { round: { tune: Record<string, unknown> } } | null };
-  key: string;
-  value: unknown;
+// The core run/round mutation call sites in RoundSandbox.jsx, routed
+// through a typed dispatch instead of a direct call (READ_SLOWLY_PLAN.md
+// A3, browser-verification pass 2026-09-08): playWord, changeout, next,
+// pickLetter, skip, leaveShop, moveTile. Left as direct calls: the shop/
+// pack/mark-selecting flow (buyCard, pickCard, commitSelecting -- which
+// covers saveMark/useAdhocMark, useInk/applyInk -- which covers
+// drawMarkHand/useAdhocMark/useConsumable) -- that's a tightly nested
+// selecting/inking state machine on top of the mutations, higher
+// transcription risk than the rest, and lower value since it's already
+// wrapped by the `act` UI helper rather than raw fight.current pokes.
+// Each converted case's body is a verbatim relocation
+// of the original useCallback's logic -- the component-local closures it
+// depended on (say, sfx, startStage, markSeen, warm, unlockNextKey,
+// refreshDiscovered, refresh, setPhase/setWord/etc, SB) are threaded through
+// as fields on the action payload rather than re-derived, so the reducer
+// case can call them in the exact same order the original code did. This is
+// a relocation, not a redesign: round.ts/items.ts's mutable object shape and
+// every mutation's actual behavior are untouched -- only how the UI reaches
+// the mutation changes. `fight` itself stays a ref; the reducer dereferences
+// action.fight.current same as the direct calls did.
+type FightRef = {
+  current: {
+    run: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    round: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    def?: { name: string };
+    seq?: { stop?: () => void };
+  } | null;
 };
+
+export type FightAction =
+  | {
+      type: 'fight/setTune';
+      fight: { current: { round: { tune: Record<string, unknown> } } | null };
+      key: string;
+      value: unknown;
+    }
+  | {
+      type: 'fight/playWord';
+      fight: FightRef;
+      phase: string;
+      raw: string;
+      say: (m: string) => void;
+      sfx: (...a: unknown[]) => void;
+      markSeen: (id: string) => void;
+      setWord: (w: string) => void;
+      setSuggestions: (s: unknown[]) => void;
+      describeBreakdown: (b: unknown) => string;
+      runCascade: (
+        r: unknown,
+        res: unknown,
+        rackBefore: unknown,
+        scoreBefore: unknown,
+      ) => void;
+    }
+  | {
+      type: 'fight/changeout';
+      fight: FightRef;
+      phase: string;
+      ids: string[];
+      say: (m: string) => void;
+      sfx: (...a: unknown[]) => void;
+      markSeen: (id: string) => void;
+      setWord: (w: string) => void;
+      setSuggestions: (s: unknown[]) => void;
+      refresh: () => void;
+    }
+  | {
+      type: 'fight/nextStage';
+      fight: FightRef;
+      phase: string;
+      say: (m: string) => void;
+      refresh: () => void;
+      startStage: (run: unknown) => void;
+      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      warm: (movement: unknown, stage: unknown) => void;
+      unlockNextKey: (run: unknown) => void;
+      refreshDiscovered: () => void;
+      setPhase: (p: string) => void;
+      setBest: (v: unknown) => void;
+      recordRun: (run: unknown, won: boolean) => unknown;
+    }
+  | {
+      type: 'fight/pickLetter';
+      fight: FightRef;
+      phase: string;
+      letter: string;
+      say: (m: string) => void;
+      refresh: () => void;
+      startStage: (run: unknown) => void;
+      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      warm: (movement: unknown, stage: unknown) => void;
+      unlockNextKey: (run: unknown) => void;
+      setPhase: (p: string) => void;
+      setBest: (v: unknown) => void;
+      recordRun: (run: unknown, won: boolean) => unknown;
+    }
+  | {
+      type: 'fight/leaveShop';
+      fight: FightRef;
+      phase: string;
+      markSeen: (id: string) => void;
+      startStage: (run: unknown) => void;
+    }
+  | {
+      type: 'fight/skip';
+      fight: FightRef;
+      phase: string;
+      say: (m: string) => void;
+      startStage: (run: unknown) => void;
+      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    }
+  | {
+      type: 'fight/moveTile';
+      fight: FightRef;
+      fromIndex: number;
+      to: number;
+      refresh: () => void;
+    };
 
 export function fightReducer(state: number, action: FightAction): number {
   switch (action.type) {
     case 'fight/setTune': {
       const f = action.fight.current;
       if (f) f.round.tune[action.key] = action.value;
+      return state + 1;
+    }
+    case 'fight/playWord': {
+      const r = action.fight.current?.round;
+      if (!r || action.phase !== 'live') return state + 1;
+      const rackBefore = r.rack.slice();
+      const scoreBefore = r.score;
+      const res = r.playWord(action.raw);
+      if (!res.ok) {
+        action.say(res.reason);
+        action.sfx('thud');
+        return state + 1;
+      }
+      action.markSeen('stick');
+      action.setWord('');
+      action.setSuggestions([]);
+      action.say(
+        res.word +
+          ' — ' +
+          res.breakdown.total +
+          ' (' +
+          action.describeBreakdown(res.breakdown) +
+          ')' +
+          ' → ' +
+          r.score +
+          ' / ' +
+          r.target +
+          '.',
+      );
+      res.messages.forEach((m: string) => action.say(m));
+      action.runCascade(r, res, rackBefore, scoreBefore);
+      return state + 1;
+    }
+    case 'fight/changeout': {
+      const r = action.fight.current?.round;
+      if (!r || action.phase !== 'live') return state + 1;
+      const res = r.changeout(action.ids);
+      if (!res.ok) {
+        action.say(res.reason);
+        action.sfx('thud');
+        return state + 1;
+      }
+      action.sfx('shuffle');
+      action.markSeen('swap');
+      action.setWord('');
+      action.setSuggestions([]);
+      action.say(
+        'Swapped ' +
+          res.returned.map((t: { letter: string }) => t.letter).join('') +
+          ' for ' +
+          res.drawn.map((t: { letter: string }) => t.letter).join('') +
+          ' — ' +
+          r.changeoutsLeft +
+          ' swap' +
+          (r.changeoutsLeft === 1 ? '' : 's') +
+          ' left.',
+      );
+      action.refresh();
+      return state + 1;
+    }
+    case 'fight/nextStage': {
+      const f = action.fight.current;
+      if (!f || !f.run || action.phase !== 'won') return state + 1;
+      const won = f.run.next();
+      if (f.run.quillFound) {
+        action.say(
+          'The boss also yields a new quill: ' +
+            action.SB.ITEM_DEFS[f.run.quillFound].name +
+            '.',
+        );
+        f.run.quillFound = null;
+        action.refreshDiscovered();
+      }
+      if (won === 'won') {
+        action.setPhase('run-won');
+        action.say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
+        action.setBest(action.recordRun(f.run, true));
+        action.unlockNextKey(f.run);
+        action.SB.unlockNext(f.run.character);
+        action.refresh();
+        return state + 1;
+      }
+      if (f.run.letterChoice) {
+        action.setPhase('letter');
+        action.say('The boss falls — choose a letter to win back.');
+        action.SB.unlockNext(f.run.character);
+        action.refresh();
+        return state + 1;
+      }
+      if (f.run.shop) {
+        action.warm(f.run.movement, f.run.stage);
+        action.setPhase('shop');
+        action.say('The shop opens. ' + f.run.ink + ' ink in the purse.');
+        action.refresh();
+        return state + 1;
+      }
+      action.startStage(f.run);
+      return state + 1;
+    }
+    case 'fight/pickLetter': {
+      const f = action.fight.current;
+      if (
+        !f ||
+        !f.run ||
+        action.phase !== 'letter' ||
+        !f.run.pickLetter(action.letter)
+      )
+        return state + 1;
+      if (f.run.state === 'won') {
+        action.setPhase('run-won');
+        action.say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
+        action.setBest(action.recordRun(f.run, true));
+        action.unlockNextKey(f.run);
+        action.SB.unlockNext(f.run.character);
+        action.refresh();
+        return state + 1;
+      }
+      if (f.run.shop) {
+        action.warm(f.run.movement, f.run.stage);
+        action.setPhase('shop');
+        action.say('The shop opens. ' + f.run.ink + ' ink in the purse.');
+        action.refresh();
+        return state + 1;
+      }
+      action.startStage(f.run);
+      return state + 1;
+    }
+    case 'fight/leaveShop': {
+      const f = action.fight.current;
+      if (!f || !f.run || action.phase !== 'shop') return state + 1;
+      if (!f.run.leaveShop()) return state + 1;
+      action.markSeen('shop');
+      action.startStage(f.run);
+      return state + 1;
+    }
+    case 'fight/skip': {
+      const f = action.fight.current;
+      if (!f || !f.run || action.phase !== 'live') return state + 1;
+      const res = f.run.skip();
+      if (!res.ok) {
+        action.say(res.reason);
+        return state + 1;
+      }
+      action.say(
+        'Skipped ' +
+          f.def!.name +
+          ' for a bonus — ' +
+          action.SB.FAVOUR_DEFS[res.favour].name +
+          ': ' +
+          action.SB.FAVOUR_DEFS[res.favour].hint +
+          '.',
+      );
+      action.startStage(f.run);
+      return state + 1;
+    }
+    case 'fight/moveTile': {
+      const r = action.fight.current?.round;
+      if (!r) return state + 1;
+      r.moveTile(action.fromIndex, action.to);
+      action.refresh();
       return state + 1;
     }
     default:

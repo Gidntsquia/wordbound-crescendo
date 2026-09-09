@@ -20,35 +20,47 @@ sheets have real art — a handful of verified-license CC0 pieces, the rest
 original hand-authored SVG; single-pose only so far, the pose-driven
 plumbing works but doesn't swap art per pose yet).
 
-Blocked, not abandoned:
+Update (2026-09-08, browser-verification pass): Jaxon granted this session
+a scoped headless-Playwright exception, unblocking the rest of A3.
 
 - **A3** (reducer store): `forceRender` is deleted and six UI-only state
-  slices are reducer-backed (`src/app/store.ts`). Of the run/round mutation
-  call sites in `RoundSandbox.jsx`, only the tuning panel's `setConst` is
-  routed through a dispatched action — it was the one simple, unbranching,
-  closure-free case. The other nine (`playWord`, `changeout`, `next`,
-  `skip`, `leaveShop`, `pickLetter`, `moveTile` ×2, `useAdhocMark`,
-  `saveMark`, `drawMarkHand`) sit inside `useCallback`s with real branching
-  and cross-closure state (`say`, `startStage`, `markSeen`, `warm`,
-  `unlockNextKey`). Converting them by hand risks a transcription mistake
-  that only playing the game would catch — there's no test suite (see
-  CLAUDE.md's Tests section) and no browser automation available this
-  session (a headless-Playwright verification attempt was explicitly
-  denied by this session's permission classifier, not held back by
-  caution alone).
-- **A4** (component split): `RoundSandbox.jsx` is down from 3408 to 2460
-  lines — HeldRow, Shop, EndScreen, GearMeta, TuningPanel, RunStrip,
-  TitleScreen extracted to `src/ui/`. What's left (pack-pick, callouts, the
-  board/rack/stick/drag wrapper) is entangled with the same run/round core
-  above and hits the same wall.
-- **E4** (phone perf pass): needs an actual phone playing the actual build;
-  nothing to do here without that.
+  slices are reducer-backed (`src/app/store.ts`). Of the ten remaining
+  run/round mutation call sites, seven are now routed through dispatched
+  `FightAction`s: `playWord`, `changeout`, `next` (`fight/nextStage`),
+  `skip`, `leaveShop`, `pickLetter`, `moveTile` (both call sites). Each
+  case's body is a verbatim relocation of the original `useCallback`'s
+  logic; the closures it needed (`say`, `sfx`, `startStage`, `markSeen`,
+  `warm`, `unlockNextKey`, `refreshDiscovered`, `setPhase`, `setBest`,
+  `SB`, `recordRun`) are threaded through as action-payload fields so
+  ordering is unchanged. Verified: `bun run typecheck`/`lint`/`build`
+  clean, plus a headless Playwright smoke test (chromium, `headless:
+true`) driving `vite preview` — start a run, tap-play several words,
+  attempt a swap, click Continue/advance repeatedly — zero console errors
+  or page exceptions across the run.
+  Still direct calls, deliberately: `useAdhocMark`, `saveMark`,
+  `drawMarkHand` — these live inside `buyCard`/`pickCard`/
+  `commitSelecting`/`useInk`/`applyInk`, a tightly nested shop/pack/
+  mark-selecting state machine (`selecting`/`inking` local state) already
+  wrapped by the `act` UI helper. Higher transcription risk than the rest
+  for lower payoff (no raw `fight.current` pokes to untangle), and this
+  pass's smoke test didn't reach a mark card to exercise it live — left
+  for a follow-up pass rather than converted on faith.
+- **A4** (component split): unchanged this pass — `RoundSandbox.jsx` is
+  still ~2460 lines (HeldRow, Shop, EndScreen, GearMeta, TuningPanel,
+  RunStrip, TitleScreen already extracted). The remaining blocks
+  (pack-pick, callouts, the board/rack/stick/drag wrapper) are JSX-only
+  extractions now that their mutations go through typed dispatch, but
+  reshuffling ~1000 lines of drag/animation-coupled JSX on top of this
+  pass's changes, then re-verifying, was judged out of scope for one
+  sitting — do it as its own smoke-tested pass.
+- **E4** (phone perf pass): still needs an actual phone playing the actual
+  build; headless Playwright can't stand in for this one.
 
-To finish these three: either play a candidate build yourself before it
-ships (the safest option — no tooling gap involved), or grant this session
-a scoped browser-automation exception (headless only, never opens a
-visible window) so a future pass can drive the game programmatically and
-verify behavior before deploying. Everything else in this plan is done.
+Not independently re-verified by this pass: audio/animation timing
+(`runCascade`'s `setTimeout`-paced cascade, crescendo-window audio cues) —
+Playwright confirmed no exceptions across a full play loop but can't judge
+whether the _feel_ of timing/audio is right; that still wants a human
+playtest.
 
 ---
 
