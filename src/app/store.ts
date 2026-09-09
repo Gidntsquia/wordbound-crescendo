@@ -13,8 +13,12 @@
 // independent so a mistake in one can't touch another.
 
 import type { RunFacade, RoundFacade } from '../engine/state/facade';
-import type { SandboxNamespace } from '../engine/sandboxGlobal';
 import { KEYS, readJSON, readRaw, writeJSON, writeRaw } from './persistence';
+import { ITEM_DEFS } from '../engine/content/items';
+import { MARK_DEFS } from '../engine/content/marginalia';
+import { FAVOUR_DEFS, TIER_DEFS } from '../engine/content/round';
+import { unlockNext } from '../engine/content/characters';
+import { cardName, describeBreakdown } from '../ui/fight/cardCopy';
 
 export interface SfxState {
   on: boolean;
@@ -92,119 +96,33 @@ type FightRef = {
   } | null;
 };
 
+// Data-only action union (READ_SLOWLY_PLAN.md A3 remainder): every field is
+// plain data, no closures. runFightAction below mutates the facade exactly
+// as the old fightReducer did, but returns a FightEffect[] describing the
+// side effects (say/sfx/setWord/etc) instead of calling them -- the caller
+// (RoundSandbox.jsx's dispatchFight) runs those effects in the same order,
+// keeping the feel-sensitive cascade/say/sfx sequencing byte-identical.
 export type FightAction =
-  | {
-      type: 'fight/setTune';
-      fight: { current: { round: { tune: Record<string, unknown> } } | null };
-      key: string;
-      value: unknown;
-    }
-  | {
-      type: 'fight/playWord';
-      fight: FightRef;
-      phase: string;
-      raw: string;
-      say: (m: string) => void;
-      sfx: (...a: unknown[]) => void;
-      markSeen: (id: string) => void;
-      setWord: (w: string) => void;
-      setSuggestions: (s: unknown[]) => void;
-      describeBreakdown: (b: unknown) => string;
-      runCascade: (
-        r: unknown,
-        res: unknown,
-        rackBefore: unknown,
-        scoreBefore: unknown,
-      ) => void;
-    }
-  | {
-      type: 'fight/changeout';
-      fight: FightRef;
-      phase: string;
-      ids: string[];
-      say: (m: string) => void;
-      sfx: (...a: unknown[]) => void;
-      markSeen: (id: string) => void;
-      setWord: (w: string) => void;
-      setSuggestions: (s: unknown[]) => void;
-      refresh: () => void;
-    }
-  | {
-      type: 'fight/nextStage';
-      fight: FightRef;
-      phase: string;
-      say: (m: string) => void;
-      refresh: () => void;
-      startStage: (run: unknown) => void;
-      SB: SandboxNamespace;
-      warm: (movement: unknown, stage: unknown) => void;
-      unlockNextKey: (run: unknown) => void;
-      refreshDiscovered: () => void;
-      setPhase: (p: string) => void;
-      setBest: (v: unknown) => void;
-      recordRun: (run: unknown, won: boolean) => unknown;
-    }
+  | { type: 'fight/setTune'; fight: FightRef; key: string; value: unknown }
+  | { type: 'fight/playWord'; fight: FightRef; phase: string; raw: string }
+  | { type: 'fight/changeout'; fight: FightRef; phase: string; ids: string[] }
+  | { type: 'fight/nextStage'; fight: FightRef; phase: string }
   | {
       type: 'fight/pickLetter';
       fight: FightRef;
       phase: string;
       letter: string;
-      say: (m: string) => void;
-      refresh: () => void;
-      startStage: (run: unknown) => void;
-      SB: SandboxNamespace;
-      warm: (movement: unknown, stage: unknown) => void;
-      unlockNextKey: (run: unknown) => void;
-      setPhase: (p: string) => void;
-      setBest: (v: unknown) => void;
-      recordRun: (run: unknown, won: boolean) => unknown;
     }
-  | {
-      type: 'fight/leaveShop';
-      fight: FightRef;
-      phase: string;
-      markSeen: (id: string) => void;
-      startStage: (run: unknown) => void;
-    }
-  | {
-      type: 'fight/skip';
-      fight: FightRef;
-      phase: string;
-      say: (m: string) => void;
-      startStage: (run: unknown) => void;
-      SB: SandboxNamespace;
-    }
+  | { type: 'fight/leaveShop'; fight: FightRef; phase: string }
+  | { type: 'fight/skip'; fight: FightRef; phase: string }
   | {
       type: 'fight/moveTile';
       fight: FightRef;
       fromIndex: number;
       to: number;
-      refresh: () => void;
     }
-  | {
-      type: 'fight/buyCard';
-      fight: FightRef;
-      index: number;
-      SB: SandboxNamespace;
-      cardName: (SB: unknown, c: unknown) => string;
-      setWord: (w: string) => void;
-      setSelecting: (s: unknown) => void;
-      say: (m: string) => void;
-      sfx: (...a: unknown[]) => void;
-      refresh: () => void;
-    }
-  | {
-      type: 'fight/pickCard';
-      fight: FightRef;
-      index: number;
-      SB: SandboxNamespace;
-      cardName: (SB: unknown, c: unknown) => string;
-      setWord: (w: string) => void;
-      setSelecting: (s: unknown) => void;
-      say: (m: string) => void;
-      sfx: (...a: unknown[]) => void;
-      refresh: () => void;
-    }
+  | { type: 'fight/buyCard'; fight: FightRef; index: number }
+  | { type: 'fight/pickCard'; fight: FightRef; index: number }
   | {
       type: 'fight/commitSelecting';
       fight: FightRef;
@@ -216,22 +134,8 @@ export type FightAction =
         vowel: string | null;
       } | null;
       apply: boolean;
-      setSelecting: (s: unknown) => void;
-      say: (m: string) => void;
-      sfx: (...a: unknown[]) => void;
-      refresh: () => void;
     }
-  | {
-      type: 'fight/useInk';
-      fight: FightRef;
-      index: number;
-      SB: SandboxNamespace;
-      setWord: (w: string) => void;
-      setInking: (s: unknown) => void;
-      say: (m: string) => void;
-      sfx: (...a: unknown[]) => void;
-      refresh: () => void;
-    }
+  | { type: 'fight/useInk'; fight: FightRef; index: number }
   | {
       type: 'fight/applyInk';
       fight: FightRef;
@@ -241,88 +145,124 @@ export type FightAction =
         ids: string[];
         vowel: string | null;
       } | null;
-      setInking: (s: unknown) => void;
-      say: (m: string) => void;
-      sfx: (...a: unknown[]) => void;
-      refresh: () => void;
     };
 
-// Shared act()-shaped result handling: say/sfx a result, refresh on success.
-// Returns whether the result was ok, same as the original `act` helper's
-// return value (callers use it to decide whether to also clear local state
-// like setSelecting(null)/setInking(null)).
+// Data-shaped side effects runFightAction returns; RoundSandbox.jsx's
+// dispatchFight applies each in order against its own closures (say, sfx,
+// setWord, ...) after the facade mutation has already happened.
+export type FightEffect =
+  | { kind: 'say'; message: string }
+  | { kind: 'sfx'; name: string }
+  | { kind: 'markSeen'; id: string }
+  | { kind: 'setWord'; value: string }
+  | { kind: 'setSuggestions'; value: unknown[] }
+  | { kind: 'setPhase'; phase: string }
+  | { kind: 'setSelecting'; value: unknown }
+  | { kind: 'setInking'; value: unknown }
+  | { kind: 'startStage'; run: unknown }
+  | { kind: 'warm'; movement: unknown; stage: unknown }
+  | { kind: 'refreshDiscovered' }
+  | { kind: 'recordRun'; run: RunLike; won: boolean }
+  | { kind: 'unlockNextKey'; run: unknown }
+  | {
+      kind: 'runCascade';
+      round: unknown;
+      res: unknown;
+      rackBefore: unknown;
+      scoreBefore: unknown;
+    };
+
+// Shared act()-shaped result handling: say/sfx effects for a result, plus
+// whether it was ok (callers use that to decide whether to also clear local
+// state like setSelecting(null)/setInking(null)), same division as the old
+// `act`/actResult helper.
 function actResult(
+  effects: FightEffect[],
   res: { ok?: boolean; reason?: string } | null | undefined,
   label: string | null,
   sound: string | undefined,
-  say: (m: string) => void,
-  sfx: (...a: unknown[]) => void,
-  refresh: () => void,
 ): boolean {
   if (!res || !res.ok) {
-    say(res && res.reason ? res.reason : 'Nothing happened.');
-    sfx('thud');
+    effects.push({
+      kind: 'say',
+      message: res && res.reason ? res.reason : 'Nothing happened.',
+    });
+    effects.push({ kind: 'sfx', name: 'thud' });
     return false;
   }
-  if (label) say(label);
-  if (sound) sfx(sound);
-  refresh();
+  if (label) effects.push({ kind: 'say', message: label });
+  if (sound) effects.push({ kind: 'sfx', name: sound });
   return true;
 }
 
-export function fightReducer(state: number, action: FightAction): number {
+export function runFightAction(action: FightAction): FightEffect[] {
+  const effects: FightEffect[] = [];
   switch (action.type) {
     case 'fight/setTune': {
       const f = action.fight.current;
-      if (f) f.round.tune[action.key] = action.value;
-      return state + 1;
+      if (f)
+        f.round!.tune[action.key] = action.value as
+          number | boolean | undefined;
+      return effects;
     }
     case 'fight/playWord': {
       const r = action.fight.current?.round;
-      if (!r || action.phase !== 'live') return state + 1;
+      if (!r || action.phase !== 'live') return effects;
       const rackBefore = r.rack.slice();
       const scoreBefore = r.score;
       const res = r.playWord(action.raw);
       if (!res.ok) {
-        action.say(res.reason ?? '');
-        action.sfx('thud');
-        return state + 1;
+        effects.push({ kind: 'say', message: res.reason ?? '' });
+        effects.push({ kind: 'sfx', name: 'thud' });
+        return effects;
       }
-      action.markSeen('stick');
-      action.setWord('');
-      action.setSuggestions([]);
-      action.say(
-        res.word +
+      effects.push({ kind: 'markSeen', id: 'stick' });
+      effects.push({ kind: 'setWord', value: '' });
+      effects.push({ kind: 'setSuggestions', value: [] });
+      effects.push({
+        kind: 'say',
+        message:
+          res.word +
           ' — ' +
           res.breakdown!.total +
           ' (' +
-          action.describeBreakdown(res.breakdown) +
+          describeBreakdown(res.breakdown) +
           ')' +
           ' → ' +
           r.score +
           ' / ' +
           r.target +
           '.',
+      });
+      res.messages?.forEach((m: string) =>
+        effects.push({ kind: 'say', message: m }),
       );
-      res.messages?.forEach((m: string) => action.say(m));
-      action.runCascade(r, res, rackBefore, scoreBefore);
-      return state + 1;
+      effects.push({
+        kind: 'runCascade',
+        round: r,
+        res,
+        rackBefore,
+        scoreBefore,
+      });
+      return effects;
     }
     case 'fight/changeout': {
       const r = action.fight.current?.round;
-      if (!r || action.phase !== 'live') return state + 1;
+      if (!r || action.phase !== 'live') return effects;
       const res = r.changeout(action.ids);
       if (!res.ok) {
-        action.say(res.reason ?? '');
-        action.sfx('thud');
-        return state + 1;
+        effects.push({ kind: 'say', message: res.reason ?? '' });
+        effects.push({ kind: 'sfx', name: 'thud' });
+        return effects;
       }
-      action.sfx('shuffle');
-      action.markSeen('swap');
-      action.setWord('');
-      action.setSuggestions([]);
-      action.say(
-        'Swapped ' +
+      effects.push({ kind: 'sfx', name: 'shuffle' });
+      effects.push({ kind: 'markSeen', id: 'swap' });
+      effects.push({ kind: 'setWord', value: '' });
+      effects.push({ kind: 'setSuggestions', value: [] });
+      effects.push({
+        kind: 'say',
+        message:
+          'Swapped ' +
           (res.returned ?? [])
             .map((t: { letter: string }) => t.letter)
             .join('') +
@@ -333,50 +273,59 @@ export function fightReducer(state: number, action: FightAction): number {
           ' swap' +
           (r.changeoutsLeft === 1 ? '' : 's') +
           ' left.',
-      );
-      action.refresh();
-      return state + 1;
+      });
+      return effects;
     }
     case 'fight/nextStage': {
       const f = action.fight.current;
-      if (!f || !f.run || action.phase !== 'won') return state + 1;
+      if (!f || !f.run || action.phase !== 'won') return effects;
       const won = f.run.next();
       if (f.run.quillFound) {
-        action.say(
-          'The boss also yields a new quill: ' +
-            (action.SB.ITEM_DEFS as Record<string, { name: string }>)[
-              f.run.quillFound
-            ]!.name +
+        effects.push({
+          kind: 'say',
+          message:
+            'The boss also yields a new quill: ' +
+            ITEM_DEFS[f.run.quillFound]!.name +
             '.',
-        );
+        });
         f.run.quillFound = null;
-        action.refreshDiscovered();
+        effects.push({ kind: 'refreshDiscovered' });
       }
       if (won === 'won') {
-        action.setPhase('run-won');
-        action.say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
-        action.setBest(action.recordRun(f.run, true));
-        action.unlockNextKey(f.run);
-        (action.SB.unlockNext as (character?: string) => void)(f.run.character);
-        action.refresh();
-        return state + 1;
+        effects.push({ kind: 'setPhase', phase: 'run-won' });
+        effects.push({
+          kind: 'say',
+          message: 'The last boss falls. Run won with ' + f.run.ink + ' ink.',
+        });
+        effects.push({ kind: 'recordRun', run: f.run as RunLike, won: true });
+        effects.push({ kind: 'unlockNextKey', run: f.run });
+        unlockNext(f.run.character);
+        return effects;
       }
       if (f.run.letterChoice) {
-        action.setPhase('letter');
-        action.say('The boss falls — choose a letter to win back.');
-        (action.SB.unlockNext as (character?: string) => void)(f.run.character);
-        action.refresh();
-        return state + 1;
+        effects.push({ kind: 'setPhase', phase: 'letter' });
+        effects.push({
+          kind: 'say',
+          message: 'The boss falls — choose a letter to win back.',
+        });
+        unlockNext(f.run.character);
+        return effects;
       }
       if (f.run.shop) {
-        action.warm(f.run.movement, f.run.stage);
-        action.setPhase('shop');
-        action.say('The shop opens. ' + f.run.ink + ' ink in the purse.');
-        action.refresh();
-        return state + 1;
+        effects.push({
+          kind: 'warm',
+          movement: f.run.movement,
+          stage: f.run.stage,
+        });
+        effects.push({ kind: 'setPhase', phase: 'shop' });
+        effects.push({
+          kind: 'say',
+          message: 'The shop opens. ' + f.run.ink + ' ink in the purse.',
+        });
+        return effects;
       }
-      action.startStage(f.run);
-      return state + 1;
+      effects.push({ kind: 'startStage', run: f.run });
+      return effects;
     }
     case 'fight/pickLetter': {
       const f = action.fight.current;
@@ -386,220 +335,210 @@ export function fightReducer(state: number, action: FightAction): number {
         action.phase !== 'letter' ||
         !f.run.pickLetter(action.letter)
       )
-        return state + 1;
+        return effects;
       if (f.run.state === 'won') {
-        action.setPhase('run-won');
-        action.say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
-        action.setBest(action.recordRun(f.run, true));
-        action.unlockNextKey(f.run);
-        (action.SB.unlockNext as (character?: string) => void)(f.run.character);
-        action.refresh();
-        return state + 1;
+        effects.push({ kind: 'setPhase', phase: 'run-won' });
+        effects.push({
+          kind: 'say',
+          message: 'The last boss falls. Run won with ' + f.run.ink + ' ink.',
+        });
+        effects.push({ kind: 'recordRun', run: f.run as RunLike, won: true });
+        effects.push({ kind: 'unlockNextKey', run: f.run });
+        unlockNext(f.run.character);
+        return effects;
       }
       if (f.run.shop) {
-        action.warm(f.run.movement, f.run.stage);
-        action.setPhase('shop');
-        action.say('The shop opens. ' + f.run.ink + ' ink in the purse.');
-        action.refresh();
-        return state + 1;
+        effects.push({
+          kind: 'warm',
+          movement: f.run.movement,
+          stage: f.run.stage,
+        });
+        effects.push({ kind: 'setPhase', phase: 'shop' });
+        effects.push({
+          kind: 'say',
+          message: 'The shop opens. ' + f.run.ink + ' ink in the purse.',
+        });
+        return effects;
       }
-      action.startStage(f.run);
-      return state + 1;
+      effects.push({ kind: 'startStage', run: f.run });
+      return effects;
     }
     case 'fight/leaveShop': {
       const f = action.fight.current;
-      if (!f || !f.run || action.phase !== 'shop') return state + 1;
-      if (!f.run.leaveShop()) return state + 1;
-      action.markSeen('shop');
-      action.startStage(f.run);
-      return state + 1;
+      if (!f || !f.run || action.phase !== 'shop') return effects;
+      if (!f.run.leaveShop()) return effects;
+      effects.push({ kind: 'markSeen', id: 'shop' });
+      effects.push({ kind: 'startStage', run: f.run });
+      return effects;
     }
     case 'fight/skip': {
       const f = action.fight.current;
-      if (!f || !f.run || action.phase !== 'live') return state + 1;
+      if (!f || !f.run || action.phase !== 'live') return effects;
       const res = f.run.skip();
       if (!res.ok) {
-        action.say(res.reason ?? '');
-        return state + 1;
+        effects.push({ kind: 'say', message: res.reason ?? '' });
+        return effects;
       }
-      const favourDefs = action.SB.FAVOUR_DEFS as Record<
-        string,
-        { name: string; hint: string }
-      >;
-      action.say(
-        'Skipped ' +
+      const fav = FAVOUR_DEFS[res.favour!]!;
+      effects.push({
+        kind: 'say',
+        message:
+          'Skipped ' +
           f.def!.name +
           ' for a bonus — ' +
-          favourDefs[res.favour!]!.name +
+          fav.name +
           ': ' +
-          favourDefs[res.favour!]!.hint +
+          fav.hint +
           '.',
-      );
-      action.startStage(f.run);
-      return state + 1;
+      });
+      effects.push({ kind: 'startStage', run: f.run });
+      return effects;
     }
     case 'fight/moveTile': {
       const r = action.fight.current?.round;
-      if (!r) return state + 1;
+      if (!r) return effects;
       r.moveTile(action.fromIndex, action.to);
-      action.refresh();
-      return state + 1;
+      return effects;
     }
     case 'fight/buyCard': {
       const run = action.fight.current?.run;
       const shop = run?.shop;
       const c = shop?.cards?.[action.index];
-      if (!c || !run) return state + 1;
+      if (!c || !run) return effects;
       if (c.kind === 'mark') {
-        const ink = (action.SB.MARK_DEFS as Record<string, unknown>)[c.id];
-        action.setWord('');
-        action.setSelecting({
-          from: 'shop',
-          index: action.index,
-          price: c.price,
-          name: action.cardName(action.SB, c),
-          ink,
-          hand: run.drawMarkHand(),
-          ids: [],
-          vowel: null,
+        const ink = MARK_DEFS[c.id];
+        effects.push({ kind: 'setWord', value: '' });
+        effects.push({
+          kind: 'setSelecting',
+          value: {
+            from: 'shop',
+            index: action.index,
+            price: c.price,
+            name: cardName(SB, c),
+            ink,
+            hand: run.drawMarkHand(),
+            ids: [],
+            vowel: null,
+          },
         });
-        return state + 1;
+        return effects;
       }
       const res = shop!.buy(action.index);
       if (!res || !res.ok) {
-        actResult(res, null, undefined, action.say, action.sfx, action.refresh);
-        return state + 1;
+        actResult(effects, res, null, undefined);
+        return effects;
       }
       const label = res.used
-        ? 'Bought ' +
-          action.cardName(action.SB, c) +
-          ' and used it — ' +
-          res.used
-        : 'Bought ' + action.cardName(action.SB, c) + ' for ' + c.price + '.';
-      actResult(
-        res,
-        label,
-        res.used ? 'shimmer' : 'coin',
-        action.say,
-        action.sfx,
-        action.refresh,
-      );
-      return state + 1;
+        ? 'Bought ' + cardName(SB, c) + ' and used it — ' + res.used
+        : 'Bought ' + cardName(SB, c) + ' for ' + c.price + '.';
+      actResult(effects, res, label, res.used ? 'shimmer' : 'coin');
+      return effects;
     }
     case 'fight/pickCard': {
       const run = action.fight.current?.run;
       const c = run?.pack?.choices[action.index];
-      if (!c || !run) return state + 1;
+      if (!c || !run) return effects;
       if (c.kind === 'mark') {
-        const ink = (action.SB.MARK_DEFS as Record<string, unknown>)[c.id];
-        action.setWord('');
-        action.setSelecting({
-          from: 'pack',
-          index: action.index,
-          name: action.cardName(action.SB, c),
-          ink,
-          hand: run.drawMarkHand(),
-          ids: [],
-          vowel: null,
+        const ink = MARK_DEFS[c.id];
+        effects.push({ kind: 'setWord', value: '' });
+        effects.push({
+          kind: 'setSelecting',
+          value: {
+            from: 'pack',
+            index: action.index,
+            name: cardName(SB, c),
+            ink,
+            hand: run.drawMarkHand(),
+            ids: [],
+            vowel: null,
+          },
         });
-        return state + 1;
+        return effects;
       }
       const res = run.pick(action.index);
       if (!res || !res.ok) {
-        actResult(res, null, undefined, action.say, action.sfx, action.refresh);
-        return state + 1;
+        actResult(effects, res, null, undefined);
+        return effects;
       }
       const label = res.used
-        ? 'Kept ' + action.cardName(action.SB, c) + ' and used it — ' + res.used
+        ? 'Kept ' + cardName(SB, c) + ' and used it — ' + res.used
         : 'Kept ' +
           (c.kind === 'tile'
             ? 'the ' + c.tile.letter
-            : 'the ' + action.cardName(action.SB, c)) +
+            : 'the ' + cardName(SB, c)) +
           '.';
-      actResult(res, label, 'tick', action.say, action.sfx, action.refresh);
-      return state + 1;
+      actResult(effects, res, label, 'tick');
+      return effects;
     }
     case 'fight/commitSelecting': {
       const run = action.fight.current?.run;
       const selecting = action.selecting;
-      if (!run || !selecting) return state + 1;
+      if (!run || !selecting) return effects;
       const purchase =
         selecting.from === 'shop'
           ? run.shop!.buy(selecting.index)
           : run.pick(selecting.index);
       if (!purchase || !purchase.ok) {
-        actResult(
-          purchase,
-          null,
-          undefined,
-          action.say,
-          action.sfx,
-          action.refresh,
-        );
-        return state + 1;
+        actResult(effects, purchase, null, undefined);
+        return effects;
       }
       const verb = selecting.from === 'shop' ? 'Bought' : 'Kept';
       if (!action.apply) {
         const res = run.saveMark(purchase.mark as string);
         if (
           actResult(
+            effects,
             res,
             res.ok ? verb + ' ' + selecting.name + ' — saved for later.' : null,
             'tick',
-            action.say,
-            action.sfx,
-            action.refresh,
           )
         )
-          action.setSelecting(null);
-        return state + 1;
+          effects.push({ kind: 'setSelecting', value: null });
+        return effects;
       }
       const res = run.useAdhocMark(purchase.mark as string, selecting.ids, {
         vowel: selecting.vowel ?? undefined,
       });
       if (
         actResult(
+          effects,
           res,
           res.ok
             ? verb + ' ' + selecting.name + ' and used it — ' + res.note
             : null,
           'shimmer',
-          action.say,
-          action.sfx,
-          action.refresh,
         )
       )
-        action.setSelecting(null);
-      return state + 1;
+        effects.push({ kind: 'setSelecting', value: null });
+      return effects;
     }
     case 'fight/useInk': {
       const r = action.fight.current?.run;
-      if (!r) return state + 1;
+      if (!r) return effects;
       const c = r.consumables[action.index];
-      if (!c || c.kind !== 'mark') return state + 1;
-      const ink = (action.SB.MARK_DEFS as Record<string, { targets: number }>)[
-        c.id
-      ];
-      if (ink!.targets === 0) {
+      if (!c || c.kind !== 'mark') return effects;
+      const ink = MARK_DEFS[c.id] as { targets: number };
+      if (ink.targets === 0) {
         const res = r.useConsumable(action.index, []);
         actResult(
+          effects,
           res,
           res.ok ? ((res.result as { note?: string })?.note ?? null) : null,
           'shimmer',
-          action.say,
-          action.sfx,
-          action.refresh,
         );
-        return state + 1;
+        return effects;
       }
-      action.setWord('');
-      action.setInking({ index: action.index, ink, ids: [], vowel: null });
-      return state + 1;
+      effects.push({ kind: 'setWord', value: '' });
+      effects.push({
+        kind: 'setInking',
+        value: { index: action.index, ink, ids: [], vowel: null },
+      });
+      return effects;
     }
     case 'fight/applyInk': {
       const r = action.fight.current?.run;
       const inking = action.inking;
-      if (!r || !inking) return state + 1;
+      if (!r || !inking) return effects;
       const res = inking.adhocId
         ? r.useAdhocMark(inking.adhocId, inking.ids, {
             vowel: inking.vowel ?? undefined,
@@ -614,16 +553,19 @@ export function fightReducer(state: number, action: FightAction): number {
         : res.ok
           ? ((res.result as { note?: string })?.note ?? null)
           : null;
-      if (
-        actResult(res, label, 'shimmer', action.say, action.sfx, action.refresh)
-      )
-        action.setInking(null);
-      return state + 1;
+      if (actResult(effects, res, label, 'shimmer'))
+        effects.push({ kind: 'setInking', value: null });
+      return effects;
     }
     default:
-      return state;
+      return effects;
   }
 }
+
+// SB is the loose sandbox namespace shape cardName's cardCopy.js signature
+// still takes; now built from direct content imports rather than the old
+// window.Wordbound.Sandbox global.
+const SB = { ITEM_DEFS, MARK_DEFS, TIER_DEFS };
 
 // Gear panel open/closed -- pure UI state, no persistence, 3 call sites.
 export interface GearState {
@@ -741,4 +683,63 @@ export function bestReducer(state: BestState, action: BestAction): BestState {
 
 export function readBest(): BestState {
   return readJSON<BestState>(KEYS.best, {});
+}
+
+function writeBest(next: BestState): void {
+  writeJSON(KEYS.best, next);
+}
+
+interface RunLike {
+  movement: number;
+  stage: number;
+  movements: { enemies: unknown[] }[];
+  bestPlay?: {
+    word: string;
+    breakdown: { total: number };
+    enemy: string;
+  } | null;
+  enemy: { name: string };
+  key?: string | null;
+}
+
+export function runLength(run: RunLike): number {
+  return run.movements.reduce((n, m) => n + m.enemies.length, 0);
+}
+
+function depthOf(run: RunLike): number {
+  return run.movement * 3 + run.stage;
+}
+
+// Read-modify-write against the previous wbc.best value -- run/won are the
+// only inputs (RoundSandbox.jsx used to keep this local since it also read
+// action.SB; now that ITEM_DEFS etc. are plain imports there's no reason
+// it can't live fully in the reducer's own module).
+export function recordRun(run: RunLike, won: boolean): BestState {
+  const best = readBest();
+  const out: Record<string, unknown> = { ...best };
+  const bestWord = best.word as { total: number } | undefined;
+  if (
+    run.bestPlay &&
+    (!bestWord || run.bestPlay.breakdown.total > bestWord.total)
+  ) {
+    out.word = {
+      word: run.bestPlay.word,
+      total: run.bestPlay.breakdown.total,
+      enemy: run.bestPlay.enemy,
+    };
+  }
+  const depth = won ? runLength(run) : depthOf(run);
+  const deepest = best.deepest as { depth: number } | undefined;
+  if (!deepest || depth > deepest.depth) {
+    out.deepest = { depth, name: won ? 'the whole run' : run.enemy.name };
+  }
+  out.wins = ((best.wins as number) || 0) + (won ? 1 : 0);
+  out.runs = ((best.runs as number) || 0) + 1;
+  if (won && run.key) {
+    const winsByKey = { ...((best.winsByKey as Record<string, number>) || {}) };
+    winsByKey[run.key] = (winsByKey[run.key] || 0) + 1;
+    out.winsByKey = winsByKey;
+  }
+  writeBest(out);
+  return out;
 }

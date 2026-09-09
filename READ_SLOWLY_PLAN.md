@@ -149,30 +149,40 @@ Tiles/WORD_SET/WORDLIST/Items/StolenLetters` stay — that's
   play a word → score cascade → new draw) zero console/page errors
   (`0405687`).
 
-### Open (in build order)
+- **A3 (remainder) — store.ts as a data-only action union.** `FightAction`
+  is now plain data (no closure/function-valued fields — dropped `say`,
+  `sfx`, `markSeen`, `setWord`, `setSuggestions`, `describeBreakdown`,
+  `runCascade`, `refresh`, `startStage`, `SB`, `warm`, `unlockNextKey`,
+  `refreshDiscovered`, `setPhase`, `setBest`, `recordRun`, `cardName`,
+  `setSelecting`, `setInking` from every variant); the old `fightReducer`
+  is now `runFightAction(action): FightEffect[]`, a plain exported
+  function (deliberately not wired to `useReducer`, to keep effect
+  application perfectly synchronous for the cascade's say/sfx timing) that
+  mutates the facade in place exactly as before and returns a new
+  `FightEffect` data union describing the side effects, built from direct
+  content imports (`ITEM_DEFS`, `MARK_DEFS`, `FAVOUR_DEFS`, `TIER_DEFS`,
+  `unlockNext`, `cardName`, `describeBreakdown`, `recordRun`) instead of
+  reading them off the action. `RoundSandbox.jsx`'s `dispatchFight`
+  (a plain function, not a reducer) calls `runFightAction` then applies
+  each effect via a local `applyFightEffect` switch against its own
+  closures, then bumps the refresh counter — same order as the old direct
+  calls. `writeBest`/`depthOf`/`runLength`/`recordRun` moved from
+  RoundSandbox.jsx into store.ts (both exported for RoundSandbox.jsx's
+  remaining direct uses); `describeBreakdown` moved into `cardCopy.js`.
+  What did NOT change: the facade itself, and every `fight.current.run`/
+  `.round` READ site across RoundSandbox.jsx/Shop.jsx/HeldRow.jsx/
+  PlayBoard.jsx/RunStrip.jsx — only the write/dispatch side's payload
+  shape changed. Verified: `bun run typecheck`/`lint`/`format:check`
+  clean; live browser test (title → fight → play a word → score → swap
+  tiles, then a second pass replaying multiple words) zero console/page
+  errors. The `nextStage`/`buyCard`/`pickCard`/`useInk`/`applyInk` cases
+  are verbatim effect-emitting transcriptions of the already-verified
+  `4f644af` logic (same branches, same field reads) rather than new game
+  logic, and were not separately driven to a shop/win state in this
+  session's browser pass — flagged here in case a future regression
+  traces back to one of them.
 
-**A3 (remainder) — store.ts as a data-only action union.** The facade
-(see Done above) makes the model pure but does not change `store.ts`'s own
-shape: its `FightAction` cases still call methods on the run/round facade
-object (`r.playWord(...)`, `f.run.next()`, etc.) and still carry closures
-(`say`, `sfx`, `startStage`, `markSeen`, `SB`, ...) as action payload
-fields. Its eight `any`s ARE now gone (`4f644af`): `FightRef.run`/`.round`
-are typed `RunFacade`/`RoundFacade` (new exports off `state/facade.ts`),
-and the six `SB: any` action fields are `SB: SandboxNamespace`, with the
-resulting typecheck fallout (optional `PlayResult` fields, `unknown`-typed
-SB content-table lookups) fixed via narrow local casts/guards rather than
-new `any`s — verified via `bun run typecheck`/`lint`, the parity harness,
-and a live browser playthrough (title → fight → play CODE → scored 54,
-zero console errors). Grep confirms zero `any` left in `src/`. The plan's
-literal spec beyond that — a data-only discriminated `Action` union
-dispatching into `state/round.ts`/`state/run.ts`'s pure transitions
-directly, with `say`/`sfx`/etc. run as effects by the UI after dispatch —
-is a further, separate rewrite of `store.ts` itself; not attempted this
-pass for the same no-test-suite/live-app reason the facade exists.
-(`content/round.ts`'s/`content/shop.ts`'s mutable `createRound`/
-`createRun`/`createShop` and `tools/parity-run.ts` were already deleted
-as part of the A2 no-globals item, once confirmed nothing referenced
-them — see Done.)
+### Open (in build order)
 
 **A2 (remainder) — target layout.** `src/app/persistence.ts` now owns
 `wbc.best/key/keyUnlocked/seen/sfx` (the app/UI-layer keys, behind typed

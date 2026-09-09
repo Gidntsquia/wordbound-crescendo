@@ -59,7 +59,7 @@ import EndScreen from '../ui/meta/EndScreen';
 import GearMeta from '../ui/chrome/GearMeta';
 import TuningPanel from '../ui/chrome/TuningPanel';
 import RunStrip from '../ui/chrome/RunStrip';
-import { cardName } from '../ui/fight/cardCopy';
+import { describeBreakdown } from '../ui/fight/cardCopy';
 import PlayBoard from '../ui/fight/PlayBoard';
 import {
   sfxReducer,
@@ -73,7 +73,9 @@ import {
   bestReducer,
   readBest,
   refreshReducer,
-  fightReducer,
+  runFightAction,
+  recordRun,
+  runLength,
 } from '../app/store';
 import {
   useCallback,
@@ -133,76 +135,9 @@ function intensity(total, target) {
   return Math.max(0, Math.min(1, Math.pow(total / Math.max(1, target), 0.7)));
 }
 
-// "FIVE · lvl 2 · 35 + letters 9 = 44 pts × 6" -- tier, points, then mult.
-function describeBreakdown(b) {
-  const pts = [];
-  if (b.tierPts) pts.push(b.tierPts);
-  pts.push('letters ' + b.base);
-  if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
-  if (b.variantFlat) pts.push('charged +' + b.variantFlat);
-  if (b.inkPoints) pts.push('gilt +' + b.inkPoints);
-  let out =
-    b.tierName + (b.tierLevel > 1 ? ' · lvl ' + b.tierLevel : '') + ' · ';
-  const basePts =
-    b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints;
-  out +=
-    (pts.length > 1 ? pts.join(' + ') + ' = ' : '') +
-    basePts +
-    ' pts × ' +
-    (b.tierMult + b.inkMult);
-  if (b.inkMult) out += ' (tier ' + b.tierMult + ' + bold ' + b.inkMult + ')';
-  const fired = (b.itemNotes || []).map((n) => n.name + ' ' + n.note);
-  if (b.bonusMult !== 1) fired.push('tile × ' + b.bonusMult);
-  if (b.holdMult && b.holdMult !== 1) fired.push('steel held × ' + b.holdMult);
-  if (fired.length)
-    out += ' → ' + fired.join(' → ') + ' → ' + b.points + ' × ' + b.mult;
-  return out;
-}
-
 // HeldRow/Shop and their shared card-copy helpers moved to src/ui/
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction). cardName is still used
 // below for the shop-buy narration strings.
-
-// The best so far, kept in the browser: best word, deepest enemy, wins.
-// readBest/writeBest and the wbc.best key now live in ../app/store.ts
-// (READ_SLOWLY_PLAN.md A3); recordRun still does its own read-modify-write
-// since it needs the previous value mid-computation, then hands the result
-// to the bestReducer via dispatch({ type: 'best/set', value }).
-function writeBest(next) {
-  writeJSON(STORAGE_KEYS.best, next);
-}
-function depthOf(run) {
-  return run.movement * 3 + run.stage;
-}
-function runLength(run) {
-  return run.movements.reduce((n, m) => n + m.enemies.length, 0);
-}
-function recordRun(run, won) {
-  const best = readBest();
-  const out = { ...best };
-  if (
-    run.bestPlay &&
-    (!best.word || run.bestPlay.breakdown.total > best.word.total)
-  ) {
-    out.word = {
-      word: run.bestPlay.word,
-      total: run.bestPlay.breakdown.total,
-      enemy: run.bestPlay.enemy,
-    };
-  }
-  const depth = won ? runLength(run) : depthOf(run);
-  if (!best.deepest || depth > best.deepest.depth) {
-    out.deepest = { depth, name: won ? 'the whole run' : run.enemy.name };
-  }
-  out.wins = (best.wins || 0) + (won ? 1 : 0);
-  out.runs = (best.runs || 0) + 1;
-  if (won && run.key) {
-    out.winsByKey = { ...(best.winsByKey || {}) };
-    out.winsByKey[run.key] = (out.winsByKey[run.key] || 0) + 1;
-  }
-  writeBest(out);
-  return out;
-}
 
 // Keys (stage 3): the title screen offers the next key once the current
 // highest-unlocked one has been won at least once. wbc.keyUnlocked is the
@@ -367,14 +302,72 @@ export default function RoundSandbox() {
   // plain re-render nudge, not a model of fight.current's actual state (see
   // src/app/store.ts's header).
   const [, dispatchRefresh] = useReducer(refreshReducer, 0);
-  // A3: run/round mutation call sites routed through a typed dispatch
-  // instead of direct calls -- see src/app/store.ts's fightReducer. The
-  // shop/pack/mark-selecting flow (buyCard, pickCard, commitSelecting,
-  // useInk, applyInk) stays as direct calls: it's a tightly nested
-  // selecting/inking state machine layered on top of the run mutations,
-  // and converting it carries more transcription risk than this pass's
-  // browser-verification budget covers.
-  const [, dispatchFight] = useReducer(fightReducer, 0);
+  // A3 (remainder): run/round mutation call sites routed through a data-only
+  // action dispatched into store.ts's runFightAction, which mutates the
+  // facade in place (same as before) and returns a FightEffect[] describing
+  // the side effects to run -- applyFightEffect below runs them in order
+  // against this component's own closures, then bumps the refresh counter.
+  // Deliberately a plain function, not useReducer: this keeps effect
+  // application perfectly synchronous, preserving the exact say/sfx/cascade
+  // ordering the feel-sensitive scoring system depends on.
+  function applyFightEffect(effect) {
+    switch (effect.kind) {
+      case 'say':
+        say(effect.message);
+        return;
+      case 'sfx':
+        sfx(effect.name);
+        return;
+      case 'markSeen':
+        markSeen(effect.id);
+        return;
+      case 'setWord':
+        setWord(effect.value);
+        return;
+      case 'setSuggestions':
+        setSuggestions(effect.value);
+        return;
+      case 'setPhase':
+        setPhase(effect.phase);
+        return;
+      case 'setSelecting':
+        setSelecting(effect.value);
+        return;
+      case 'setInking':
+        setInking(effect.value);
+        return;
+      case 'startStage':
+        startStage(effect.run);
+        return;
+      case 'warm':
+        warm(effect.movement, effect.stage);
+        return;
+      case 'refreshDiscovered':
+        refreshDiscovered();
+        return;
+      case 'recordRun':
+        setBest(recordRun(effect.run, effect.won));
+        return;
+      case 'unlockNextKey':
+        unlockNextKey(effect.run);
+        return;
+      case 'runCascade':
+        runCascade(
+          effect.round,
+          effect.res,
+          effect.rackBefore,
+          effect.scoreBefore,
+        );
+        return;
+      default:
+        return;
+    }
+  }
+  function dispatchFight(action) {
+    const effects = runFightAction(action);
+    effects.forEach(applyFightEffect);
+    refresh();
+  }
   // Mirrors of the volume/sfx-on state for the zero-dep resume effect below,
   // which needs the LATEST value without re-subscribing on every change.
   const volumeRef = useRef(0.4);
@@ -849,69 +842,26 @@ export default function RoundSandbox() {
 
   // After a won round: bank the gold and move to the next enemy, or end the run.
   const nextStage = useCallback(() => {
-    dispatchFight({
-      type: 'fight/nextStage',
-      fight,
-      phase,
-      say,
-      refresh,
-      startStage,
-      SB,
-      warm,
-      unlockNextKey,
-      refreshDiscovered,
-      setPhase,
-      setBest,
-      recordRun,
-    });
-  }, [
-    phase,
-    say,
-    refresh,
-    startStage,
-    SB,
-    warm,
-    unlockNextKey,
-    refreshDiscovered,
-  ]);
+    dispatchFight({ type: 'fight/nextStage', fight, phase });
+  }, [phase]);
 
   // Take a letter offered after a boss, then resume into the shop or the win screen.
   const pickLetter = useCallback(
     (letter) => {
-      dispatchFight({
-        type: 'fight/pickLetter',
-        fight,
-        phase,
-        letter,
-        say,
-        refresh,
-        startStage,
-        SB,
-        warm,
-        unlockNextKey,
-        setPhase,
-        setBest,
-        recordRun,
-      });
+      dispatchFight({ type: 'fight/pickLetter', fight, phase, letter });
     },
-    [phase, say, refresh, startStage, SB, warm, unlockNextKey],
+    [phase],
   );
 
   // Leave the shop and go on to the next enemy.
   const leaveShop = useCallback(() => {
-    dispatchFight({
-      type: 'fight/leaveShop',
-      fight,
-      phase,
-      markSeen,
-      startStage,
-    });
-  }, [phase, startStage, markSeen]);
+    dispatchFight({ type: 'fight/leaveShop', fight, phase });
+  }, [phase]);
 
   // Walk past a small or big enemy for its favour.
   const skipFight = useCallback(() => {
-    dispatchFight({ type: 'fight/skip', fight, phase, say, startStage, SB });
-  }, [phase, say, startStage, SB]);
+    dispatchFight({ type: 'fight/skip', fight, phase });
+  }, [phase]);
   const copySeed = useCallback(() => {
     try {
       navigator.clipboard.writeText(seed).then(
@@ -962,54 +912,17 @@ export default function RoundSandbox() {
   // run.useAdhocMark on the tiles picked here) so the tile choice happens
   // before ink moves.
   const [selecting, setSelecting] = useState(null);
-  const buyCard = useCallback(
-    (i) => {
-      dispatchFight({
-        type: 'fight/buyCard',
-        fight,
-        index: i,
-        SB,
-        cardName,
-        setWord,
-        setSelecting,
-        say,
-        sfx,
-        refresh,
-      });
-    },
-    [SB, say, sfx, refresh],
-  );
-  const pickCard = useCallback(
-    (i) => {
-      dispatchFight({
-        type: 'fight/pickCard',
-        fight,
-        index: i,
-        SB,
-        cardName,
-        setWord,
-        setSelecting,
-        say,
-        sfx,
-        refresh,
-      });
-    },
-    [SB, say, sfx, refresh],
-  );
+  const buyCard = useCallback((i) => {
+    dispatchFight({ type: 'fight/buyCard', fight, index: i });
+  }, []);
+  const pickCard = useCallback((i) => {
+    dispatchFight({ type: 'fight/pickCard', fight, index: i });
+  }, []);
   const commitSelecting = useCallback(
     (apply) => {
-      dispatchFight({
-        type: 'fight/commitSelecting',
-        fight,
-        selecting,
-        apply,
-        setSelecting,
-        say,
-        sfx,
-        refresh,
-      });
+      dispatchFight({ type: 'fight/commitSelecting', fight, selecting, apply });
     },
-    [selecting, say, sfx, refresh],
+    [selecting],
   );
   const cancelSelecting = useCallback(() => setSelecting(null), []);
   const toggleSelectTile = (id, vowel) => {
@@ -1024,33 +937,12 @@ export default function RoundSandbox() {
       return { ...k, ids };
     });
   };
-  const useInk = useCallback(
-    (i) => {
-      dispatchFight({
-        type: 'fight/useInk',
-        fight,
-        index: i,
-        SB,
-        setWord,
-        setInking,
-        say,
-        sfx,
-        refresh,
-      });
-    },
-    [SB, say, sfx, refresh],
-  );
+  const useInk = useCallback((i) => {
+    dispatchFight({ type: 'fight/useInk', fight, index: i });
+  }, []);
   const applyInk = useCallback(() => {
-    dispatchFight({
-      type: 'fight/applyInk',
-      fight,
-      inking,
-      setInking,
-      say,
-      sfx,
-      refresh,
-    });
-  }, [inking, say, sfx, refresh]);
+    dispatchFight({ type: 'fight/applyInk', fight, inking });
+  }, [inking]);
   const toggleInkTile = (id, vowel) => {
     setInking((k) => {
       if (!k) return k;
@@ -1272,21 +1164,9 @@ export default function RoundSandbox() {
 
   const playWord = useCallback(
     (raw) => {
-      dispatchFight({
-        type: 'fight/playWord',
-        fight,
-        phase,
-        raw,
-        say,
-        sfx,
-        markSeen,
-        setWord,
-        setSuggestions,
-        describeBreakdown,
-        runCascade,
-      });
+      dispatchFight({ type: 'fight/playWord', fight, phase, raw });
     },
-    [phase, say, sfx, runCascade, markSeen],
+    [phase],
   );
 
   const play = useCallback(() => {
@@ -1318,19 +1198,8 @@ export default function RoundSandbox() {
 
   const changeout = useCallback(() => {
     const ids = slots.filter(Boolean).map((t) => t.id);
-    dispatchFight({
-      type: 'fight/changeout',
-      fight,
-      phase,
-      ids,
-      say,
-      sfx,
-      markSeen,
-      setWord,
-      setSuggestions,
-      refresh,
-    });
-  }, [slots, phase, say, refresh, sfx, markSeen]);
+    dispatchFight({ type: 'fight/changeout', fight, phase, ids });
+  }, [slots, phase]);
 
   useEffect(() => {
     if (!helper || !letters || indexing) {
@@ -1405,7 +1274,6 @@ export default function RoundSandbox() {
               fight,
               fromIndex: p.fromIndex,
               to: p.to,
-              refresh,
             });
             return;
           }
@@ -1432,7 +1300,6 @@ export default function RoundSandbox() {
               fromIndex: i,
               to: p.to,
               fight,
-              refresh,
             });
           } else {
             refresh();
