@@ -129,19 +129,31 @@
       "id": "mark_overlay_gilt",
       "kind": "piece",
       "poses": ["idle"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/pieces.jsx), not a CC0/third-party asset -- READ_SLOWLY_PLAN.md E1's SVG-for-pieces allowance. Single static pose, no pose crossfade yet."
     },
     {
       "id": "mark_overlay_bold",
       "kind": "piece",
       "poses": ["idle"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/pieces.jsx). Single static pose."
     },
     {
       "id": "mark_overlay_steel",
       "kind": "piece",
       "poses": ["idle"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/pieces.jsx). Single static pose."
     },
     {
       "id": "premium_slot_marker",
@@ -160,13 +172,21 @@
       "id": "bookmark_card_frame",
       "kind": "piece",
       "poses": ["idle"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/pieces.jsx). Single static pose."
     },
     {
       "id": "pack_wrapper",
       "kind": "piece",
       "poses": ["idle"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/pieces.jsx). Single static pose."
     },
     {
       "id": "coin",

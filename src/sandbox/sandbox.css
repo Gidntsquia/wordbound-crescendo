@@ -3083,6 +3083,16 @@ button.sb-card:disabled {
 .sb-sprite-pose-in {
   animation: sb-sprite-crossfade 200ms ease-out;
 }
+/* Hand-authored SVG pieces (src/art/svg/pieces.jsx): no background-color/
+   letter fallback, the SVG fills the box itself. */
+.sb-sprite-svg {
+  background-color: transparent;
+}
+.sb-sprite-svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 @keyframes sb-sprite-crossfade {
   from {
     opacity: 0;

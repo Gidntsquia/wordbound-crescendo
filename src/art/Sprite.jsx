@@ -7,6 +7,7 @@
 // real end-to-end even though the art isn't. Swapping in real PNGs later
 // is a manifest + CSS background-image change here, not a caller change.
 import ART_MANIFEST from '../../tools/art-manifest.json';
+import { SVG_SHEETS } from './svg/pieces';
 
 const SHEETS = Object.fromEntries(
   ART_MANIFEST.sheets.map((s) => [s.id, s]),
@@ -24,11 +25,16 @@ export default function Sprite({ sheet, pose, className }) {
   const def = SHEETS[sheet];
   if (!def) return null;
   const hue = hueFor(sheet);
-  const sourced = def.status !== 'placeholder' && def.image;
+  const SvgArt = def.format === 'svg' ? SVG_SHEETS[sheet] : null;
+  const sourced = !SvgArt && def.status !== 'placeholder' && def.image;
   return (
     <span
       key={pose}
-      className={'sb-sprite sb-sprite-pose-in ' + (className || '')}
+      className={
+        'sb-sprite sb-sprite-pose-in ' +
+        (SvgArt ? 'sb-sprite-svg ' : '') +
+        (className || '')
+      }
       data-sheet={sheet}
       data-pose={pose}
       title={sheet + ' · ' + pose}
@@ -37,7 +43,7 @@ export default function Sprite({ sheet, pose, className }) {
         backgroundImage: sourced ? `url(${def.image})` : undefined,
       }}
     >
-      {sourced ? null : sheet.slice(0, 1).toUpperCase()}
+      {SvgArt ? <SvgArt /> : sourced ? null : sheet.slice(0, 1).toUpperCase()}
     </span>
   );
 }

@@ -16,6 +16,7 @@ import Shop from '../ui/shop/Shop';
 import EndScreen from '../ui/meta/EndScreen';
 import GearMeta from '../ui/chrome/GearMeta';
 import TuningPanel from '../ui/chrome/TuningPanel';
+import RunStrip from '../ui/chrome/RunStrip';
 import { cardName } from '../ui/fight/cardCopy';
 import {
   sfxReducer,
@@ -1669,62 +1670,7 @@ export default function RoundSandbox() {
         </section>
       )}
 
-      {run && (
-        <nav className="sb-strip" aria-label="The run">
-          {run.movements.map((m, mi) => (
-            <span
-              key={m.numeral}
-              className={
-                'sb-strip-mv' +
-                (mi === run.movement
-                  ? ' is-now'
-                  : mi < run.movement
-                    ? ' is-done'
-                    : '')
-              }
-            >
-              <b className="sb-strip-numeral">{m.numeral}</b>
-              {m.enemies.map((e, si) => {
-                const done = run.felled.includes(e.id);
-                const now = mi === run.movement && si === run.stage;
-                return (
-                  <span
-                    key={e.id}
-                    title={e.name + ' · target ' + run.targetFor(mi, si)}
-                    className={
-                      'sb-pip sb-pip-' +
-                      e.kind +
-                      (now ? ' is-now' : '') +
-                      (done ? ' is-done' : '')
-                    }
-                  >
-                    {now || done ? e.glyph : e.kind === 'boss' ? '♩' : '·'}
-                  </span>
-                );
-              })}
-            </span>
-          ))}
-          {phase === 'shop' && (
-            <span className="sb-strip-enemy">
-              next · {run.enemy.glyph} {run.enemy.name}
-            </span>
-          )}
-          <span
-            className="sb-purse"
-            title={
-              'Interest: 1 gold per ' +
-              run.tune.INTEREST_PER +
-              ' held, up to ' +
-              run.tune.INTEREST_CAP
-            }
-          >
-            <b>{run.ink}</b> ink
-            {run.interestPreview() > 0 && (
-              <em>+{run.interestPreview()} interest</em>
-            )}
-          </span>
-        </nav>
-      )}
+      <RunStrip run={run} phase={phase} />
 
       <div className="sb-gear-panel">
         <section className="sb-setup">
