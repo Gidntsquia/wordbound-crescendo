@@ -1,12 +1,15 @@
 // TS port of src/sandbox/items.js (READ_SLOWLY_PLAN.md A2/A5 step 3): THE
 // ITEM ROSTER (on screen: QUILLS). Still attaches to window.Wordbound.Sandbox
-// for the untyped sandbox modules that read it off the global (round.js's
-// scoreWordPoints calls applyItems; shop.js/RoundSandbox.jsx read
-// ITEMS/ITEM_DEFS). Sandbox.findWords/Sandbox.chordPoints (Harmony) aren't
-// ported yet, read through a loose cast like shop.ts's other cross-module
-// reads.
+// for the untyped sandbox modules that read it off the global (RoundSandbox
+// reads ITEMS/ITEM_DEFS; round.ts's scoreWordPoints calls applyItems through
+// the same kind of loose Sandbox cast, since it cannot import this file
+// without a cycle -- round.ts only needs items.ts's types, imported type-only).
+// Harmony's chord lookup imports findWords/chordPoints directly now that
+// both are ported.
 import '../sandboxGlobal';
 import type { Tile } from '../tiles';
+import { findWords } from './wordFinder';
+import { chordPoints } from './round';
 
 export interface ItemCtx {
   word: string;
@@ -473,22 +476,14 @@ export const ITEMS: Item[] = [
       const held = (c.held || []).filter((t) => t && t.letter);
       if (held.length !== 2 && held.length !== 3) return null;
       const letters = held.map((t) => t.letter).join('');
-      const Sandbox = window.Wordbound.Sandbox;
-      const findWords = Sandbox.findWords as
-        | ((
-            letters: string,
-            opts: unknown,
-            limit: number,
-          ) => { word: string }[])
-        | undefined;
-      const chordPoints = Sandbox.chordPoints as
-        ((word: string, tune: unknown) => number) | undefined;
-      if (!findWords || !chordPoints) return null;
-      const found = findWords(letters, null, 1);
+      const found = findWords(letters, undefined, 1);
       if (!found.length) return null;
       a.chord = {
         word: found[0]!.word,
-        points: chordPoints(found[0]!.word, c.tune),
+        points: chordPoints(
+          found[0]!.word,
+          c.tune as Record<string, number | boolean | undefined>,
+        ),
       };
       return null;
     },
