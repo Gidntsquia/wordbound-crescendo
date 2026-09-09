@@ -3,6 +3,11 @@
 // RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in; scoring/seen
 // are read-only here.
 import SituationPanel from '../../sandbox/SituationPanel';
+import {
+  Progress,
+  ProgressTrack,
+  ProgressIndicator,
+} from '../primitives/progress';
 import type { Situation, SituationId } from '../../engine/content/situations';
 import type { Fight } from '../../app/store';
 import type { RoundFacade } from '../../engine/state/facade';
@@ -61,14 +66,21 @@ export default function ScoreLine({
         >
           {scoreShown}
         </span>
-        <div className="sb-meter" aria-label="Progress to target">
-          <div
-            className={
-              'sb-meter-fill' + (scoreShown >= round.target ? ' is-met' : '')
-            }
-            style={{ width: pct + '%' }}
-          />
-        </div>
+        <Progress
+          value={scoreShown}
+          max={round.target}
+          className="sb-meter-progress"
+          aria-label="Progress to target"
+        >
+          <ProgressTrack className="sb-meter">
+            <ProgressIndicator
+              className={
+                'sb-meter-fill' + (scoreShown >= round.target ? ' is-met' : '')
+              }
+              style={{ width: pct + '%' }}
+            />
+          </ProgressTrack>
+        </Progress>
         <span className="sb-target">
           <small>target</small>
           {round.target}
