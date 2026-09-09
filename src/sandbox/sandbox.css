@@ -3132,6 +3132,13 @@ button.sb-card:disabled {
     animation: none;
   }
 }
+.sb-intro-opening {
+  font-family: var(--ui);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--leaf-dim);
+  margin: 0;
+}
 .sb-intro-flavour {
   font-family: var(--display);
   font-style: italic;

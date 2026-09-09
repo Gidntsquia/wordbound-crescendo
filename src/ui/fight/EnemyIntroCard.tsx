@@ -49,6 +49,7 @@ export default function EnemyIntroCard({
   enterFight: () => void;
   skipFight: () => void;
 }) {
+  const situation = SB.situationFor && SB.situationFor(round.situation);
   return (
     <div className="sb-intro">
       <div className="sb-enemy-line">
@@ -60,12 +61,13 @@ export default function EnemyIntroCard({
           {f.piece.composer ? ' · ' + f.piece.composer : ''}
         </span>
       </div>
+      {situation?.opening?.length ? (
+        <p className="sb-intro-opening">{situation.opening.join(' ')}</p>
+      ) : null}
       <SituationPanel
-        situation={SB.situationFor && SB.situationFor(round.situation)}
+        situation={situation}
         ladderIndex={
-          SB.ladderIndex
-            ? SB.ladderIndex(SB.situationFor!(round.situation), 0, round.target)
-            : 0
+          SB.ladderIndex ? SB.ladderIndex(situation, 0, round.target) : 0
         }
       />
       {f.def.flavour && <q className="sb-intro-flavour">{f.def.flavour}</q>}

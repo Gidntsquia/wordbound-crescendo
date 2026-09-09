@@ -57,6 +57,11 @@ export const SFX_DEFAULTS = {
   RIFFLE_TAPS: 5,
   RIFFLE_MS: 160,
   RIFFLE_GAIN: 0.5,
+  // page: a soft paper turn, for the situation ladder's step transitions
+  PAGE_TAPS: 3,
+  PAGE_MS: 90,
+  PAGE_GAIN: 0.3,
+  PAGE_HZ: 3200,
 };
 
 export interface Sfx {
@@ -74,6 +79,7 @@ export interface Sfx {
   hit(intensity: number): void;
   resolve(): void;
   riffle(): void;
+  page(): void;
   setEnabled(v: boolean): void;
   setLevel(v: number | null | undefined): void;
 }
@@ -389,6 +395,20 @@ export function createSfx(
         T.RIFFLE_GAIN * level,
         t + (i * T.RIFFLE_MS) / T.RIFFLE_TAPS / 1000,
         30,
+      );
+    }
+  };
+
+  api.page = () => {
+    if (!on()) return;
+    const t = now();
+    for (let i = 0; i < T.PAGE_TAPS; i++) {
+      burst(
+        T.PAGE_HZ,
+        1.1,
+        T.PAGE_GAIN * level,
+        t + (i * T.PAGE_MS) / T.PAGE_TAPS / 1000,
+        T.PAGE_MS,
       );
     }
   };

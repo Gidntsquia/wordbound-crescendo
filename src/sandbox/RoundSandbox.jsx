@@ -1150,6 +1150,14 @@ export default function RoundSandbox() {
       st.hit = 1 + Math.round(k * (CASCADE.SHAKE_TIERS - 1));
       flyScore(b.total);
       sfx('hit', k);
+      const situation = situationFor(r.situation);
+      if (
+        situation &&
+        ladderIndex(situation, scoreBefore, r.target) !==
+          ladderIndex(situation, r.score, r.target)
+      ) {
+        sfx('page');
+      }
       if (st.crossed) sfx('resolve');
       show();
       await wait(CASCADE.TOTAL_MS);
