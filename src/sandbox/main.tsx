@@ -38,7 +38,7 @@ import '../engine/content/quillDiscovery';
 // synthesized-only rule) and the nine recordings themselves -- recordings.js
 // is generated from tools/audio-manifest.json by `npm run fetch:audio`.
 // Soundtrack only here.
-import './audioPiece.js';
+import '../engine/content/audioPiece';
 // Synthesized input sounds and the scoring cascade's hits (sfx.js).
 import '../engine/content/sfx';
 import './recordings.js';
