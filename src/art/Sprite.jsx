@@ -24,6 +24,7 @@ export default function Sprite({ sheet, pose, className }) {
   const def = SHEETS[sheet];
   if (!def) return null;
   const hue = hueFor(sheet);
+  const sourced = def.status !== 'placeholder' && def.image;
   return (
     <span
       key={pose}
@@ -33,9 +34,10 @@ export default function Sprite({ sheet, pose, className }) {
       title={sheet + ' · ' + pose}
       style={{
         '--sb-sprite-hue': hue,
+        backgroundImage: sourced ? `url(${def.image})` : undefined,
       }}
     >
-      {def.status === 'placeholder' ? sheet.slice(0, 1).toUpperCase() : null}
+      {sourced ? null : sheet.slice(0, 1).toUpperCase()}
     </span>
   );
 }

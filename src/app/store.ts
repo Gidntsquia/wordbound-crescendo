@@ -111,3 +111,86 @@ export function writeSeen(ids: ReadonlySet<string>): void {
     /* ignore */
   }
 }
+
+// Highest-unlocked key (stage 3): a win on the highest-unlocked key offers
+// the next one. Read-only input (wonIndex) comes from a finished run, but
+// the state and its clamp/increment logic are UI-only -- run/round
+// themselves are never touched.
+const KEY_UNLOCKED_KEY = 'wbc.keyUnlocked';
+
+export interface KeyUnlockedState {
+  index: number;
+}
+
+export type KeyUnlockedAction = {
+  type: 'keyUnlocked/wonAtIndex';
+  wonIndex: number;
+  keyCount: number;
+};
+
+export function keyUnlockedReducer(
+  state: KeyUnlockedState,
+  action: KeyUnlockedAction,
+): KeyUnlockedState {
+  switch (action.type) {
+    case 'keyUnlocked/wonAtIndex': {
+      const prev = state.index;
+      if (action.wonIndex < prev || prev >= action.keyCount - 1) return state;
+      const next = Math.min(action.keyCount - 1, prev + 1);
+      writeKeyUnlocked(next);
+      return { index: next };
+    }
+    default:
+      return state;
+  }
+}
+
+export function readKeyUnlocked(): number {
+  try {
+    return Math.max(
+      0,
+      parseInt(window.localStorage.getItem(KEY_UNLOCKED_KEY) || '', 10) || 0,
+    );
+  } catch {
+    return 0;
+  }
+}
+
+export function writeKeyUnlocked(i: number): void {
+  try {
+    window.localStorage.setItem(KEY_UNLOCKED_KEY, String(i));
+  } catch {
+    /* ignore */
+  }
+}
+
+// The best-ever tracker (best word, deepest enemy, wins). recordRun already
+// computes the next value and writes it to localStorage as a pure function
+// of a finished run -- the reducer just adopts that precomputed value, same
+// division of labor as before (RoundSandbox.jsx keeps recordRun/readBest as
+// the read-only-input side; this only replaces the useState + setBest).
+const BEST_KEY = 'wbc.best';
+
+// Loosely typed: the shape is whatever recordRun/readBest in RoundSandbox.jsx
+// produce (best word, deepest enemy, wins, winsByKey) -- not yet a shared
+// type across the JS/TS boundary.
+export type BestState = Record<string, unknown>;
+
+export type BestAction = { type: 'best/set'; value: BestState };
+
+export function bestReducer(state: BestState, action: BestAction): BestState {
+  switch (action.type) {
+    case 'best/set':
+      return action.value;
+    default:
+      return state;
+  }
+}
+
+export function readBest(): BestState {
+  try {
+    return JSON.parse(window.localStorage.getItem(BEST_KEY) || '') || {};
+  } catch {
+    return {};
+  }
+}

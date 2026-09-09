@@ -140,7 +140,14 @@
       "id": "premium_slot_marker",
       "kind": "piece",
       "poses": ["idle"],
-      "status": "placeholder"
+      "status": "sourced",
+      "image": "art/premium_slot_marker.png",
+      "url": "https://kenney.nl/assets/game-icons",
+      "sourcePage": "https://kenney.nl/media/pages/assets/game-icons/1ebf9c14af-1677661579/kenney_game-icons.zip",
+      "licence": "CC0",
+      "author": "Kenney",
+      "sha256": "afd40325569fa91bfc690856dc4c70901bbd7c2e27dedc9fe3847258c61bbc81",
+      "note": "Kenney Game Icons pack has no bespoke slot-marker glyph; using its target.png (White/2x) as the closest generic marker icon until a purpose-drawn one exists."
     },
     {
       "id": "bookmark_card_frame",
@@ -158,7 +165,14 @@
       "id": "coin",
       "kind": "piece",
       "poses": ["idle"],
-      "status": "placeholder"
+      "status": "sourced",
+      "image": "art/coin.png",
+      "url": "https://kenney.nl/assets/game-icons",
+      "sourcePage": "https://kenney.nl/media/pages/assets/game-icons/1ebf9c14af-1677661579/kenney_game-icons.zip",
+      "licence": "CC0",
+      "author": "Kenney",
+      "sha256": "8e10578b82d6d46aff27a9939f4c1adccd1be6dc93c8302c9e28d281e126aae2",
+      "note": "Kenney Game Icons pack has no coin glyph; using its star.png (White/2x) as the closest generic value/currency icon until a purpose-drawn coin exists."
     },
     {
       "id": "backdrop_chapter_1",

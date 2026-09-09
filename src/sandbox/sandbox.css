@@ -3074,7 +3074,10 @@ button.sb-card:disabled {
   font-size: 13px;
   font-weight: 600;
   color: #fff;
-  background: hsl(var(--sb-sprite-hue) 45% 42%);
+  background-color: hsl(var(--sb-sprite-hue) 45% 42%);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   flex: none;
 }
 .sb-sprite-pose-in {

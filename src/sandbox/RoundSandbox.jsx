@@ -14,6 +14,7 @@ import CharacterSelect from './CharacterSelect.jsx';
 import HeldRow from '../ui/fight/HeldRow';
 import Shop from '../ui/shop/Shop';
 import EndScreen from '../ui/meta/EndScreen';
+import GearMeta from '../ui/chrome/GearMeta';
 import { cardName } from '../ui/fight/cardCopy';
 import {
   sfxReducer,
@@ -22,6 +23,10 @@ import {
   gearReducer,
   seenReducer,
   readSeen,
+  keyUnlockedReducer,
+  readKeyUnlocked,
+  bestReducer,
+  readBest,
 } from '../app/store';
 import {
   useCallback,
@@ -173,17 +178,13 @@ function describeBreakdown(b) {
 // below for the shop-buy narration strings.
 
 // The best so far, kept in the browser: best word, deepest enemy, wins.
-const BEST_KEY = 'wbc.best';
-function readBest() {
-  try {
-    return JSON.parse(window.localStorage.getItem(BEST_KEY)) || {};
-  } catch (e) {
-    return {};
-  }
-}
+// readBest/writeBest and the wbc.best key now live in ../app/store.ts
+// (READ_SLOWLY_PLAN.md A3); recordRun still does its own read-modify-write
+// since it needs the previous value mid-computation, then hands the result
+// to the bestReducer via dispatch({ type: 'best/set', value }).
 function writeBest(next) {
   try {
-    window.localStorage.setItem(BEST_KEY, JSON.stringify(next));
+    window.localStorage.setItem('wbc.best', JSON.stringify(next));
   } catch (e) {
     /* private mode, quota: ignore */
   }
@@ -223,25 +224,8 @@ function recordRun(run, won) {
 
 // Keys (stage 3): the title screen offers the next key once the current
 // highest-unlocked one has been won at least once. wbc.keyUnlocked is the
-// index of the highest key on offer; wbc.key is the player's current pick.
-const KEY_UNLOCKED_KEY = 'wbc.keyUnlocked';
-function readKeyUnlocked() {
-  try {
-    return Math.max(
-      0,
-      parseInt(window.localStorage.getItem(KEY_UNLOCKED_KEY), 10) || 0,
-    );
-  } catch (e) {
-    return 0;
-  }
-}
-function writeKeyUnlocked(i) {
-  try {
-    window.localStorage.setItem(KEY_UNLOCKED_KEY, String(i));
-  } catch (e) {
-    /* ignore */
-  }
-}
+// index of the highest key on offer (now ../app/store.ts's keyUnlockedReducer,
+// READ_SLOWLY_PLAN.md A3); wbc.key is the player's current pick, still local.
 function readKeyChoice(unlocked, SB) {
   try {
     const saved = window.localStorage.getItem('wbc.key');
@@ -416,7 +400,12 @@ export default function RoundSandbox() {
     () => setDiscovered(new Set(SB.discoveredQuills())),
     [SB],
   );
-  const [keyUnlocked, setKeyUnlocked] = useState(() => readKeyUnlocked());
+  const [keyUnlockedState, dispatchKeyUnlocked] = useReducer(
+    keyUnlockedReducer,
+    { index: 0 },
+    () => ({ index: readKeyUnlocked() }),
+  );
+  const keyUnlocked = keyUnlockedState.index;
   const [key, setKey] = useState(() => readKeyChoice(readKeyUnlocked(), SB));
   // READ_SLOWLY_PLAN.md stage D: the chosen playable letter character. Its
   // passive is threaded into createRun's `items` list; the always-playable
@@ -430,11 +419,10 @@ export default function RoundSandbox() {
       const wonIndex = SB.KEY_DEFS[wonRun.key]
         ? SB.KEY_DEFS[wonRun.key].index
         : 0;
-      setKeyUnlocked((prev) => {
-        if (wonIndex < prev || prev >= SB.KEYS.length - 1) return prev;
-        const next = Math.min(SB.KEYS.length - 1, prev + 1);
-        writeKeyUnlocked(next);
-        return next;
+      dispatchKeyUnlocked({
+        type: 'keyUnlocked/wonAtIndex',
+        wonIndex,
+        keyCount: SB.KEYS.length,
       });
     },
     [SB],
@@ -442,7 +430,12 @@ export default function RoundSandbox() {
   // Sample items, read at Start (a mid-round swap would half-apply).
   const [itemIds, setItemIds] = useState(() => new Set());
   const [suggestions, setSuggestions] = useState([]);
-  const [best, setBest] = useState(() => readBest());
+  const [bestState, dispatchBest] = useReducer(bestReducer, {}, readBest);
+  const best = bestState;
+  const setBest = useCallback(
+    (value) => dispatchBest({ type: 'best/set', value }),
+    [],
+  );
   // Narrow screens keep the setup bar, starting items and tuning behind a gear.
   const [gearState, dispatchGear] = useReducer(gearReducer, { open: false });
   const gearOpen = gearState.open;
@@ -1805,74 +1798,7 @@ export default function RoundSandbox() {
               ))}
             </div>
           </div>
-          <div className="sb-key-tune" role="group" aria-label="Editions">
-            <span className="sb-bags-head">Editions</span>
-            <ul className="sb-key-list">
-              {SB.KEYS.map((k) => (
-                <li
-                  key={k.id}
-                  className={k.index > keyUnlocked ? 'is-locked' : ''}
-                >
-                  <b>{k.name}</b> — {k.hint}
-                </li>
-              ))}
-            </ul>
-          </div>
-          {SB.availableLetters && (
-            <div
-              className="sb-alphabet"
-              role="group"
-              aria-label="Letters won back"
-            >
-              <span className="sb-bags-head">Letters</span>
-              <div className="sb-alphabet-row">
-                {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((l) => (
-                  <span
-                    key={l}
-                    className={
-                      'sb-letter' + (SB.isAvailable(l) ? '' : ' is-hollow')
-                    }
-                    title={
-                      SB.isAvailable(l)
-                        ? l
-                        : l + ' — lost; win it back by felling a boss'
-                    }
-                  >
-                    {l}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {SB.ITEMS && (
-            <div
-              className="sb-alphabet"
-              role="group"
-              aria-label="Quills discovered"
-            >
-              <span className="sb-bags-head">
-                Bookmarks · {discovered.size}/{SB.ITEMS.length}
-              </span>
-              <div className="sb-alphabet-row sb-quill-row">
-                {SB.ITEMS.map((it) => (
-                  <span
-                    key={it.id}
-                    className={
-                      'sb-letter' + (discovered.has(it.id) ? '' : ' is-hollow')
-                    }
-                    title={
-                      discovered.has(it.id)
-                        ? it.name
-                        : it.name +
-                          ' — undiscovered; felling a boss or reaching Chapter 3 may reveal it'
-                    }
-                  >
-                    {discovered.has(it.id) ? it.name[0] : '?'}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          <GearMeta SB={SB} keyUnlocked={keyUnlocked} discovered={discovered} />
           <label>
             Volume
             <input
