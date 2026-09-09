@@ -30,6 +30,7 @@ import {
   bestReducer,
   readBest,
   refreshReducer,
+  fightReducer,
 } from '../app/store';
 import {
   useCallback,
@@ -309,6 +310,11 @@ export default function RoundSandbox() {
   // plain re-render nudge, not a model of fight.current's actual state (see
   // src/app/store.ts's header).
   const [, dispatchRefresh] = useReducer(refreshReducer, 0);
+  // A3: the tuning panel's tune-override mutation, routed through a typed
+  // dispatch instead of a direct `fight.current.round.tune[key] = value`
+  // call -- see src/app/store.ts's fightReducer for why this is the one
+  // run/round call site converted so far.
+  const [, dispatchFight] = useReducer(fightReducer, 0);
   // Mirrors of the volume/sfx-on state for the zero-dep resume effect below,
   // which needs the LATEST value without re-subscribing on every change.
   const volumeRef = useRef(0.4);
@@ -1488,7 +1494,7 @@ export default function RoundSandbox() {
 
   const setConst = (key, value) => {
     setTune((t) => ({ ...t, [key]: value }));
-    if (fight.current) fight.current.round.tune[key] = value;
+    dispatchFight({ type: 'fight/setTune', fight, key, value });
   };
 
   // Rows as drawn: the real order, or the drag's preview. Each entry carries

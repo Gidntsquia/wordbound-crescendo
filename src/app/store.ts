@@ -66,6 +66,42 @@ export function refreshReducer(state: number, action: RefreshAction): number {
   }
 }
 
+// The first (and, for now, only) run/round mutation routed through a typed
+// dispatch instead of a direct call. Every other run/round call site in
+// RoundSandbox.jsx (playWord, changeout, next, skip, leaveShop, pickLetter,
+// moveTile, useAdhocMark, saveMark, drawMarkHand, ...) is embedded in a
+// useCallback closure alongside several other component-local callbacks
+// (say, startStage, markSeen, warm, unlockNextKey) and/or branching control
+// flow -- moving those into a reducer case would mean either duplicating
+// that surrounding logic here (real risk of a transcription mismatch that
+// only playing the game would catch) or threading those closures through
+// action payloads (which stops being a faithful 1:1 relocation and starts
+// being a redesign). Neither is safe without browser verification, so they
+// stay direct calls. This one line -- `fight.current.round.tune[key] =
+// value` from the tuning panel's setConst -- is the one mutation call site
+// that IS a single, unbranching, no-closure-dependency statement, so it's
+// the one converted this pass. `fight` itself, and round.ts/items.ts's
+// mutable object shape, are untouched either way: this only changes how
+// the UI reaches the mutation, not what the mutation does.
+export type FightAction = {
+  type: 'fight/setTune';
+  fight: { current: { round: { tune: Record<string, unknown> } } | null };
+  key: string;
+  value: unknown;
+};
+
+export function fightReducer(state: number, action: FightAction): number {
+  switch (action.type) {
+    case 'fight/setTune': {
+      const f = action.fight.current;
+      if (f) f.round.tune[action.key] = action.value;
+      return state + 1;
+    }
+    default:
+      return state;
+  }
+}
+
 // Gear panel open/closed -- pure UI state, no persistence, 3 call sites.
 export interface GearState {
   open: boolean;
