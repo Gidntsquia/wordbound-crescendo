@@ -1,0 +1,119 @@
+// TS port of js/core/rng.js (READ_SLOWLY_PLAN.md A2). Also attaches to
+// window.Game.RNG so the still-untyped js/wordbound/* consumers keep working
+// during the migration (the window shim, removed once everything reading
+// window.Game.RNG has been ported to import from here directly).
+
+export interface RngStream {
+  seed: number;
+  next(): number;
+  randInt(min: number, max: number): number;
+  randFloat(min: number, max: number): number;
+  choice<T>(arr: T[] | undefined | null): T | undefined;
+  weightedChoice<T>(
+    items: T[] | undefined | null,
+    weightFn?: (item: T) => number,
+  ): T | undefined;
+  shuffle<T>(arr: T[]): T[];
+  chance(probability: number): boolean;
+}
+
+// mulberry32: small, fast, decent-quality seeded PRNG.
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function hashStringToSeed(str: string): number {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return h >>> 0;
+}
+
+export function randomSeed(): number {
+  return Math.floor(Math.random() * 0xffffffff);
+}
+
+// Creates an independent RNG stream. Pass a number or a string (hashed).
+export function create(seed: number | string): RngStream {
+  const seedNum =
+    typeof seed === 'number' ? seed >>> 0 : hashStringToSeed(String(seed));
+  const next = mulberry32(seedNum);
+
+  return {
+    seed: seedNum,
+    next,
+
+    // inclusive on both ends
+    randInt(min, max) {
+      return Math.floor(next() * (max - min + 1)) + min;
+    },
+
+    randFloat(min, max) {
+      return next() * (max - min) + min;
+    },
+
+    choice(arr) {
+      if (!arr || arr.length === 0) return undefined;
+      return arr[Math.floor(next() * arr.length)];
+    },
+
+    // items: array of anything; weightFn(item) -> number (default: item.weight || 1)
+    weightedChoice<T>(
+      items: T[] | undefined | null,
+      weightFn?: (item: T) => number,
+    ) {
+      if (!items || items.length === 0) return undefined;
+      const wf =
+        weightFn || ((it: T) => (it as { weight?: number })?.weight || 1);
+      const total = items.reduce((sum, it) => sum + wf(it), 0);
+      if (total <= 0) return items[Math.floor(next() * items.length)];
+      let r = next() * total;
+      for (const it of items) {
+        r -= wf(it);
+        if (r <= 0) return it;
+      }
+      return items[items.length - 1];
+    },
+
+    shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(next() * (i + 1));
+        const tmp = a[i]!;
+        a[i] = a[j]!;
+        a[j] = tmp;
+      }
+      return a;
+    },
+
+    chance(probability) {
+      return next() < probability;
+    },
+  };
+}
+
+declare global {
+  interface Window {
+    Game: {
+      RNG: {
+        hashStringToSeed: typeof hashStringToSeed;
+        randomSeed: typeof randomSeed;
+        create: typeof create;
+      };
+    };
+  }
+}
+
+window.Game = window.Game || { RNG: {} as Window['Game']['RNG'] };
+window.Game.RNG.hashStringToSeed = hashStringToSeed;
+window.Game.RNG.randomSeed = randomSeed;
+window.Game.RNG.create = create;

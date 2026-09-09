@@ -15,8 +15,7 @@ import { createRoot } from 'react-dom/client';
 import '../styles/globals.css';
 import './sandbox.css';
 
-import '../../js/core/namespace.js';
-import '../../js/core/rng.js';
+import '../engine/rng';
 import '../../js/wordbound/wordlist.js';
 import '../../js/wordbound/lexicon.js';
 import '../../js/wordbound/tiles.js';

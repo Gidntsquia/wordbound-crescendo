@@ -51,8 +51,9 @@ not something to reintroduce piecemeal mid-task.
   `src/App.jsx`. Screens/overlays in `src/components/`: MainMenu,
   CharacterSelect, RunScreen, RunSidePanels, CombatScreen, BossEntranceOverlay,
   RewardScreens, HowToPlayOverlay, VolumeGauge.
-- `js/core/` — `namespace.js` (window.Wordbound namespace), `rng.js` (seeded
-  RNG).
+- `src/engine/rng.ts` — seeded RNG (TS port of the old `js/core/rng.js` +
+  `namespace.js`, READ_SLOWLY_PLAN.md A2); still attaches to
+  `window.Game.RNG` for untyped `js/wordbound/*` consumers.
 - `js/wordbound/` — framework-agnostic engine, plain JS, no React imports:
   `duel.js` / `duelCombat.js` / `combat.js` (duel-gauge combat), `music.js` +
   `pieces/` (WebAudio sequencer + sequenced note data — synthesized only,
