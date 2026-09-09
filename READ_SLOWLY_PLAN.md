@@ -222,10 +222,14 @@ Sonner (callouts) copied into `src/ui/primitives/` and used for all chrome.
 Theme tokens already sit in the `@theme` block; the components must consume
 them.
 
-**A1 (remainder) — `.jsx` → `.tsx`.** Sixteen `.jsx` files remain
-(`RoundSandbox`, `SituationPanel`, `CharacterSelect`, `Sprite`, the four
-`svg/*`, everything under `src/ui/`). Spec is TypeScript throughout; the
-`allowJs` step was transitional.
+**A1 (remainder) — `.jsx` → `.tsx`.** `Sprite.tsx` and the four `svg/*.tsx`
+files are ported (real prop types on `Sprite`/`Disc`/`Tile`/`Backdrop`,
+`811df5d`) — five of the original sixteen. Eleven remain: `RoundSandbox`,
+`SituationPanel`, `CharacterSelect`, everything under `src/ui/`. Spec is
+TypeScript throughout; the `allowJs` step was transitional. The bigger
+ones (`RoundSandbox.jsx` itself, `Shop.jsx`, `HeldRow.jsx`, `PlayBoard.jsx`)
+take real `SB`-shaped prop types and are better done alongside A4's
+component split than converted in place first and re-typed again after.
 
 **C3 (remainder) — beats.** `Situation.opening[]` and `resolution[]` are
 authored in `situations.ts` and rendered nowhere. Spec: opening lines
