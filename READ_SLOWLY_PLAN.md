@@ -218,14 +218,20 @@ had `SetupPanel`, `StartingQuills`, `EnemyIntroCard`, `ScoreLine`,
 `PlaysList`, `WonBanner`, `LetterChoice` extracted (`22f4d25`), shrinking it
 to ~1,600 lines; `PlayBoard.jsx` (464 lines) has been fully split into
 `Rack`, `InkingPicker`, `Stick`, `InputRow`, `PilesDrawer`,
-`SuggestionsDrawer` plus a composing `PlayBoard.tsx` (`2379665`), all typed
-`.tsx`, verified by typecheck/lint/format and a Playwright smoke pass on
-tile stage/unstage/swap/play. Still open: `Shop.jsx` (316 lines) and
-`HeldRow.jsx` (218 lines) untouched — `CardSlot`, `PackPick`, `QuillRow`,
-`QuillCard`, `GearPanel` not yet extracted; `Callout.tsx` on Sonner not yet
-done (ties into A6); `RoundSandbox.jsx` itself still well over 200 lines and
-not yet renamed to `FightScreen.tsx` or deleted — that's the final step of
-this item.
+`SuggestionsDrawer` plus a composing `PlayBoard.tsx` (`2379665`); `HeldRow.jsx`
+(218 lines) split into `QuillRow`, `QuillCard`, `ConsumablesRow` plus a
+composing `HeldRow.tsx` (`de45dee`), verified live in the fight screen;
+`Shop.jsx` (316 lines) split into `CardSlot`, `PackPick`, `ShopInkPicker`
+plus a composing `Shop.tsx` (`a80ea47`) — typecheck/lint/format clean and
+verified by careful line-by-line comparison against the deleted original,
+but NOT verified live in the browser: forcing a win to reach the shop
+screen needs the immutable engine's own target check, not a
+facade-getter override, and that wasn't done this pass — flagged for a
+follow-up live shop check. All ported to typed `.tsx`. Still open:
+`GearPanel` not yet extracted (currently inline in `SetupPanel`);
+`Callout.tsx` on Sonner not yet done (ties into A6); `RoundSandbox.jsx`
+itself still well over 200 lines and not yet renamed to `FightScreen.tsx`
+or deleted — that's the final step of this item.
 
 **A6 — shadcn + Tailwind actually used.** All twelve primitives (Button,
 Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
