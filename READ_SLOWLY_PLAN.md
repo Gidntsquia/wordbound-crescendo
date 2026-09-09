@@ -102,7 +102,7 @@ preview`) driving the full loop -- open gear, enable the word helper,
     `RoundSandbox.jsx`: 2,333 -> 1,920 lines. Not separately re-confirmed:
     actual drag-gesture feel and scoring-cascade pop/lit timing, same
     headless-tooling gap as everything else feel-sensitive in this plan --
-    that's still E4's job. Commit `<pending, see git log>`.
+    that's still E4's job. Commit `c17fc68`.
 - **E4** (phone perf pass): still needs an actual phone playing the actual
   build; headless Playwright can't stand in for this one. With A3 and A4
   now both complete, E4 is the only item left in the entire plan that
