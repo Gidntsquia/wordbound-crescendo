@@ -8,6 +8,12 @@
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
 import { createDragReorder } from '../engine/dragReorder';
+import {
+  KEYS as STORAGE_KEYS,
+  readRaw,
+  writeJSON,
+  writeRaw,
+} from '../app/persistence';
 import { createRunFacadeFromOpts, fromSeed } from '../engine/state/facade';
 import { MOVEMENTS, KIND_LABEL, enemyAt } from '../engine/content/enemies';
 import {
@@ -163,11 +169,7 @@ function describeBreakdown(b) {
 // since it needs the previous value mid-computation, then hands the result
 // to the bestReducer via dispatch({ type: 'best/set', value }).
 function writeBest(next) {
-  try {
-    window.localStorage.setItem('wbc.best', JSON.stringify(next));
-  } catch (e) {
-    /* private mode, quota: ignore */
-  }
+  writeJSON(STORAGE_KEYS.best, next);
 }
 function depthOf(run) {
   return run.movement * 3 + run.stage;
@@ -207,21 +209,13 @@ function recordRun(run, won) {
 // index of the highest key on offer (now ../app/store.ts's keyUnlockedReducer,
 // READ_SLOWLY_PLAN.md A3); wbc.key is the player's current pick, still local.
 function readKeyChoice(unlocked, SB) {
-  try {
-    const saved = window.localStorage.getItem('wbc.key');
-    if (saved && SB.KEY_DEFS[saved] && SB.KEY_DEFS[saved].index <= unlocked)
-      return saved;
-  } catch (e) {
-    /* ignore */
-  }
+  const saved = readRaw(STORAGE_KEYS.key);
+  if (saved && SB.KEY_DEFS[saved] && SB.KEY_DEFS[saved].index <= unlocked)
+    return saved;
   return SB.KEYS[0].id;
 }
 function writeKeyChoice(id) {
-  try {
-    window.localStorage.setItem('wbc.key', id);
-  } catch (e) {
-    /* ignore */
-  }
+  writeRaw(STORAGE_KEYS.key, id);
 }
 function randomSeed() {
   const words = [

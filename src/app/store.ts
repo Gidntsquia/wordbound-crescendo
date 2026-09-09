@@ -14,6 +14,7 @@
 
 import type { RunFacade, RoundFacade } from '../engine/state/facade';
 import type { SandboxNamespace } from '../engine/sandboxGlobal';
+import { KEYS, readJSON, readRaw, writeJSON, writeRaw } from './persistence';
 
 export interface SfxState {
   on: boolean;
@@ -33,22 +34,12 @@ export function sfxReducer(state: SfxState, action: SfxAction): SfxState {
   }
 }
 
-const SFX_KEY = 'wbc.sfx';
-
 export function readSfxOn(): boolean {
-  try {
-    return window.localStorage.getItem(SFX_KEY) !== '0';
-  } catch {
-    return true;
-  }
+  return readRaw(KEYS.sfx) !== '0';
 }
 
 export function writeSfxOn(on: boolean): void {
-  try {
-    window.localStorage.setItem(SFX_KEY, on ? '1' : '0');
-  } catch {
-    /* ignore */
-  }
+  writeRaw(KEYS.sfx, on ? '1' : '0');
 }
 
 // The refresh counter that stands in for React re-reading fight.current
@@ -657,8 +648,6 @@ export function gearReducer(state: GearState, action: GearAction): GearState {
 // the ids as a JSON array; the legacy '1' value from the old three-line
 // overlay maps to a single 'legacy' id, preserved from the original
 // RoundSandbox.jsx readSeen().
-const SEEN_KEY = 'wbc.seen';
-
 export interface SeenState {
   ids: ReadonlySet<string>;
 }
@@ -680,30 +669,20 @@ export function seenReducer(state: SeenState, action: SeenAction): SeenState {
 }
 
 export function readSeen(): ReadonlySet<string> {
-  try {
-    const raw = window.localStorage.getItem(SEEN_KEY);
-    if (!raw) return new Set();
-    if (raw === '1') return new Set(['legacy']);
-    return new Set(JSON.parse(raw));
-  } catch {
-    return new Set();
-  }
+  const raw = readRaw(KEYS.seen);
+  if (!raw) return new Set();
+  if (raw === '1') return new Set(['legacy']);
+  return new Set(readJSON<string[]>(KEYS.seen, []));
 }
 
 export function writeSeen(ids: ReadonlySet<string>): void {
-  try {
-    window.localStorage.setItem(SEEN_KEY, JSON.stringify([...ids]));
-  } catch {
-    /* ignore */
-  }
+  writeJSON(KEYS.seen, [...ids]);
 }
 
 // Highest-unlocked key (stage 3): a win on the highest-unlocked key offers
 // the next one. Read-only input (wonIndex) comes from a finished run, but
 // the state and its clamp/increment logic are UI-only -- run/round
 // themselves are never touched.
-const KEY_UNLOCKED_KEY = 'wbc.keyUnlocked';
-
 export interface KeyUnlockedState {
   index: number;
 }
@@ -732,22 +711,11 @@ export function keyUnlockedReducer(
 }
 
 export function readKeyUnlocked(): number {
-  try {
-    return Math.max(
-      0,
-      parseInt(window.localStorage.getItem(KEY_UNLOCKED_KEY) || '', 10) || 0,
-    );
-  } catch {
-    return 0;
-  }
+  return Math.max(0, parseInt(readRaw(KEYS.keyUnlocked) || '', 10) || 0);
 }
 
 export function writeKeyUnlocked(i: number): void {
-  try {
-    window.localStorage.setItem(KEY_UNLOCKED_KEY, String(i));
-  } catch {
-    /* ignore */
-  }
+  writeRaw(KEYS.keyUnlocked, String(i));
 }
 
 // The best-ever tracker (best word, deepest enemy, wins). recordRun already
@@ -755,8 +723,6 @@ export function writeKeyUnlocked(i: number): void {
 // of a finished run -- the reducer just adopts that precomputed value, same
 // division of labor as before (RoundSandbox.jsx keeps recordRun/readBest as
 // the read-only-input side; this only replaces the useState + setBest).
-const BEST_KEY = 'wbc.best';
-
 // Loosely typed: the shape is whatever recordRun/readBest in RoundSandbox.jsx
 // produce (best word, deepest enemy, wins, winsByKey) -- not yet a shared
 // type across the JS/TS boundary.
@@ -774,9 +740,5 @@ export function bestReducer(state: BestState, action: BestAction): BestState {
 }
 
 export function readBest(): BestState {
-  try {
-    return JSON.parse(window.localStorage.getItem(BEST_KEY) || '') || {};
-  } catch {
-    return {};
-  }
+  return readJSON<BestState>(KEYS.best, {});
 }

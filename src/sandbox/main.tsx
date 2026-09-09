@@ -15,37 +15,23 @@ import { createRoot } from 'react-dom/client';
 import '../styles/globals.css';
 import './sandbox.css';
 
+// window.Wordbound.Lexicon/Tiles/WORD_SET/WORDLIST are still legacy globals
+// (js/wordbound/wordlist.js's plumbing, out of scope for A2's no-globals
+// item) -- nothing ES-imports lexicon.ts/tiles.ts for their side effects, so
+// they still need loading here explicitly. Every *other* content module
+// (enemies, situations, items, characters, round, marginalia, wordFinder,
+// tileBags, stolenLetters, quillDiscovery, audioPiece, sfx, recordings) is
+// now reached transitively via RoundSandbox.jsx's real ES imports, so this
+// file is otherwise mount only (READ_SLOWLY_PLAN.md A2 remainder).
 import '../engine/rng';
 import '../../js/wordbound/wordlist.js';
 import '../engine/lexicon';
 import '../engine/tiles';
 
-import '../engine/content/enemies';
-import '../engine/content/situations';
-import '../engine/content/items';
-import '../engine/content/characters';
-import '../engine/content/round';
-import '../engine/content/marginalia';
-import '../engine/content/wordFinder';
-// Which letters a fight draws from -- three bags, weak/normal/strong.
-import '../engine/content/tileBags';
-// The stolen-letters meta: which letters are locked out of every bag/pack
-// until a boss is felled and one is won back (localStorage wbc.letters).
-import '../engine/content/stolenLetters';
-// The quill-discovery meta: which quills are hidden from the shop/packs
-// until a boss is felled or Movement III is reached (localStorage wbc.quills).
-import '../engine/content/quillDiscovery';
-// The player that fronts a RECORDING (the logged exception to the
-// synthesized-only rule) and the nine recordings themselves -- recordings.js
-// is generated from tools/audio-manifest.json by `npm run fetch:audio`.
-// Soundtrack only here.
-import '../engine/content/audioPiece';
-// Synthesized input sounds and the scoring cascade's hits (sfx.js).
-import '../engine/content/sfx';
-import '../engine/content/recordings';
-
+import { migrate } from '../app/persistence';
 import RoundSandbox from './RoundSandbox.jsx';
 
+migrate();
 createRoot(document.getElementById('sandbox-root')!).render(<RoundSandbox />);
 
 // Offline audio cache (public/sw.js, stage 5): registers after load so it
