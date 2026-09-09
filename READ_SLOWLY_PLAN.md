@@ -266,12 +266,29 @@ split (below) than converted in place first and re-typed again after.
 Verified: `bun run typecheck`/`lint`/`format:check` clean; live browser
 test (title screen, fight, gear panel) zero console errors.
 
-**C3 (remainder) — beats.** `Situation.opening[]` and `resolution[]` are
-authored in `situations.ts` and rendered nowhere. Spec: opening lines
-before the first word; the cascade's "total hit" step triggers the ladder
-transition with its own "page turn" SFX (`sfx.ts` has no such sound yet);
-resolution plays as a 2–3 s beat after the win before the shop button,
-any tap skips. Bosses' openings mention the crescendo.
+**C3 (remainder) — beats. DONE (mostly).** `EnemyIntroCard.tsx` now
+renders `situation.opening[]` before the first word (`8342754`). `sfx.ts`
+gained a synthesized `page` sound (`PAGE_*` constants, `Sfx.page()`,
+filtered-noise taps), and `RoundSandbox.jsx`'s `runCascade` "total lands"
+step compares `ladderIndex(situation, scoreBefore, target)` against
+`ladderIndex(situation, r.score, target)` and fires `sfx('page')` on a
+bracket crossing, alongside the existing `sfx('resolve')` on a target
+crossing (`8342754`). `WonBanner.tsx` shows `situation.resolution[]` for
+~2.5 s (`RoundSandbox`'s new `wonResolved` state + timeout) before
+revealing the shop/finish button; a tap on the banner skips via
+`skipWonResolution` (`0ab311e`). Verified: `bun run typecheck`/`lint`/
+`format` clean throughout. The opening-text change was live-verified via
+Playwright (renders on the intro screen, zero console errors); the page
+SFX and resolution-beat wiring were NOT live-verified — forcing an actual
+round win has been infeasible within budget this session (the engine's
+win check runs on the immutable `RunState`, not anything overridable from
+the console, and the fight's play budget is too small for a scripted word
+sequence to reach a real target; same limitation hit in the Shop split,
+`a80ea47`) — verified instead by code review against the existing
+phase-effect/`showResolution` patterns already used elsewhere in the file.
+**Open follow-up:** boss-specific opening variation ("bosses' openings
+mention the crescendo") is not implemented — `SITUATIONS` entries have one
+static `opening[]` regardless of enemy kind.
 
 **D1 — the character tile itself.** Not wired at all (see the header note
 in `characters.ts`; `RoundSandbox.jsx:366`). Today a chosen character only
