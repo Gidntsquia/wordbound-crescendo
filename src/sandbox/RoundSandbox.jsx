@@ -11,7 +11,17 @@ import { createDragReorder } from '../engine/dragReorder';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';
 import CharacterSelect from './CharacterSelect.jsx';
-import { sfxReducer, readSfxOn, writeSfxOn } from '../app/store';
+import HeldRow from '../ui/fight/HeldRow';
+import Shop from '../ui/shop/Shop';
+import EndScreen from '../ui/meta/EndScreen';
+import {
+  sfxReducer,
+  readSfxOn,
+  writeSfxOn,
+  gearReducer,
+  seenReducer,
+  readSeen,
+} from '../app/store';
 import {
   useCallback,
   useEffect,
@@ -838,25 +848,8 @@ function randomSeed() {
 }
 
 // One-time CALLOUTS (Phase 2): short hints that appear in context and go
-// away on the action they describe. wbc.seen holds the ids already shown.
-const SEEN_KEY = 'wbc.seen';
-function readSeen() {
-  try {
-    const raw = window.localStorage.getItem(SEEN_KEY);
-    if (!raw) return new Set();
-    if (raw === '1') return new Set(['legacy']); // the old three-line overlay
-    return new Set(JSON.parse(raw));
-  } catch (e) {
-    return new Set();
-  }
-}
-function writeSeen(set) {
-  try {
-    window.localStorage.setItem(SEEN_KEY, JSON.stringify([...set]));
-  } catch (e) {
-    /* ignore */
-  }
-}
+// away on the action they describe. wbc.seen holds the ids already shown --
+// see src/app/store.ts's seenReducer/readSeen (READ_SLOWLY_PLAN.md A3).
 const LIVE_URL = 'https://gidntsquia.github.io/wordbound-crescendo/';
 // The Balatro-style text summary friends can paste back.
 function shareText(run, won, seed) {
@@ -1139,7 +1132,8 @@ export default function RoundSandbox() {
   const [suggestions, setSuggestions] = useState([]);
   const [best, setBest] = useState(() => readBest());
   // Narrow screens keep the setup bar, starting items and tuning behind a gear.
-  const [gearOpen, setGearOpen] = useState(false);
+  const [gearState, dispatchGear] = useReducer(gearReducer, { open: false });
+  const gearOpen = gearState.open;
   // Which quill/consumable's tap-tooltip is open (mobile has no hover, so
   // `title` never shows -- tapping the icon toggles this instead).
   const [tip, setTip] = useState(null);
@@ -1152,15 +1146,12 @@ export default function RoundSandbox() {
     return () => document.removeEventListener('pointerdown', close);
   }, [tip]);
   // Which one-time callouts have been shown (see readSeen).
-  const [seen, setSeen] = useState(() => readSeen());
+  const [seenState, dispatchSeen] = useReducer(seenReducer, undefined, () => ({
+    ids: readSeen(),
+  }));
+  const seen = seenState.ids;
   const markSeen = useCallback((id) => {
-    setSeen((prev) => {
-      if (prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.add(id);
-      writeSeen(next);
-      return next;
-    });
+    dispatchSeen({ type: 'seen/mark', id });
   }, []);
   const [indexing, setIndexing] = useState(false);
   const inputRef = useRef(null);
@@ -2342,7 +2333,7 @@ export default function RoundSandbox() {
           className="sb-gear"
           aria-label="Setup and tuning"
           title="Setup and tuning"
-          onClick={() => setGearOpen((g) => !g)}
+          onClick={() => dispatchGear({ type: 'gear/toggle' })}
         >
           ⚙
         </button>

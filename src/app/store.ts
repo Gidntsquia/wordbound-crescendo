@@ -47,3 +47,67 @@ export function writeSfxOn(on: boolean): void {
     /* ignore */
   }
 }
+
+// Gear panel open/closed -- pure UI state, no persistence, 3 call sites.
+export interface GearState {
+  open: boolean;
+}
+
+export type GearAction =
+  { type: 'gear/toggle' } | { type: 'gear/set'; open: boolean };
+
+export function gearReducer(state: GearState, action: GearAction): GearState {
+  switch (action.type) {
+    case 'gear/toggle':
+      return { open: !state.open };
+    case 'gear/set':
+      return action.open === state.open ? state : { open: action.open };
+    default:
+      return state;
+  }
+}
+
+// Which one-time callouts (Phase 2) have already been shown. wbc.seen holds
+// the ids as a JSON array; the legacy '1' value from the old three-line
+// overlay maps to a single 'legacy' id, preserved from the original
+// RoundSandbox.jsx readSeen().
+const SEEN_KEY = 'wbc.seen';
+
+export interface SeenState {
+  ids: ReadonlySet<string>;
+}
+
+export type SeenAction = { type: 'seen/mark'; id: string };
+
+export function seenReducer(state: SeenState, action: SeenAction): SeenState {
+  switch (action.type) {
+    case 'seen/mark': {
+      if (state.ids.has(action.id)) return state;
+      const next = new Set(state.ids);
+      next.add(action.id);
+      writeSeen(next);
+      return { ids: next };
+    }
+    default:
+      return state;
+  }
+}
+
+export function readSeen(): ReadonlySet<string> {
+  try {
+    const raw = window.localStorage.getItem(SEEN_KEY);
+    if (!raw) return new Set();
+    if (raw === '1') return new Set(['legacy']);
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set();
+  }
+}
+
+export function writeSeen(ids: ReadonlySet<string>): void {
+  try {
+    window.localStorage.setItem(SEEN_KEY, JSON.stringify([...ids]));
+  } catch {
+    /* ignore */
+  }
+}
