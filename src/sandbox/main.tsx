@@ -40,7 +40,7 @@ import '../engine/content/quillDiscovery';
 // Soundtrack only here.
 import './audioPiece.js';
 // Synthesized input sounds and the scoring cascade's hits (sfx.js).
-import './sfx.js';
+import '../engine/content/sfx';
 import './recordings.js';
 
 import RoundSandbox from './RoundSandbox.jsx';
