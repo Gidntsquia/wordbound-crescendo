@@ -474,28 +474,39 @@ pip is identical, just with a real hover popup instead of a native
 title). Chosen over Rack/Stick/shop-card tooltips specifically because
 the end screen is static (no drag/tap-mid-interaction risk) — the same
 reasoning already used to pick the Tuning panel for Tabs over the
-riskier chrome. Verified: typecheck/lint/format/build clean. Live
-end-screen verification (hovering a pip, reading the popup) was
-infeasible within budget this session — reaching `phase === 'lost'` or
-`'run-won'` needs either an actual scripted win/loss (the small 4-play
-budget makes losing/winning via automated word-play unreliable to script
-exactly, confirmed by five attempted `Best play` + `Play` cycles that
-neither won nor lost the fight) or a dispatch hook the app doesn't
-expose (only `window.__round`/`__run` are debug globals, no phase
-setter) — same limitation already hit and accepted for C3's page-SFX/
-resolution-beat wiring. Verified instead by code review: `TooltipTrigger`'s
-`render` prop is the same pattern already proven live in `sheet.tsx`'s
-close button and `dialog.tsx`'s `Close render={<Button .../>}`, and the
-component only replaces a `title` attribute with a portal-rendered popup
-— it does not change any layout, state, or interaction path.
-Still open: Popover/Badge/Card/Dialog remain unused anywhere in
-the app, and `sandbox.css` still hasn't shrunk — it's
-the FLIP/pop rules plus every other hand-rolled `.sb-*` class the app
-still runs on (`transform` on `.sb-tile` stays forbidden). Converting the
-rest of the chrome (scoreboard, shop cards, tile buttons) to shadcn base
-styles is the bulk of this item and is still a large, cohesive visual
-change better done as one pass per screen than left half-migrated
-mid-screen.
+riskier chrome.
+Popover/Badge/Card/Dialog — DONE, closing the "unused anywhere" gap:
+`EnemyIntroCard.tsx`'s skip-favour hint moved off a `title` attribute
+onto a small `?` `Popover` next to the (still plain, still-clicking)
+skip button — the skip button's own `onClick` was deliberately kept off
+the popover trigger, since wrapping the actual skip action in a
+`PopoverTrigger` would fire the skip and try to open a popup on a
+screen that's about to unmount. `EndScreen.tsx`'s three `.sb-end-grid`
+sections (Felled/Best word/Items) are now `Card`s (transparent/no-ring/
+no-padding variants, so the bespoke `.sb-end-*` look inside is
+unchanged — only the wrapping div gains real `Card` semantics); each
+item chip gets an additive `Badge` showing its rarity next to the name;
+"Copy result" gained a "preview" `Dialog` showing the exact share text
+(a new `shareText` prop threaded from `FightScreen.tsx`, computed with
+the same `shareText()` function `copyResult` already used, so the
+preview can never drift from what actually gets copied) with a Copy
+button inside that calls the existing `onShare` and closes the dialog.
+Verified: typecheck/lint/format/build clean. Live verification used a
+temporary scratch harness (`__scratch_verify.html` + a throwaway
+`.tsx` mounting `EndScreen` with representative mock props, both
+deleted immediately after) rather than a real scripted win/loss — the
+small 4-play budget made losing/winning via automated word-play
+unreliable to script exactly (confirmed by repeated `Best play` +
+`Play` cycles that sometimes won the fight and never advanced past the
+won-banner/shop loop within budget), and no dispatch hook exposes phase
+(only `window.__round`/`__run` are debug globals). The harness confirmed
+live, zero console errors: 3 `Card`s render, 2 `Badge`s show "rare"/
+"uncommon", hovering a felled pip shows its `Tooltip`, and clicking
+"preview" opens the `Dialog` with the exact `shareText` content, closing
+on its Copy button. The Popover on `EnemyIntroCard`'s skip-favour hint
+was verified separately in a real fight (skip still works, the `?`
+button opens/reads its popup, zero console errors).
+Still open: `sandbox.css` still hasn't shrunk — it's
 
 **C3 (remainder) — beats. DONE.** `EnemyIntroCard.tsx` now
 renders `situation.opening[]` before the first word (`8342754`). `sfx.ts`

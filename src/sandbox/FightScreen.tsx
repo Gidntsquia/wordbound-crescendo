@@ -1554,6 +1554,7 @@ export default function RoundSandbox() {
               onAgain={() => start(randomSeed())}
               onCopy={copySeed}
               onShare={copyResult}
+              shareText={run ? shareText(run, phase === 'run-won', seed) : ''}
               describe={describeBreakdown}
             />
           )}

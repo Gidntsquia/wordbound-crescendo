@@ -3211,6 +3211,25 @@ button.sb-card:disabled {
   border-color: var(--brass-hot);
   color: var(--leaf);
 }
+.sb-skip-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sb-skip-info {
+  background: none;
+  border: 1px solid var(--brass-dim, var(--brass));
+  color: var(--leaf-dim);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  line-height: 1;
+}
+.sb-skip-info:hover {
+  border-color: var(--brass-hot);
+  color: var(--leaf);
+}
 .sb-shop-leave {
   display: flex;
   flex-direction: column;

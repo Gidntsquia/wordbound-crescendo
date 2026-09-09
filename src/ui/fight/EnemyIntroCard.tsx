@@ -3,6 +3,7 @@
 // Extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in;
 // enterFight/skipFight stay owned by the parent.
 import SituationPanel from '../../sandbox/SituationPanel';
+import { Popover, PopoverTrigger, PopoverContent } from '../primitives/popover';
 import type { Situation, SituationId } from '../../engine/content/situations';
 import type { Fight } from '../../app/store';
 import type { RoundFacade } from '../../engine/state/facade';
@@ -83,19 +84,25 @@ export default function EnemyIntroCard({
           Fight {f.def.name}
         </button>
         {round.favour && (
-          <button
-            type="button"
-            className="sb-skip-btn"
-            title={
-              SB.FAVOUR_DEFS[round.favour]!.name +
-              ': ' +
-              SB.FAVOUR_DEFS[round.favour]!.hint +
-              '. No shop after a skip.'
-            }
-            onClick={skipFight}
-          >
-            Walk past for <b>{SB.FAVOUR_DEFS[round.favour]!.name}</b>
-          </button>
+          <span className="sb-skip-row">
+            <button type="button" className="sb-skip-btn" onClick={skipFight}>
+              Walk past for <b>{SB.FAVOUR_DEFS[round.favour]!.name}</b>
+            </button>
+            <Popover>
+              <PopoverTrigger
+                render={<button type="button" className="sb-skip-info" />}
+                aria-label={
+                  'What ' + SB.FAVOUR_DEFS[round.favour]!.name + ' does'
+                }
+              >
+                ?
+              </PopoverTrigger>
+              <PopoverContent>
+                <b>{SB.FAVOUR_DEFS[round.favour]!.name}</b>:{' '}
+                {SB.FAVOUR_DEFS[round.favour]!.hint}. No shop after a skip.
+              </PopoverContent>
+            </Popover>
+          </span>
         )}
       </div>
     </div>

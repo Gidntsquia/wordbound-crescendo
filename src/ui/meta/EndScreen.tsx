@@ -3,6 +3,7 @@
 // (READ_SLOWLY_PLAN.md A1 remainder) with real prop types; still the
 // pre-A6 bespoke classNames -- the shadcn/Tailwind chrome pass is a
 // separate, larger visual change tracked under A6.
+import { useState } from 'react';
 import * as copy from '../copy';
 import {
   Tooltip,
@@ -10,6 +11,16 @@ import {
   TooltipContent,
   TooltipProvider,
 } from '../primitives/tooltip';
+import { Card } from '../primitives/card';
+import { Badge } from '../primitives/badge';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../primitives/dialog';
 import type { RunFacade } from '../../engine/state/facade';
 import type { SituationId } from '../../engine/content/situations';
 import type { Enemy } from '../../engine/content/enemies';
@@ -31,6 +42,7 @@ export default function EndScreen({
   onAgain,
   onCopy,
   onShare,
+  shareText,
   best,
   describe,
 }: {
@@ -46,9 +58,11 @@ export default function EndScreen({
   onAgain: () => void;
   onCopy: () => void;
   onShare: () => void;
+  shareText: string;
   best: BestState;
   describe: (breakdown: unknown) => string;
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
   const felled = run.felled
     .map((id) => {
       for (const m of run.movements)
@@ -86,7 +100,7 @@ export default function EndScreen({
         <b>{run.ink}</b> ink
       </p>
       <div className="sb-end-grid">
-        <div>
+        <Card className="bg-transparent p-0 ring-0">
           <span className="sb-eyebrow">Felled</span>
           <div className="sb-end-felled">
             <TooltipProvider>
@@ -111,8 +125,8 @@ export default function EndScreen({
             )}
             {felled.length === 0 && <em className="sb-hint">none</em>}
           </div>
-        </div>
-        <div>
+        </Card>
+        <Card className="bg-transparent p-0 ring-0">
           <span className="sb-eyebrow">Best word</span>
           {run.bestPlay ? (
             <div className="sb-end-best">
@@ -126,8 +140,8 @@ export default function EndScreen({
           ) : (
             <em className="sb-hint">none played</em>
           )}
-        </div>
-        <div>
+        </Card>
+        <Card className="bg-transparent p-0 ring-0">
           <span className="sb-eyebrow">Items</span>
           <div className="sb-end-items">
             {run.items.map((id) => (
@@ -139,11 +153,14 @@ export default function EndScreen({
                 }
               >
                 <b>{SB.ITEM_DEFS[id]!.name}</b>
+                <Badge variant="outline" className="ml-1 align-middle">
+                  {SB.ITEM_DEFS[id]!.rarity || 'common'}
+                </Badge>
               </span>
             ))}
             {run.items.length === 0 && <em className="sb-hint">none</em>}
           </div>
-        </div>
+        </Card>
       </div>
       <div className="sb-end-actions">
         <button type="button" className="sb-go" onClick={onAgain}>
@@ -152,6 +169,31 @@ export default function EndScreen({
         <button type="button" className="sb-share" onClick={onShare}>
           Copy result
         </button>
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogTrigger render={<button type="button" className="sb-hint" />}>
+            preview
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Result to share</DialogTitle>
+            </DialogHeader>
+            <pre className="sb-hint" style={{ whiteSpace: 'pre-wrap' }}>
+              {shareText}
+            </pre>
+            <DialogFooter>
+              <button
+                type="button"
+                className="sb-go"
+                onClick={() => {
+                  onShare();
+                  setPreviewOpen(false);
+                }}
+              >
+                Copy
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <span className="sb-seed-line">
           seed <code>{seed}</code>
           <button type="button" onClick={onCopy}>
