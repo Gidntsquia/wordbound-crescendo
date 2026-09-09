@@ -51,7 +51,6 @@ async function main() {
   await import('../src/engine/content/quillDiscovery');
   const rngMod = await import('../src/engine/rng');
   const runState = await import('../src/engine/state/run');
-  const roundState = await import('../src/engine/state/round');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const W = (globalThis as any).window.Wordbound;
   const SB = W.Sandbox;
@@ -142,6 +141,12 @@ async function main() {
     check(label + ' consumables', oldRun.consumables, newRun.consumables);
     check(label + ' tierLevels', oldRun.tierLevels, newRun.tierLevels);
     check(label + ' state', oldRun.state, newRun.state);
+    check(label + ' wordsPlayed', oldRun.wordsPlayed, newRun.wordsPlayed);
+    check(
+      label + ' bestPlay total',
+      oldRun.bestPlay?.breakdown?.total,
+      newRun.bestPlay?.breakdown?.total,
+    );
     check(
       label + ' movement/stage',
       [oldRun.movement, oldRun.stage],
@@ -159,37 +164,29 @@ async function main() {
       const best = SB.bestFromRack(letters, (w: string) => w.length, 1);
       let word = best.length ? best[0].word : r.rack[0].letter;
       let oldRes = asOld(() => r.playWord(word));
-      let outcome = asNew(() => {
-        const [o, s3] = roundState.playWord(newRun.round!, word, s, {
-          run: newRun,
-          crescendo: null,
-        });
+      let result = asNew(() => {
+        const [nr, res, s3] = runState.playWord(newRun, word, s, null);
+        newRun = nr;
         s = s3;
-        return o;
+        return res;
       });
       if (!oldRes.ok) {
         const free = r.rack.find((t: { letter: string }) => !r.isBarred(t));
         if (!free) break;
         word = free.letter === '?' ? 'A' : free.letter;
         oldRes = asOld(() => r.playWord(word));
-        outcome = asNew(() => {
-          const [o, s4] = roundState.playWord(newRun.round!, word, s, {
-            run: newRun,
-            crescendo: null,
-          });
+        result = asNew(() => {
+          const [nr, res, s4] = runState.playWord(newRun, word, s, null);
+          newRun = nr;
           s = s4;
-          return o;
+          return res;
         });
       }
-      newRun = runState.applyPlayEffects(
-        { ...newRun, round: outcome.state },
-        outcome.result.effects,
-      );
-      check(`play "${word}" ok`, oldRes.ok, outcome.result.ok);
+      check(`play "${word}" ok`, oldRes.ok, result.ok);
       check(
         `play "${word}" total`,
         oldRes.breakdown?.total,
-        outcome.result.breakdown?.total,
+        result.breakdown?.total,
       );
       compareStep(`after play "${word}"`);
     }

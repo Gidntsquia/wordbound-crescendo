@@ -1128,3 +1128,38 @@ export function applyPlayEffects(
   if (!effects?.itemState) return run;
   return { ...run, itemState: effects.itemState };
 }
+
+// The pure twin of createRun's begin()'s onPlay callback: wraps R.playWord
+// with the run-level bookkeeping createRun did inline (wordsPlayed,
+// bestPlay) plus applyPlayEffects, so a single call updates both RoundState
+// and RunState from one play.
+export function playWord(
+  run: RunState,
+  word: string,
+  rngState: RngState,
+  crescendo: { phase: string; mag?: number } | null,
+): [RunState, R.PlayResult, RngState] {
+  if (!run.round) return [run, { ok: false, reason: 'No round.' }, rngState];
+  const [outcome, s] = R.playWord(run.round, word, rngState, {
+    run,
+    crescendo,
+  });
+  let next = applyPlayEffects(
+    { ...run, round: outcome.state },
+    outcome.result.effects,
+  );
+  if (outcome.result.ok) {
+    const wordsPlayed = next.wordsPlayed + 1;
+    const breakdown = outcome.result.breakdown!;
+    const bestPlay =
+      !next.bestPlay || breakdown.total > next.bestPlay.breakdown.total
+        ? { word: outcome.result.word!, breakdown, enemy: next.enemy!.name }
+        : next.bestPlay;
+    next = { ...next, wordsPlayed, bestPlay };
+  }
+  return [next, outcome.result, s];
+}
+
+export function addTile(run: RunState, tile: Tile): RunState {
+  return { ...run, deck: (run.deck as Tile[]).concat([tile]) };
+}
