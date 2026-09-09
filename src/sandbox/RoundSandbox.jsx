@@ -11,10 +11,12 @@ import { createDragReorder } from '../engine/dragReorder';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';
 import CharacterSelect from './CharacterSelect.jsx';
+import { sfxReducer, readSfxOn, writeSfxOn } from '../app/store';
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useReducer,
   useRef,
   useState,
 } from 'react';
@@ -1078,20 +1080,22 @@ export default function RoundSandbox() {
   const [volume, setVolume] = useState(0.4);
   volumeRef.current = volume;
   // Input sounds (sfx.js), on by default, remembered in wbc.sfx.
-  const [sfxOn, setSfxOn] = useState(() => {
-    try {
-      return window.localStorage.getItem('wbc.sfx') !== '0';
-    } catch (e) {
-      return true;
-    }
-  });
+  // READ_SLOWLY_PLAN.md A3: the first reducer-backed slice (see
+  // src/app/store.ts) -- a small, self-contained piece of UI state, not the
+  // run/round core the plan's A3 section describes.
+  const [sfxState, dispatchSfx] = useReducer(sfxReducer, undefined, () => ({
+    on: readSfxOn(),
+  }));
+  const sfxOn = sfxState.on;
+  const setSfxOn = useCallback((next) => {
+    dispatchSfx({
+      type: 'sfx/set',
+      on: typeof next === 'function' ? next(sfxOn) : next,
+    });
+  }, [sfxOn]);
   sfxOnRef.current = sfxOn;
   useEffect(() => {
-    try {
-      window.localStorage.setItem('wbc.sfx', sfxOn ? '1' : '0');
-    } catch (e) {
-      /* ignore */
-    }
+    writeSfxOn(sfxOn);
     if (fight.current?.sfx) fight.current.sfx.setEnabled(sfxOn);
   }, [sfxOn]);
   // The sound for an input event, if a run has opened the audio device.
