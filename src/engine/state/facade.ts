@@ -26,7 +26,7 @@ export interface Box {
   character?: string;
 }
 
-function roundFacade(box: Box) {
+export function roundFacade(box: Box) {
   return {
     get tune() {
       return box.run.round!.tune;
@@ -375,6 +375,7 @@ export function createRunFacade(box: Box) {
 }
 
 export type RunFacade = ReturnType<typeof createRunFacade>;
+export type RoundFacade = ReturnType<typeof roundFacade>;
 
 export interface CreateRunFacadeOpts {
   tune?: Run.CreateRunStateOpts['tune'];

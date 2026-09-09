@@ -12,6 +12,9 @@
 // Each future slice gets its own reducer + action union in this file, kept
 // independent so a mistake in one can't touch another.
 
+import type { RunFacade, RoundFacade } from '../engine/state/facade';
+import type { SandboxNamespace } from '../engine/sandboxGlobal';
+
 export interface SfxState {
   on: boolean;
 }
@@ -91,8 +94,8 @@ export function refreshReducer(state: number, action: RefreshAction): number {
 // action.fight.current same as the direct calls did.
 type FightRef = {
   current: {
-    run: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    round: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    run: RunFacade;
+    round: RoundFacade | null;
     def?: { name: string };
     seq?: { stop?: () => void };
   } | null;
@@ -142,7 +145,7 @@ export type FightAction =
       say: (m: string) => void;
       refresh: () => void;
       startStage: (run: unknown) => void;
-      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      SB: SandboxNamespace;
       warm: (movement: unknown, stage: unknown) => void;
       unlockNextKey: (run: unknown) => void;
       refreshDiscovered: () => void;
@@ -158,7 +161,7 @@ export type FightAction =
       say: (m: string) => void;
       refresh: () => void;
       startStage: (run: unknown) => void;
-      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      SB: SandboxNamespace;
       warm: (movement: unknown, stage: unknown) => void;
       unlockNextKey: (run: unknown) => void;
       setPhase: (p: string) => void;
@@ -178,7 +181,7 @@ export type FightAction =
       phase: string;
       say: (m: string) => void;
       startStage: (run: unknown) => void;
-      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      SB: SandboxNamespace;
     }
   | {
       type: 'fight/moveTile';
@@ -191,7 +194,7 @@ export type FightAction =
       type: 'fight/buyCard';
       fight: FightRef;
       index: number;
-      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      SB: SandboxNamespace;
       cardName: (SB: unknown, c: unknown) => string;
       setWord: (w: string) => void;
       setSelecting: (s: unknown) => void;
@@ -203,7 +206,7 @@ export type FightAction =
       type: 'fight/pickCard';
       fight: FightRef;
       index: number;
-      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      SB: SandboxNamespace;
       cardName: (SB: unknown, c: unknown) => string;
       setWord: (w: string) => void;
       setSelecting: (s: unknown) => void;
@@ -219,7 +222,7 @@ export type FightAction =
         index: number;
         name: string;
         ids: string[];
-        vowel: unknown;
+        vowel: string | null;
       } | null;
       apply: boolean;
       setSelecting: (s: unknown) => void;
@@ -231,7 +234,7 @@ export type FightAction =
       type: 'fight/useInk';
       fight: FightRef;
       index: number;
-      SB: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      SB: SandboxNamespace;
       setWord: (w: string) => void;
       setInking: (s: unknown) => void;
       say: (m: string) => void;
@@ -245,7 +248,7 @@ export type FightAction =
         adhocId?: string;
         index?: number;
         ids: string[];
-        vowel: unknown;
+        vowel: string | null;
       } | null;
       setInking: (s: unknown) => void;
       say: (m: string) => void;
@@ -290,7 +293,7 @@ export function fightReducer(state: number, action: FightAction): number {
       const scoreBefore = r.score;
       const res = r.playWord(action.raw);
       if (!res.ok) {
-        action.say(res.reason);
+        action.say(res.reason ?? '');
         action.sfx('thud');
         return state + 1;
       }
@@ -300,7 +303,7 @@ export function fightReducer(state: number, action: FightAction): number {
       action.say(
         res.word +
           ' — ' +
-          res.breakdown.total +
+          res.breakdown!.total +
           ' (' +
           action.describeBreakdown(res.breakdown) +
           ')' +
@@ -310,7 +313,7 @@ export function fightReducer(state: number, action: FightAction): number {
           r.target +
           '.',
       );
-      res.messages.forEach((m: string) => action.say(m));
+      res.messages?.forEach((m: string) => action.say(m));
       action.runCascade(r, res, rackBefore, scoreBefore);
       return state + 1;
     }
@@ -319,7 +322,7 @@ export function fightReducer(state: number, action: FightAction): number {
       if (!r || action.phase !== 'live') return state + 1;
       const res = r.changeout(action.ids);
       if (!res.ok) {
-        action.say(res.reason);
+        action.say(res.reason ?? '');
         action.sfx('thud');
         return state + 1;
       }
@@ -329,9 +332,11 @@ export function fightReducer(state: number, action: FightAction): number {
       action.setSuggestions([]);
       action.say(
         'Swapped ' +
-          res.returned.map((t: { letter: string }) => t.letter).join('') +
+          (res.returned ?? [])
+            .map((t: { letter: string }) => t.letter)
+            .join('') +
           ' for ' +
-          res.drawn.map((t: { letter: string }) => t.letter).join('') +
+          (res.drawn ?? []).map((t: { letter: string }) => t.letter).join('') +
           ' — ' +
           r.changeoutsLeft +
           ' swap' +
@@ -348,7 +353,9 @@ export function fightReducer(state: number, action: FightAction): number {
       if (f.run.quillFound) {
         action.say(
           'The boss also yields a new quill: ' +
-            action.SB.ITEM_DEFS[f.run.quillFound].name +
+            (action.SB.ITEM_DEFS as Record<string, { name: string }>)[
+              f.run.quillFound
+            ]!.name +
             '.',
         );
         f.run.quillFound = null;
@@ -359,14 +366,14 @@ export function fightReducer(state: number, action: FightAction): number {
         action.say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
         action.setBest(action.recordRun(f.run, true));
         action.unlockNextKey(f.run);
-        action.SB.unlockNext(f.run.character);
+        (action.SB.unlockNext as (character?: string) => void)(f.run.character);
         action.refresh();
         return state + 1;
       }
       if (f.run.letterChoice) {
         action.setPhase('letter');
         action.say('The boss falls — choose a letter to win back.');
-        action.SB.unlockNext(f.run.character);
+        (action.SB.unlockNext as (character?: string) => void)(f.run.character);
         action.refresh();
         return state + 1;
       }
@@ -394,7 +401,7 @@ export function fightReducer(state: number, action: FightAction): number {
         action.say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
         action.setBest(action.recordRun(f.run, true));
         action.unlockNextKey(f.run);
-        action.SB.unlockNext(f.run.character);
+        (action.SB.unlockNext as (character?: string) => void)(f.run.character);
         action.refresh();
         return state + 1;
       }
@@ -421,16 +428,20 @@ export function fightReducer(state: number, action: FightAction): number {
       if (!f || !f.run || action.phase !== 'live') return state + 1;
       const res = f.run.skip();
       if (!res.ok) {
-        action.say(res.reason);
+        action.say(res.reason ?? '');
         return state + 1;
       }
+      const favourDefs = action.SB.FAVOUR_DEFS as Record<
+        string,
+        { name: string; hint: string }
+      >;
       action.say(
         'Skipped ' +
           f.def!.name +
           ' for a bonus — ' +
-          action.SB.FAVOUR_DEFS[res.favour].name +
+          favourDefs[res.favour!]!.name +
           ': ' +
-          action.SB.FAVOUR_DEFS[res.favour].hint +
+          favourDefs[res.favour!]!.hint +
           '.',
       );
       action.startStage(f.run);
@@ -446,10 +457,10 @@ export function fightReducer(state: number, action: FightAction): number {
     case 'fight/buyCard': {
       const run = action.fight.current?.run;
       const shop = run?.shop;
-      const c = shop?.cards[action.index];
-      if (!c) return state + 1;
+      const c = shop?.cards?.[action.index];
+      if (!c || !run) return state + 1;
       if (c.kind === 'mark') {
-        const ink = action.SB.MARK_DEFS[c.id];
+        const ink = (action.SB.MARK_DEFS as Record<string, unknown>)[c.id];
         action.setWord('');
         action.setSelecting({
           from: 'shop',
@@ -463,7 +474,7 @@ export function fightReducer(state: number, action: FightAction): number {
         });
         return state + 1;
       }
-      const res = shop.buy(action.index);
+      const res = shop!.buy(action.index);
       if (!res || !res.ok) {
         actResult(res, null, undefined, action.say, action.sfx, action.refresh);
         return state + 1;
@@ -487,9 +498,9 @@ export function fightReducer(state: number, action: FightAction): number {
     case 'fight/pickCard': {
       const run = action.fight.current?.run;
       const c = run?.pack?.choices[action.index];
-      if (!c) return state + 1;
+      if (!c || !run) return state + 1;
       if (c.kind === 'mark') {
-        const ink = action.SB.MARK_DEFS[c.id];
+        const ink = (action.SB.MARK_DEFS as Record<string, unknown>)[c.id];
         action.setWord('');
         action.setSelecting({
           from: 'pack',
@@ -523,7 +534,7 @@ export function fightReducer(state: number, action: FightAction): number {
       if (!run || !selecting) return state + 1;
       const purchase =
         selecting.from === 'shop'
-          ? run.shop.buy(selecting.index)
+          ? run.shop!.buy(selecting.index)
           : run.pick(selecting.index);
       if (!purchase || !purchase.ok) {
         actResult(
@@ -538,7 +549,7 @@ export function fightReducer(state: number, action: FightAction): number {
       }
       const verb = selecting.from === 'shop' ? 'Bought' : 'Kept';
       if (!action.apply) {
-        const res = run.saveMark(purchase.mark);
+        const res = run.saveMark(purchase.mark as string);
         if (
           actResult(
             res,
@@ -552,8 +563,8 @@ export function fightReducer(state: number, action: FightAction): number {
           action.setSelecting(null);
         return state + 1;
       }
-      const res = run.useAdhocMark(purchase.mark, selecting.ids, {
-        vowel: selecting.vowel,
+      const res = run.useAdhocMark(purchase.mark as string, selecting.ids, {
+        vowel: selecting.vowel ?? undefined,
       });
       if (
         actResult(
@@ -575,12 +586,14 @@ export function fightReducer(state: number, action: FightAction): number {
       if (!r) return state + 1;
       const c = r.consumables[action.index];
       if (!c || c.kind !== 'mark') return state + 1;
-      const ink = action.SB.MARK_DEFS[c.id];
-      if (ink.targets === 0) {
+      const ink = (action.SB.MARK_DEFS as Record<string, { targets: number }>)[
+        c.id
+      ];
+      if (ink!.targets === 0) {
         const res = r.useConsumable(action.index, []);
         actResult(
           res,
-          res.ok ? res.result.note : null,
+          res.ok ? ((res.result as { note?: string })?.note ?? null) : null,
           'shimmer',
           action.say,
           action.sfx,
@@ -597,14 +610,18 @@ export function fightReducer(state: number, action: FightAction): number {
       const inking = action.inking;
       if (!r || !inking) return state + 1;
       const res = inking.adhocId
-        ? r.useAdhocMark(inking.adhocId, inking.ids, { vowel: inking.vowel })
-        : r.useConsumable(inking.index, inking.ids, { vowel: inking.vowel });
+        ? r.useAdhocMark(inking.adhocId, inking.ids, {
+            vowel: inking.vowel ?? undefined,
+          })
+        : r.useConsumable(inking.index!, inking.ids, {
+            vowel: inking.vowel ?? undefined,
+          });
       const label = inking.adhocId
         ? res.ok
-          ? res.note
+          ? (res.note ?? null)
           : null
         : res.ok
-          ? res.result.note
+          ? ((res.result as { note?: string })?.note ?? null)
           : null;
       if (
         actResult(res, label, 'shimmer', action.say, action.sfx, action.refresh)
