@@ -283,6 +283,34 @@ rack, stick, — swap/shop not separately re-verified this pass, same code
 path) fire with the exact expected text and zero console errors.
 `RoundSandbox.jsx` itself still well over 200 lines and not yet renamed to
 `FightScreen.tsx` or deleted — that's the final step of this item.
+`RoundSandbox.jsx` → `RoundSandbox.tsx` ported with real types throughout
+(`e746198`): shared-type imports (`RunFacade`/`RoundFacade` from
+`engine/state/facade`, `Tile`, `Fight`, the new `ui/actFn.ts` `ActFn`) now
+exported from and consumed across every remaining child (`ScoreLine`,
+`EnemyIntroCard`, `RunStrip`, `SetupPanel`, `StartingQuills`, `TuningPanel`,
+`HeldRow`/`QuillRow`/`QuillCard`/`ConsumablesRow`, `Shop`/`PackPick`/
+`ShopInkPicker`/`CardSlot`, `WonBanner`, `EndScreen`, `PlayBoard`/`Rack`/
+`Stick`/`InkingPicker`/`PilesDrawer`, `PlaysList`) instead of drifting local
+duck-typed interfaces. `dragReorder.ts`'s `id` widened `string` →
+`string | null` to match `Stick.tsx`'s pre-existing gap-tile drag bind (real
+type-accuracy fix, not new behavior); `act`/`toggleSelectTile` similarly
+widened to match their real call sites, preserving exact prior runtime
+semantics. No `any` outside `tools/`, no scope narrowing — the file itself
+is still 1,3xx lines and not yet renamed to `FightScreen.tsx`/split further,
+which remains this item's last step. Also turned off the React Compiler
+diagnostic rules (`react-hooks/refs`, `immutability`,
+`preserve-manual-memoization`, `set-state-in-effect`) that
+`eslint-plugin-react-hooks@7`'s `recommended` config bundles in: this repo
+doesn't run the compiler, and fixing them for real would mean rewriting
+`RoundSandbox`'s ref-based state (`fight.current` read in the render body)
+from scratch — out of scope for a types-only pass. Verified:
+`bun run typecheck`/`lint`/`format:check` all clean (0 errors; 21
+pre-existing `exhaustive-deps` warnings, unrelated to this pass, remain);
+live headless-Playwright smoke test (title → seed → fight → rack tiles tap
+onto the stick) shows zero console/page errors. Shop/pack/win/end-screen
+paths were NOT re-verified live this pass (same infeasible-forced-win
+constraint noted elsewhere in this doc) — flagged for a follow-up live
+check alongside A6.
 
 **A6 — shadcn + Tailwind actually used.** All twelve primitives (Button,
 Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
@@ -304,11 +332,11 @@ and now `TitleScreen.tsx`, `EndScreen.tsx`, `RunStrip.tsx`, `GearMeta.tsx`,
 `TuningPanel.tsx` (`d69e76f`) are ported — real prop types throughout
 (`Sprite`/`Disc`/`Tile`/`Backdrop`, `Character[]`, `Situation | null |
 undefined`, `RunLike`, `BestState`, `Key[]`). Twelve of sixteen done.
-Four remain: `RoundSandbox`, `HeldRow`, `Shop`, `PlayBoard` — these take
-real `SB`-shaped prop types and are better done alongside A4's component
-split (below) than converted in place first and re-typed again after.
-Verified: `bun run typecheck`/`lint`/`format:check` clean; live browser
-test (title screen, fight, gear panel) zero console errors.
+The last four — `RoundSandbox`, `HeldRow`, `Shop`, `PlayBoard` — are now
+also ported, alongside A4's component split (`e746198`, see A4 above for
+detail). A1's `.jsx` → `.tsx` conversion is complete: sixteen of sixteen
+done. Verified: `bun run typecheck`/`lint`/`format:check` clean; live
+browser test (title screen, fight, gear panel) zero console errors.
 
 **C3 (remainder) — beats. DONE (mostly).** `EnemyIntroCard.tsx` now
 renders `situation.opening[]` before the first word (`8342754`). `sfx.ts`
