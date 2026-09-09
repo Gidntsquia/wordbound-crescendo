@@ -81,25 +81,32 @@ true`) driving `vite preview` — start a run, tap-play several words,
     header, stick header, swap-button row). Pulling them into a shared
     file would trade three inline lines for a component call plus a prop
     for each condition -- not a real simplification, so left as-is.
-  - **The board/rack/stick/drag wrapper** (`<section className="sb-play">`,
-    lines ~1875-2316, ~440 lines) was read in full and is the one block
-    still genuinely entangled: it closes over ~30 values with no natural
-    prop boundary -- `drag.bind`, live scoring/premium-slot rendering,
-    inking mode and vowel-picker state, the word-helper's suggestions/
-    piles UI, and the tile click handlers that dispatch `stageTile`/
-    `unstageAt`/`toggleInkTile`. Extracting it would mean a ~30-prop
-    interface with no way to verify feel-sensitive parts (drag reorder,
-    scoring pop/lit timing) beyond "didn't throw." Given no test suite and
-    only headless Playwright (no drag gestures, no visual check) to
-    verify against, judged not worth the risk this pass -- left in
-    `RoundSandbox.jsx` alongside the file's own noted "predates this
-    rule" exception in CLAUDE.md. A future pass with a human at a real
-    device (E4's phone pass is that moment) could extract and eyeball it
-    in one go.
-    `RoundSandbox.jsx` stays 2,333 lines; no code changed this pass, so
-    nothing was deployed.
+    Update (2026-09-09, pass 5): the board/rack/stick/drag wrapper was
+    attempted and extracted -- `src/ui/fight/PlayBoard.jsx` (new file,
+    `forwardRef` so `playRef` still resolves to the real `.sb-play` DOM node
+    for `drag.bind`'s `.sb-rack`/`.sb-stick` queries). It's a pure code-move:
+    the ~30 closed-over values (`drag`, `rackShown`/`stickShown`, `inking`/
+    `setInking`/`toggleInkTile`/`applyInk`, `scoring`, `spelt`/`worthHow`/
+    `worth`, `formable`/`barredNow`, `helper`/`suggestions`/`indexing`,
+    `stageTile`/`unstageAt`/`play`/`changeout`/`playWord`, `word`/`setWord`,
+    `pickedIds`/`letters`/`rackLetters`, `SB`/`W`/`sfx`/`say`/`seen`/`round`/
+    `live`/`inputRef`) became explicit props with no logic changes; the two
+    module-level `PREMIUM_HINT`/`PREMIUM_ICON` consts moved into the new file
+    since they were only used inside this block. `dragReorder.ts` itself was
+    not touched. Verified: `bun run typecheck`/`lint`/`build` clean, and a
+    headless Playwright smoke test (chromium, `headless: true`, `vite
+preview`) driving the full loop -- open gear, enable the word helper,
+    start a run, click through the pre-fight intro card, auto-play words via
+    "Best play" + "Play" (score/plays-left updated correctly each time),
+    reach the shop -- zero console errors or page exceptions throughout.
+    `RoundSandbox.jsx`: 2,333 -> 1,920 lines. Not separately re-confirmed:
+    actual drag-gesture feel and scoring-cascade pop/lit timing, same
+    headless-tooling gap as everything else feel-sensitive in this plan --
+    that's still E4's job. Commit `<pending, see git log>`.
 - **E4** (phone perf pass): still needs an actual phone playing the actual
-  build; headless Playwright can't stand in for this one.
+  build; headless Playwright can't stand in for this one. With A3 and A4
+  now both complete, E4 is the only item left in the entire plan that
+  requires Jaxon's own hands rather than more automated passes.
 
 Not independently re-verified by this pass: audio/animation timing
 (`runCascade`'s `setTimeout`-paced cascade, crescendo-window audio cues) —
