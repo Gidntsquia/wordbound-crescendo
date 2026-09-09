@@ -27,16 +27,16 @@ Part 3 is the list of places we could diverge, for Jaxon to pick from later.
 
 Base chips per ante, then Small ×1, Big ×1.5, Boss ×2:
 
-| Ante | Base | Small | Big | Boss |
-|---|---|---|---|---|
-| 1 | 300 | 300 | 450 | 600 |
-| 2 | 800 | 800 | 1,200 | 1,600 |
-| 3 | 2,000 | 2,000 | 3,000 | 4,000 |
-| 4 | 5,000 | 5,000 | 7,500 | 10,000 |
-| 5 | 11,000 | | | 22,000 |
-| 6 | 20,000 | | | 40,000 |
-| 7 | 35,000 | | | 70,000 |
-| 8 | 50,000 | | | 100,000 |
+| Ante | Base   | Small | Big   | Boss    |
+| ---- | ------ | ----- | ----- | ------- |
+| 1    | 300    | 300   | 450   | 600     |
+| 2    | 800    | 800   | 1,200 | 1,600   |
+| 3    | 2,000  | 2,000 | 3,000 | 4,000   |
+| 4    | 5,000  | 5,000 | 7,500 | 10,000  |
+| 5    | 11,000 |       |       | 22,000  |
+| 6    | 20,000 |       |       | 40,000  |
+| 7    | 35,000 |       |       | 70,000  |
+| 8    | 50,000 |       |       | 100,000 |
 
 Growth is ~×2.5 per ante. Additive bonuses cannot keep up; by ante 4 the
 player needs multiplicative mult (×1.5, ×2, ×3 jokers) stacked on additive
@@ -112,41 +112,41 @@ the player must find the multiplicative engine before the curve outruns them.
 
 ## 2. The mapping onto Wordbound: Crescendo
 
-| Balatro | Crescendo | Status |
-|---|---|---|
-| Playing card | Letter tile (Scrabble value = chips) | exists |
-| Hand (8 cards) | The case (7 tiles) | exists |
-| Played hand (1–5 cards) | Word on the composing stick | exists |
-| Hand type + level | **Word length tier** (2, 3, 4, 5, 6, 7+) with its own base points × mult, levelable | today mult = length, linear; needs a tier table |
-| Planet card | **Étude** — levels one length tier | new |
-| Chips × mult | Points × mult | exists |
-| Enhancement / edition / seal | Tile bonuses FLAT_ON_PLAY / MULT_ON_PLAY / MULT_ON_HOLD, Volatile | scoring exists in Lexicon; nothing puts them into the bag yet |
-| Tarot card | **Ink** — enhances a chosen tile, converts a letter, destroys a tile | new |
-| Joker (5 slots) | **Item** (5 slots), sellable | exists, only flat +points/+mult so far |
-| Spectral | later | — |
-| Deck | The tile bag, persisted across rounds | bag is rebuilt per round today |
-| Blind | An enemy: a piece of music | exists |
-| Boss blind rule | **Tempo marking**: a rule the piece imposes | new |
-| Ante (3 blinds) | **Movement** (3 enemies, third is the boss) | new |
-| Skip a blind → Tag | Skip an enemy → a favour | new |
-| Money, interest | Gold, interest | gold exists; no interest |
-| Shop after every blind | **Shop after every enemy** | spoils only today; shop is new |
-| Voucher | Permanent run upgrade | later |
-| Booster pack | Pack: 3 tiles / 3 inks / 3 études, keep one | new |
-| Held in hand | Tiles left in the case after the play | scoring hook exists |
+| Balatro                      | Crescendo                                                                           | Status                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Playing card                 | Letter tile (Scrabble value = chips)                                                | exists                                                        |
+| Hand (8 cards)               | The case (7 tiles)                                                                  | exists                                                        |
+| Played hand (1–5 cards)      | Word on the composing stick                                                         | exists                                                        |
+| Hand type + level            | **Word length tier** (2, 3, 4, 5, 6, 7+) with its own base points × mult, levelable | today mult = length, linear; needs a tier table               |
+| Planet card                  | **Étude** — levels one length tier                                                  | new                                                           |
+| Chips × mult                 | Points × mult                                                                       | exists                                                        |
+| Enhancement / edition / seal | Tile bonuses FLAT_ON_PLAY / MULT_ON_PLAY / MULT_ON_HOLD, Volatile                   | scoring exists in Lexicon; nothing puts them into the bag yet |
+| Tarot card                   | **Ink** — enhances a chosen tile, converts a letter, destroys a tile                | new                                                           |
+| Joker (5 slots)              | **Item** (5 slots), sellable                                                        | exists, only flat +points/+mult so far                        |
+| Spectral                     | later                                                                               | —                                                             |
+| Deck                         | The tile bag, persisted across rounds                                               | bag is rebuilt per round today                                |
+| Blind                        | An enemy: a piece of music                                                          | exists                                                        |
+| Boss blind rule              | **Tempo marking**: a rule the piece imposes                                         | new                                                           |
+| Ante (3 blinds)              | **Movement** (3 enemies, third is the boss)                                         | new                                                           |
+| Skip a blind → Tag           | Skip an enemy → a favour                                                            | new                                                           |
+| Money, interest              | Gold, interest                                                                      | gold exists; no interest                                      |
+| Shop after every blind       | **Shop after every enemy**                                                          | spoils only today; shop is new                                |
+| Voucher                      | Permanent run upgrade                                                               | later                                                         |
+| Booster pack                 | Pack: 3 tiles / 3 inks / 3 études, keep one                                         | new                                                           |
+| Held in hand                 | Tiles left in the case after the play                                               | scoring hook exists                                           |
 
 ### Length tier table (starting proposal, replaces linear mult)
 
 Tune after Phase 0 measurement. Scrabble letter sum is the "chips".
 
 | Length | Base points | Base mult | Étude per level |
-|---|---|---|---|
-| 1–2 | 0 | 1 | +5, +1 |
-| 3 | 5 | 2 | +10, +1 |
-| 4 | 10 | 3 | +10, +1 |
-| 5 | 20 | 4 | +15, +2 |
-| 6 | 35 | 5 | +20, +2 |
-| 7+ | 60 | 7 | +30, +3 |
+| ------ | ----------- | --------- | --------------- |
+| 1–2    | 0           | 1         | +5, +1          |
+| 3      | 5           | 2         | +10, +1         |
+| 4      | 10          | 3         | +10, +1         |
+| 5      | 20          | 4         | +15, +2         |
+| 6      | 35          | 5         | +20, +2         |
+| 7+     | 60          | 7         | +30, +3         |
 
 Points = tier base + letter sum + tile flats + item flats.
 Mult = tier mult + item mult, then × multiplicative items and tile ×mults.

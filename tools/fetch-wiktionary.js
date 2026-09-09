@@ -22,14 +22,18 @@ const ROOT = path.resolve(__dirname, '..');
 const CACHE = path.join(ROOT, '.cache', 'wiktionary');
 const WORDLIST = path.join(ROOT, 'js', 'wordbound', 'wordlist.js');
 const API = 'https://en.wiktionary.org/w/api.php';
-const UA = 'wordbound-crescendo/1.0 (https://github.com/gidntsquia/wordbound-crescendo; word list build) node';
-const BEGIN = '  // GENERATED WIKT_EXTRA begin (tools/fetch-wiktionary.js) -- do not edit by hand';
+const UA =
+  'wordbound-crescendo/1.0 (https://github.com/gidntsquia/wordbound-crescendo; word list build) node';
+const BEGIN =
+  '  // GENERATED WIKT_EXTRA begin (tools/fetch-wiktionary.js) -- do not edit by hand';
 const END = '  // GENERATED WIKT_EXTRA end';
 
 const args = process.argv.slice(2);
 const bakeOnly = args.includes('--bake');
 const withForms = args.includes('--forms');
-const CATS = ['English lemmas'].concat(withForms ? ['English non-lemma forms'] : []);
+const CATS = ['English lemmas'].concat(
+  withForms ? ['English non-lemma forms'] : [],
+);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -42,21 +46,33 @@ async function fetchCategory(cat) {
     console.log(`${cat}: cached`);
     return out;
   }
-  let cont = fs.existsSync(contFile) ? fs.readFileSync(contFile, 'utf8').trim() : '';
+  let cont = fs.existsSync(contFile)
+    ? fs.readFileSync(contFile, 'utf8').trim()
+    : '';
   if (!cont && fs.existsSync(out)) fs.unlinkSync(out);
-  let pages = 0, titles = 0;
+  let pages = 0,
+    titles = 0;
   for (;;) {
     const u = new URL(API);
     u.search = new URLSearchParams({
-      action: 'query', list: 'categorymembers', cmtitle: 'Category:' + cat,
-      cmlimit: '500', cmnamespace: '0', cmprop: 'title', format: 'json', formatversion: '2',
+      action: 'query',
+      list: 'categorymembers',
+      cmtitle: 'Category:' + cat,
+      cmlimit: '500',
+      cmnamespace: '0',
+      cmprop: 'title',
+      format: 'json',
+      formatversion: '2',
       ...(cont ? { cmcontinue: cont } : {}),
     }).toString();
     let json;
     for (let attempt = 0; ; attempt++) {
       try {
-        const res = await fetch(u, { headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip' } });
-        if (res.status === 429 || res.status >= 500) throw new Error('HTTP ' + res.status);
+        const res = await fetch(u, {
+          headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip' },
+        });
+        if (res.status === 429 || res.status >= 500)
+          throw new Error('HTTP ' + res.status);
         json = await res.json();
         if (json.error) throw new Error(JSON.stringify(json.error));
         break;
@@ -69,10 +85,15 @@ async function fetchCategory(cat) {
     }
     const members = json.query.categorymembers.map((m) => m.title);
     fs.appendFileSync(out, members.join('\n') + '\n');
-    pages++; titles += members.length;
-    if (pages % 50 === 0) console.log(`${cat}: ${pages} pages, ${titles} titles`);
+    pages++;
+    titles += members.length;
+    if (pages % 50 === 0)
+      console.log(`${cat}: ${pages} pages, ${titles} titles`);
     cont = json.continue && json.continue.cmcontinue;
-    if (!cont) { if (fs.existsSync(contFile)) fs.unlinkSync(contFile); break; }
+    if (!cont) {
+      if (fs.existsSync(contFile)) fs.unlinkSync(contFile);
+      break;
+    }
     fs.writeFileSync(contFile, cont);
     await sleep(120);
   }
@@ -90,12 +111,16 @@ function currentWords(src) {
 
 function bake(files) {
   const src = fs.readFileSync(WORDLIST, 'utf8');
-  const stripped = (src.includes(BEGIN)
-    ? src.slice(0, src.indexOf(BEGIN)) + src.slice(src.indexOf(END) + END.length + 1)
-    : src).replace(', WIKT_EXTRA);', ');');
+  const stripped = (
+    src.includes(BEGIN)
+      ? src.slice(0, src.indexOf(BEGIN)) +
+        src.slice(src.indexOf(END) + END.length + 1)
+      : src
+  ).replace(', WIKT_EXTRA);', ');');
   const have = currentWords(stripped);
   const extra = new Set();
-  let seen = 0, plain = 0;
+  let seen = 0,
+    plain = 0;
   for (const f of files) {
     for (const t of fs.readFileSync(f, 'utf8').split('\n')) {
       if (!t) continue;
@@ -110,23 +135,36 @@ function bake(files) {
     }
   }
   const list = Array.from(extra).sort();
-  const block = BEGIN + '\n  var WIKT_EXTRA = ' + JSON.stringify(list) + ';\n' + END + '\n';
+  const block =
+    BEGIN + '\n  var WIKT_EXTRA = ' + JSON.stringify(list) + ';\n' + END + '\n';
   const anchor = '  var WORDS = WORDS_BASE.concat(';
   const i = stripped.indexOf(anchor);
   if (i < 0) throw new Error('anchor not found in wordlist.js');
   let next = stripped.slice(0, i) + block + stripped.slice(i);
-  next = next.replace(/var WORDS = WORDS_BASE\.concat\(([^)]*)\);/, (m, inner) =>
-    inner.includes('WIKT_EXTRA') ? m : `var WORDS = WORDS_BASE.concat(${inner}, WIKT_EXTRA);`);
+  next = next.replace(
+    /var WORDS = WORDS_BASE\.concat\(([^)]*)\);/,
+    (m, inner) =>
+      inner.includes('WIKT_EXTRA')
+        ? m
+        : `var WORDS = WORDS_BASE.concat(${inner}, WIKT_EXTRA);`,
+  );
   fs.writeFileSync(WORDLIST, next);
   const total = have.size + list.length;
-  console.log(`wiktionary: ${seen} titles, ${plain} plain words, ${list.length} new; wordlist now ${total}`);
+  console.log(
+    `wiktionary: ${seen} titles, ${plain} plain words, ${list.length} new; wordlist now ${total}`,
+  );
 }
 
 (async () => {
   const files = [];
   for (const cat of CATS) {
     const slug = cat.replace(/\W+/g, '_');
-    files.push(bakeOnly ? path.join(CACHE, slug + '.txt') : await fetchCategory(cat));
+    files.push(
+      bakeOnly ? path.join(CACHE, slug + '.txt') : await fetchCategory(cat),
+    );
   }
   bake(files.filter((f) => fs.existsSync(f)));
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

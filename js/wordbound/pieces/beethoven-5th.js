@@ -60,7 +60,20 @@
   // self-contained on purpose, same convention as every other piece file --
   // piece files are plain data modules per the MUSIC ENGINE ticket, so this
   // doesn't reach into music.js or any other piece file.
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     var n = SEMITONE_FROM_A[note] + (octave - 4) * 12;
     return 440 * Math.pow(2, n / 12);
@@ -70,7 +83,12 @@
     var notes = [];
     var t = startBeat;
     pattern.forEach(function (n) {
-      notes.push({ beat: t, duration: n[2], freq: f(n[0], n[1] + (octaveShift || 0)), velocity: velocity });
+      notes.push({
+        beat: t,
+        duration: n[2],
+        freq: f(n[0], n[1] + (octaveShift || 0)),
+        velocity: velocity,
+      });
       t += n[2];
     });
     return notes;
@@ -87,14 +105,25 @@
   // Bass doubles an octave down starting the fifth statement, the same
   // "gradually thickening" texture mountain-king.js's own stanzas use, and
   // velocity climbs into movement I's single closing crescendo.
-  var FATE_UP = [['G', 4, 0.5], ['G', 4, 0.5], ['G', 4, 0.5], ['D#', 4, 2.5]];
-  var FATE_DOWN = [['F', 4, 0.5], ['F', 4, 0.5], ['F', 4, 0.5], ['D', 4, 2.5]];
+  var FATE_UP = [
+    ['G', 4, 0.5],
+    ['G', 4, 0.5],
+    ['G', 4, 0.5],
+    ['D#', 4, 2.5],
+  ];
+  var FATE_DOWN = [
+    ['F', 4, 0.5],
+    ['F', 4, 0.5],
+    ['F', 4, 0.5],
+    ['D', 4, 2.5],
+  ];
   for (var s = 0; s < 8; s++) {
-    var pattern = (s % 2 === 0) ? FATE_UP : FATE_DOWN;
+    var pattern = s % 2 === 0 ? FATE_UP : FATE_DOWN;
     var startBeat = s * 4;
     var vel = 0.4 + s * 0.07;
     melody = melody.concat(patternNotes(pattern, startBeat, vel));
-    if (s >= 4) bass = bass.concat(patternNotes(pattern, startBeat, vel - 0.15, -1));
+    if (s >= 4)
+      bass = bass.concat(patternNotes(pattern, startBeat, vel - 0.15, -1));
   }
 
   // ---- Movement II: Andante con moto (beats 32-56) -------------------------
@@ -105,13 +134,28 @@
   // data, the deliberate opposite of every other piece's unbroken texture.
   // A sparse, calm bass pedal (one long low tone per phrase, not an
   // ostinato) is the only bass voice here.
-  var MOV2_PHRASE = [['A', 4], ['G', 4], ['F', 4], ['E', 4]];
+  var MOV2_PHRASE = [
+    ['A', 4],
+    ['G', 4],
+    ['F', 4],
+    ['E', 4],
+  ];
   var mov2PhraseStarts = [32, 40, 48];
   mov2PhraseStarts.forEach(function (phraseStart, pi) {
     MOV2_PHRASE.forEach(function (n, i) {
-      melody.push({ beat: phraseStart + i * 1.5, duration: 1, freq: f(n[0], n[1]), velocity: 0.26 + pi * 0.02 });
+      melody.push({
+        beat: phraseStart + i * 1.5,
+        duration: 1,
+        freq: f(n[0], n[1]),
+        velocity: 0.26 + pi * 0.02,
+      });
     });
-    bass.push({ beat: phraseStart, duration: 5, freq: f('A', 2), velocity: 0.2 });
+    bass.push({
+      beat: phraseStart,
+      duration: 5,
+      freq: f('A', 2),
+      velocity: 0.2,
+    });
   });
 
   // ---- Movement III: Scherzo, Allegro (beats 56-80) ------------------------
@@ -123,7 +167,11 @@
   // the finale's downbeat) played straight, same "one continuous ramp"
   // technique mountain-king.js's whole piece uses, compressed into a single
   // movement here.
-  var MOV3_CELL = [['C', 3, 0.5], ['D#', 3, 0.5], ['G', 3, 0.5]];
+  var MOV3_CELL = [
+    ['C', 3, 0.5],
+    ['D#', 3, 0.5],
+    ['G', 3, 0.5],
+  ];
   for (var b3 = 56; b3 < 80; b3 += 2) {
     var mov3Vel = 0.12 + ((b3 - 56) / 24) * 0.78;
     var mov3OctShift = Math.floor((b3 - 56) / 8);
@@ -140,8 +188,18 @@
   // minor-key material quietly around beat 96 (the real symphony's actual
   // structure), then two more fanfare surges building into the coda's final
   // sustained chord at max intensity on the very last beat.
-  var FANFARE = [['C', 5, 0.5], ['E', 5, 0.5], ['G', 5, 0.5], ['C', 6, 1.5]];
-  var FANFARE_BASS = [['C', 3, 0.5], ['E', 3, 0.5], ['G', 3, 0.5], ['C', 4, 1.5]];
+  var FANFARE = [
+    ['C', 5, 0.5],
+    ['E', 5, 0.5],
+    ['G', 5, 0.5],
+    ['C', 6, 1.5],
+  ];
+  var FANFARE_BASS = [
+    ['C', 3, 0.5],
+    ['E', 3, 0.5],
+    ['G', 3, 0.5],
+    ['C', 4, 1.5],
+  ];
   [80, 83, 86].forEach(function (startBeat, i) {
     melody = melody.concat(patternNotes(FANFARE, startBeat, 1.0 - i * 0.05));
     bass = bass.concat(patternNotes(FANFARE_BASS, startBeat, 0.85 - i * 0.05));
@@ -159,8 +217,18 @@
   // major, driving to one final sustained fortissimo chord.
   var CODA_PATTERN = ['C', 'C', 'C', 'G', 'C', 'C', 'C'];
   CODA_PATTERN.forEach(function (note, i) {
-    melody.push({ beat: 104 + i, duration: 1, freq: f(note, 5), velocity: 0.85 + i * 0.02 });
-    bass.push({ beat: 104 + i, duration: 1, freq: f(note, 3), velocity: 0.75 + i * 0.02 });
+    melody.push({
+      beat: 104 + i,
+      duration: 1,
+      freq: f(note, 5),
+      velocity: 0.85 + i * 0.02,
+    });
+    bass.push({
+      beat: 104 + i,
+      duration: 1,
+      freq: f(note, 3),
+      velocity: 0.75 + i * 0.02,
+    });
   });
   melody.push({ beat: 111, duration: 1, freq: f('C', 6), velocity: 1.0 });
   bass.push({ beat: 111, duration: 1, freq: f('C', 3), velocity: 1.0 });
@@ -175,11 +243,11 @@
     floor: 4, // the Podium -- not a real generated floor yet; see this ticket's own "Next" note
     hostageLetterProposal: 'Z',
     stageTier: 'final',
-    gain: 0.65,  // level trim; see PIECE FORMAT in music.js
+    gain: 0.65, // level trim; see PIECE FORMAT in music.js
     lengthBeats: 112,
     tempo: [
-      { beat: 0, bpm: 116 },  // I. Allegro con brio
-      { beat: 32, bpm: 76 },  // II. Andante con moto
+      { beat: 0, bpm: 116 }, // I. Allegro con brio
+      { beat: 32, bpm: 76 }, // II. Andante con moto
       { beat: 56, bpm: 112 }, // III. Scherzo, Allegro
       { beat: 80, bpm: 132 }, // IV. Allegro (finale)
     ],
@@ -218,11 +286,41 @@
         { beat: 112, intensity: 1.0 },
       ],
       crescendos: [
-        { id: 'mov1-fate-crescendo', startBeat: 23, peakBeat: 31, peakIntensity: 0.95, rampDurationBeats: 8 },
-        { id: 'mov3-attacca-buildup', startBeat: 56, peakBeat: 80, peakIntensity: 1.0, rampDurationBeats: 24 },
-        { id: 'mov4-surge-1', startBeat: 86, peakBeat: 92, peakIntensity: 0.95, rampDurationBeats: 6 },
-        { id: 'mov4-surge-2', startBeat: 96, peakBeat: 104, peakIntensity: 1.0, rampDurationBeats: 8 },
-        { id: 'mov4-coda-finale', startBeat: 108, peakBeat: 112, peakIntensity: 1.0, rampDurationBeats: 4 },
+        {
+          id: 'mov1-fate-crescendo',
+          startBeat: 23,
+          peakBeat: 31,
+          peakIntensity: 0.95,
+          rampDurationBeats: 8,
+        },
+        {
+          id: 'mov3-attacca-buildup',
+          startBeat: 56,
+          peakBeat: 80,
+          peakIntensity: 1.0,
+          rampDurationBeats: 24,
+        },
+        {
+          id: 'mov4-surge-1',
+          startBeat: 86,
+          peakBeat: 92,
+          peakIntensity: 0.95,
+          rampDurationBeats: 6,
+        },
+        {
+          id: 'mov4-surge-2',
+          startBeat: 96,
+          peakBeat: 104,
+          peakIntensity: 1.0,
+          rampDurationBeats: 8,
+        },
+        {
+          id: 'mov4-coda-finale',
+          startBeat: 108,
+          peakBeat: 112,
+          peakIntensity: 1.0,
+          rampDurationBeats: 4,
+        },
       ],
     },
   };

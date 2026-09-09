@@ -31,6 +31,7 @@ become new pieces too, which is what "all enemies have their own song" means.
 `enemies.js`: add Movement III, give every enemy a distinct `recorded` key,
 a name, glyph, flavour. New boss gets a new RULE. Candidates for the third
 tempo marking (pick one, keep the other for later):
+
 - `da_capo` — "From the top." The first word played is scored again at the
   end of the round (a free replay of your opener; rewards leading strong).
 - `sotto_voce` — "Softly." Words of 5+ letters score ×0.5, 3–4 letters ×1.5.
@@ -48,11 +49,18 @@ by playing.
 New script `tools/fetch-audio.js` driven by `tools/audio-manifest.json`:
 
 ```json
-{ "id": "goldberg-aria", "file": "public/audio/goldberg-aria.mp3",
-  "url": "https://…", "license": "CC0 / public domain", "performer": "…",
-  "composer": "J. S. Bach", "title": "Goldberg Variations, Aria",
-  "sourcePage": "https://…", "trim": { "start": 0, "seconds": 150 },
-  "sha256": "…" }
+{
+  "id": "goldberg-aria",
+  "file": "public/audio/goldberg-aria.mp3",
+  "url": "https://…",
+  "license": "CC0 / public domain",
+  "performer": "…",
+  "composer": "J. S. Bach",
+  "title": "Goldberg Variations, Aria",
+  "sourcePage": "https://…",
+  "trim": { "start": 0, "seconds": 150 },
+  "sha256": "…"
+}
 ```
 
 For each entry: download the URL (ogg/flac/mp3, whatever the source has),
@@ -64,6 +72,7 @@ from the manifest and committed; that keeps the existing "the file documents
 its own licence" convention.
 
 Decisions:
+
 - **Bundle, don't stream.** The game keeps serving MP3s from its own
   gh-pages origin. Streaming straight from Wikimedia/Musopen at runtime would
   hit CORS on `decodeAudioData`, break when the host moves a file, and make
@@ -98,23 +107,24 @@ Decisions:
   big = something with a pulse; boss = orchestral and loud. Rough slate
   (composer-only, the exact recording is chosen from what is actually PD):
 
-  | Mv | Kind | Enemy | Piece |
-  |----|------|-------|-------|
-  | I | small | The Bagatelle | Für Elise (keep) |
-  | I | big | The Moonlight | Moonlight Sonata (keep) |
-  | I | boss | Fate at the Door | Symphony 5, I (keep) |
-  | II | small | The Aria | Bach, Goldberg Aria |
-  | II | big | The Mountain King | Grieg, In the Hall of the Mountain King |
-  | II | boss | The Storm | Vivaldi, Summer III, or Rossini, William Tell finale |
-  | III | small | The Gymnopédie | Satie, Gymnopédie 1 |
-  | III | big | The Turkish March | Mozart, Rondo alla Turca |
-  | III | boss | Dies Irae / The Night | Mussorgsky, Night on Bald Mountain, or Verdi Requiem Dies Irae |
+  | Mv  | Kind  | Enemy                 | Piece                                                          |
+  | --- | ----- | --------------------- | -------------------------------------------------------------- |
+  | I   | small | The Bagatelle         | Für Elise (keep)                                               |
+  | I   | big   | The Moonlight         | Moonlight Sonata (keep)                                        |
+  | I   | boss  | Fate at the Door      | Symphony 5, I (keep)                                           |
+  | II  | small | The Aria              | Bach, Goldberg Aria                                            |
+  | II  | big   | The Mountain King     | Grieg, In the Hall of the Mountain King                        |
+  | II  | boss  | The Storm             | Vivaldi, Summer III, or Rossini, William Tell finale           |
+  | III | small | The Gymnopédie        | Satie, Gymnopédie 1                                            |
+  | III | big   | The Turkish March     | Mozart, Rondo alla Turca                                       |
+  | III | boss  | Dies Irae / The Night | Mussorgsky, Night on Bald Mountain, or Verdi Requiem Dies Irae |
 
 `main.jsx` imports the nine recorded files (or one generated
 `recordings.js` index, cleaner). `prefetchAudio` already warms the current
 enemy; also warm the NEXT enemy during the shop so no fight opens silent.
 
 ### Done when
+
 `npm run fetch:audio` on a clean checkout produces all nine files; each
 `recorded*.js` header names URL + licence; all nine enemies play through in
 one run on the live link; NIGHT_REPORT licence section updated.
@@ -128,15 +138,15 @@ synthesized in WebAudio (the synthesized-only rule covers SFX; recordings are
 music only). No samples, no files. Routed through its own gain so the volume
 slider and a future mute apply, mixed a touch under the music.
 
-| Event | Sound | Where it fires |
-|-------|-------|----------------|
-| tile case → stick | short wooden tick, pitch rises with stick position (1st tile low, 7th high — the Balatro "card select" climb) | `stageTile` |
-| tile stick → case | same tick, pitch falls, a little softer | unstage handler |
-| drag reorder drop | muted tick | `dragReorder` drop |
-| changeout | soft shuffle: 3–4 filtered-noise taps in 120 ms | `changeout` |
-| tap a disabled/barred tile | dull thud | the `say(...)` branches |
-| buy / sell / reroll | coin: two short sines a fifth apart | shop handlers |
-| ink applied | brief shimmer (detuned pair, 200 ms) | `applyInk` |
+| Event                      | Sound                                                                                                         | Where it fires          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| tile case → stick          | short wooden tick, pitch rises with stick position (1st tile low, 7th high — the Balatro "card select" climb) | `stageTile`             |
+| tile stick → case          | same tick, pitch falls, a little softer                                                                       | unstage handler         |
+| drag reorder drop          | muted tick                                                                                                    | `dragReorder` drop      |
+| changeout                  | soft shuffle: 3–4 filtered-noise taps in 120 ms                                                               | `changeout`             |
+| tap a disabled/barred tile | dull thud                                                                                                     | the `say(...)` branches |
+| buy / sell / reroll        | coin: two short sines a fifth apart                                                                           | shop handlers           |
+| ink applied                | brief shimmer (detuned pair, 200 ms)                                                                          | `applyInk`              |
 
 Design rules: every sound ≤ 150 ms except the shimmer; attack under 5 ms so
 it lands on the tap; never more than one per event; all params in one
@@ -147,6 +157,7 @@ Add a `SFX` toggle next to Volume in the gear panel (default on), persisted
 in `wbc.sfx`.
 
 ### Done when
+
 Playing a word by tapping seven tiles produces seven rising ticks with no
 audible lag on a phone; changeout, shop and ink each have their sound.
 
@@ -160,6 +171,7 @@ returns (tier → letters → inks → items left to right → rule), so the UI
 narrates the same maths the log shows.
 
 Sequence for a played word (durations scale down when the word is small):
+
 1. **Lock** — stick tiles snap up 4 px, brief freeze (60 ms). Sound: a low
    thump whose volume tracks the word's tier.
 2. **Letters** — left to right, each tile pops (scale via a wrapper, NOT
@@ -183,6 +195,7 @@ Sequence for a played word (durations scale down when the word is small):
    `data-flip-tile-id`s for one frame), rack refills with a soft riffle.
 
 Implementation:
+
 - Sequencing lives in the UI (RoundSandbox), not round.js; round.js stays
   instant and pure. Use a small async step runner with `setTimeout`, and a
   `skip` on any tap so an impatient player is never blocked. Input stays
@@ -199,6 +212,7 @@ Implementation:
   keyframes in sandbox.css. No `transform` on `.sb-tile`.
 
 ### Done when
+
 A 3-letter word feels like a tap; a 7-letter word with three items and a
 rule fires a 2–3 second cascade that ends in a hit, and Jaxon says it feels
 meaty on the phone. All timings in one table.
@@ -228,7 +242,7 @@ moves behind the gear.
    - on the first boss: the rule card is already there; add a pulse.
 3. **One score line.** Merge the header's "score / target" and the meter
    with the counters: a single strip reading `score ▮▮▮▮▯▯ target ·
-   3 words · 2 swaps`. The "in the bag of N" count moves to the gear panel.
+3 words · 2 swaps`. The "in the bag of N" count moves to the gear panel.
 4. **Plain words.** Rename in the UI only (code keeps its names):
    "changeout" → "swap", "The composing stick" → no label (the row explains
    itself once the callout has fired), "Tempo marking" stays but the rule
@@ -246,6 +260,7 @@ moves behind the gear.
    ≥ 40 px.
 
 ### Done when
+
 Someone who has never seen the repo can be handed the link with no
 explanation and finish a run; the gear panel still exposes everything the
 sandbox exposed before.

@@ -90,7 +90,7 @@
         beat: startBeat + i * NOTE_DURATION,
         duration: NOTE_DURATION,
         freq: freqFromSemitone(semitone),
-        velocity: MELODY_VELOCITY
+        velocity: MELODY_VELOCITY,
       };
     });
   }
@@ -112,7 +112,12 @@
   var BASS_VELOCITY = 0.13;
   var bass = [];
   for (var beat = 0; beat < LENGTH_BEATS; beat += BASS_STEP) {
-    bass.push({ beat: beat, duration: BASS_STEP, freq: BASS_FREQ, velocity: BASS_VELOCITY });
+    bass.push({
+      beat: beat,
+      duration: BASS_STEP,
+      freq: BASS_FREQ,
+      velocity: BASS_VELOCITY,
+    });
   }
 
   window.Wordbound.Pieces.flightBumblebee = {
@@ -121,9 +126,10 @@
     composer: 'Nikolai Rimsky-Korsakov',
     vetting: { composed: 1900, composerDied: 1908, publicDomain: true },
     regularName: 'The Swarm',
-    gimmick: 'Frantic, chromatic, constant — no single big crescendo, just relentless high-frequency pressure.',
+    gimmick:
+      'Frantic, chromatic, constant — no single big crescendo, just relentless high-frequency pressure.',
     stageTier: 'late',
-    gain: 1.25,  // level trim; see PIECE FORMAT in music.js
+    gain: 1.25, // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH_BEATS,
     tempo: 168, // Presto -- the fastest tempo of any piece in this directory, matching "frantic"
     tracks: { melody: melody, bass: bass },
@@ -140,14 +146,14 @@
         { beat: 18, intensity: 0.54 },
         { beat: 36, intensity: 0.56 },
         { beat: 54, intensity: 0.54 },
-        { beat: 72, intensity: 0.5 }
-      ]
+        { beat: 72, intensity: 0.5 },
+      ],
       // No `crescendos` entries at all, on purpose (see header comment) --
       // music.js's own scheduling code guards this with
       // `(piece.dynamics && piece.dynamics.crescendos) || []`, confirmed
       // directly in music.js rather than assumed, same convention
       // air-g-string.js's and czerny-299.js's own "no crescendos" pieces
       // already established.
-    }
+    },
   };
 })();

@@ -70,10 +70,15 @@
   var CRES_BEFORE = 0.4;
   var CRES_AFTER = 1.0;
   var CRES_COUNTDOWN = 5;
-  Sandbox.CRESCENDO = { before: CRES_BEFORE, after: CRES_AFTER, countdown: CRES_COUNTDOWN };
+  Sandbox.CRESCENDO = {
+    before: CRES_BEFORE,
+    after: CRES_AFTER,
+    countdown: CRES_COUNTDOWN,
+  };
 
   function curateSurges(surges) {
-    var out = [], last = -Infinity;
+    var out = [],
+      last = -Infinity;
     surges.forEach(function (s) {
       if (s.mag < CRES_MIN_MAG || s.sec - last < CRES_MIN_GAP) return;
       out.push(s);
@@ -82,8 +87,8 @@
     return out;
   }
 
-  var bufferCache = {};  // url -> Promise<AudioBuffer>, decoded once
-  var bytesCache = {};   // url -> Promise<ArrayBuffer>, fetched once
+  var bufferCache = {}; // url -> Promise<AudioBuffer>, decoded once
+  var bytesCache = {}; // url -> Promise<ArrayBuffer>, fetched once
 
   // Fetching several MB and decoding it takes long enough that a fight started
   // the instant the page loads would open in SILENCE. Warm the bytes as soon
@@ -91,16 +96,19 @@
   // anybody presses start. Safe to call repeatedly.
   Sandbox.prefetchAudio = function (url) {
     if (!bytesCache[url]) {
-      bytesCache[url] = fetch(url).then(function (r) {
-        if (!r.ok) throw new Error('audio fetch failed: ' + r.status + ' ' + url);
-        return r.arrayBuffer();
-      }).catch(function (err) {
-        // A cached REJECTION would poison every later fight with this piece --
-        // the recording would never load again and only a refresh would clear
-        // it. Drop the entry so the next attempt actually retries.
-        delete bytesCache[url];
-        throw err;
-      });
+      bytesCache[url] = fetch(url)
+        .then(function (r) {
+          if (!r.ok)
+            throw new Error('audio fetch failed: ' + r.status + ' ' + url);
+          return r.arrayBuffer();
+        })
+        .catch(function (err) {
+          // A cached REJECTION would poison every later fight with this piece --
+          // the recording would never load again and only a refresh would clear
+          // it. Drop the entry so the next attempt actually retries.
+          delete bytesCache[url];
+          throw err;
+        });
     }
     return bytesCache[url];
   };
@@ -110,7 +118,9 @@
     // decodeAudioData detaches the ArrayBuffer it is given, so hand it a copy
     // and keep the original for any later re-decode (a new AudioContext).
     bufferCache[url] = Sandbox.prefetchAudio(url)
-      .then(function (bytes) { return bytes.slice(0); })
+      .then(function (bytes) {
+        return bytes.slice(0);
+      })
       .then(function (ab) {
         return new Promise(function (resolve, reject) {
           // Callback form: Safari still does not return a promise here.
@@ -119,7 +129,7 @@
         });
       })
       .catch(function (err) {
-        delete bufferCache[url];   // same reason as the fetch cache above
+        delete bufferCache[url]; // same reason as the fetch cache above
         throw err;
       });
     return bufferCache[url];
@@ -137,8 +147,8 @@
 
     var playing = false;
     var wantPlay = false;
-    var anchorCtx = 0;   // ctx.currentTime when the current run started
-    var anchorPos = 0;   // position within the recording at that moment
+    var anchorCtx = 0; // ctx.currentTime when the current run started
+    var anchorPos = 0; // position within the recording at that moment
     var firedSurges = {};
     var endedFired = false;
     var tickId = null;
@@ -156,7 +166,9 @@
     var sustainMag = null;
 
     function emit(name, payload) {
-      (listeners[name] || []).forEach(function (cb) { cb(payload); });
+      (listeners[name] || []).forEach(function (cb) {
+        cb(payload);
+      });
     }
 
     function position() {
@@ -169,7 +181,8 @@
       if (sec <= keyframes[0].sec) return keyframes[0].intensity;
       for (var i = 1; i < keyframes.length; i++) {
         if (sec <= keyframes[i].sec) {
-          var a = keyframes[i - 1], b = keyframes[i];
+          var a = keyframes[i - 1],
+            b = keyframes[i];
           var span = b.sec - a.sec;
           var t = span > 0 ? (sec - a.sec) / span : 0;
           return a.intensity + (b.intensity - a.intensity) * t;
@@ -190,7 +203,10 @@
         source.playbackRate.value = rate;
         source.connect(trim);
         anchorCtx = ctx.currentTime;
-        source.start(0, Math.max(0, Math.min(anchorPos, buffer.duration - 0.01)));
+        source.start(
+          0,
+          Math.max(0, Math.min(anchorPos, buffer.duration - 0.01)),
+        );
         playing = true;
         api.isPlaying = true;
         endedFired = false;
@@ -199,7 +215,11 @@
       stop: function () {
         wantPlay = false;
         if (source) {
-          try { source.stop(); } catch (e) { /* already stopped */ }
+          try {
+            source.stop();
+          } catch (e) {
+            /* already stopped */
+          }
           source.disconnect();
           source = null;
         }
@@ -208,7 +228,6 @@
         api.isPlaying = false;
         firedSurges = {};
       },
-
 
       // Fade the piece in from silence over `sec` -- the next enemy taking
       // the stage rather than cutting in on the previous one's last breath.
@@ -231,10 +250,16 @@
         anchorCtx = ctx.currentTime;
         if (source) source.playbackRate.value = rate;
       },
-      getTempoScale: function () { return rate; },
+      getTempoScale: function () {
+        return rate;
+      },
 
-      getIntensity: function () { return intensityAt(position()); },
-      currentBeat: function () { return position(); },
+      getIntensity: function () {
+        return intensityAt(position());
+      },
+      currentBeat: function () {
+        return position();
+      },
 
       // Where the playhead stands against the next big swell:
       //   { phase: 'idle' }                       nothing within the countdown
@@ -248,7 +273,14 @@
         if (!playing) return { phase: 'idle' };
         var pos = position();
         if (sustainUntil != null) {
-          if (pos <= sustainUntil) return { phase: 'live', secs: sustainUntil - pos, peakSec: sustainPeak, mag: sustainMag, sustained: true };
+          if (pos <= sustainUntil)
+            return {
+              phase: 'live',
+              secs: sustainUntil - pos,
+              peakSec: sustainPeak,
+              mag: sustainMag,
+              sustained: true,
+            };
           sustainUntil = null;
         }
         if (!bigSurges.length) return { phase: 'idle' };
@@ -256,8 +288,15 @@
           var peak = bigSurges[i].sec;
           var mag = bigSurges[i].mag;
           if (pos > peak + CRES_AFTER) continue;
-          if (pos >= peak - CRES_BEFORE) return { phase: 'live', secs: peak + CRES_AFTER - pos, peakSec: peak, mag: mag };
-          if (pos >= peak - CRES_COUNTDOWN) return { phase: 'soon', secs: peak - pos, peakSec: peak };
+          if (pos >= peak - CRES_BEFORE)
+            return {
+              phase: 'live',
+              secs: peak + CRES_AFTER - pos,
+              peakSec: peak,
+              mag: mag,
+            };
+          if (pos >= peak - CRES_COUNTDOWN)
+            return { phase: 'soon', secs: peak - pos, peakSec: peak };
           return { phase: 'idle', secs: peak - pos, peakSec: peak };
         }
         return { phase: 'idle' };
@@ -302,7 +341,7 @@
           // (the fight lands it immediately) as long as it is still fresh.
           if (pos < s.sec - LEAD_SEC) return;
           firedSurges[i] = true;
-          if (pos > s.sec + CATCHUP_SEC) return;   // long gone: spent, unswung
+          if (pos > s.sec + CATCHUP_SEC) return; // long gone: spent, unswung
           emit('crescendo-approaching', {
             id: 'surge-' + i,
             peakBeat: s.sec,
@@ -322,7 +361,7 @@
             // down to phrase peaks -- so the fight's attack gate curates it.
             // A derived sequenced list is already curated and says so by
             // leaving this off. See tugOfWar.js telegraphCrescendo.
-            dense: true
+            dense: true,
           });
         });
         if (duration && pos >= duration && !endedFired) {
@@ -331,28 +370,36 @@
         }
       },
 
-      whenReady: null
+      whenReady: null,
     };
 
-    api.whenReady = loadBuffer(ctx, piece.audio).then(function (buf) {
-      buffer = buf;
-      if (!duration) duration = buf.duration;
-      if (wantPlay && !playing) api.play();
-      return api;
-    }, function (err) {
-      // Told, not thrown. An unhandled rejection here left the fight running
-      // in silence with nothing on screen to say why; as an event the sandbox
-      // can print it, and the caches above have already cleared themselves so
-      // the next fight tries again.
-      emit('load-failed', err);
-      return api;
-    });
+    api.whenReady = loadBuffer(ctx, piece.audio).then(
+      function (buf) {
+        buffer = buf;
+        if (!duration) duration = buf.duration;
+        if (wantPlay && !playing) api.play();
+        return api;
+      },
+      function (err) {
+        // Told, not thrown. An unhandled rejection here left the fight running
+        // in silence with nothing on screen to say why; as an event the sandbox
+        // can print it, and the caches above have already cleared themselves so
+        // the next fight tries again.
+        emit('load-failed', err);
+        return api;
+      },
+    );
 
     if (opts.autoTick !== false && typeof setInterval === 'function') {
       tickId = setInterval(api._tick, 25);
-      api.dispose = function () { clearInterval(tickId); api.stop(); };
+      api.dispose = function () {
+        clearInterval(tickId);
+        api.stop();
+      };
     } else {
-      api.dispose = function () { api.stop(); };
+      api.dispose = function () {
+        api.stop();
+      };
     }
 
     return api;

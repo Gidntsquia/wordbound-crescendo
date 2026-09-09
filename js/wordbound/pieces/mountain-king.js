@@ -36,7 +36,20 @@
   // Equal-temperament note name -> frequency, A4 = 440Hz reference. Local
   // and self-contained on purpose: piece files are plain data modules per
   // the ticket, so this doesn't reach into music.js or any other module.
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     var n = SEMITONE_FROM_A[note] + (octave - 4) * 12;
     return 440 * Math.pow(2, n / 12);
@@ -45,12 +58,24 @@
   // The 8-note motif: B C# D E F# G F# D (rises stepwise through a 5th,
   // falls back). One statement = 8 beats.
   var MOTIF = [
-    ['B', 3], ['C#', 4], ['D', 4], ['E', 4], ['F#', 4], ['G', 4], ['F#', 4], ['D', 4],
+    ['B', 3],
+    ['C#', 4],
+    ['D', 4],
+    ['E', 4],
+    ['F#', 4],
+    ['G', 4],
+    ['F#', 4],
+    ['D', 4],
   ];
 
   function motifNotes(startBeat, velocity, octaveShift) {
     return MOTIF.map(function (n, i) {
-      return { beat: startBeat + i, duration: 1, freq: f(n[0], n[1] + (octaveShift || 0)), velocity: velocity };
+      return {
+        beat: startBeat + i,
+        duration: 1,
+        freq: f(n[0], n[1] + (octaveShift || 0)),
+        velocity: velocity,
+      };
     });
   }
 
@@ -71,7 +96,9 @@
     melody = melody.concat(motifNotes(stanza.start + 8, stanza.velocity));
     if (stanza.withBass) {
       bass = bass.concat(motifNotes(stanza.start, stanza.velocity - 0.1, -1));
-      bass = bass.concat(motifNotes(stanza.start + 8, stanza.velocity - 0.1, -1));
+      bass = bass.concat(
+        motifNotes(stanza.start + 8, stanza.velocity - 0.1, -1),
+      );
     }
   });
 
@@ -80,8 +107,18 @@
   // piece's famous unison climax, and this piece's single crescendo-peak.
   var CODA_PATTERN = ['B', 'F#', 'B', 'F#', 'B', 'F#', 'B'];
   CODA_PATTERN.forEach(function (note, i) {
-    melody.push({ beat: 64 + i, duration: 1, freq: f(note, 4), velocity: 0.9 + i * 0.01 });
-    bass.push({ beat: 64 + i, duration: 1, freq: f(note, 3), velocity: 0.8 + i * 0.01 });
+    melody.push({
+      beat: 64 + i,
+      duration: 1,
+      freq: f(note, 4),
+      velocity: 0.9 + i * 0.01,
+    });
+    bass.push({
+      beat: 64 + i,
+      duration: 1,
+      freq: f(note, 3),
+      velocity: 0.8 + i * 0.01,
+    });
   });
   melody.push({ beat: 71, duration: 2, freq: f('B', 5), velocity: 1.0 });
   bass.push({ beat: 71, duration: 2, freq: f('B', 3), velocity: 1.0 });
@@ -96,7 +133,7 @@
     floor: 1,
     hostageLetterProposal: 'K',
     stageTier: 'mid',
-    gain: 1.15,  // level trim; see PIECE FORMAT in music.js
+    gain: 1.15, // level trim; see PIECE FORMAT in music.js
     lengthBeats: 72,
     tempo: [
       { beat: 0, bpm: 100 },
@@ -120,7 +157,13 @@
         { beat: 72, intensity: 1.0 },
       ],
       crescendos: [
-        { id: 'the-ramp', startBeat: 0, peakBeat: 71, peakIntensity: 1.0, rampDurationBeats: 71 },
+        {
+          id: 'the-ramp',
+          startBeat: 0,
+          peakBeat: 71,
+          peakIntensity: 1.0,
+          rampDurationBeats: 71,
+        },
       ],
     },
   };

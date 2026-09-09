@@ -34,14 +34,14 @@ const OUT = path.resolve(ROOT, arg('out', 'src/sandbox/recordedFurElise.js'));
 const PORT = 9893;
 
 // Tuning for the reduction. Changing these changes the fight's feel.
-const SMOOTH_SEC = 0.6;   // loudness is smoothed over this before normalising
+const SMOOTH_SEC = 0.6; // loudness is smoothed over this before normalising
 // Peak-picking gets its OWN, much lighter smoothing. 0.6 s is right for the
 // intensity curve the tug reads continuously, but it flattens the piece to one
 // local maximum every ~2 s, which caps how often the song can possibly attack
 // no matter how lenient the test gets. Detection looks at a sharper copy.
 const PEAK_SMOOTH_SEC = 0.18;
-const MIN_INT = 0.12;     // the intensity band the sequenced pieces occupy,
-const MAX_INT = 0.70;     //   matched so tug balance carries over unchanged
+const MIN_INT = 0.12; // the intensity band the sequenced pieces occupy,
+const MAX_INT = 0.7; //   matched so tug balance carries over unchanged
 const KEYFRAME_TOL = 0.012; // drop a point this close to the line through its neighbours
 const SURGE_LOOKBACK = 3; // a surge's climb is measured over this many seconds
 // The surge test is FLAT and DELIBERATELY GREEDY. It is not trying to pick the
@@ -58,8 +58,8 @@ const SURGE_LOOKBACK = 3; // a surge's climb is measured over this many seconds
 //
 // The gap is what sets density; the rise test barely binds under it, because
 // merging near-neighbours already keeps only the larger of any close pair.
-const SURGE_MIN_RISE = 0.02;    // climb over SURGE_LOOKBACK to count at all
-const SURGE_MIN_GAP = 0.7;      // seconds two surges must be apart
+const SURGE_MIN_RISE = 0.02; // climb over SURGE_LOOKBACK to count at all
+const SURGE_MIN_GAP = 0.7; // seconds two surges must be apart
 
 // `mag` is what the fight reads: 0 for the smallest swell in the recording,
 // 1 for the biggest. Mostly how far it CLIMBS -- that is what a crescendo is
@@ -81,9 +81,26 @@ function decodeWithFfmpeg() {
   const SR = 48000;
   let pcm;
   try {
-    pcm = execFileSync('ffmpeg', ['-v', 'error', '-i', IN, '-f', 'f32le', '-ac', '1', '-ar', String(SR), '-'],
-      { maxBuffer: 1 << 30 });
-  } catch (e) { return null; }
+    pcm = execFileSync(
+      'ffmpeg',
+      [
+        '-v',
+        'error',
+        '-i',
+        IN,
+        '-f',
+        'f32le',
+        '-ac',
+        '1',
+        '-ar',
+        String(SR),
+        '-',
+      ],
+      { maxBuffer: 1 << 30 },
+    );
+  } catch (e) {
+    return null;
+  }
   const d = new Float32Array(pcm.buffer, pcm.byteOffset, pcm.byteLength >> 2);
   const HOP = Math.round(SR / 20);
   const env = [];
@@ -93,13 +110,24 @@ function decodeWithFfmpeg() {
     env.push(Math.sqrt(sq / HOP));
   }
   let peak = 0;
-  for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
-  return { duration: +(d.length / SR).toFixed(2), peak: +peak.toFixed(3), hopSec: HOP / SR, env };
+  for (let i = 0; i < d.length; i++) {
+    const a = Math.abs(d[i]);
+    if (a > peak) peak = a;
+  }
+  return {
+    duration: +(d.length / SR).toFixed(2),
+    peak: +peak.toFixed(3),
+    hopSec: HOP / SR,
+    env,
+  };
 }
 
 async function decodeEnvelope() {
-  if (!args.includes('--fresh') && fs.existsSync(CACHE)
-      && fs.statSync(CACHE).mtimeMs >= fs.statSync(IN).mtimeMs) {
+  if (
+    !args.includes('--fresh') &&
+    fs.existsSync(CACHE) &&
+    fs.statSync(CACHE).mtimeMs >= fs.statSync(IN).mtimeMs
+  ) {
     return JSON.parse(fs.readFileSync(CACHE, 'utf8'));
   }
   const viaFfmpeg = decodeWithFfmpeg();
@@ -113,7 +141,11 @@ async function decodeEnvelope() {
   const server = http.createServer((req, res) => {
     const f = path.join(dir, decodeURIComponent(req.url.split('?')[0]));
     fs.readFile(f, (err, data) => {
-      if (err) { res.writeHead(404); res.end(); return; }
+      if (err) {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
       res.writeHead(200, { 'Content-Type': 'audio/mpeg' });
       res.end(data);
     });
@@ -125,23 +157,35 @@ async function decodeEnvelope() {
   await page.goto('http://localhost:' + PORT + '/__blank').catch(() => {});
   await page.setContent('<html><body></body></html>');
 
-  const raw = await page.evaluate(async ({ port, name, smoothSec }) => {
-    const res = await fetch('http://localhost:' + port + '/' + name);
-    const ab = await res.arrayBuffer();
-    const ctx = new OfflineAudioContext(1, 48000, 48000);
-    const buf = await ctx.decodeAudioData(ab);
-    const d = buf.getChannelData(0), SR = buf.sampleRate;
-    const HOP = Math.round(SR / 20); // ~20 Hz envelope
-    const env = [];
-    for (let i = 0; i + HOP <= d.length; i += HOP) {
-      let sq = 0;
-      for (let j = i; j < i + HOP; j++) sq += d[j] * d[j];
-      env.push(Math.sqrt(sq / HOP));
-    }
-    let peak = 0;
-    for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
-    return { duration: +buf.duration.toFixed(2), peak: +peak.toFixed(3), hopSec: HOP / SR, env };
-  }, { port: PORT, name: path.basename(IN), smoothSec: SMOOTH_SEC });
+  const raw = await page.evaluate(
+    async ({ port, name, smoothSec }) => {
+      const res = await fetch('http://localhost:' + port + '/' + name);
+      const ab = await res.arrayBuffer();
+      const ctx = new OfflineAudioContext(1, 48000, 48000);
+      const buf = await ctx.decodeAudioData(ab);
+      const d = buf.getChannelData(0),
+        SR = buf.sampleRate;
+      const HOP = Math.round(SR / 20); // ~20 Hz envelope
+      const env = [];
+      for (let i = 0; i + HOP <= d.length; i += HOP) {
+        let sq = 0;
+        for (let j = i; j < i + HOP; j++) sq += d[j] * d[j];
+        env.push(Math.sqrt(sq / HOP));
+      }
+      let peak = 0;
+      for (let i = 0; i < d.length; i++) {
+        const a = Math.abs(d[i]);
+        if (a > peak) peak = a;
+      }
+      return {
+        duration: +buf.duration.toFixed(2),
+        peak: +peak.toFixed(3),
+        hopSec: HOP / SR,
+        env,
+      };
+    },
+    { port: PORT, name: path.basename(IN), smoothSec: SMOOTH_SEC },
+  );
 
   await browser.close();
   server.close();
@@ -159,8 +203,16 @@ async function decodeEnvelope() {
   const { env, hopSec, duration } = raw;
   const W = Math.round(SMOOTH_SEC / hopSec);
   const sm = env.map((_, i) => {
-    let s = 0, n = 0;
-    for (let j = Math.max(0, i - W); j <= Math.min(env.length - 1, i + W); j++) { s += env[j]; n++; }
+    let s = 0,
+      n = 0;
+    for (
+      let j = Math.max(0, i - W);
+      j <= Math.min(env.length - 1, i + W);
+      j++
+    ) {
+      s += env[j];
+      n++;
+    }
     return s / n;
   });
   const sorted = [...sm].sort((a, b) => a - b);
@@ -173,11 +225,14 @@ async function decodeEnvelope() {
 
   const step = Math.round(1 / hopSec);
   const pts = [];
-  for (let i = 0; i < norm.length; i += step) pts.push([+(i * hopSec).toFixed(2), norm[i]]);
+  for (let i = 0; i < norm.length; i += step)
+    pts.push([+(i * hopSec).toFixed(2), norm[i]]);
   pts.push([+((norm.length - 1) * hopSec).toFixed(2), norm[norm.length - 1]]);
   const keep = [pts[0]];
   for (let i = 1; i < pts.length - 1; i++) {
-    const p = keep[keep.length - 1], n = pts[i + 1], c = pts[i];
+    const p = keep[keep.length - 1],
+      n = pts[i + 1],
+      c = pts[i];
     const lin = p[1] + (n[1] - p[1]) * ((c[0] - p[0]) / (n[0] - p[0]));
     if (Math.abs(lin - c[1]) > KEYFRAME_TOL) keep.push(c);
   }
@@ -187,12 +242,21 @@ async function decodeEnvelope() {
   const peakNorm = (() => {
     const Wp = Math.round(PEAK_SMOOTH_SEC / hopSec);
     const s2 = env.map((_, i) => {
-      let a = 0, n = 0;
-      for (let j = Math.max(0, i - Wp); j <= Math.min(env.length - 1, i + Wp); j++) { a += env[j]; n++; }
+      let a = 0,
+        n = 0;
+      for (
+        let j = Math.max(0, i - Wp);
+        j <= Math.min(env.length - 1, i + Wp);
+        j++
+      ) {
+        a += env[j];
+        n++;
+      }
       return a / n;
     });
     const so = [...s2].sort((a, b) => a - b);
-    const hi = so[Math.floor(so.length * 0.95)], lo = so[Math.floor(so.length * 0.05)];
+    const hi = so[Math.floor(so.length * 0.95)],
+      lo = so[Math.floor(so.length * 0.05)];
     return s2.map((v) => {
       const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
       return +(MIN_INT + t * (MAX_INT - MIN_INT)).toFixed(3);
@@ -202,7 +266,8 @@ async function decodeEnvelope() {
   const back = Math.round(SURGE_LOOKBACK / hopSec);
   const surges = [];
   for (let i = back; i < peakNorm.length - 1; i++) {
-    if (!(peakNorm[i] >= peakNorm[i - 1] && peakNorm[i] > peakNorm[i + 1])) continue;
+    if (!(peakNorm[i] >= peakNorm[i - 1] && peakNorm[i] > peakNorm[i + 1]))
+      continue;
     let lo = Infinity;
     for (let j = i - back; j < i; j++) lo = Math.min(lo, peakNorm[j]);
     const rise = peakNorm[i] - lo;
@@ -215,7 +280,7 @@ async function decodeEnvelope() {
       sec: t,
       intensity: norm[i],
       rise: +rise.toFixed(3),
-      raw: MAG_RISE_WEIGHT * rise + MAG_PEAK_WEIGHT * (peakNorm[i] - MIN_INT)
+      raw: MAG_RISE_WEIGHT * rise + MAG_PEAK_WEIGHT * (peakNorm[i] - MIN_INT),
     };
     const prev = surges[surges.length - 1];
     // Two swells inside SURGE_MIN_GAP are one swell as far as the fight is
@@ -240,20 +305,26 @@ async function decodeEnvelope() {
     delete s2.raw;
   });
 
-  const BEGIN = '// >>> GENERATED by tools/analyze-audio-piece.js -- do not edit by hand';
+  const BEGIN =
+    '// >>> GENERATED by tools/analyze-audio-piece.js -- do not edit by hand';
   const END = '// <<< END GENERATED';
   if (!fs.existsSync(OUT)) {
-    console.error('no such file: ' + OUT
-      + '\n  This tool fills in an existing piece file, it does not create one.'
-      + '\n  Copy src/sandbox/recordedFurElise.js, rewrite its header and'
-      + '\n  metadata by hand, empty the GENERATED block, then run this again.');
+    console.error(
+      'no such file: ' +
+        OUT +
+        '\n  This tool fills in an existing piece file, it does not create one.' +
+        '\n  Copy src/sandbox/recordedFurElise.js, rewrite its header and' +
+        '\n  metadata by hand, empty the GENERATED block, then run this again.',
+    );
     process.exit(1);
   }
   const existing = fs.readFileSync(OUT, 'utf8');
   const a = existing.indexOf(BEGIN);
   const b = existing.indexOf(END);
   if (a < 0 || b < 0 || b < a) {
-    console.error('refusing to write: ' + OUT + ' has no GENERATED block to replace');
+    console.error(
+      'refusing to write: ' + OUT + ' has no GENERATED block to replace',
+    );
     process.exit(1);
   }
   // Recordings arrive at wildly different levels -- the Fur Elise track is
@@ -263,7 +334,9 @@ async function decodeEnvelope() {
   // keep the resulting gain from clipping.
   const rawSorted2 = [...env].sort((x, y) => x - y);
   const loudness = +rawSorted2[Math.floor(rawSorted2.length * 0.95)].toFixed(5);
-  const generated = BEGIN + `
+  const generated =
+    BEGIN +
+    `
     durationSec: ${duration},
     peak: ${raw.peak},
     loudness: ${loudness},
@@ -278,20 +351,44 @@ ${surges.map((s) => `        { sec: ${s.sec}, intensity: ${s.intensity}, rise: $
     `;
   fs.writeFileSync(OUT, existing.slice(0, a) + generated + existing.slice(b));
   console.log('analysed ' + path.basename(IN));
-  console.log('  duration   ' + duration + 's, peak ' + raw.peak
-    + ', loudness ' + loudness);
-  console.log('  keyframes  ' + keep.length + ' (from ' + pts.length + ' sampled)');
+  console.log(
+    '  duration   ' +
+      duration +
+      's, peak ' +
+      raw.peak +
+      ', loudness ' +
+      loudness,
+  );
+  console.log(
+    '  keyframes  ' + keep.length + ' (from ' + pts.length + ' sampled)',
+  );
   // Two things worth reporting. SIZE SPREAD, because a run where every swell
   // lands in one bucket leaves the fight nothing to show the player. And the
   // ATTACK RATE AT EACH GATE, because that is the swarm curve: the top row is
   // the opening bars, the bottom row is the song at full tilt.
   const hist = [0, 0, 0, 0, 0];
-  surges.forEach((s2) => { hist[Math.min(4, Math.floor(s2.mag * 5))]++; });
-  console.log('  surges     ' + surges.length + ' total, '
-    + (surges.length / duration * 60).toFixed(1) + '/min if every one swings');
-  console.log('  magnitude  ' + hist.join(' / ') + '  (count per 0.2 of mag, small -> large)');
-  const rate = (g) => (surges.filter((s2) => s2.mag >= g).length / duration * 60).toFixed(1);
-  console.log('  gate rate  ' + [0.6, 0.45, 0.3, 0.15, 0]
-    .map((g) => 'gate ' + g.toFixed(2) + ' -> ' + rate(g) + '/min').join(', '));
+  surges.forEach((s2) => {
+    hist[Math.min(4, Math.floor(s2.mag * 5))]++;
+  });
+  console.log(
+    '  surges     ' +
+      surges.length +
+      ' total, ' +
+      ((surges.length / duration) * 60).toFixed(1) +
+      '/min if every one swings',
+  );
+  console.log(
+    '  magnitude  ' +
+      hist.join(' / ') +
+      '  (count per 0.2 of mag, small -> large)',
+  );
+  const rate = (g) =>
+    ((surges.filter((s2) => s2.mag >= g).length / duration) * 60).toFixed(1);
+  console.log(
+    '  gate rate  ' +
+      [0.6, 0.45, 0.3, 0.15, 0]
+        .map((g) => 'gate ' + g.toFixed(2) + ' -> ' + rate(g) + '/min')
+        .join(', '),
+  );
   console.log('  wrote      ' + path.relative(ROOT, OUT));
 })();

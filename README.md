@@ -7,7 +7,7 @@ you spell words to fight musical enemies and win it back. Bosses are backed by
 famous public-domain classical/opera pieces synthesized live via the Web Audio API,
 normal enemies by lesser-known pieces, and bosses attack **on the crescendos of
 their music** — a real-time pressure element where getting the best word you can
-*quickly* matters more than getting the best word possible, and submitting right on
+_quickly_ matters more than getting the best word possible, and submitting right on
 a crescendo parries incoming damage. Working title; naming is still open (see
 GOALS.md).
 

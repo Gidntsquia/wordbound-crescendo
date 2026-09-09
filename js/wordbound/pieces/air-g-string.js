@@ -22,7 +22,20 @@
   window.Wordbound = window.Wordbound || {};
   window.Wordbound.Pieces = window.Wordbound.Pieces || {};
 
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     var n = SEMITONE_FROM_A[note] + (octave - 4) * 12;
     return 440 * Math.pow(2, n / 12);
@@ -34,7 +47,12 @@
   var BASS_WALK = ['D', 'C#', 'B', 'A', 'G', 'F#', 'G', 'A'];
   function bassPhrase(startBeat, velocity) {
     return BASS_WALK.map(function (note, i) {
-      return { beat: startBeat + i, duration: 1, freq: f(note, 2), velocity: velocity };
+      return {
+        beat: startBeat + i,
+        duration: 1,
+        freq: f(note, 2),
+        velocity: velocity,
+      };
     });
   }
 
@@ -44,7 +62,12 @@
   var MELODY_LINE = ['D', 'A', 'G', 'F#'];
   function melodyPhrase(startBeat, velocity, octave) {
     return MELODY_LINE.map(function (note, i) {
-      return { beat: startBeat + i * 2, duration: 2, freq: f(note, octave), velocity: velocity };
+      return {
+        beat: startBeat + i * 2,
+        duration: 2,
+        freq: f(note, octave),
+        velocity: velocity,
+      };
     });
   }
 
@@ -63,9 +86,10 @@
     composer: 'Johann Sebastian Bach',
     vetting: { composed: 1730, composerDied: 1750, publicDomain: true },
     regularName: 'The G String',
-    gimmick: "One long, gentle, unbroken legato line. Telegraphs nothing because there's nothing to telegraph.",
+    gimmick:
+      "One long, gentle, unbroken legato line. Telegraphs nothing because there's nothing to telegraph.",
     stageTier: 'early',
-    gain: 0.8,  // level trim; see PIECE FORMAT in music.js
+    gain: 0.8, // level trim; see PIECE FORMAT in music.js
     lengthBeats: 40,
     tempo: 54, // slower even than the Gymnopédiste -- a true legato adagio
     tracks: { melody: melody, bass: bass },
@@ -77,13 +101,13 @@
       keyframes: [
         { beat: 0, intensity: 0.06 },
         { beat: 20, intensity: 0.08 },
-        { beat: 40, intensity: 0.08 }
-      ]
+        { beat: 40, intensity: 0.08 },
+      ],
       // No `crescendos` entries at all, on purpose (see header comment) --
       // music.js's own scheduling code already guards this with
       // `(piece.dynamics && piece.dynamics.crescendos) || []`, so an
       // absent list is simply "no crescendo events ever fire," confirmed
       // directly in music.js rather than assumed.
-    }
+    },
   };
 })();

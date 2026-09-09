@@ -42,7 +42,20 @@
   // self-contained on purpose, same convention as mountain-king.js -- piece
   // files are plain data modules per the MUSIC ENGINE ticket, so this
   // doesn't reach into music.js or any other piece file.
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     var n = SEMITONE_FROM_A[note] + (octave - 4) * 12;
     return 440 * Math.pow(2, n / 12);
@@ -52,13 +65,21 @@
   // flavor) in a dotted long-short-long-short rhythm (0.75/0.25 beat pairs),
   // the piece's most recognizable rhythmic signature.
   var GALLOP = [
-    ['B', 3, 0.75], ['D', 4, 0.25], ['F#', 4, 0.75], ['B', 4, 0.25],
+    ['B', 3, 0.75],
+    ['D', 4, 0.25],
+    ['F#', 4, 0.75],
+    ['B', 4, 0.25],
   ];
   function gallopNotes(startBeat, velocity, octaveShift) {
     var notes = [];
     var t = startBeat;
     GALLOP.forEach(function (n) {
-      notes.push({ beat: t, duration: n[2], freq: f(n[0], n[1] + (octaveShift || 0)), velocity: velocity });
+      notes.push({
+        beat: t,
+        duration: n[2],
+        freq: f(n[0], n[1] + (octaveShift || 0)),
+        velocity: velocity,
+      });
       t += n[2];
     });
     return notes;
@@ -69,13 +90,21 @@
   // mountain-king.js's motif uses, transposed to this piece's faster gallop
   // rhythm instead of even quarter notes.
   var ECHO = [
-    ['B', 4, 0.75], ['F#', 4, 0.25], ['D', 4, 0.75], ['B', 3, 0.25],
+    ['B', 4, 0.75],
+    ['F#', 4, 0.25],
+    ['D', 4, 0.75],
+    ['B', 3, 0.25],
   ];
   function echoNotes(startBeat, velocity, octaveShift) {
     var notes = [];
     var t = startBeat;
     ECHO.forEach(function (n) {
-      notes.push({ beat: t, duration: n[2], freq: f(n[0], n[1] + (octaveShift || 0)), velocity: velocity });
+      notes.push({
+        beat: t,
+        duration: n[2],
+        freq: f(n[0], n[1] + (octaveShift || 0)),
+        velocity: velocity,
+      });
       t += n[2];
     });
     return notes;
@@ -108,7 +137,12 @@
   // lets up long enough to breathe" line made literal in the track data
   // itself, not just the dynamics curve.
   for (var beat = 0; beat < 64; beat += 0.5) {
-    bass.push({ beat: beat, duration: 0.5, freq: f('B', 2), velocity: 0.5 + 0.1 * Math.sin((beat / 64) * Math.PI * 4) * 0.5 + 0.35 });
+    bass.push({
+      beat: beat,
+      duration: 0.5,
+      freq: f('B', 2),
+      velocity: 0.5 + 0.1 * Math.sin((beat / 64) * Math.PI * 4) * 0.5 + 0.35,
+    });
   }
 
   window.Wordbound.Pieces.valkyrieMarshal = {
@@ -121,7 +155,7 @@
     floor: 3,
     hostageLetterProposal: 'V',
     stageTier: 'late',
-    gain: 0.55,  // level trim; see PIECE FORMAT in music.js
+    gain: 0.55, // level trim; see PIECE FORMAT in music.js
     lengthBeats: 64,
     tempo: 152, // fast and constant throughout -- no accelerando to build into, unlike Mountain King; this piece starts at full gallop.
     tracks: { melody: melody, bass: bass },
@@ -148,10 +182,34 @@
         { beat: 64, intensity: 1.0 },
       ],
       crescendos: [
-        { id: 'surge-1', startBeat: 8, peakBeat: 12, peakIntensity: 0.95, rampDurationBeats: 4 },
-        { id: 'surge-2', startBeat: 24, peakBeat: 28, peakIntensity: 1.0, rampDurationBeats: 4 },
-        { id: 'surge-3', startBeat: 40, peakBeat: 44, peakIntensity: 1.0, rampDurationBeats: 4 },
-        { id: 'surge-4-finale', startBeat: 56, peakBeat: 60, peakIntensity: 1.0, rampDurationBeats: 4 },
+        {
+          id: 'surge-1',
+          startBeat: 8,
+          peakBeat: 12,
+          peakIntensity: 0.95,
+          rampDurationBeats: 4,
+        },
+        {
+          id: 'surge-2',
+          startBeat: 24,
+          peakBeat: 28,
+          peakIntensity: 1.0,
+          rampDurationBeats: 4,
+        },
+        {
+          id: 'surge-3',
+          startBeat: 40,
+          peakBeat: 44,
+          peakIntensity: 1.0,
+          rampDurationBeats: 4,
+        },
+        {
+          id: 'surge-4-finale',
+          startBeat: 56,
+          peakBeat: 60,
+          peakIntensity: 1.0,
+          rampDurationBeats: 4,
+        },
       ],
     },
   };

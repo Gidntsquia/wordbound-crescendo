@@ -30,7 +30,7 @@ function checkZipAvailable() {
   } catch (e) {
     console.error(
       'ERROR: the `zip` command is not available on this system. ' +
-        'Install it (e.g. `apt-get install zip` / `brew install zip`) and re-run.'
+        'Install it (e.g. `apt-get install zip` / `brew install zip`) and re-run.',
     );
     process.exit(1);
   }
@@ -43,7 +43,10 @@ function zipDir(srcDir, outputZip) {
   // -r: recurse into subdirectories (assets/, audio/).
   // Run with cwd = srcDir so the zip's internal paths start at index.html,
   // not at some absolute host path.
-  execFileSync('zip', ['-r', '-X', outputZip, '.'], { cwd: srcDir, stdio: 'inherit' });
+  execFileSync('zip', ['-r', '-X', outputZip, '.'], {
+    cwd: srcDir,
+    stdio: 'inherit',
+  });
 }
 
 function main() {
@@ -60,7 +63,9 @@ function main() {
   zipDir(APP_DIR, OUTPUT_ZIP);
 
   const { size } = fs.statSync(OUTPUT_ZIP);
-  console.log(`\nBuilt ${path.relative(ROOT, OUTPUT_ZIP)} (${(size / 1024 / 1024).toFixed(2)} MB)`);
+  console.log(
+    `\nBuilt ${path.relative(ROOT, OUTPUT_ZIP)} (${(size / 1024 / 1024).toFixed(2)} MB)`,
+  );
 }
 
 if (require.main === module) {

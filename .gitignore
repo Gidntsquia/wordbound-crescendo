@@ -11,3 +11,6 @@ dist/
 public/audio/*.mp3
 !public/audio/fur-elise.mp3
 !public/audio/moonlight-sonata.mp3
+
+# env (READ_SLOWLY_PLAN.md A1)
+.env

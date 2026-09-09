@@ -18,7 +18,9 @@ var missing = required.filter(function (name) {
 
 if (missing.length === 0) process.exit(0);
 
-console.log('[ensure-deps] missing: ' + missing.join(', ') + ' -- running npm install');
+console.log(
+  '[ensure-deps] missing: ' + missing.join(', ') + ' -- running npm install',
+);
 var result = child.spawnSync('npm', ['install', '--no-audit', '--no-fund'], {
   stdio: 'inherit',
   cwd: __dirname + '/..',

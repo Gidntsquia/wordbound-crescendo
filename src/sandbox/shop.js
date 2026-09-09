@@ -27,9 +27,17 @@
   var Sandbox = (window.Wordbound.Sandbox = window.Wordbound.Sandbox || {});
 
   Sandbox.PACK_KINDS = [
-    { kind: 'tile', name: 'Tile pack', hint: 'Three sorts from the foundry — keep one; it joins your tiles for the run' },
+    {
+      kind: 'tile',
+      name: 'Tile pack',
+      hint: 'Three sorts from the foundry — keep one; it joins your tiles for the run',
+    },
     { kind: 'ink', name: 'Ink pack', hint: 'Three inks — keep one' },
-    { kind: 'etude', name: 'Étude pack', hint: 'Three études — keep one, and level a length' }
+    {
+      kind: 'etude',
+      name: 'Étude pack',
+      hint: 'Three études — keep one, and level a length',
+    },
   ];
   Sandbox.RARITY_PRICE = { common: [3, 5], uncommon: [5, 7], rare: [8, 8] };
 
@@ -39,15 +47,20 @@
     return rng ? rng.randInt(band[0], band[1]) : band[0];
   };
 
-  function pick(rng, arr) { return arr[rng.randInt(0, arr.length - 1)]; }
+  function pick(rng, arr) {
+    return arr[rng.randInt(0, arr.length - 1)];
+  }
 
   Sandbox.createShop = function (run, rng) {
     var tune = run.tune;
     var shop = { cards: [], packs: [], rerolls: 0 };
 
     function itemPool(taken) {
-      return Sandbox.ITEMS.map(function (it) { return it.id; }).filter(function (id) {
-        if (Sandbox.isQuillDiscovered && !Sandbox.isQuillDiscovered(id)) return false;
+      return Sandbox.ITEMS.map(function (it) {
+        return it.id;
+      }).filter(function (id) {
+        if (Sandbox.isQuillDiscovered && !Sandbox.isQuillDiscovered(id))
+          return false;
         return run.items.indexOf(id) < 0 && taken.indexOf(id) < 0;
       });
     }
@@ -71,7 +84,9 @@
       if (!pool.length) return null;
       var weights = { common: 70, uncommon: 25, rare: 5 };
       var total = 0;
-      pool.forEach(function (id) { total += weights[Sandbox.ITEM_DEFS[id].rarity || 'common']; });
+      pool.forEach(function (id) {
+        total += weights[Sandbox.ITEM_DEFS[id].rarity || 'common'];
+      });
       var roll = rng.next() * total;
       for (var i = 0; i < pool.length; i++) {
         roll -= weights[Sandbox.ITEM_DEFS[pool[i]].rarity || 'common'];
@@ -85,8 +100,12 @@
       if (r < tune.CARD_ITEM) card = rollItem(taken);
       else if (r < tune.CARD_ITEM + tune.CARD_INK) card = rollInk();
       if (!card) card = rollItem(taken) || rollEtude();
-      card.price = card.kind === 'item' ? Sandbox.priceOf(Sandbox.ITEM_DEFS[card.id], rng)
-        : card.kind === 'ink' ? tune.INK_PRICE : tune.ETUDE_PRICE;
+      card.price =
+        card.kind === 'item'
+          ? Sandbox.priceOf(Sandbox.ITEM_DEFS[card.id], rng)
+          : card.kind === 'ink'
+            ? tune.INK_PRICE
+            : tune.ETUDE_PRICE;
       card.sold = false;
       return card;
     }
@@ -101,29 +120,44 @@
     }
     function rollPacks() {
       shop.packs = [];
-      var kinds = Sandbox.PACK_KINDS.filter(function (k) { return k.kind !== 'ink' || (Sandbox.INKS || []).length; });
+      var kinds = Sandbox.PACK_KINDS.filter(function (k) {
+        return k.kind !== 'ink' || (Sandbox.INKS || []).length;
+      });
       // Distinct kinds while there are enough to go round.
       var left = kinds.slice();
       for (var i = 0; i < tune.PACK_SLOTS; i++) {
         if (!left.length) left = kinds.slice();
         var k = left.splice(rng.randInt(0, left.length - 1), 1)[0];
-        shop.packs.push({ kind: k.kind, price: tune.PACK_PRICE, opened: false });
+        shop.packs.push({
+          kind: k.kind,
+          price: tune.PACK_PRICE,
+          opened: false,
+        });
       }
     }
 
-    shop.rerollPrice = function () { return tune.REROLL_PRICE + tune.REROLL_STEP * shop.rerolls; };
+    shop.rerollPrice = function () {
+      return tune.REROLL_PRICE + tune.REROLL_STEP * shop.rerolls;
+    };
 
     function takeConsumable(c) {
       // An ink is bought or kept regardless of CONSUMABLE_SLOTS -- the UI
       // then offers a choice between using it on the spot (run.drawInkHand
       // + run.useAdhocInk) or holding it (run.saveInk), the latter only
       // when a slot is free.
-      var inkDef = c.kind === 'ink' && Sandbox.INK_DEFS && Sandbox.INK_DEFS[c.id];
+      var inkDef =
+        c.kind === 'ink' && Sandbox.INK_DEFS && Sandbox.INK_DEFS[c.id];
       if (inkDef) return { ok: true, ink: c.id };
       // An étude with nowhere to go is played on the spot instead.
       if (run.consumables.length >= tune.CONSUMABLE_SLOTS) {
-        if (c.kind === 'etude') { run.levelTier(c.id); return { ok: true, used: true }; }
-        return { ok: false, reason: 'No room for another consumable — use or sell one first.' };
+        if (c.kind === 'etude') {
+          run.levelTier(c.id);
+          return { ok: true, used: true };
+        }
+        return {
+          ok: false,
+          reason: 'No room for another consumable — use or sell one first.',
+        };
       }
       run.consumables.push({ kind: c.kind, id: c.id });
       return { ok: true };
@@ -136,7 +170,14 @@
       var used = null;
       var ink = null;
       if (c.kind === 'item') {
-        if (run.items.length >= tune.ITEM_SLOTS) return { ok: false, reason: 'All ' + tune.ITEM_SLOTS + ' quill slots are full — sell one first.' };
+        if (run.items.length >= tune.ITEM_SLOTS)
+          return {
+            ok: false,
+            reason:
+              'All ' +
+              tune.ITEM_SLOTS +
+              ' quill slots are full — sell one first.',
+          };
         run.items.push(c.id);
       } else {
         var t = takeConsumable(c);
@@ -160,11 +201,18 @@
 
     shop.reroll = function () {
       var price = shop.rerollPrice();
-      if (run.gold < price) return { ok: false, reason: 'Not enough gold to reroll (' + price + ').' };
+      if (run.gold < price)
+        return {
+          ok: false,
+          reason: 'Not enough gold to reroll (' + price + ').',
+        };
       run.gold -= price;
       shop.rerolls += 1;
       rollCards();
-      if (shop.coupon) shop.cards.forEach(function (c) { c.price = 0; });
+      if (shop.coupon)
+        shop.cards.forEach(function (c) {
+          c.price = 0;
+        });
       return { ok: true };
     };
 
@@ -184,7 +232,11 @@
           if (Sandbox.isAvailable && !Sandbox.isAvailable(l)) return;
           for (var k = 0; k < counts[l]; k++) letters.push(l);
         });
-        for (var a = 0; a < n; a++) choices.push({ kind: 'tile', tile: Tiles.createTile(pick(rng, letters), null) });
+        for (var a = 0; a < n; a++)
+          choices.push({
+            kind: 'tile',
+            tile: Tiles.createTile(pick(rng, letters), null),
+          });
       } else if (p.kind === 'etude') {
         var etudeTaken = [];
         for (var b = 0; b < n; b++) {
@@ -210,13 +262,18 @@
     run.pick = function (i) {
       var pack = run.pack;
       if (!pack) return { ok: false, reason: 'No pack is open.' };
-      if (i == null) { run.pack = null; return { ok: true }; }
+      if (i == null) {
+        run.pack = null;
+        return { ok: true };
+      }
       var c = pack.choices[i];
       if (!c) return { ok: false, reason: 'Nothing there.' };
       var used = null;
       var ink = null;
-      if (c.kind === 'tile') { if (run.addTile) run.addTile(c.tile); else run.deck.push(c.tile); }
-      else {
+      if (c.kind === 'tile') {
+        if (run.addTile) run.addTile(c.tile);
+        else run.deck.push(c.tile);
+      } else {
         var t = takeConsumable(c);
         if (!t.ok) return t;
         if (t.used) used = t.note || null;
@@ -234,7 +291,10 @@
       if (f === 'free_pack' && shop.packs[0]) shop.packs[0].free = true;
       if (f === 'coupon') shop.coupon = true;
     });
-    if (shop.coupon) shop.cards.forEach(function (c) { c.price = 0; });
+    if (shop.coupon)
+      shop.cards.forEach(function (c) {
+        c.price = 0;
+      });
     return shop;
   };
 })();

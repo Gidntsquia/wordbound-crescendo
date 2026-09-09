@@ -162,17 +162,17 @@ Any licence decision or feel judgement goes in NIGHT_REPORT.md for Jaxon.
 
 ## Time budget
 
-| Phase | Est. | Cumulative |
-|---|---|---|
-| 0 calibrate | 0.5 h | 0.5 h |
-| 1 tiers + études | 1.5 h | 2 h |
-| 2 movements + interest | 1.5 h | 3.5 h |
-| 3 shop | 2.5 h | 6 h |
-| 4 inks + persistent deck | 1.5 h | 7.5 h |
-| 5 item roster | 1.5 h | 9 h |
-| 6 boss rules | 1 h | 10 h |
-| 7 skip + end + persistence | 1 h | 11 h |
-| 8 onboarding + cleanup | 1.5 h | 12.5 h |
+| Phase                      | Est.  | Cumulative |
+| -------------------------- | ----- | ---------- |
+| 0 calibrate                | 0.5 h | 0.5 h      |
+| 1 tiers + études           | 1.5 h | 2 h        |
+| 2 movements + interest     | 1.5 h | 3.5 h      |
+| 3 shop                     | 2.5 h | 6 h        |
+| 4 inks + persistent deck   | 1.5 h | 7.5 h      |
+| 5 item roster              | 1.5 h | 9 h        |
+| 6 boss rules               | 1 h   | 10 h       |
+| 7 skip + end + persistence | 1 h   | 11 h       |
+| 8 onboarding + cleanup     | 1.5 h | 12.5 h     |
 
 Phases 0–3 are the demo. Cut from 7 backwards if short, but always write
 the report and never skip cleanup's CLAUDE.md update for what did ship.

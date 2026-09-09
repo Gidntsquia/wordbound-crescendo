@@ -45,27 +45,87 @@
 
   var BAR = 6; // sixteenths in one 3/8 bar
 
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     return 440 * Math.pow(2, (SEMITONE_FROM_A[note] + (octave - 4) * 12) / 12);
   }
 
   // The two-sixteenth upbeat before bar 1. Heard once, at the very top.
-  var PICKUP = [['E', 5, 1], ['D#', 5, 1]];
+  var PICKUP = [
+    ['E', 5, 1],
+    ['D#', 5, 1],
+  ];
 
   // Each bar is [note, octave, durationIn16ths] summing to BAR; null = rest.
   // The eight bars the score wraps in a repeat. Bars 1 and 5 are the
   // unaccompanied rocking figure; the rest are the melody note (an eighth),
   // a rest, then two sixteenths lifting into the next bar.
   var A_BARS = [
-    [['E', 5, 1], ['D#', 5, 1], ['E', 5, 1], ['B', 4, 1], ['D', 5, 1], ['C', 5, 1]],
-    [['A', 4, 2], [null, 0, 2], ['C', 4, 1], ['E', 4, 1]],
-    [['A', 4, 2], [null, 0, 2], ['E', 4, 1], ['G#', 4, 1]],
-    [['B', 4, 2], [null, 0, 2], ['E', 4, 1], ['E', 5, 1]],
-    [['E', 5, 1], ['D#', 5, 1], ['E', 5, 1], ['B', 4, 1], ['D', 5, 1], ['C', 5, 1]],
-    [['A', 4, 2], [null, 0, 2], ['C', 4, 1], ['E', 4, 1]],
-    [['A', 4, 2], [null, 0, 2], ['E', 4, 1], ['G#', 4, 1]],
-    [['B', 4, 2], [null, 0, 2], ['E', 4, 1], ['C', 5, 1]]
+    [
+      ['E', 5, 1],
+      ['D#', 5, 1],
+      ['E', 5, 1],
+      ['B', 4, 1],
+      ['D', 5, 1],
+      ['C', 5, 1],
+    ],
+    [
+      ['A', 4, 2],
+      [null, 0, 2],
+      ['C', 4, 1],
+      ['E', 4, 1],
+    ],
+    [
+      ['A', 4, 2],
+      [null, 0, 2],
+      ['E', 4, 1],
+      ['G#', 4, 1],
+    ],
+    [
+      ['B', 4, 2],
+      [null, 0, 2],
+      ['E', 4, 1],
+      ['E', 5, 1],
+    ],
+    [
+      ['E', 5, 1],
+      ['D#', 5, 1],
+      ['E', 5, 1],
+      ['B', 4, 1],
+      ['D', 5, 1],
+      ['C', 5, 1],
+    ],
+    [
+      ['A', 4, 2],
+      [null, 0, 2],
+      ['C', 4, 1],
+      ['E', 4, 1],
+    ],
+    [
+      ['A', 4, 2],
+      [null, 0, 2],
+      ['E', 4, 1],
+      ['G#', 4, 1],
+    ],
+    [
+      ['B', 4, 2],
+      [null, 0, 2],
+      ['E', 4, 1],
+      ['C', 5, 1],
+    ],
   ];
   // The left hand rests under the unaccompanied runs (bars 1 and 5).
   var A_CHORDS = [null, 'Am', 'E', 'Am', null, 'Am', 'E', 'Am'];
@@ -80,23 +140,70 @@
   // inner notes are invented. Flagged rather than passed off as the real
   // thing; replacing it needs the score's middle system read properly.
   var B_BARS = [
-    [['C', 5, 2], ['F', 5, 2], ['E', 5, 1], ['F', 5, 1]],
-    [['G', 5, 2], ['A', 5, 4]],
-    [['A', 5, 1], ['G', 5, 1], ['F', 5, 1], ['E', 5, 1], ['D', 5, 2]],
-    [['D', 5, 2], ['G', 5, 2], ['F', 5, 1], ['G', 5, 1]],
-    [['F', 5, 2], ['A', 5, 4]],
-    [['C', 5, 2], ['E', 5, 2], ['D#', 5, 1], ['E', 5, 1]],
-    [['B', 4, 6]]
+    [
+      ['C', 5, 2],
+      ['F', 5, 2],
+      ['E', 5, 1],
+      ['F', 5, 1],
+    ],
+    [
+      ['G', 5, 2],
+      ['A', 5, 4],
+    ],
+    [
+      ['A', 5, 1],
+      ['G', 5, 1],
+      ['F', 5, 1],
+      ['E', 5, 1],
+      ['D', 5, 2],
+    ],
+    [
+      ['D', 5, 2],
+      ['G', 5, 2],
+      ['F', 5, 1],
+      ['G', 5, 1],
+    ],
+    [
+      ['F', 5, 2],
+      ['A', 5, 4],
+    ],
+    [
+      ['C', 5, 2],
+      ['E', 5, 2],
+      ['D#', 5, 1],
+      ['E', 5, 1],
+    ],
+    [['B', 4, 6]],
   ];
   var B_CHORDS = ['F', 'C', 'G', 'C', 'F', 'E', 'E'];
 
   // Root, then the two upper voices.
   var CHORDS = {
-    Am: [['A', 2], ['E', 3], ['A', 3]],
-    E: [['E', 2], ['E', 3], ['G#', 3]],
-    F: [['F', 2], ['A', 2], ['C', 3]],
-    C: [['C', 3], ['E', 3], ['G', 3]],
-    G: [['G', 2], ['B', 2], ['D', 3]]
+    Am: [
+      ['A', 2],
+      ['E', 3],
+      ['A', 3],
+    ],
+    E: [
+      ['E', 2],
+      ['E', 3],
+      ['G#', 3],
+    ],
+    F: [
+      ['F', 2],
+      ['A', 2],
+      ['C', 3],
+    ],
+    C: [
+      ['C', 3],
+      ['E', 3],
+      ['G', 3],
+    ],
+    G: [
+      ['G', 2],
+      ['B', 2],
+      ['D', 3],
+    ],
   };
 
   // A real player leans on the first note of a bar and tapers a run as it
@@ -104,10 +211,11 @@
   // notes are all correct and the playing still sounds like a machine.
   function shape(indexInBar, beatInBar, dur) {
     var v = 1;
-    if (beatInBar === 0) v *= 1.14;          // the downbeat carries the bar
+    if (beatInBar === 0)
+      v *= 1.14; // the downbeat carries the bar
     else if (beatInBar % 2 !== 0) v *= 0.88; // offbeat sixteenths sit under it
-    if (dur >= BAR) v *= 1.06;               // a whole-bar note has to ring
-    v *= 1 - indexInBar * 0.03;              // and a run tapers as it goes
+    if (dur >= BAR) v *= 1.06; // a whole-bar note has to ring
+    v *= 1 - indexInBar * 0.03; // and a run tapers as it goes
     return v;
   }
 
@@ -124,12 +232,20 @@
             beat: beat + span,
             duration: ring,
             freq: f(n[0], n[1]),
-            velocity: baseVel * shape(i, span, n[2])
+            velocity: baseVel * shape(i, span, n[2]),
           });
         }
         span += n[2];
       });
-      if (span !== BAR) throw new Error('Für Elise: bar ' + (barIndex + 1) + ' is ' + span + ' sixteenths, not ' + BAR);
+      if (span !== BAR)
+        throw new Error(
+          'Für Elise: bar ' +
+            (barIndex + 1) +
+            ' is ' +
+            span +
+            ' sixteenths, not ' +
+            BAR,
+        );
     });
     return startBeat + bars.length * BAR;
   }
@@ -144,7 +260,7 @@
           beat: startBeat + bar * BAR + i,
           duration: BAR - i,
           freq: f(pitch[0], pitch[1]),
-          velocity: baseVel * (i === 0 ? 1.12 : 0.94) // the root grounds it
+          velocity: baseVel * (i === 0 ? 1.12 : 0.94), // the root grounds it
         });
       });
     });
@@ -159,7 +275,12 @@
 
   // Upbeat, then the theme as written -- twice, per the repeat.
   PICKUP.forEach(function (n, i) {
-    melody.push({ beat: i, duration: n[2], freq: f(n[0], n[1]), velocity: 0.46 });
+    melody.push({
+      beat: i,
+      duration: n[2],
+      freq: f(n[0], n[1]),
+      velocity: 0.46,
+    });
   });
   var cursor = PICKUP.length;
 
@@ -190,7 +311,8 @@
     composer: 'Ludwig van Beethoven',
     vetting: { composed: 1810, composerDied: 1827, publicDomain: true },
     regularName: 'The Bagatelle',
-    gimmick: 'Everyone knows the first eight notes. Nobody remembers what comes next.',
+    gimmick:
+      'Everyone knows the first eight notes. Nobody remembers what comes next.',
     stageTier: 'early',
     // Level trim (see PIECE FORMAT in music.js). Pedalling raised the piece's
     // density, so it lands mid-band against the rest of the set at 0.8.
@@ -204,14 +326,14 @@
     // not hold one metronomic tempo through a rondo.
     tempo: [
       { beat: 0, bpm: 280 },
-      { beat: marks.a2 - BAR, bpm: 268 },  // easing round into the repeat
+      { beat: marks.a2 - BAR, bpm: 268 }, // easing round into the repeat
       { beat: marks.a2, bpm: 280 },
       { beat: marks.b - BAR, bpm: 270 },
-      { beat: marks.b, bpm: 292 },         // the middle strain picks up
+      { beat: marks.b, bpm: 292 }, // the middle strain picks up
       { beat: marks.b + 30, bpm: 300 },
-      { beat: marks.a3 - BAR, bpm: 262 },  // dim., pulling back for the return
+      { beat: marks.a3 - BAR, bpm: 262 }, // dim., pulling back for the return
       { beat: marks.a3, bpm: 280 },
-      { beat: marks.close - BAR, bpm: 244 } // closing ritardando
+      { beat: marks.close - BAR, bpm: 244 }, // closing ritardando
     ],
     tracks: { melody: melody, bass: bass },
     voices: { melody: 'piano', bass: 'piano' },
@@ -224,14 +346,26 @@
         { beat: marks.b, intensity: 0.5 },
         { beat: marks.b + 24, intensity: 0.68 },
         { beat: marks.a3 - BAR, intensity: 0.34 }, // dim.
-        { beat: marks.a3, intensity: 0.16 },       // pp
+        { beat: marks.a3, intensity: 0.16 }, // pp
         { beat: marks.close, intensity: 0.14 },
-        { beat: LENGTH, intensity: 0.12 }
+        { beat: LENGTH, intensity: 0.12 },
       ],
       crescendos: [
-        { id: 'the-climb', startBeat: marks.b, peakBeat: marks.b + 24, peakIntensity: 0.68, rampDurationBeats: 24 },
-        { id: 'the-return', startBeat: marks.a3, peakBeat: marks.a3 + 8, peakIntensity: 0.4, rampDurationBeats: 8 }
-      ]
-    }
+        {
+          id: 'the-climb',
+          startBeat: marks.b,
+          peakBeat: marks.b + 24,
+          peakIntensity: 0.68,
+          rampDurationBeats: 24,
+        },
+        {
+          id: 'the-return',
+          startBeat: marks.a3,
+          peakBeat: marks.a3 + 8,
+          peakIntensity: 0.4,
+          rampDurationBeats: 8,
+        },
+      ],
+    },
   };
 })();

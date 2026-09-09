@@ -13,10 +13,18 @@ const DIST = path.join(ROOT, 'dist', 'app');
 const SITE = path.join(ROOT, 'dist', 'site');
 
 // The fetched recordings are not in git; pull any that are missing first.
-if (spawnSync('node', ['tools/fetch-audio.js', '--check'], { cwd: ROOT, stdio: 'ignore' }).status !== 0) {
-  execFileSync('node', ['tools/fetch-audio.js'], { cwd: ROOT, stdio: 'inherit' });
+if (
+  spawnSync('bun', ['tools/fetch-audio.js', '--check'], {
+    cwd: ROOT,
+    stdio: 'ignore',
+  }).status !== 0
+) {
+  execFileSync('bun', ['tools/fetch-audio.js'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  });
 }
-execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'inherit' });
+execFileSync('bunx', ['vite', 'build'], { cwd: ROOT, stdio: 'inherit' });
 
 fs.rmSync(SITE, { recursive: true, force: true });
 fs.cpSync(DIST, SITE, { recursive: true });

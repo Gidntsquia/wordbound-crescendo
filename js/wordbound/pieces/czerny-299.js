@@ -55,7 +55,20 @@
   window.Wordbound = window.Wordbound || {};
   window.Wordbound.Pieces = window.Wordbound.Pieces || {};
 
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     var n = SEMITONE_FROM_A[note] + (octave - 4) * 12;
     return 440 * Math.pow(2, n / 12);
@@ -86,7 +99,12 @@
     var notes = [];
     SCALE_CELL.forEach(function (token, i) {
       var n = parseNote(token);
-      notes.push({ beat: startBeat + i * 0.5, duration: 0.5, freq: f(n.note, n.octave), velocity: MELODY_VELOCITY });
+      notes.push({
+        beat: startBeat + i * 0.5,
+        duration: 0.5,
+        freq: f(n.note, n.octave),
+        velocity: MELODY_VELOCITY,
+      });
     });
     return notes;
   }
@@ -101,7 +119,12 @@
 
   var bass = [];
   for (var b = 0; b < LENGTH_BEATS; b++) {
-    bass.push({ beat: b, duration: 1, freq: f(BASS_NOTE, BASS_OCTAVE), velocity: BASS_VELOCITY });
+    bass.push({
+      beat: b,
+      duration: 1,
+      freq: f(BASS_NOTE, BASS_OCTAVE),
+      velocity: BASS_VELOCITY,
+    });
   }
 
   window.Wordbound.Pieces.czerny299 = {
@@ -110,9 +133,10 @@
     composer: 'Carl Czerny',
     vetting: { composed: 1834, composerDied: 1857, publicDomain: true },
     regularName: 'The Metronome',
-    gimmick: 'Mechanical, relentless, perfectly even — no surprise crescendos, just unceasing pressure that never actually stops to breathe.',
+    gimmick:
+      'Mechanical, relentless, perfectly even — no surprise crescendos, just unceasing pressure that never actually stops to breathe.',
     stageTier: 'mid',
-    gain: 1.7,  // level trim; see PIECE FORMAT in music.js
+    gain: 1.7, // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH_BEATS,
     tempo: 132, // brisk, unrelenting -- a velocity study's own real tempo character, unlike every calmer piece in this directory
     tracks: { melody: melody, bass: bass },
@@ -130,13 +154,13 @@
         { beat: 16, intensity: 0.32 },
         { beat: 32, intensity: 0.34 },
         { beat: 48, intensity: 0.32 },
-        { beat: 64, intensity: 0.3 }
-      ]
+        { beat: 64, intensity: 0.3 },
+      ],
       // No `crescendos` entries at all, on purpose (see header comment) --
       // music.js's own scheduling code guards this with
       // `(piece.dynamics && piece.dynamics.crescendos) || []`, confirmed
       // directly in music.js rather than assumed, same convention
       // air-g-string.js's own "no crescendos" piece already established.
-    }
+    },
   };
 })();

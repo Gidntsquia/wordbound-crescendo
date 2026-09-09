@@ -38,7 +38,20 @@
   window.Wordbound = window.Wordbound || {};
   window.Wordbound.Pieces = window.Wordbound.Pieces || {};
 
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     var n = SEMITONE_FROM_A[note] + (octave - 4) * 12;
     return 440 * Math.pow(2, n / 12);
@@ -48,14 +61,25 @@
   // phrase in E major, stated twice per statement (question/answer), one
   // statement = 16 beats.
   var THEME = [
-    ['E', 5, 2], ['F#', 5, 1], ['G#', 5, 1], ['B', 5, 2],
-    ['A', 5, 2], ['G#', 5, 1], ['F#', 5, 1], ['E', 5, 2]
+    ['E', 5, 2],
+    ['F#', 5, 1],
+    ['G#', 5, 1],
+    ['B', 5, 2],
+    ['A', 5, 2],
+    ['G#', 5, 1],
+    ['F#', 5, 1],
+    ['E', 5, 2],
   ];
   function themeNotes(startBeat, velocity, octaveShift) {
     var notes = [];
     var beat = startBeat;
     THEME.forEach(function (n) {
-      notes.push({ beat: beat, duration: n[2], freq: f(n[0], n[1] + (octaveShift || 0)), velocity: velocity });
+      notes.push({
+        beat: beat,
+        duration: n[2],
+        freq: f(n[0], n[1] + (octaveShift || 0)),
+        velocity: velocity,
+      });
       beat += n[2];
     });
     return notes;
@@ -70,7 +94,7 @@
   var STATEMENTS = [
     { start: 0, velocity: 0.1, withHarmony: false },
     { start: 16, velocity: 0.16, withHarmony: true },
-    { start: 32, velocity: 0.22, withHarmony: true }
+    { start: 32, velocity: 0.22, withHarmony: true },
   ];
   STATEMENTS.forEach(function (s) {
     melody = melody.concat(themeNotes(s.start, s.velocity));
@@ -85,9 +109,10 @@
     composer: 'Edvard Grieg',
     vetting: { composed: 1875, composerDied: 1907, publicDomain: true },
     regularName: 'Morning Mood',
-    gimmick: 'Wakes up slowly over the whole fight. Starts nearly harmless, ends only mildly less so.',
+    gimmick:
+      'Wakes up slowly over the whole fight. Starts nearly harmless, ends only mildly less so.',
     stageTier: 'early',
-    gain: 2.6,  // level trim; see PIECE FORMAT in music.js
+    gain: 2.6, // level trim; see PIECE FORMAT in music.js
     lengthBeats: 48,
     tempo: 76,
     tracks: { melody: melody, harmony: harmony },
@@ -103,11 +128,17 @@
         { beat: 0, intensity: 0.03 },
         { beat: 16, intensity: 0.05 },
         { beat: 32, intensity: 0.07 },
-        { beat: 48, intensity: 0.1 }
+        { beat: 48, intensity: 0.1 },
       ],
       crescendos: [
-        { id: 'the-slow-wake', startBeat: 0, peakBeat: 48, peakIntensity: 0.1, rampDurationBeats: 48 }
-      ]
-    }
+        {
+          id: 'the-slow-wake',
+          startBeat: 0,
+          peakBeat: 48,
+          peakIntensity: 0.1,
+          rampDurationBeats: 48,
+        },
+      ],
+    },
   };
 })();

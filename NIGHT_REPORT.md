@@ -5,17 +5,17 @@ nothing was cut. Live: https://gidntsquia.github.io/wordbound-crescendo/
 
 ## What shipped (one commit per phase, `SANDBOX:` prefix)
 
-| Phase | Commit | What |
-|---|---|---|
-| 0 calibrate | (in round.js header) | Greedy solver, 2,000 rounds per bag, uncapped: normal bag mean 779 / p10 528 / p90 1080 on the tier table; mean best word 5.4 letters. |
-| 1 tiers | f9a5aa1 | SHORT/THREE/FOUR/FIVE/SIX/SEVEN, base points × mult, études level them. Breakdown says "FIVE · lvl 2". Tuning panel edits every tier. |
-| 2 movements | 137a185 | `enemies.js`: two movements of small/big/boss. Targets 300/450/600 then 750/1125/1500. Gold 3/4/5 +1 per unused word, start 4, interest 1 per 5 held cap 5. Run strip across the top. |
-| 3 shop | 7fc5251 | `shop.js` after every won fight: 2 cards (70/15/15 item/ink/étude), 2 packs at 4 (keep 1 of 3), reroll 5 +1, sell for half, 5 item slots, 2 consumable slots. One deck per run. |
-| 4 inks | 8e90917 | `inks.js`: gilt +20, bold +2 mult, steel ×1.2 held, blank, vowel shift, erase, coin. Choose-a-tile mode on the case. |
-| 5 items | 70d928a | `items.js`: 15 items firing left to right with the chain written out in the breakdown line. Refrain scales, Coda ×2 on the last word, Miser, Fermata. Reorder buttons (dragReorder was not a fit for cards). |
-| 6 boss rules | a09765e | four_knocks, presto, no_repeats. Rule card under the target in the enemy's voice; barred tiles greyed with a strike. |
-| 7 skip / end | 237c446 | Skip small/big before the first word for Free Pack, Coupon or Bounty (+8). End screen with felled pips, best word, gold, items, Play Again with a fresh seed, copyable seed. `wbc.best` in localStorage. |
-| 8 cleanup | (this commit) | First-run overlay (`wbc.seen`), gear button folding setup/tuning away under 620px, score fly, tap targets ≥44px on phone, `tugOfWar.js` / `TugSandbox.jsx` / `sequencedSurges.js` deleted, CLAUDE.md map rewritten. |
+| Phase        | Commit               | What                                                                                                                                                                                                                |
+| ------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 calibrate  | (in round.js header) | Greedy solver, 2,000 rounds per bag, uncapped: normal bag mean 779 / p10 528 / p90 1080 on the tier table; mean best word 5.4 letters.                                                                              |
+| 1 tiers      | f9a5aa1              | SHORT/THREE/FOUR/FIVE/SIX/SEVEN, base points × mult, études level them. Breakdown says "FIVE · lvl 2". Tuning panel edits every tier.                                                                               |
+| 2 movements  | 137a185              | `enemies.js`: two movements of small/big/boss. Targets 300/450/600 then 750/1125/1500. Gold 3/4/5 +1 per unused word, start 4, interest 1 per 5 held cap 5. Run strip across the top.                               |
+| 3 shop       | 7fc5251              | `shop.js` after every won fight: 2 cards (70/15/15 item/ink/étude), 2 packs at 4 (keep 1 of 3), reroll 5 +1, sell for half, 5 item slots, 2 consumable slots. One deck per run.                                     |
+| 4 inks       | 8e90917              | `inks.js`: gilt +20, bold +2 mult, steel ×1.2 held, blank, vowel shift, erase, coin. Choose-a-tile mode on the case.                                                                                                |
+| 5 items      | 70d928a              | `items.js`: 15 items firing left to right with the chain written out in the breakdown line. Refrain scales, Coda ×2 on the last word, Miser, Fermata. Reorder buttons (dragReorder was not a fit for cards).        |
+| 6 boss rules | a09765e              | four_knocks, presto, no_repeats. Rule card under the target in the enemy's voice; barred tiles greyed with a strike.                                                                                                |
+| 7 skip / end | 237c446              | Skip small/big before the first word for Free Pack, Coupon or Bounty (+8). End screen with felled pips, best word, gold, items, Play Again with a fresh seed, copyable seed. `wbc.best` in localStorage.            |
+| 8 cleanup    | (this commit)        | First-run overlay (`wbc.seen`), gear button folding setup/tuning away under 620px, score fly, tap targets ≥44px on phone, `tugOfWar.js` / `TugSandbox.jsx` / `sequencedSurges.js` deleted, CLAUDE.md map rewritten. |
 
 Verification per phase: `npm run build` clean, then a headless Chromium
 driver (scratchpad, not committed) played the built sandbox through a full

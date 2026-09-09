@@ -185,7 +185,7 @@ headless driver run at 1280 wide and 390×844 with zero page errors.
   tree when this session started), then stages 2-4, then the rest of stage
   5, matching "Order of work" exactly.
 - Stage 5, itch build: rewrote tools/build-itch.js to run the real `vite
-  build` and zip dist/app/ directly instead of hand-staging a dependency
+build` and zip dist/app/ directly instead of hand-staging a dependency
   list against the now-deleted wordbound.html. Reason: the old script's
   entire premise (two different games sharing a repo, itch wanting the
   other one) no longer holds now that the sandbox is the only app.

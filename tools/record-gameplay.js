@@ -46,14 +46,27 @@ function startServer() {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
       const urlPath = req.url.split('?')[0];
-      const filePath = path.join(ROOT, urlPath === '/' ? 'wordbound.html' : urlPath);
-      if (!filePath.startsWith(ROOT) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      const filePath = path.join(
+        ROOT,
+        urlPath === '/' ? 'wordbound.html' : urlPath,
+      );
+      if (
+        !filePath.startsWith(ROOT) ||
+        !fs.existsSync(filePath) ||
+        fs.statSync(filePath).isDirectory()
+      ) {
         res.writeHead(404);
         return res.end('not found');
       }
       const ext = path.extname(filePath);
-      const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
-      res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream' });
+      const types = {
+        '.html': 'text/html',
+        '.js': 'text/javascript',
+        '.css': 'text/css',
+      };
+      res.writeHead(200, {
+        'Content-Type': types[ext] || 'application/octet-stream',
+      });
       fs.createReadStream(filePath).pipe(res);
     });
     server.listen(PORT, () => resolve(server));
@@ -63,12 +76,18 @@ function startServer() {
 function checkFfmpeg() {
   let out;
   try {
-    out = execFileSync('ffmpeg', ['-hide_banner', '-filters'], { encoding: 'utf8' });
+    out = execFileSync('ffmpeg', ['-hide_banner', '-filters'], {
+      encoding: 'utf8',
+    });
   } catch (e) {
-    throw new Error('`ffmpeg` not found on PATH. Install a full build: apt-get install -y ffmpeg (the bundled /opt/pw-browsers ffmpeg lacks gif support, see this file\'s header comment).');
+    throw new Error(
+      "`ffmpeg` not found on PATH. Install a full build: apt-get install -y ffmpeg (the bundled /opt/pw-browsers ffmpeg lacks gif support, see this file's header comment).",
+    );
   }
   if (!/palettegen/.test(out) || !/paletteuse/.test(out)) {
-    throw new Error('`ffmpeg` on PATH is missing palettegen/paletteuse filters (likely the stripped Playwright-internal build). Install a full build: apt-get install -y ffmpeg.');
+    throw new Error(
+      '`ffmpeg` on PATH is missing palettegen/paletteuse filters (likely the stripped Playwright-internal build). Install a full build: apt-get install -y ffmpeg.',
+    );
   }
 }
 
@@ -125,17 +144,24 @@ async function main() {
   const server = await startServer();
   const sandboxChromiumPath = '/opt/pw-browsers/chromium';
   const launchOpts = { headless: true };
-  if (fs.existsSync(sandboxChromiumPath)) launchOpts.executablePath = sandboxChromiumPath;
+  if (fs.existsSync(sandboxChromiumPath))
+    launchOpts.executablePath = sandboxChromiumPath;
   const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext({
     viewport: VIDEO_SIZE,
     recordVideo: { dir: RAW_DIR, size: VIDEO_SIZE },
   });
   const page = await context.newPage();
-  page.on('pageerror', (e) => console.log('pageerror (non-fatal for a recording pass):', e.message));
+  page.on('pageerror', (e) =>
+    console.log('pageerror (non-fatal for a recording pass):', e.message),
+  );
 
-  await page.goto(`http://localhost:${PORT}/wordbound.html`, { waitUntil: 'load' });
-  await page.waitForFunction('window.Wordbound && window.Wordbound.Game && window.Wordbound.Game._state');
+  await page.goto(`http://localhost:${PORT}/wordbound.html`, {
+    waitUntil: 'load',
+  });
+  await page.waitForFunction(
+    'window.Wordbound && window.Wordbound.Game && window.Wordbound.Game._state',
+  );
   // this clip is about core gameplay, not the onboarding panel -- suppress the
   // one-time first-combat How to Play auto-show (localStorage-gated) so it
   // doesn't block #btn-submit-word mid-recording
@@ -150,13 +176,17 @@ async function main() {
 
   // setup, not the recorded interaction: headroom so the clip doesn't end on
   // an unlucky player death mid-fight
-  await page.evaluate('(function(){var p=window.Wordbound.Game._state.player;p.maxInk=200;p.ink=200;})()');
+  await page.evaluate(
+    '(function(){var p=window.Wordbound.Game._state.player;p.maxInk=200;p.ink=200;})()',
+  );
 
   // ---- first combat, organic (floor.js always puts a combat node first) ----
   await page.click('.node-pill.node-current');
   await page.waitForTimeout(700);
   for (let i = 0; i < 5; i++) {
-    const st = await page.evaluate('({ combatActive: window.Wordbound.Game._state.combatActive })');
+    const st = await page.evaluate(
+      '({ combatActive: window.Wordbound.Game._state.combatActive })',
+    );
     if (!st.combatActive) break;
     const word = await playOneWord(page);
     if (!word) break;
@@ -197,7 +227,10 @@ async function main() {
   server.close();
 
   const videoFiles = fs.readdirSync(RAW_DIR).filter((f) => f.endsWith('.webm'));
-  if (!videoFiles.length) throw new Error('no .webm produced by Playwright recordVideo in ' + RAW_DIR);
+  if (!videoFiles.length)
+    throw new Error(
+      'no .webm produced by Playwright recordVideo in ' + RAW_DIR,
+    );
   const rawWebm = path.join(RAW_DIR, videoFiles[0]);
 
   const mp4Out = path.join(DOCS_DIR, 'gameplay.mp4');
@@ -205,21 +238,66 @@ async function main() {
   const paletteOut = path.join(RAW_DIR, 'palette.png');
 
   console.log('Encoding docs/gameplay.mp4 (source clip, for itch.io)...');
-  execFileSync('ffmpeg', ['-y', '-i', rawWebm, '-c:v', 'libx264', '-crf', '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4Out], { stdio: 'inherit' });
+  execFileSync(
+    'ffmpeg',
+    [
+      '-y',
+      '-i',
+      rawWebm,
+      '-c:v',
+      'libx264',
+      '-crf',
+      '20',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      mp4Out,
+    ],
+    { stdio: 'inherit' },
+  );
 
   console.log('Generating gif palette...');
-  execFileSync('ffmpeg', ['-y', '-i', rawWebm, '-vf', `fps=12,scale=${GIF_WIDTH}:-1:flags=lanczos,palettegen`, paletteOut], { stdio: 'inherit' });
+  execFileSync(
+    'ffmpeg',
+    [
+      '-y',
+      '-i',
+      rawWebm,
+      '-vf',
+      `fps=12,scale=${GIF_WIDTH}:-1:flags=lanczos,palettegen`,
+      paletteOut,
+    ],
+    { stdio: 'inherit' },
+  );
 
   console.log('Encoding docs/gameplay.gif (README)...');
-  execFileSync('ffmpeg', ['-y', '-i', rawWebm, '-i', paletteOut, '-filter_complex', `fps=12,scale=${GIF_WIDTH}:-1:flags=lanczos[x];[x][1:v]paletteuse`, gifOut], { stdio: 'inherit' });
+  execFileSync(
+    'ffmpeg',
+    [
+      '-y',
+      '-i',
+      rawWebm,
+      '-i',
+      paletteOut,
+      '-filter_complex',
+      `fps=12,scale=${GIF_WIDTH}:-1:flags=lanczos[x];[x][1:v]paletteuse`,
+      gifOut,
+    ],
+    { stdio: 'inherit' },
+  );
 
   fs.rmSync(RAW_DIR, { recursive: true, force: true });
 
   const gifSize = fs.statSync(gifOut).size;
   const mp4Size = fs.statSync(mp4Out).size;
   console.log('');
-  console.log('docs/gameplay.gif: ' + (gifSize / 1024 / 1024).toFixed(2) + ' MB');
-  console.log('docs/gameplay.mp4: ' + (mp4Size / 1024 / 1024).toFixed(2) + ' MB');
+  console.log(
+    'docs/gameplay.gif: ' + (gifSize / 1024 / 1024).toFixed(2) + ' MB',
+  );
+  console.log(
+    'docs/gameplay.mp4: ' + (mp4Size / 1024 / 1024).toFixed(2) + ' MB',
+  );
 }
 
 main().catch((e) => {

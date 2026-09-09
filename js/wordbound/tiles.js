@@ -43,26 +43,47 @@
   Tiles.BONUS_TYPES = {
     FLAT_ON_PLAY: 'flatOnPlay',
     MULT_ON_PLAY: 'multOnPlay',
-    MULT_ON_HOLD: 'multOnHold'
+    MULT_ON_HOLD: 'multOnHold',
   };
 
   Tiles.VARIANTS = {
     GILDED: 'gilded',
     CHARGED: 'charged',
     VAMPIRIC: 'vampiric',
-    VOLATILE: 'volatile'
+    VOLATILE: 'volatile',
   };
 
-  var STARTER_DECK_LETTERS = ['A', 'E', 'I', 'O', 'U', 'N', 'R', 'S', 'T', 'L', 'D', 'G'];
+  var STARTER_DECK_LETTERS = [
+    'A',
+    'E',
+    'I',
+    'O',
+    'U',
+    'N',
+    'R',
+    'S',
+    'T',
+    'L',
+    'D',
+    'G',
+  ];
 
   var nextTileId = 1;
 
   Tiles.createTile = function (letter, bonus, variant) {
-    return { id: 'tile' + (nextTileId++), letter: letter, bonus: bonus || null, variant: variant || null, crackedThisFight: false };
+    return {
+      id: 'tile' + nextTileId++,
+      letter: letter,
+      bonus: bonus || null,
+      variant: variant || null,
+      crackedThisFight: false,
+    };
   };
 
   Tiles.createStarterDeck = function () {
-    return STARTER_DECK_LETTERS.map(function (letter) { return Tiles.createTile(letter, null); });
+    return STARTER_DECK_LETTERS.map(function (letter) {
+      return Tiles.createTile(letter, null);
+    });
   };
 
   // Weighted by standard Scrabble letter frequency (Lexicon.LETTER_POOL),
@@ -75,7 +96,8 @@
     var Lexicon = window.Wordbound.Lexicon;
     baseLetterFrequencyPool = [];
     Object.keys(Lexicon.LETTER_POOL).forEach(function (letter) {
-      for (var i = 0; i < Lexicon.LETTER_POOL[letter]; i++) baseLetterFrequencyPool.push(letter);
+      for (var i = 0; i < Lexicon.LETTER_POOL[letter]; i++)
+        baseLetterFrequencyPool.push(letter);
     });
     return baseLetterFrequencyPool;
   }
@@ -93,15 +115,22 @@
     var StolenLetters = window.Wordbound.StolenLetters;
     var base = getBaseLetterFrequencyPool();
     if (!StolenLetters) return base;
-    return base.filter(function (letter) { return !StolenLetters.isStolen(letter); });
+    return base.filter(function (letter) {
+      return !StolenLetters.isStolen(letter);
+    });
   }
 
   var BONUS_CHANCE = 0.18;
 
   function rollBonus(rng) {
     if (!rng.chance(BONUS_CHANCE)) return null;
-    var type = rng.choice([Tiles.BONUS_TYPES.FLAT_ON_PLAY, Tiles.BONUS_TYPES.MULT_ON_PLAY, Tiles.BONUS_TYPES.MULT_ON_HOLD]);
-    if (type === Tiles.BONUS_TYPES.FLAT_ON_PLAY) return { type: type, amount: rng.randInt(3, 6) };
+    var type = rng.choice([
+      Tiles.BONUS_TYPES.FLAT_ON_PLAY,
+      Tiles.BONUS_TYPES.MULT_ON_PLAY,
+      Tiles.BONUS_TYPES.MULT_ON_HOLD,
+    ]);
+    if (type === Tiles.BONUS_TYPES.FLAT_ON_PLAY)
+      return { type: type, amount: rng.randInt(3, 6) };
     return { type: type, amount: rng.choice([1.5, 2]) };
   }
 
@@ -112,7 +141,12 @@
   // VARIANT_CHANCE (the ticket's own "roughly 25% of tile-reward offers")
   // rather than a rate conditioned on the legacy roll missing first.
   var VARIANT_CHANCE = 0.25;
-  var VARIANT_LIST = [Tiles.VARIANTS.GILDED, Tiles.VARIANTS.CHARGED, Tiles.VARIANTS.VAMPIRIC, Tiles.VARIANTS.VOLATILE];
+  var VARIANT_LIST = [
+    Tiles.VARIANTS.GILDED,
+    Tiles.VARIANTS.CHARGED,
+    Tiles.VARIANTS.VAMPIRIC,
+    Tiles.VARIANTS.VOLATILE,
+  ];
 
   function rollVariant(rng) {
     return rng.choice(VARIANT_LIST);
@@ -142,18 +176,24 @@
 
   Tiles.describeBonus = function (bonus) {
     if (!bonus) return null;
-    if (bonus.type === Tiles.BONUS_TYPES.FLAT_ON_PLAY) return '+' + bonus.amount + ' score when played';
-    if (bonus.type === Tiles.BONUS_TYPES.MULT_ON_PLAY) return '×' + bonus.amount + ' score when played';
-    if (bonus.type === Tiles.BONUS_TYPES.MULT_ON_HOLD) return '×' + bonus.amount + ' score when held (not played)';
+    if (bonus.type === Tiles.BONUS_TYPES.FLAT_ON_PLAY)
+      return '+' + bonus.amount + ' score when played';
+    if (bonus.type === Tiles.BONUS_TYPES.MULT_ON_PLAY)
+      return '×' + bonus.amount + ' score when played';
+    if (bonus.type === Tiles.BONUS_TYPES.MULT_ON_HOLD)
+      return '×' + bonus.amount + ' score when held (not played)';
     return null;
   };
 
   Tiles.describeVariant = function (variant) {
     if (!variant) return null;
     if (variant === Tiles.VARIANTS.GILDED) return 'Gilded: +2 gold when played';
-    if (variant === Tiles.VARIANTS.CHARGED) return 'Charged: +4 damage when played';
-    if (variant === Tiles.VARIANTS.VAMPIRIC) return 'Vampiric: heal 1 ink when played';
-    if (variant === Tiles.VARIANTS.VOLATILE) return 'Volatile: letter scores ×2; 25% chance to crack when played (gone until next fight)';
+    if (variant === Tiles.VARIANTS.CHARGED)
+      return 'Charged: +4 damage when played';
+    if (variant === Tiles.VARIANTS.VAMPIRIC)
+      return 'Vampiric: heal 1 ink when played';
+    if (variant === Tiles.VARIANTS.VOLATILE)
+      return 'Volatile: letter scores ×2; 25% chance to crack when played (gone until next fight)';
     return null;
   };
 

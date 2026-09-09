@@ -48,20 +48,28 @@
   }
 
   Sandbox.isWordMakerReady = function () {
-    return !!anagramMap && builtUpTo >= (window.Wordbound.WORDLIST || []).length;
+    return (
+      !!anagramMap && builtUpTo >= (window.Wordbound.WORDLIST || []).length
+    );
   };
   Sandbox.warmWordMaker = function (onDone) {
     var list = window.Wordbound.WORDLIST || [];
     if (!anagramMap) anagramMap = new Map();
     (function step() {
-      if (builtUpTo >= list.length) { if (onDone) onDone(); return; }
+      if (builtUpTo >= list.length) {
+        if (onDone) onDone();
+        return;
+      }
       buildSlice(anagramMap, list, Math.min(list.length, builtUpTo + SLICE));
       setTimeout(step, 0);
     })();
   };
 
   function splitLetters(letters) {
-    var chars = String(letters || '').toUpperCase().replace(/[^A-Z?]/g, '').split('');
+    var chars = String(letters || '')
+      .toUpperCase()
+      .replace(/[^A-Z?]/g, '')
+      .split('');
     if (chars.length > 12) chars = chars.slice(0, 12);
     var fixed = [];
     var blanks = 0;
@@ -82,7 +90,11 @@
   // nothing at all.
   Sandbox.findWords = function (letters, score, limit) {
     var map = buildMap();
-    var scoreOf = score || function (w) { return w.length; };
+    var scoreOf =
+      score ||
+      function (w) {
+        return w.length;
+      };
     var max = limit || 8;
     var split = splitLetters(letters);
     var fixed = split.fixed;
@@ -103,13 +115,18 @@
       for (var a = 0; a < 26; a++) consider(fixed.concat([ALPHABET[a]]));
     } else {
       for (var b1 = 0; b1 < 26; b1++) {
-        for (var b2 = b1; b2 < 26; b2++) consider(fixed.concat([ALPHABET[b1], ALPHABET[b2]]));
+        for (var b2 = b1; b2 < 26; b2++)
+          consider(fixed.concat([ALPHABET[b1], ALPHABET[b2]]));
       }
     }
 
     var out = [];
-    found.forEach(function (value, key) { out.push({ word: key, score: value }); });
-    out.sort(function (x, y) { return y.score - x.score || x.word.localeCompare(y.word); });
+    found.forEach(function (value, key) {
+      out.push({ word: key, score: value });
+    });
+    out.sort(function (x, y) {
+      return y.score - x.score || x.word.localeCompare(y.word);
+    });
     return out.slice(0, max);
   };
 
@@ -120,7 +137,11 @@
   // spells that word exactly and findWords above still agrees.
   Sandbox.bestFromRack = function (letters, score, limit) {
     var map = buildMap();
-    var scoreOf = score || function (w) { return w.length; };
+    var scoreOf =
+      score ||
+      function (w) {
+        return w.length;
+      };
     var max = limit || 8;
     var split = splitLetters(letters);
     var fixed = split.fixed;
@@ -137,9 +158,10 @@
     }
 
     var n = fixed.length;
-    for (var mask = 0; mask < (1 << n); mask++) {
+    for (var mask = 0; mask < 1 << n; mask++) {
       var subset = [];
-      for (var bit = 0; bit < n; bit++) if (mask & (1 << bit)) subset.push(fixed[bit]);
+      for (var bit = 0; bit < n; bit++)
+        if (mask & (1 << bit)) subset.push(fixed[bit]);
       consider(subset);
       if (split.blanks >= 1) {
         for (var a = 0; a < 26; a++) {
@@ -153,8 +175,12 @@
     }
 
     var out = [];
-    found.forEach(function (value, key) { out.push({ word: key, score: value }); });
-    out.sort(function (x, y) { return y.score - x.score || x.word.localeCompare(y.word); });
+    found.forEach(function (value, key) {
+      out.push({ word: key, score: value });
+    });
+    out.sort(function (x, y) {
+      return y.score - x.score || x.word.localeCompare(y.word);
+    });
     return out.slice(0, max);
   };
 })();

@@ -54,7 +54,20 @@
   window.Wordbound = window.Wordbound || {};
   window.Wordbound.Pieces = window.Wordbound.Pieces || {};
 
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     var n = SEMITONE_FROM_A[note] + (octave - 4) * 12;
     return 440 * Math.pow(2, n / 12);
@@ -67,7 +80,12 @@
   function habaneraCell(startBeat, velocity) {
     return [
       { beat: startBeat, duration: 1.5, freq: f('D', 3), velocity: velocity },
-      { beat: startBeat + 1.5, duration: 0.5, freq: f('A', 2), velocity: velocity }
+      {
+        beat: startBeat + 1.5,
+        duration: 0.5,
+        freq: f('A', 2),
+        velocity: velocity,
+      },
     ];
   }
 
@@ -90,7 +108,12 @@
     var beat = startBeat;
     phrase.forEach(function (token) {
       var n = parseNote(token);
-      notes.push({ beat: beat, duration: 1, freq: f(n.note, n.octave), velocity: velocity });
+      notes.push({
+        beat: beat,
+        duration: 1,
+        freq: f(n.note, n.octave),
+        velocity: velocity,
+      });
       beat += 1;
     });
     return notes;
@@ -109,7 +132,7 @@
     { phrase: PHRASE_C, velocity: 0.16 },
     { phrase: PHRASE_A, velocity: 0.16 },
     { phrase: PHRASE_B, velocity: 0.16 },
-    { phrase: PHRASE_C, velocity: 0.16 }
+    { phrase: PHRASE_C, velocity: 0.16 },
   ];
   MELODY_PLAN.forEach(function (p) {
     melody = melody.concat(phraseNotes(p.phrase, beat, p.velocity));
@@ -127,7 +150,11 @@
   // short note starts 1.5 beats into the cell) -- avoids emitting a note
   // that starts outside [0, lengthBeats), same bound every other piece
   // file's own note data respects.
-  for (var cellStart = 0; cellStart + HABANERA_CELL_BEATS <= LENGTH_BEATS; cellStart += HABANERA_CELL_BEATS) {
+  for (
+    var cellStart = 0;
+    cellStart + HABANERA_CELL_BEATS <= LENGTH_BEATS;
+    cellStart += HABANERA_CELL_BEATS
+  ) {
     bass = bass.concat(habaneraCell(cellStart, 0.12));
   }
 
@@ -137,9 +164,10 @@
     composer: 'Erik Satie',
     vetting: { composed: 1890, composerDied: 1925, publicDomain: true },
     regularName: 'The Gnossienne',
-    gimmick: 'Deliberately off-kilter, no time signature to read -- the spikes land where you don\'t expect them.',
+    gimmick:
+      "Deliberately off-kilter, no time signature to read -- the spikes land where you don't expect them.",
     stageTier: 'mid',
-    gain: 2.4,  // level trim; see PIECE FORMAT in music.js
+    gain: 2.4, // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH_BEATS,
     tempo: 54, // "Lent" -- slow, constant throughout; the irregularity is structural, not tempo-driven
     tracks: { melody: melody, bass: bass },
@@ -160,13 +188,31 @@
         { beat: 34, intensity: 0.1 },
         { beat: 45, intensity: 0.1 },
         { beat: 49, intensity: 0.4 },
-        { beat: 55, intensity: 0.13 }
+        { beat: 55, intensity: 0.13 },
       ],
       crescendos: [
-        { id: 'the-blind-spot-1', startBeat: 8, peakBeat: 11, peakIntensity: 0.42, rampDurationBeats: 3 },
-        { id: 'the-blind-spot-2', startBeat: 24, peakBeat: 29, peakIntensity: 0.46, rampDurationBeats: 5 },
-        { id: 'the-blind-spot-3', startBeat: 45, peakBeat: 49, peakIntensity: 0.4, rampDurationBeats: 4 }
-      ]
-    }
+        {
+          id: 'the-blind-spot-1',
+          startBeat: 8,
+          peakBeat: 11,
+          peakIntensity: 0.42,
+          rampDurationBeats: 3,
+        },
+        {
+          id: 'the-blind-spot-2',
+          startBeat: 24,
+          peakBeat: 29,
+          peakIntensity: 0.46,
+          rampDurationBeats: 5,
+        },
+        {
+          id: 'the-blind-spot-3',
+          startBeat: 45,
+          peakBeat: 49,
+          peakIntensity: 0.4,
+          rampDurationBeats: 4,
+        },
+      ],
+    },
   };
 })();

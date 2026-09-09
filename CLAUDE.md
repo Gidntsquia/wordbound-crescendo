@@ -19,13 +19,15 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
 
 ## Commands
 
-- `npm run dev` / `build` / `preview` — Vite (moving to `bun run`, READ_SLOWLY_PLAN.md A1); build outputs to `dist/app`
-  (relative `base: './'`).
-- `npm run dev:sandbox` — the bare-bones ROUND SANDBOX (see below): one round, no run.
-- Deploy (LIVE DEPLOY rule): `npm run deploy` (tools/deploy.sh) does all of
+- `bun run dev` / `build` / `preview` — Vite (toolchain switched to Bun,
+  READ_SLOWLY_PLAN.md A1); build outputs to `dist/app` (relative `base: './'`).
+- `bun run dev:sandbox` — alias for `dev`; index.html IS the ROUND SANDBOX.
+- `bun run typecheck` / `lint` / `format` / `format:check` — TypeScript,
+  ESLint, Prettier. Pre-commit runs lint-staged; pre-push runs typecheck.
+- Deploy (LIVE DEPLOY rule): `bun run deploy` (tools/deploy.sh) does all of
   this in one quiet call and prints one line; run it after EVERY change that
   lands, since Jaxon watches the live link from a phone. Under the hood:
-  `npm run build:site` stages
+  `bun run build:site` stages
   `dist/app/` into `dist/site/` with the SANDBOX as the root `index.html` (the
   full app moves to `/app.html`) plus an empty `.nojekyll`; publish the CONTENTS
   of `dist/site/` as the root of the `gh-pages` branch (orphan/replace commit,

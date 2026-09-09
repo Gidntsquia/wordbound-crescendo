@@ -10,12 +10,18 @@
 // deploy, and stale-serving THOSE would ship an old build silently.
 const CACHE = 'wbc-audio-v1';
 
-self.addEventListener('install', () => { self.skipWaiting(); });
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
-    ))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)),
+        ),
+      ),
   );
   self.clients.claim();
 });
@@ -24,16 +30,18 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (!/\/audio\//.test(url.pathname) || !/\.mp3$/i.test(url.pathname)) return;
 
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    const cached = await cache.match(event.request);
-    if (cached) return cached;
-    try {
-      const resp = await fetch(event.request);
-      if (resp && resp.ok) cache.put(event.request, resp.clone());
-      return resp;
-    } catch (err) {
-      return cached || Response.error();
-    }
-  })());
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      const cached = await cache.match(event.request);
+      if (cached) return cached;
+      try {
+        const resp = await fetch(event.request);
+        if (resp && resp.ok) cache.put(event.request, resp.clone());
+        return resp;
+      } catch (err) {
+        return cached || Response.error();
+      }
+    })(),
+  );
 });

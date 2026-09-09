@@ -43,7 +43,7 @@ a different game within one round.
   20 available. `tileBags.js`'s `createBagDeck` and the shop's tile pack
   (shop.js) both drop any letter still locked. Felling a boss (any of the
   three, `run.next()` in round.js) pauses the win with `run.letterChoice =
-  { options, last }` — up to three still-missing letters, offered win or
+{ options, last }` — up to three still-missing letters, offered win or
   lose the round after; `run.pickLetter(letter)` persists the pick and
   resumes the shop/finish flow. RoundSandbox.jsx's `phase === 'letter'`
   screen shows the pick; the gear panel's alphabet row shows the missing
@@ -155,7 +155,7 @@ position.
 - **Scoring.** A `slot` step in `scoreSteps` between the letter steps and
   the items, narrated by the cascade with its own pop and sfx. Tuning
   keys: `PREMIUM_DL`, `PREMIUM_TL`, `PREMIUM_DW`, `PREMIUM_CHANCE` (a
-   round may have none).
+  round may have none).
 - **Growth.** Études or a rare quill could add a second premium slot; an
   ink could pin one to a tile ("this tile carries its own double letter").
 - **Feel target.** The player rearranges a word on the stick to land a Q

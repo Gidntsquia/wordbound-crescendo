@@ -28,9 +28,17 @@ export function createDragReorder(opts) {
     if (active) return;
     var el = e.currentTarget;
     active = {
-      id: id, fromRow: row, fromIndex: index, toRow: row, to: index,
-      el: el, startX: e.clientX, startY: e.clientY, dragging: false, ghost: null,
-      pointerId: e.pointerId
+      id: id,
+      fromRow: row,
+      fromIndex: index,
+      toRow: row,
+      to: index,
+      el: el,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: false,
+      ghost: null,
+      pointerId: e.pointerId,
     };
     document.addEventListener('pointermove', move, { passive: false });
     document.addEventListener('pointerup', up);
@@ -55,11 +63,15 @@ export function createDragReorder(opts) {
   // nearer by vertical distance.
   function rowAt(rows, x, y) {
     var names = Object.keys(rows);
-    var best = names[0]; var bestD = Infinity;
+    var best = names[0];
+    var bestD = Infinity;
     names.forEach(function (n) {
       var r = rows[n].getBoundingClientRect();
       var d = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
-      if (d < bestD) { bestD = d; best = n; }
+      if (d < bestD) {
+        bestD = d;
+        best = n;
+      }
     });
     return best;
   }
@@ -68,28 +80,47 @@ export function createDragReorder(opts) {
   // sibling by centre, then before/after by which side of it the finger is.
   function targetIndex(rowEl, x, y) {
     var kids = Array.prototype.filter.call(rowEl.children, function (k) {
-      return k.classList.contains('sb-tile') && !k.classList.contains('is-dragging');
+      return (
+        k.classList.contains('sb-tile') && !k.classList.contains('is-dragging')
+      );
     });
     if (!kids.length) return 0;
-    var best = -1; var bestD = Infinity; var bestRect = null;
+    var best = -1;
+    var bestD = Infinity;
+    var bestRect = null;
     kids.forEach(function (k, i) {
       var r = k.getBoundingClientRect();
-      var cx = r.left + r.width / 2; var cy = r.top + r.height / 2;
+      var cx = r.left + r.width / 2;
+      var cy = r.top + r.height / 2;
       var d = Math.abs(x - cx) + Math.abs(y - cy) * 2;
-      if (d < bestD) { bestD = d; best = i; bestRect = r; }
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+        bestRect = r;
+      }
     });
     return x < bestRect.left + bestRect.width / 2 ? best : best + 1;
   }
 
   function state(a) {
-    return { id: a.id, fromRow: a.fromRow, fromIndex: a.fromIndex, toRow: a.toRow, to: a.to };
+    return {
+      id: a.id,
+      fromRow: a.fromRow,
+      fromIndex: a.fromIndex,
+      toRow: a.toRow,
+      to: a.to,
+    };
   }
 
   function move(e) {
     var a = active;
     if (!a || e.pointerId !== a.pointerId) return;
     if (!a.dragging) {
-      if (Math.abs(e.clientX - a.startX) < SLOP && Math.abs(e.clientY - a.startY) < SLOP) return;
+      if (
+        Math.abs(e.clientX - a.startX) < SLOP &&
+        Math.abs(e.clientY - a.startY) < SLOP
+      )
+        return;
       a.dragging = true;
       a.ghost = makeGhost(a.el);
       var gr = a.ghost.getBoundingClientRect();
@@ -98,8 +129,8 @@ export function createDragReorder(opts) {
       opts.onPreview(state(a));
     }
     e.preventDefault();
-    a.ghost.style.left = (e.clientX - a.offX) + 'px';
-    a.ghost.style.top = (e.clientY - a.offY) + 'px';
+    a.ghost.style.left = e.clientX - a.offX + 'px';
+    a.ghost.style.top = e.clientY - a.offY + 'px';
     var rows = opts.rows();
     var toRow = rowAt(rows, e.clientX, e.clientY);
     var to = targetIndex(rows[toRow], e.clientX, e.clientY);
@@ -111,9 +142,14 @@ export function createDragReorder(opts) {
   }
 
   function swallowNextClick() {
-    var stop = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+    var stop = function (ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
     document.addEventListener('click', stop, true);
-    setTimeout(function () { document.removeEventListener('click', stop, true); }, 0);
+    setTimeout(function () {
+      document.removeEventListener('click', stop, true);
+    }, 0);
   }
 
   function finish(e, cancelled) {
@@ -133,12 +169,20 @@ export function createDragReorder(opts) {
     }
     opts.onDrop(state(a), ghostRect);
   }
-  function up(e) { finish(e, false); }
-  function cancel(e) { finish(e, true); }
+  function up(e) {
+    finish(e, false);
+  }
+  function cancel(e) {
+    finish(e, true);
+  }
 
   // Props to spread onto each tile button of a draggable row.
   function bind(row, index, id) {
-    return { onPointerDown: function (e) { begin(e, row, index, id); } };
+    return {
+      onPointerDown: function (e) {
+        begin(e, row, index, id);
+      },
+    };
   }
 
   return { bind: bind };

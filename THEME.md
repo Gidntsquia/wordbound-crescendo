@@ -14,7 +14,7 @@ You're a Junior Lyricist at **the Concert Eternal**, a hall vast enough to stage
 every piece of music ever composed, every night, forever — your job is writing the
 words that ride the melody: programme notes, surtitles, singable lyrics, whatever the
 score calls for. Then **the Fermata**, a cabal of the house's most brilliant and most
-bitter performers, staged a coup. Sick of sharing a single bill with mere *words*,
+bitter performers, staged a coup. Sick of sharing a single bill with mere _words_,
 they seized the house lights, silenced the audience, and made off with the alphabet
 itself — stole the letters wholesale, so nothing could ever be written, printed, or
 subtitled again, and music alone would fill the world forever.
@@ -69,18 +69,18 @@ publication dates, unless noted — vet again before final code lands if a piece
 specific edition matters (arrangement/orchestration years can differ from the
 original).
 
-| Piece | Composer | Composed | Composer died | PD? |
-|---|---|---|---|---|
-| In the Hall of the Mountain King (*Peer Gynt*) | Grieg | 1875 | 1907 (119y) | Yes |
-| Danse Macabre | Saint-Saëns | 1874 | 1921 (105y) | Yes |
-| Ride of the Valkyries (*Die Walküre*) | Wagner | 1851–56 | 1883 (143y) | Yes |
-| Symphony No. 5 in C minor | Beethoven | 1808 | 1827 (199y) | Yes |
-| Toccata and Fugue in D minor, BWV 565 | Bach (disputed — poss. J.L. Krebs) | c. 1704 | Bach 1750 / Krebs 1780 | Yes either way |
-| Night on Bald Mountain | Mussorgsky (rev. Rimsky-Korsakov) | 1867 / rev. 1886 | 1881 / 1908 | Yes either way |
-| Flight of the Bumblebee (*Tsar Saltan*) | Rimsky-Korsakov | 1899–1900 | 1908 (118y) | Yes |
-| Queen of the Night aria (*Die Zauberflöte*) | Mozart | 1791 | 1791 (235y) | Yes — **reserved, unused this pass** |
-| Moonlight Sonata, 3rd mvt | Beethoven | 1801 | 1827 (199y) | Yes — **reserved, unused this pass** |
-| The Four Seasons, "Summer"/"Winter" | Vivaldi | 1725 | 1741 (285y) | Yes — **reserved, unused this pass** |
+| Piece                                          | Composer                           | Composed         | Composer died          | PD?                                  |
+| ---------------------------------------------- | ---------------------------------- | ---------------- | ---------------------- | ------------------------------------ |
+| In the Hall of the Mountain King (_Peer Gynt_) | Grieg                              | 1875             | 1907 (119y)            | Yes                                  |
+| Danse Macabre                                  | Saint-Saëns                        | 1874             | 1921 (105y)            | Yes                                  |
+| Ride of the Valkyries (_Die Walküre_)          | Wagner                             | 1851–56          | 1883 (143y)            | Yes                                  |
+| Symphony No. 5 in C minor                      | Beethoven                          | 1808             | 1827 (199y)            | Yes                                  |
+| Toccata and Fugue in D minor, BWV 565          | Bach (disputed — poss. J.L. Krebs) | c. 1704          | Bach 1750 / Krebs 1780 | Yes either way                       |
+| Night on Bald Mountain                         | Mussorgsky (rev. Rimsky-Korsakov)  | 1867 / rev. 1886 | 1881 / 1908            | Yes either way                       |
+| Flight of the Bumblebee (_Tsar Saltan_)        | Rimsky-Korsakov                    | 1899–1900        | 1908 (118y)            | Yes                                  |
+| Queen of the Night aria (_Die Zauberflöte_)    | Mozart                             | 1791             | 1791 (235y)            | Yes — **reserved, unused this pass** |
+| Moonlight Sonata, 3rd mvt                      | Beethoven                          | 1801             | 1827 (199y)            | Yes — **reserved, unused this pass** |
+| The Four Seasons, "Summer"/"Winter"            | Vivaldi                            | 1725             | 1741 (285y)            | Yes — **reserved, unused this pass** |
 
 The three reserved pieces are fully vetted and free to use for future boss/regular
 expansion (see ROADMAP.md milestone 2) — held back only to keep this pass's roster a
@@ -93,7 +93,8 @@ Each below: name, personality (for the entrance-cutscene ticket), how their piec
 real dynamics shape the fight, and a proposed hostage letter (see "Stolen letters"
 below — proposal only, the meta-progression ticket owns the real decision).
 
-### The Mountain King *(In the Hall of the Mountain King — Grieg, floor 1)*
+### The Mountain King _(In the Hall of the Mountain King — Grieg, floor 1)_
+
 Impish and mocking at first — low, plodding, almost funny. He's not scared of a
 Junior Lyricist. But the piece is a single unbroken accelerando: it gets faster and
 louder in one long ramp with no cool-down, and so does he, until "mocking" turns to
@@ -102,21 +103,23 @@ the core lesson (watch the ramp, don't panic, land your word before it peaks)
 through the structure of the music itself, not a tutorial pop-up. Hostage letter
 proposal: **K**.
 
-### Death, the Fiddler *(Danse Macabre — Saint-Saëns, floor 2)*
+### Death, the Fiddler _(Danse Macabre — Saint-Saëns, floor 2)_
+
 A skeletal fiddler who tunes his instrument to a tritone (the "devil's interval")
 before he'll even acknowledge you — theatrical, unhurried, savoring it. The piece
 alternates long stretches of danceable, almost graceful melody with sudden sharp
 stings; the fight should feel the same, lulling before it bites. Hostage letter
 proposal: **X**.
 
-### The Valkyrie Marshal *(Ride of the Valkyries — Die Walküre, Wagner, floor 3)*
+### The Valkyrie Marshal _(Ride of the Valkyries — Die Walküre, Wagner, floor 3)_
+
 A thundering warrior-general leading a squadron of shrieking brass and sopranos
 into battle — no theatrics, no taunting pause, just relentless forward pressure from
 the first note. The most continuously aggressive of the three floor bosses by
 design: this is the last thing standing between the player and the Podium, and the
 piece barely lets up long enough to breathe. Hostage letter proposal: **V**.
 
-## The Maestro *(final boss — Symphony No. 5 in C minor, Beethoven, the Podium)*
+## The Maestro _(final boss — Symphony No. 5 in C minor, Beethoven, the Podium)_
 
 The Fermata's true leader, and the personification of the piece's own legend: the
 famous opening four-note motif (short-short-short-LONG) has been called "Fate
@@ -135,27 +138,27 @@ value for the music engine's `stage-tier` field (early/mid/late/final).
 
 ### Early tier — chill, gentle, rare weak crescendos
 
-| Name | Piece | Composer | PD | Gimmick |
-|---|---|---|---|---|
-| **The Gymnopédiste** | Gymnopédie No. 1 | Satie (1888, d.1925, 101y) | Yes | Barely moves. Barely attacks. A warm-up in every sense. |
-| **The G String** | Air ("Air on the G String"), *Orchestral Suite No. 3* | Bach (c.1730, d.1750) | Yes | One long, gentle, unbroken legato line. Telegraphs nothing because there's nothing to telegraph. |
-| **Morning Mood** | "Morning Mood," *Peer Gynt Suite No. 1* | Grieg (1875, d.1907, 119y) | Yes | Wakes up slowly over the whole fight. Starts nearly harmless, ends only mildly less so. |
+| Name                 | Piece                                                 | Composer                   | PD  | Gimmick                                                                                          |
+| -------------------- | ----------------------------------------------------- | -------------------------- | --- | ------------------------------------------------------------------------------------------------ |
+| **The Gymnopédiste** | Gymnopédie No. 1                                      | Satie (1888, d.1925, 101y) | Yes | Barely moves. Barely attacks. A warm-up in every sense.                                          |
+| **The G String**     | Air ("Air on the G String"), _Orchestral Suite No. 3_ | Bach (c.1730, d.1750)      | Yes | One long, gentle, unbroken legato line. Telegraphs nothing because there's nothing to telegraph. |
+| **Morning Mood**     | "Morning Mood," _Peer Gynt Suite No. 1_               | Grieg (1875, d.1907, 119y) | Yes | Wakes up slowly over the whole fight. Starts nearly harmless, ends only mildly less so.          |
 
 ### Mid tier — a few real spikes in otherwise calm pieces
 
-| Name | Piece | Composer | PD | Gimmick |
-|---|---|---|---|---|
-| **The Gnossienne** | Gnossienne No. 1 | Satie (1890, d.1925, 101y) | Yes | Deliberately off-kilter, no time signature to read — the spikes land where you don't expect them. |
-| **The Invention** | Invention No. 4 in D minor, BWV 775 | Bach (c.1720–23, d.1750) | Yes | Two contrapuntal voices fighting each other as much as you — brief crossed-line surges. |
-| **The Metronome** | *School of Velocity*, Op. 299 No. 1 | Czerny (1834, d.1857, 169y) | Yes | Mechanical, relentless, perfectly even — no surprise crescendos, just unceasing pressure that never actually stops to breathe. |
+| Name               | Piece                               | Composer                    | PD  | Gimmick                                                                                                                        |
+| ------------------ | ----------------------------------- | --------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **The Gnossienne** | Gnossienne No. 1                    | Satie (1890, d.1925, 101y)  | Yes | Deliberately off-kilter, no time signature to read — the spikes land where you don't expect them.                              |
+| **The Invention**  | Invention No. 4 in D minor, BWV 775 | Bach (c.1720–23, d.1750)    | Yes | Two contrapuntal voices fighting each other as much as you — brief crossed-line surges.                                        |
+| **The Metronome**  | _School of Velocity_, Op. 299 No. 1 | Czerny (1834, d.1857, 169y) | Yes | Mechanical, relentless, perfectly even — no surprise crescendos, just unceasing pressure that never actually stops to breathe. |
 
 ### Late tier — frequent, powerful crescendos, boss-adjacent pressure
 
-| Name | Piece | Composer | PD | Gimmick |
-|---|---|---|---|---|
-| **The Swarm** | Flight of the Bumblebee (*Tsar Saltan*) | Rimsky-Korsakov (1899–1900, d.1908, 118y) | Yes | Frantic, chromatic, constant — no single big crescendo, just relentless high-frequency pressure. |
-| **The Sabbath** | Night on Bald Mountain | Mussorgsky/rev. Rimsky-Korsakov (1867/1886) | Yes | Huge crescendo waves, each bigger than the last, building toward a false dawn. |
-| **The Organist** | Toccata and Fugue in D minor, BWV 565 | Bach, disputed (c.1704) | Yes | Gothic, cathedral-scale swells alternating with virtuosic quiet runs — the biggest single spikes of any regular in the game. |
+| Name             | Piece                                   | Composer                                    | PD  | Gimmick                                                                                                                      |
+| ---------------- | --------------------------------------- | ------------------------------------------- | --- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **The Swarm**    | Flight of the Bumblebee (_Tsar Saltan_) | Rimsky-Korsakov (1899–1900, d.1908, 118y)   | Yes | Frantic, chromatic, constant — no single big crescendo, just relentless high-frequency pressure.                             |
+| **The Sabbath**  | Night on Bald Mountain                  | Mussorgsky/rev. Rimsky-Korsakov (1867/1886) | Yes | Huge crescendo waves, each bigger than the last, building toward a false dawn.                                               |
+| **The Organist** | Toccata and Fugue in D minor, BWV 565   | Bach, disputed (c.1704)                     | Yes | Gothic, cathedral-scale swells alternating with virtuosic quiet runs — the biggest single spikes of any regular in the game. |
 
 ## Stolen letters (proposal, for the meta-progression ticket)
 
@@ -192,7 +195,7 @@ cutscene's own brevity bar (a title-card-and-a-few-lines shape, not a full
 scene):
 
 1. **The theft, told as an outrage against HIM personally as much as the
-   world.** He was mid-soliloquy — mid-*sentence* — when the house lights
+   world.** He was mid-soliloquy — mid-_sentence_ — when the house lights
    went out and the Fermata walked off with every letter in the building.
    "Not a comma left to finish my thought with, and they call THAT an
    encore."
@@ -209,6 +212,7 @@ scene):
 
 Sample lines (voice reference, not locked final copy — same "worth Jaxon's
 read for tone" flag every cutscene-copy section of this bible has gotten):
+
 - "Out, out, brief candle — no, wait, wrong play, wrong mood, disregard that,
   the point stands: they took the LETTERS, every last one, and left me
   reciting in mime."
@@ -224,14 +228,14 @@ Per the ticket's candidate list, picked for the widest spread of era and
 voice available in six long-dead, public-domain figures — deliberately not
 six variations on "witty 19th-century novelist":
 
-| Author | Era | Voice | Shop QUIRK concept | Exclusive item concept(s) |
-|---|---|---|---|---|
-| **Homer** | Ancient Greek (epic) | Booming, formulaic, everything an epithet — the player is never just "you," always "sacker of sour chords" or similar earned-on-the-spot title. Speaks of a 3-gold purchase like it's a fleet launching. | Bard's Largesse: his shop always stocks one EXTRA consumable slot beyond the game's usual guaranteed one (per game.js's `rollShopOptions`, which currently guarantees exactly one consumable slot — Homer's shops guarantee two). | *The Wine-Dark Litany* (consumable: a word played while it's active gets a flat bonus, framed as "the muse briefly attends you") · *Rhapsode's Girdle* (item: reading directly off `rollShopOptions`'s consumable-guarantee logic, this is the flavor text home for whatever numeric bonus lands there, not a separate mechanic — see the ITEMS ticket for the real numbers). |
-| **Miguel de Cervantes** | Spanish Golden Age | Grandiloquent, self-aware, narrates his own shop like a chivalric quest gone slightly wrong — sells you the item AND a wry commentary on why buying it is either brilliant or delusional, never tells you which. | Tilt at Windmills: rerolling his shop's offer (if/when a shop reroll mechanic exists — coordinate with the ITEMS ticket) costs less than the game's default reroll price; framed as "the windmill spins for less, if you insist it's a giant." | *Rocinante's Last Furlong* (item: a "runs out of steam" effect — strong early in a fight, tapers — matching a tired old warhorse given one more ride) · *The Ingenious Gentleman's Ledger* (item: rewards a long, ambitious word over a short safe one — a bonus that scales with word length past the usual length-bonus curve). |
-| **Jane Austen** | Regency England | Deadpan social wit — every sentence a compliment with a blade folded inside it. Prices are "quite reasonable, all things considered" right up until you notice they aren't. Comments on the player's build the way she'd comment on a bad match at a ball. | Sense and Sensibility: a straight percentage discount on one whole item CATEGORY per shop visit (the ticket's own "category discount" example) — which category discounts is picked per-shop (see the "per-shop or per-run" note below), read as "whichever she's decided you actually need this week." | *A Truth Universally Acknowledged* (item: a passive that rewards NOT playing the same word twice — codifying the existing repeat-word penalty into a bonus rather than just an absence of penalty) · *Persuasion's Turn* (item: a cheap, common-tier confidence-builder for an early build, in her own words "a modest start to a very good match"). |
-| **Emily Dickinson** | 19th c. America (reclusive, compressed) | Terse to the point of cryptic — sentences broken by dashes, never explains a joke or a price twice, and somehow still says more per word than anyone else at the counter. Doesn't haggle; doesn't need to. | Circumference — (extra tile stock): her shop's premium variant-tile offer (`Tiles.rollVariantTile`, gated today by `SHOP_VARIANT_TILE_CHANCE`) is guaranteed to appear, not a coin-flip — "the Tile — does not — hide — from me." | *A Certain Slant of Ink* (item: an ink-economy effect, since ink is her natural pun — reduced Overcharge/Rewrite cost) · *I Dwell in Possibility* (item: a rare passive that unlocks a small extra choice somewhere else in the run — tile reward, treasure pick — "one more door, where there was one"). |
-| **Edgar Allan Poe** | 19th c. America (gothic) | Obsessive, ornate, faintly threatening in a way that's clearly theater — every item comes with a backstory implying it's cursed, which he delivers with obvious relish and zero remorse if you buy it anyway. | Nevermore: a steep discount specifically on RARE-and-above items — "the finer things come cheap, here, to those who don't ask why." | *The Tell-Tale Meter* (item: a Vampiric-style heal-on-play effect, themed as a heartbeat that won't stop) · *Quoth* (consumable: a one-time word-repeat IMMUNITY — play the same word twice with no penalty, once, "just this once — nevermore after"). |
-| **Oscar Wilde** | Victorian/Edwardian | Epigrammatic, paradoxical, faintly bored by his own genius — every shop line is a reversible aphorism ("I can resist anything except a good discount"), and he treats the whole transaction as beneath him right up until you actually buy something, at which point he's delighted. | The Importance of Being Earnest (about pricing): a flat, unconditional discount on every CONSUMABLE in his shop — "the only honest markdown I've ever offered; consider it my one sincere act this week." | *A Portrait in the Attic* (item: a build-warping rare — a cost/downside now for a large payoff later in the run, matching the painting-takes-the-damage premise) · *An Ideal Word* (item: rewards playing an unusually SHORT word well — a small bonus tuned to the opposite end of the curve from Cervantes' long-word item, so the roster's mechanics don't all point the same direction). |
+| Author                  | Era                                     | Voice                                                                                                                                                                                                                                                                                | Shop QUIRK concept                                                                                                                                                                                                                                                                                      | Exclusive item concept(s)                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Homer**               | Ancient Greek (epic)                    | Booming, formulaic, everything an epithet — the player is never just "you," always "sacker of sour chords" or similar earned-on-the-spot title. Speaks of a 3-gold purchase like it's a fleet launching.                                                                             | Bard's Largesse: his shop always stocks one EXTRA consumable slot beyond the game's usual guaranteed one (per game.js's `rollShopOptions`, which currently guarantees exactly one consumable slot — Homer's shops guarantee two).                                                                       | _The Wine-Dark Litany_ (consumable: a word played while it's active gets a flat bonus, framed as "the muse briefly attends you") · _Rhapsode's Girdle_ (item: reading directly off `rollShopOptions`'s consumable-guarantee logic, this is the flavor text home for whatever numeric bonus lands there, not a separate mechanic — see the ITEMS ticket for the real numbers).                |
+| **Miguel de Cervantes** | Spanish Golden Age                      | Grandiloquent, self-aware, narrates his own shop like a chivalric quest gone slightly wrong — sells you the item AND a wry commentary on why buying it is either brilliant or delusional, never tells you which.                                                                     | Tilt at Windmills: rerolling his shop's offer (if/when a shop reroll mechanic exists — coordinate with the ITEMS ticket) costs less than the game's default reroll price; framed as "the windmill spins for less, if you insist it's a giant."                                                          | _Rocinante's Last Furlong_ (item: a "runs out of steam" effect — strong early in a fight, tapers — matching a tired old warhorse given one more ride) · _The Ingenious Gentleman's Ledger_ (item: rewards a long, ambitious word over a short safe one — a bonus that scales with word length past the usual length-bonus curve).                                                            |
+| **Jane Austen**         | Regency England                         | Deadpan social wit — every sentence a compliment with a blade folded inside it. Prices are "quite reasonable, all things considered" right up until you notice they aren't. Comments on the player's build the way she'd comment on a bad match at a ball.                           | Sense and Sensibility: a straight percentage discount on one whole item CATEGORY per shop visit (the ticket's own "category discount" example) — which category discounts is picked per-shop (see the "per-shop or per-run" note below), read as "whichever she's decided you actually need this week." | _A Truth Universally Acknowledged_ (item: a passive that rewards NOT playing the same word twice — codifying the existing repeat-word penalty into a bonus rather than just an absence of penalty) · _Persuasion's Turn_ (item: a cheap, common-tier confidence-builder for an early build, in her own words "a modest start to a very good match").                                         |
+| **Emily Dickinson**     | 19th c. America (reclusive, compressed) | Terse to the point of cryptic — sentences broken by dashes, never explains a joke or a price twice, and somehow still says more per word than anyone else at the counter. Doesn't haggle; doesn't need to.                                                                           | Circumference — (extra tile stock): her shop's premium variant-tile offer (`Tiles.rollVariantTile`, gated today by `SHOP_VARIANT_TILE_CHANCE`) is guaranteed to appear, not a coin-flip — "the Tile — does not — hide — from me."                                                                       | _A Certain Slant of Ink_ (item: an ink-economy effect, since ink is her natural pun — reduced Overcharge/Rewrite cost) · _I Dwell in Possibility_ (item: a rare passive that unlocks a small extra choice somewhere else in the run — tile reward, treasure pick — "one more door, where there was one").                                                                                    |
+| **Edgar Allan Poe**     | 19th c. America (gothic)                | Obsessive, ornate, faintly threatening in a way that's clearly theater — every item comes with a backstory implying it's cursed, which he delivers with obvious relish and zero remorse if you buy it anyway.                                                                        | Nevermore: a steep discount specifically on RARE-and-above items — "the finer things come cheap, here, to those who don't ask why."                                                                                                                                                                     | _The Tell-Tale Meter_ (item: a Vampiric-style heal-on-play effect, themed as a heartbeat that won't stop) · _Quoth_ (consumable: a one-time word-repeat IMMUNITY — play the same word twice with no penalty, once, "just this once — nevermore after").                                                                                                                                      |
+| **Oscar Wilde**         | Victorian/Edwardian                     | Epigrammatic, paradoxical, faintly bored by his own genius — every shop line is a reversible aphorism ("I can resist anything except a good discount"), and he treats the whole transaction as beneath him right up until you actually buy something, at which point he's delighted. | The Importance of Being Earnest (about pricing): a flat, unconditional discount on every CONSUMABLE in his shop — "the only honest markdown I've ever offered; consider it my one sincere act this week."                                                                                               | _A Portrait in the Attic_ (item: a build-warping rare — a cost/downside now for a large payoff later in the run, matching the painting-takes-the-damage premise) · _An Ideal Word_ (item: rewards playing an unusually SHORT word well — a small bonus tuned to the opposite end of the curve from Cervantes' long-word item, so the roster's mechanics don't all point the same direction). |
 
 **Per-shop vs. per-run pick, and why (for the implementation ticket's own
 "document whether the pick is per-shop or per-run" instruction):** this
@@ -263,11 +267,11 @@ title keeps the sibling-game naming pattern intact. Alternatives considered and
 set aside, for the record — not proposing any of these over the working title,
 just showing the search happened:
 
-- *Wordbound: Fermata* — names the villains instead of the mechanic; less
+- _Wordbound: Fermata_ — names the villains instead of the mechanic; less
   inviting to a player who hasn't read this bible yet.
-- *Volume Up* — clean pun on the duel-gauge name, but reads as a UI tip, not a
+- _Volume Up_ — clean pun on the duel-gauge name, but reads as a UI tip, not a
   title.
-- *The Concert Eternal* — strong as a setting name, weak as a game title (loses
+- _The Concert Eternal_ — strong as a setting name, weak as a game title (loses
   the "Wordbound" sibling-branding link entirely).
 
 Flag for Jaxon either way, per the standing rule — this section is a proposal,

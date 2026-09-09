@@ -23,17 +23,29 @@
   // The plain length and mult quills -- flat points/mult with no word-kind,
   // crescendo, or scaling condition attached (~10, per the plan).
   Sandbox.STARTING_QUILLS = [
-    'brass_nib', 'second_ink', 'short_form', 'long_form',
-    'lead_weight', 'gilded_edge', 'half_note', 'double_stop',
-    'fermata', 'miser'
+    'brass_nib',
+    'second_ink',
+    'short_form',
+    'long_form',
+    'lead_weight',
+    'gilded_edge',
+    'half_note',
+    'double_stop',
+    'fermata',
+    'miser',
   ];
 
   Sandbox.discoveredQuills = function () {
     try {
       var raw = window.localStorage.getItem(STORE_KEY);
       var arr = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(arr) && arr.length) return arr.filter(function (id) { return typeof id === 'string'; });
-    } catch (e) { /* private mode etc */ }
+      if (Array.isArray(arr) && arr.length)
+        return arr.filter(function (id) {
+          return typeof id === 'string';
+        });
+    } catch (e) {
+      /* private mode etc */
+    }
     return Sandbox.STARTING_QUILLS.slice();
   };
 
@@ -43,8 +55,16 @@
 
   Sandbox.hiddenQuillIds = function () {
     var known = {};
-    Sandbox.discoveredQuills().forEach(function (id) { known[id] = true; });
-    return (Sandbox.ITEMS || []).map(function (it) { return it.id; }).filter(function (id) { return !known[id]; });
+    Sandbox.discoveredQuills().forEach(function (id) {
+      known[id] = true;
+    });
+    return (Sandbox.ITEMS || [])
+      .map(function (it) {
+        return it.id;
+      })
+      .filter(function (id) {
+        return !known[id];
+      });
   };
 
   Sandbox.discoverQuill = function (id) {
@@ -52,7 +72,11 @@
     var known = Sandbox.discoveredQuills();
     if (known.indexOf(id) >= 0) return false;
     known.push(id);
-    try { window.localStorage.setItem(STORE_KEY, JSON.stringify(known)); } catch (e) { /* ignore */ }
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(known));
+    } catch (e) {
+      /* ignore */
+    }
     return true;
   };
 

@@ -91,41 +91,49 @@
     MOVEMENT_BASE_1: 300, // small-enemy target, first movement (Phase 0)
     MOVEMENT_BASE_2: 750, // second movement, ~2.5x like Balatro's antes
     MOVEMENT_BASE_3: 1200, // third movement, x1.6 -- untuned, see NIGHT_REPORT
-    BIG_MULT: 1.5,        // big enemy target = base x this
-    BOSS_MULT: 2,         // boss target = base x this
-    PLAYS: 4,            // words the player may play
-    CHANGEOUTS: 3,       // tile swaps
+    BIG_MULT: 1.5, // big enemy target = base x this
+    BOSS_MULT: 2, // boss target = base x this
+    PLAYS: 4, // words the player may play
+    CHANGEOUTS: 3, // tile swaps
     RACK_SIZE: 7,
     // Length tiers: base points and base mult per band (Sandbox.TIERS).
-    PTS_2: 0, MULT_2: 1,     // one or two letters
-    PTS_3: 5, MULT_3: 2,
-    PTS_4: 10, MULT_4: 3,
-    PTS_5: 20, MULT_5: 4,
-    PTS_6: 35, MULT_6: 5,
-    PTS_7: 60, MULT_7: 7,    // seven or more
-    GOLD_SMALL: 3,        // purse for felling a small enemy
-    GOLD_BIG: 4,          // a big one
-    GOLD_BOSS: 5,         // the boss
+    PTS_2: 0,
+    MULT_2: 1, // one or two letters
+    PTS_3: 5,
+    MULT_3: 2,
+    PTS_4: 10,
+    MULT_4: 3,
+    PTS_5: 20,
+    MULT_5: 4,
+    PTS_6: 35,
+    MULT_6: 5,
+    PTS_7: 60,
+    MULT_7: 7, // seven or more
+    GOLD_SMALL: 3, // purse for felling a small enemy
+    GOLD_BIG: 4, // a big one
+    GOLD_BOSS: 5, // the boss
     GOLD_PER_WORD_LEFT: 1, // bonus per unplayed word at the win
     START_GOLD: 4,
-    INTEREST_PER: 5,      // +1 gold per this much held at a round's end
+    INTEREST_PER: 5, // +1 gold per this much held at a round's end
     INTEREST_CAP: 5,
     // The shop (shop.js).
     ITEM_SLOTS: 5,
     CONSUMABLE_SLOTS: 2,
     CARD_SLOTS: 2,
-    CARD_ITEM: 70, CARD_INK: 15, CARD_ETUDE: 15, // card slot roll, by weight
+    CARD_ITEM: 70,
+    CARD_INK: 15,
+    CARD_ETUDE: 15, // card slot roll, by weight
     PACK_SLOTS: 2,
     PACK_PRICE: 4,
-    PACK_CHOICES: 3,      // keep one of this many
+    PACK_CHOICES: 3, // keep one of this many
     INK_PRICE: 3,
     ETUDE_PRICE: 3,
     REROLL_PRICE: 5,
     REROLL_STEP: 1,
     // Inks (inks.js).
-    INK_GILT: 20,         // points per gilt tile played
-    INK_BOLD: 2,          // mult per bold tile played
-    INK_STEEL: 1.2,       // x mult per steel tile left in the case
+    INK_GILT: 20, // points per gilt tile played
+    INK_BOLD: 2, // mult per bold tile played
+    INK_STEEL: 1.2, // x mult per steel tile left in the case
     INK_COIN_CAP: 10,
     // Skipping a small or big enemy (run.skip) pays a favour (Sandbox.FAVOURS).
     BOUNTY_GOLD: 8,
@@ -133,9 +141,9 @@
     // bonus for the round, rolled at creation. DL/TL multiply that tile's
     // own letter points; DW multiplies the whole word's mult.
     PREMIUM_CHANCE: 0.55, // odds a round has a premium slot at all
-    PREMIUM_DL: 2,        // x letter points on the tile in the slot
+    PREMIUM_DL: 2, // x letter points on the tile in the slot
     PREMIUM_TL: 3,
-    PREMIUM_DW: 2         // x mult, whole word
+    PREMIUM_DW: 2, // x mult, whole word
   };
 
   // The three premium kinds a stick slot can roll (weighted; DW is scarcer
@@ -143,7 +151,7 @@
   Sandbox.PREMIUM_KINDS = [
     { id: 'dl', name: 'Double Letter', weight: 3 },
     { id: 'tl', name: 'Triple Letter', weight: 2 },
-    { id: 'dw', name: 'Double Word', weight: 1 }
+    { id: 'dw', name: 'Double Word', weight: 1 },
   ];
 
   // KEYS (NEXT_LEVEL_PLAN.md stage 3): Balatro's stakes, named for musical
@@ -153,12 +161,19 @@
     { id: 'c_major', name: 'C major', hint: 'the base game' },
     { id: 'g_major', name: 'G major', hint: 'targets ×1.15' },
     { id: 'd_major', name: 'D major', hint: 'one fewer swap per round' },
-    { id: 'a_minor', name: 'A minor', hint: 'the premium slot never appears on boss rounds' },
+    {
+      id: 'a_minor',
+      name: 'A minor',
+      hint: 'the premium slot never appears on boss rounds',
+    },
     { id: 'e_minor', name: 'E minor', hint: 'shop reroll starts at 7' },
-    { id: 'b_minor', name: 'B minor', hint: 'no skip favours' }
+    { id: 'b_minor', name: 'B minor', hint: 'no skip favours' },
   ];
   Sandbox.KEY_DEFS = {};
-  Sandbox.KEYS.forEach(function (k, i) { k.index = i; Sandbox.KEY_DEFS[k.id] = k; });
+  Sandbox.KEYS.forEach(function (k, i) {
+    k.index = i;
+    Sandbox.KEY_DEFS[k.id] = k;
+  });
   // Layers every key's rule up to and including `keyId` onto a copy of tune.
   // KEY_TARGET_MULT/KEY_NO_BOSS_PREMIUM/KEY_NO_SKIP are read by targetFor,
   // rollPremium (via createRun's opts.noPremium) and run.skip respectively.
@@ -176,12 +191,22 @@
   // The favours a skipped enemy pays. One is drawn per skippable round and
   // shown on the round screen as the price of not fighting.
   Sandbox.FAVOURS = [
-    { id: 'free_pack', name: 'Free Pack', hint: 'The next shop’s first pack is free' },
-    { id: 'coupon', name: 'Coupon', hint: 'The next shop’s cards are free (packs still cost)' },
-    { id: 'bounty', name: 'Bounty', hint: '+8 gold, now' }
+    {
+      id: 'free_pack',
+      name: 'Free Pack',
+      hint: 'The next shop’s first pack is free',
+    },
+    {
+      id: 'coupon',
+      name: 'Coupon',
+      hint: 'The next shop’s cards are free (packs still cost)',
+    },
+    { id: 'bounty', name: 'Bounty', hint: '+8 gold, now' },
   ];
   Sandbox.FAVOUR_DEFS = {};
-  Sandbox.FAVOURS.forEach(function (f) { Sandbox.FAVOUR_DEFS[f.id] = f; });
+  Sandbox.FAVOURS.forEach(function (f) {
+    Sandbox.FAVOUR_DEFS[f.id] = f;
+  });
 
   // Balatro's hand types: a word scores as the tier of its length. An étude
   // raises a tier's level; each level adds lvlPts to its points and lvlMult
@@ -192,14 +217,18 @@
     { id: 't4', name: 'FOUR', minLen: 4, lvlPts: 10, lvlMult: 1 },
     { id: 't5', name: 'FIVE', minLen: 5, lvlPts: 15, lvlMult: 2 },
     { id: 't6', name: 'SIX', minLen: 6, lvlPts: 20, lvlMult: 2 },
-    { id: 't7', name: 'SEVEN', minLen: 7, lvlPts: 30, lvlMult: 3 }
+    { id: 't7', name: 'SEVEN', minLen: 7, lvlPts: 30, lvlMult: 3 },
   ];
   Sandbox.TIER_DEFS = {};
-  Sandbox.TIERS.forEach(function (t) { Sandbox.TIER_DEFS[t.id] = t; });
+  Sandbox.TIERS.forEach(function (t) {
+    Sandbox.TIER_DEFS[t.id] = t;
+  });
   Sandbox.tierFor = function (word) {
     var len = String(word || '').length;
     var out = Sandbox.TIERS[0];
-    Sandbox.TIERS.forEach(function (t) { if (len >= t.minLen) out = t; });
+    Sandbox.TIERS.forEach(function (t) {
+      if (len >= t.minLen) out = t;
+    });
     return out;
   };
   // The tier's base points / mult at a level, read live from the tune so the
@@ -210,7 +239,7 @@
     return {
       pts: (tune['PTS_' + n] || 0) + tier.lvlPts * (lvl - 1),
       mult: (tune['MULT_' + n] || 0) + tier.lvlMult * (lvl - 1),
-      level: lvl
+      level: lvl,
     };
   };
 
@@ -222,7 +251,9 @@
     var tier = Sandbox.tierFor(word);
     var base = tune['PTS_' + tier.id.slice(1)] || 0;
     var letters = 0;
-    word.split('').forEach(function (ch) { letters += Lexicon.LETTER_VALUES[ch] || 0; });
+    word.split('').forEach(function (ch) {
+      letters += Lexicon.LETTER_VALUES[ch] || 0;
+    });
     return base + letters;
   };
 
@@ -237,7 +268,11 @@
     b.lengthBonus = 0;
     b.bingoBonus = 0; // length is the tier now; no separate bingo
     var tier = Sandbox.tierFor(word);
-    var ts = Sandbox.tierStats(tier, tune, ctx.tierLevels ? ctx.tierLevels[tier.id] : 1);
+    var ts = Sandbox.tierStats(
+      tier,
+      tune,
+      ctx.tierLevels ? ctx.tierLevels[tier.id] : 1,
+    );
     b.tier = tier;
     b.tierName = tier.name;
     b.tierLevel = ts.level;
@@ -250,11 +285,19 @@
     b.holdMult = 1;
     b.inkNotes = [];
     tilesUsed.forEach(function (t) {
-      if (t.ink === 'gilt') { b.inkPoints += tune.INK_GILT; b.inkNotes.push('gilt ' + t.letter + ' +' + tune.INK_GILT); }
-      else if (t.ink === 'bold') { b.inkMult += tune.INK_BOLD; b.inkNotes.push('bold ' + t.letter + ' +' + tune.INK_BOLD + ' mult'); }
+      if (t.ink === 'gilt') {
+        b.inkPoints += tune.INK_GILT;
+        b.inkNotes.push('gilt ' + t.letter + ' +' + tune.INK_GILT);
+      } else if (t.ink === 'bold') {
+        b.inkMult += tune.INK_BOLD;
+        b.inkNotes.push('bold ' + t.letter + ' +' + tune.INK_BOLD + ' mult');
+      }
     });
     (ctx.heldTiles || []).forEach(function (t) {
-      if (t.ink === 'steel') { b.holdMult *= tune.INK_STEEL; b.inkNotes.push('steel ' + t.letter + ' held ×' + tune.INK_STEEL); }
+      if (t.ink === 'steel') {
+        b.holdMult *= tune.INK_STEEL;
+        b.inkNotes.push('steel ' + t.letter + ' held ×' + tune.INK_STEEL);
+      }
     });
     b.holdMult = Math.round(b.holdMult * 1000) / 1000;
     // The round's premium slot (Sandbox.PREMIUM_KINDS): a fixed stick
@@ -270,42 +313,80 @@
       var slotLetterVal = Lexicon.LETTER_VALUES[slotTile.letter] || 0;
       var kind = round0.premium.kind;
       if (kind === 'dl') b.slotPoints = slotLetterVal * (tune.PREMIUM_DL - 1);
-      else if (kind === 'tl') b.slotPoints = slotLetterVal * (tune.PREMIUM_TL - 1);
+      else if (kind === 'tl')
+        b.slotPoints = slotLetterVal * (tune.PREMIUM_TL - 1);
       else if (kind === 'dw') b.slotMultRatio = tune.PREMIUM_DW;
       b.slotKind = kind;
       b.slotTile = slotTile;
     }
     // Items fire left to right on the running points and mult.
     var acc = {
-      points: b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints + b.slotPoints,
-      mult: (b.tierMult + b.inkMult) * b.slotMultRatio
+      points:
+        b.tierPts +
+        b.base +
+        b.bonusFlat +
+        b.variantFlat +
+        b.inkPoints +
+        b.slotPoints,
+      mult: (b.tierMult + b.inkMult) * b.slotMultRatio,
     };
     var before = { points: acc.points, mult: acc.mult };
     var round = ctx.round;
-    b.itemNotes = Sandbox.applyItems ? Sandbox.applyItems({
-      word: word, tiles: tilesUsed, held: ctx.heldTiles || [], items: ctx.items || [],
-      run: ctx.run, round: round, tune: tune, preview: !!ctx.preview,
-      crescendo: !!(ctx.crescendo && ctx.crescendo.phase === 'live'),
-      crescendoSoon: !!(ctx.crescendo && ctx.crescendo.phase === 'soon'),
-      crescendoMag: ctx.crescendo && ctx.crescendo.mag != null ? ctx.crescendo.mag : 1,
-      isLastPlay: !!round && round.playsLeft === 1,
-      playIndex: round ? round.plays.length : 0
-    }, acc) : [];
+    b.itemNotes = Sandbox.applyItems
+      ? Sandbox.applyItems(
+          {
+            word: word,
+            tiles: tilesUsed,
+            held: ctx.heldTiles || [],
+            items: ctx.items || [],
+            run: ctx.run,
+            round: round,
+            tune: tune,
+            preview: !!ctx.preview,
+            crescendo: !!(ctx.crescendo && ctx.crescendo.phase === 'live'),
+            crescendoSoon: !!(ctx.crescendo && ctx.crescendo.phase === 'soon'),
+            crescendoMag:
+              ctx.crescendo && ctx.crescendo.mag != null
+                ? ctx.crescendo.mag
+                : 1,
+            isLastPlay: !!round && round.playsLeft === 1,
+            playIndex: round ? round.plays.length : 0,
+          },
+          acc,
+        )
+      : [];
     // Harmony's chord (items.js sets acc.chord instead of touching acc.points
     // directly, so it lands as its own cascade step after the items).
     b.chordWord = null;
     if (acc.chord) {
       acc.points += acc.chord.points;
       b.chordWord = acc.chord.word;
-      b.itemNotes.push({ id: 'harmony', name: 'Chord', note: '+' + acc.chord.points + ', ' + acc.chord.word,
-        chord: true, dPts: acc.chord.points, dMult: 0, ratio: 1, kind: 'pts' });
+      b.itemNotes.push({
+        id: 'harmony',
+        name: 'Chord',
+        note: '+' + acc.chord.points + ', ' + acc.chord.word,
+        chord: true,
+        dPts: acc.chord.points,
+        dMult: 0,
+        ratio: 1,
+        kind: 'pts',
+      });
     }
     var ruleNote = null;
     if (round && round.rule && round.rule.score) {
-      var p0 = acc.points, m0 = acc.mult;
-      var rn = round.rule.score({ word: word, tiles: tilesUsed, round: round }, acc);
+      var p0 = acc.points,
+        m0 = acc.mult;
+      var rn = round.rule.score(
+        { word: word, tiles: tilesUsed, round: round },
+        acc,
+      );
       if (rn) {
-        ruleNote = { id: round.rule.id, name: round.rule.name, note: rn, rule: true };
+        ruleNote = {
+          id: round.rule.id,
+          name: round.rule.name,
+          note: rn,
+          rule: true,
+        };
         if (Sandbox.describeDelta) Sandbox.describeDelta(ruleNote, p0, m0, acc);
         b.itemNotes.push(ruleNote);
       }
@@ -340,7 +421,8 @@
   Sandbox.scoreSteps = function (b, tilesUsed, heldTiles, tune) {
     var Lexicon = window.Wordbound.Lexicon;
     var steps = [];
-    var pts = 0, mult = 0;
+    var pts = 0,
+      mult = 0;
     function push(step) {
       pts += step.pts || 0;
       mult += step.mult || 0;
@@ -349,38 +431,96 @@
       step.runMult = Math.round(mult * 1000) / 1000;
       steps.push(step);
     }
-    push({ kind: 'tier', name: b.tierName, level: b.tierLevel, pts: b.tierPts, mult: b.tierMult, label: b.tierName });
+    push({
+      kind: 'tier',
+      name: b.tierName,
+      level: b.tierLevel,
+      pts: b.tierPts,
+      mult: b.tierMult,
+      label: b.tierName,
+    });
     // Letter values, tile bonuses and the played tiles' inks. Lexicon.scoreWord
     // already summed these; here they are attributed tile by tile so the sum
     // of the letter steps equals base + bonusFlat + variantFlat + inkPoints.
     var perTile = tilesUsed.map(function (t) {
-      return { tile: t, pts: Lexicon.LETTER_VALUES[t.letter] || 0, mult: 0, ink: t.ink || null };
+      return {
+        tile: t,
+        pts: Lexicon.LETTER_VALUES[t.letter] || 0,
+        mult: 0,
+        ink: t.ink || null,
+      };
     });
-    var letterSum = perTile.reduce(function (n, x) { return n + x.pts; }, 0);
+    var letterSum = perTile.reduce(function (n, x) {
+      return n + x.pts;
+    }, 0);
     // Anything scoreWord added beyond plain letter values (bonus squares,
     // charged variants) lands on the first tile, so the running total stays
     // honest even when a bonus cannot be attributed.
-    var extra = (b.base - letterSum) + (b.bonusFlat || 0) + (b.variantFlat || 0);
+    var extra = b.base - letterSum + (b.bonusFlat || 0) + (b.variantFlat || 0);
     if (perTile.length && extra) perTile[0].bonusPts = extra;
     perTile.forEach(function (x) {
-      var step = { kind: 'letter', tile: x.tile, letter: x.tile.letter, ink: x.ink, pts: x.pts + (x.bonusPts || 0), mult: 0, label: x.tile.letter };
+      var step = {
+        kind: 'letter',
+        tile: x.tile,
+        letter: x.tile.letter,
+        ink: x.ink,
+        pts: x.pts + (x.bonusPts || 0),
+        mult: 0,
+        label: x.tile.letter,
+      };
       if (x.ink === 'gilt') step.pts += tune.INK_GILT;
       if (x.ink === 'bold') step.mult += tune.INK_BOLD;
       push(step);
     });
     if (b.slotKind) {
-      var slotLabel = b.slotKind === 'dw' ? 'DOUBLE WORD' : (b.slotKind === 'tl' ? 'TRIPLE LETTER' : 'DOUBLE LETTER');
-      push({ kind: 'slot', slotKind: b.slotKind, tile: b.slotTile, letter: b.slotTile.letter,
-        pts: b.slotPoints, mult: 0, ratio: b.slotMultRatio, label: slotLabel,
-        tone: b.slotKind === 'dw' ? 'mult' : 'pts' });
+      var slotLabel =
+        b.slotKind === 'dw'
+          ? 'DOUBLE WORD'
+          : b.slotKind === 'tl'
+            ? 'TRIPLE LETTER'
+            : 'DOUBLE LETTER';
+      push({
+        kind: 'slot',
+        slotKind: b.slotKind,
+        tile: b.slotTile,
+        letter: b.slotTile.letter,
+        pts: b.slotPoints,
+        mult: 0,
+        ratio: b.slotMultRatio,
+        label: slotLabel,
+        tone: b.slotKind === 'dw' ? 'mult' : 'pts',
+      });
     }
     (b.itemNotes || []).forEach(function (n) {
-      push({ kind: n.rule ? 'rule' : (n.chord ? 'chord' : 'item'), id: n.id, name: n.name, note: n.note, label: n.name,
-        pts: n.dPts || 0, mult: n.dMult || 0, ratio: n.ratio || 1, tone: n.kind || 'pts' });
+      push({
+        kind: n.rule ? 'rule' : n.chord ? 'chord' : 'item',
+        id: n.id,
+        name: n.name,
+        note: n.note,
+        label: n.name,
+        pts: n.dPts || 0,
+        mult: n.dMult || 0,
+        ratio: n.ratio || 1,
+        tone: n.kind || 'pts',
+      });
     });
-    if (b.bonusMult && b.bonusMult !== 1) push({ kind: 'tilex', ratio: b.bonusMult, label: 'tile ×' + b.bonusMult, tone: 'mult' });
+    if (b.bonusMult && b.bonusMult !== 1)
+      push({
+        kind: 'tilex',
+        ratio: b.bonusMult,
+        label: 'tile ×' + b.bonusMult,
+        tone: 'mult',
+      });
     heldTiles.forEach(function (t) {
-      if (t.ink === 'steel') push({ kind: 'hold', tile: t, letter: t.letter, ratio: tune.INK_STEEL, label: 'steel ' + t.letter + ' held', tone: 'mult' });
+      if (t.ink === 'steel')
+        push({
+          kind: 'hold',
+          tile: t,
+          letter: t.letter,
+          ratio: tune.INK_STEEL,
+          label: 'steel ' + t.letter + ' held',
+          tone: 'mult',
+        });
     });
     return steps;
   };
@@ -397,17 +537,28 @@
     // The soundtrack's crescendo state right now ({ phase, mag?, ... }) or
     // null. Supplied by the UI (it owns the audio); absent in a headless
     // round, so always null there -- crescendo/soon items never fire.
-    function onCrescendo() { return (opts.crescendo && opts.crescendo()) || null; }
+    function onCrescendo() {
+      return (opts.crescendo && opts.crescendo()) || null;
+    }
 
     var round = {
       tune: tune,
-      target: Math.round((opts.target != null ? opts.target : tune.MOVEMENT_BASE_1) * (rule && rule.targetMult ? rule.targetMult : 1)),
+      target: Math.round(
+        (opts.target != null ? opts.target : tune.MOVEMENT_BASE_1) *
+          (rule && rule.targetMult ? rule.targetMult : 1),
+      ),
       rule: rule,
       usedLetters: {}, // letters played this round (the no_repeats rule)
       reward: opts.reward != null ? opts.reward : tune.GOLD_SMALL, // flat gold at the win
-      playsLeft: Math.max(1, tune.PLAYS + (rule && rule.plays ? rule.plays : 0) + items.reduce(function (n, id) {
-        var it = Sandbox.ITEM_DEFS[id]; return n + (it && it.plays ? it.plays : 0);
-      }, 0)),
+      playsLeft: Math.max(
+        1,
+        tune.PLAYS +
+          (rule && rule.plays ? rule.plays : 0) +
+          items.reduce(function (n, id) {
+            var it = Sandbox.ITEM_DEFS[id];
+            return n + (it && it.plays ? it.plays : 0);
+          }, 0),
+      ),
       changeoutsLeft: tune.CHANGEOUTS,
       rackSize: tune.RACK_SIZE,
       items: items,
@@ -419,21 +570,30 @@
       // The bag: the run's pile when there is a run (played and swapped tiles
       // go to the discard, which only comes back once the bag runs dry), a
       // fresh shuffle for a lone round.
-      pile: opts.pile || { drawPile: Tiles.shuffleIntoDrawPile(opts.deck, rng), discardPile: [] },
+      pile: opts.pile || {
+        drawPile: Tiles.shuffleIntoDrawPile(opts.deck, rng),
+        discardPile: [],
+      },
       rack: [],
       // The premium slot (DIVERGENCE_PLAN.md): one stick position, rolled
       // now so it can be drawn empty before any tile lands there. A boss's
       // tempo marking may fix the position (rule.premiumPos).
-      premium: null
+      premium: null,
     };
     (function rollPremium() {
       if (rule && rule.noPremium) return;
       if (opts.noPremium) return; // A minor: never on a boss round
       if (!rng.chance(tune.PREMIUM_CHANCE)) return;
-      var kind = rng.weightedChoice(Sandbox.PREMIUM_KINDS, function (k) { return k.weight; });
+      var kind = rng.weightedChoice(Sandbox.PREMIUM_KINDS, function (k) {
+        return k.weight;
+      });
       if (!kind) return;
-      var pos = rule && rule.premiumPos != null ? rule.premiumPos
-        : rng.weightedChoice([0, 1, 2, 3, 4], function (p) { return [1, 2, 3, 2, 1][p]; });
+      var pos =
+        rule && rule.premiumPos != null
+          ? rule.premiumPos
+          : rng.weightedChoice([0, 1, 2, 3, 4], function (p) {
+              return [1, 2, 3, 2, 1][p];
+            });
       round.premium = { pos: pos, kind: kind.id };
     })();
 
@@ -462,7 +622,9 @@
 
     // The tiles that would stay in the case if these were played.
     function held(tilesUsed) {
-      return round.rack.filter(function (t) { return tilesUsed.indexOf(t) < 0; });
+      return round.rack.filter(function (t) {
+        return tilesUsed.indexOf(t) < 0;
+      });
     }
 
     // Rank helper: what would this word score off the CURRENT rack's tiles?
@@ -471,43 +633,85 @@
     round.breakdownFor = function (word) {
       var upper = String(word).toUpperCase();
       var form = Lexicon.canFormFromRack(upper, round.rack);
-      var tiles = form.possible ? form.tilesUsed
-        : upper.split('').map(function (l) { return { letter: l, bonus: null, variant: null }; });
+      var tiles = form.possible
+        ? form.tilesUsed
+        : upper.split('').map(function (l) {
+            return { letter: l, bonus: null, variant: null };
+          });
       return Sandbox.scoreWordPoints(upper, tiles, round.rackSize, {
-        tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(tiles), run: opts.run, round: round, preview: true,
-        crescendo: onCrescendo()
+        tune: tune,
+        items: items,
+        tierLevels: tierLevels,
+        heldTiles: held(tiles),
+        run: opts.run,
+        round: round,
+        preview: true,
+        crescendo: onCrescendo(),
       });
     };
-    round.scoreFor = function (word) { return round.breakdownFor(word).total; };
+    round.scoreFor = function (word) {
+      return round.breakdownFor(word).total;
+    };
 
     // The rule's word on a tile: may it be played now?
     round.isBarred = function (tile) {
-      return !!(round.rule && round.rule.barsLetter && round.rule.barsLetter(round, tile.letter));
+      return !!(
+        round.rule &&
+        round.rule.barsLetter &&
+        round.rule.barsLetter(round, tile.letter)
+      );
     };
     round.barredIn = function (tiles) {
-      return tiles.filter(round.isBarred).map(function (t) { return t.letter; });
+      return tiles.filter(round.isBarred).map(function (t) {
+        return t.letter;
+      });
     };
 
     // One tile is always a legal play; anything longer must be in the dictionary.
     round.isPlayable = function (word) {
       var upper = String(word || '').toUpperCase();
-      return upper.length === 1 ? /^[A-Z]$/.test(upper) : Lexicon.isValidWord(upper);
+      return upper.length === 1
+        ? /^[A-Z]$/.test(upper)
+        : Lexicon.isValidWord(upper);
     };
 
     round.playWord = function (raw) {
-      if (round.state !== 'live') return { ok: false, reason: 'The round is over.' };
-      var upper = String(raw || '').trim().toUpperCase();
+      if (round.state !== 'live')
+        return { ok: false, reason: 'The round is over.' };
+      var upper = String(raw || '')
+        .trim()
+        .toUpperCase();
       if (!upper) return { ok: false, reason: 'Nothing to play.' };
-      if (!round.isPlayable(upper)) return { ok: false, reason: upper + ' isn’t in the dictionary.' };
+      if (!round.isPlayable(upper))
+        return { ok: false, reason: upper + ' isn’t in the dictionary.' };
       var form = Lexicon.canFormFromRack(upper, round.rack);
-      if (!form.possible) return { ok: false, reason: upper + ' needs letters you don’t have.' };
+      if (!form.possible)
+        return { ok: false, reason: upper + ' needs letters you don’t have.' };
       var barred = round.barredIn(form.tilesUsed);
-      if (barred.length) return { ok: false, reason: barred.join(', ') + ' has been played this round — ' + round.rule.name + '.' };
+      if (barred.length)
+        return {
+          ok: false,
+          reason:
+            barred.join(', ') +
+            ' has been played this round — ' +
+            round.rule.name +
+            '.',
+        };
 
-      var breakdown = Sandbox.scoreWordPoints(upper, form.tilesUsed, round.rackSize, {
-        tune: tune, items: items, tierLevels: tierLevels, heldTiles: held(form.tilesUsed), run: opts.run, round: round,
-        crescendo: onCrescendo()
-      });
+      var breakdown = Sandbox.scoreWordPoints(
+        upper,
+        form.tilesUsed,
+        round.rackSize,
+        {
+          tune: tune,
+          items: items,
+          tierLevels: tierLevels,
+          heldTiles: held(form.tilesUsed),
+          run: opts.run,
+          round: round,
+          crescendo: onCrescendo(),
+        },
+      );
       if (opts.run) {
         items.forEach(function (id) {
           var it = Sandbox.ITEM_DEFS[id];
@@ -522,12 +726,24 @@
       round.pile.discardPile.push.apply(round.pile.discardPile, round.rack);
       round.rack = [];
       refill();
-      form.tilesUsed.forEach(function (t) { round.usedLetters[t.letter] = true; });
+      form.tilesUsed.forEach(function (t) {
+        round.usedLetters[t.letter] = true;
+      });
       round.score += breakdown.total;
       round.playsLeft -= 1;
-      round.plays.push({ word: upper, breakdown: breakdown, messages: messages, tiles: form.tilesUsed });
+      round.plays.push({
+        word: upper,
+        breakdown: breakdown,
+        messages: messages,
+        tiles: form.tilesUsed,
+      });
       settle();
-      var res = { ok: true, word: upper, breakdown: breakdown, messages: messages };
+      var res = {
+        ok: true,
+        word: upper,
+        breakdown: breakdown,
+        messages: messages,
+      };
       if (opts.onPlay) opts.onPlay(res);
       return res;
     };
@@ -535,13 +751,21 @@
     // Throw back any number of CHOSEN tiles and draw that many. Costs one
     // changeout regardless of how many tiles go back; zero tiles costs nothing.
     round.changeout = function (tileIds) {
-      if (round.state !== 'live') return { ok: false, reason: 'The round is over.' };
-      if (round.changeoutsLeft <= 0) return { ok: false, reason: 'No changeouts left.' };
+      if (round.state !== 'live')
+        return { ok: false, reason: 'The round is over.' };
+      if (round.changeoutsLeft <= 0)
+        return { ok: false, reason: 'No changeouts left.' };
       var ids = new Set(tileIds || []);
-      if (!ids.size) return { ok: false, reason: 'Pick the tiles to change out first.' };
-      var back = round.rack.filter(function (t) { return ids.has(t.id); });
-      if (!back.length) return { ok: false, reason: 'Those tiles aren’t in the rack.' };
-      round.rack = round.rack.filter(function (t) { return !ids.has(t.id); });
+      if (!ids.size)
+        return { ok: false, reason: 'Pick the tiles to change out first.' };
+      var back = round.rack.filter(function (t) {
+        return ids.has(t.id);
+      });
+      if (!back.length)
+        return { ok: false, reason: 'Those tiles aren’t in the rack.' };
+      round.rack = round.rack.filter(function (t) {
+        return !ids.has(t.id);
+      });
       // Discard AFTER drawing, so a small bag cannot hand the same tiles back.
       var drawn = draw(back.length);
       round.rack.push.apply(round.rack, drawn);
@@ -552,7 +776,9 @@
 
     // An Erase ink: the tile leaves the case for good and the case refills.
     round.destroyTile = function (tileId) {
-      var i = round.rack.findIndex(function (t) { return t.id === tileId; });
+      var i = round.rack.findIndex(function (t) {
+        return t.id === tileId;
+      });
       if (i < 0) return false;
       round.rack.splice(i, 1);
       refill();
@@ -561,7 +787,14 @@
 
     // Rearrange the rack by hand: the player's own ordering, nothing scored.
     round.moveTile = function (from, to) {
-      if (from === to || from < 0 || to < 0 || from >= round.rack.length || to >= round.rack.length) return false;
+      if (
+        from === to ||
+        from < 0 ||
+        to < 0 ||
+        from >= round.rack.length ||
+        to >= round.rack.length
+      )
+        return false;
       var t = round.rack.splice(from, 1)[0];
       round.rack.splice(to, 0, t);
       return true;
@@ -577,7 +810,10 @@
   // win, and every win short of the last opens the SHOP. Lose a round and the
   // run is lost; fell the last boss and the run is won.
   Sandbox.createRun = function (opts) {
-    var tune = Sandbox.applyKey(Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {}), opts.key);
+    var tune = Sandbox.applyKey(
+      Object.assign({}, Sandbox.ROUND_DEFAULTS, opts.tune || {}),
+      opts.key,
+    );
     var MOVEMENTS = Sandbox.MOVEMENTS || [];
     var run = {
       key: opts.key || Sandbox.KEYS[0].id,
@@ -588,33 +824,44 @@
       enemy: null,
       round: null,
       deck: opts.deck || (opts.makeDeck ? opts.makeDeck() : []),
-      pile: null,    // { drawPile, discardPile } shared by every round; set below
+      pile: null, // { drawPile, discardPile } shared by every round; set below
       items: (opts.items || []).slice(), // carried into every round from here on
       startItems: (opts.items || []).slice(), // what the run set out with
       consumables: [], // inks and études held, CONSUMABLE_SLOTS deep
-      itemState: {},   // scaling items' counters (items.js), e.g. refrain
-      shop: null,    // open between fights (shop.js)
+      itemState: {}, // scaling items' counters (items.js), e.g. refrain
+      shop: null, // open between fights (shop.js)
       letterChoice: null, // { options, last } offered after a boss (stolenLetters.js)
-      pack: null,    // an opened pack awaiting run.pick
+      pack: null, // an opened pack awaiting run.pick
       tierLevels: {}, // études: { tierId: level }, level 1 when absent
       gold: tune.START_GOLD,
-      felled: [],    // enemy ids beaten so far
-      skipped: [],   // enemy ids skipped for a favour
-      favours: [],   // favour ids owed to the next shop (free_pack, coupon)
+      felled: [], // enemy ids beaten so far
+      skipped: [], // enemy ids skipped for a favour
+      favours: [], // favour ids owed to the next shop (free_pack, coupon)
       bestPlay: null, // { word, breakdown, enemy } the run's best word
       wordsPlayed: 0,
       lastWin: null, // { reward, interest } of the latest win, for the UI
-      state: 'live'
+      state: 'live',
     };
     var KIND_MULT = { small: 1, big: tune.BIG_MULT, boss: tune.BOSS_MULT };
-    var KIND_GOLD = { small: tune.GOLD_SMALL, big: tune.GOLD_BIG, boss: tune.GOLD_BOSS };
+    var KIND_GOLD = {
+      small: tune.GOLD_SMALL,
+      big: tune.GOLD_BIG,
+      boss: tune.GOLD_BOSS,
+    };
     run.targetFor = function (movement, stage) {
       var e = Sandbox.enemyAt(movement, stage);
-      var base = tune['MOVEMENT_BASE_' + (movement + 1)] || tune.MOVEMENT_BASE_1 * Math.pow(2.5, movement);
-      return Math.round(base * (e ? KIND_MULT[e.kind] || 1 : 1) * (tune.KEY_TARGET_MULT || 1));
+      var base =
+        tune['MOVEMENT_BASE_' + (movement + 1)] ||
+        tune.MOVEMENT_BASE_1 * Math.pow(2.5, movement);
+      return Math.round(
+        base * (e ? KIND_MULT[e.kind] || 1 : 1) * (tune.KEY_TARGET_MULT || 1),
+      );
     };
     run.interestPreview = function () {
-      return Math.min(tune.INTEREST_CAP, Math.floor(run.gold / tune.INTEREST_PER));
+      return Math.min(
+        tune.INTEREST_CAP,
+        Math.floor(run.gold / tune.INTEREST_PER),
+      );
     };
     // The bag is the whole deck reshuffled at the start of every fight.
     // Within a fight, played and swapped tiles wait in the discard pile and
@@ -625,22 +872,40 @@
       r.pile.discardPile.push.apply(r.pile.discardPile, r.rack);
       r.rack = [];
     }
-    run.addTile = function (tile) { run.deck.push(tile); };
+    run.addTile = function (tile) {
+      run.deck.push(tile);
+    };
     // Sustain (items.js): hold the soundtrack's crescendo window open extraSec
     // longer. Supplied by the UI (it owns the audio); a no-op headless.
     run.extendCrescendo = opts.extendCrescendo || function () {};
     function begin() {
       // Quill discovery: reaching Movement III (index 2) reveals one more,
       // once per run, on top of whatever a boss has already found.
-      if (run.movement >= 2 && !run.movementIIIQuillDone && Sandbox.rollQuillDiscovery) {
+      if (
+        run.movement >= 2 &&
+        !run.movementIIIQuillDone &&
+        Sandbox.rollQuillDiscovery
+      ) {
         run.movementIIIQuillDone = true;
         var found3 = Sandbox.rollQuillDiscovery(opts.rng);
-        if (found3 && Sandbox.discoverQuill(found3)) run.movementIIIQuillFound = found3;
+        if (found3 && Sandbox.discoverQuill(found3))
+          run.movementIIIQuillFound = found3;
       }
       run.enemy = Sandbox.enemyAt(run.movement, run.stage);
-      run.pile = { drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(run.deck, opts.rng), discardPile: [] };
+      run.pile = {
+        drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(
+          run.deck,
+          opts.rng,
+        ),
+        discardPile: [],
+      };
       run.round = Sandbox.createRound({
-        rng: opts.rng, deck: run.deck, pile: run.pile, tune: tune, items: run.items, run: run,
+        rng: opts.rng,
+        deck: run.deck,
+        pile: run.pile,
+        tune: tune,
+        items: run.items,
+        run: run,
         crescendo: opts.crescendo,
         noPremium: !!(tune.KEY_NO_BOSS_PREMIUM && run.enemy.kind === 'boss'),
         target: run.targetFor(run.movement, run.stage),
@@ -649,37 +914,60 @@
         tierLevels: run.tierLevels,
         onPlay: function (res) {
           run.wordsPlayed += 1;
-          if (!run.bestPlay || res.breakdown.total > run.bestPlay.breakdown.total) {
-            run.bestPlay = { word: res.word, breakdown: res.breakdown, enemy: run.enemy.name };
+          if (
+            !run.bestPlay ||
+            res.breakdown.total > run.bestPlay.breakdown.total
+          ) {
+            run.bestPlay = {
+              word: res.word,
+              breakdown: res.breakdown,
+              enemy: run.enemy.name,
+            };
           }
-        }
+        },
       });
       // The favour on offer for walking past this one; bosses cannot be skipped.
-      run.round.favour = run.enemy.kind === 'boss' ? null
-        : Sandbox.FAVOURS[opts.rng.randInt(0, Sandbox.FAVOURS.length - 1)].id;
+      run.round.favour =
+        run.enemy.kind === 'boss'
+          ? null
+          : Sandbox.FAVOURS[opts.rng.randInt(0, Sandbox.FAVOURS.length - 1)].id;
     }
     // Skip the current enemy for its favour: only before a word is played,
     // never a boss. Bounty pays now; the others are owed to the next shop.
     // No shop opens after a skip. Returns { ok, favour } | { ok:false, reason }.
     run.skip = function () {
       var r = run.round;
-      if (run.state !== 'live' || !r || r.state !== 'live' || run.shop) return { ok: false, reason: 'Nothing to skip.' };
-      if (tune.KEY_NO_SKIP) return { ok: false, reason: 'No skipping in B minor.' };
-      if (!r.favour) return { ok: false, reason: 'The boss cannot be skipped.' };
-      if (r.plays.length) return { ok: false, reason: 'Too late — a word has been played.' };
+      if (run.state !== 'live' || !r || r.state !== 'live' || run.shop)
+        return { ok: false, reason: 'Nothing to skip.' };
+      if (tune.KEY_NO_SKIP)
+        return { ok: false, reason: 'No skipping in B minor.' };
+      if (!r.favour)
+        return { ok: false, reason: 'The boss cannot be skipped.' };
+      if (r.plays.length)
+        return { ok: false, reason: 'Too late — a word has been played.' };
       var favour = r.favour;
       if (favour === 'bounty') run.gold += tune.BOUNTY_GOLD;
       else run.favours.push(favour);
       run.skipped.push(run.enemy.id);
       discardRack();
       run.stage += 1;
-      if (run.stage >= MOVEMENTS[run.movement].enemies.length) { run.stage = 0; run.movement += 1; }
+      if (run.stage >= MOVEMENTS[run.movement].enemies.length) {
+        run.stage = 0;
+        run.movement += 1;
+      }
       begin();
       return { ok: true, favour: favour };
     };
     // Reorder the held items: they fire left to right.
     run.moveItem = function (from, to) {
-      if (from === to || from < 0 || to < 0 || from >= run.items.length || to >= run.items.length) return false;
+      if (
+        from === to ||
+        from < 0 ||
+        to < 0 ||
+        from >= run.items.length ||
+        to >= run.items.length
+      )
+        return false;
       var id = run.items.splice(from, 1)[0];
       run.items.splice(to, 0, id);
       return true;
@@ -693,10 +981,16 @@
     // Finish settling a win once any letter choice is resolved (or there was
     // none to offer): open the shop or, for the last boss, end the run.
     function finishWin(last) {
-      if (last) { run.state = 'won'; return run.state; }
+      if (last) {
+        run.state = 'won';
+        return run.state;
+      }
       discardRack();
       run.stage += 1;
-      if (run.stage >= MOVEMENTS[run.movement].enemies.length) { run.stage = 0; run.movement += 1; }
+      if (run.stage >= MOVEMENTS[run.movement].enemies.length) {
+        run.stage = 0;
+        run.movement += 1;
+      }
       run.enemy = Sandbox.enemyAt(run.movement, run.stage); // the one ahead, for the shop's door
       run.shop = Sandbox.createShop ? Sandbox.createShop(run, opts.rng) : null;
       if (!run.shop) begin();
@@ -709,15 +1003,27 @@
     // run.leaveShop). Returns the run state.
     run.next = function () {
       var r = run.round;
-      if (run.state !== 'live' || !r || r.state === 'live' || run.shop || run.letterChoice) return run.state;
-      if (r.state === 'lost') { run.state = 'lost'; return run.state; }
+      if (
+        run.state !== 'live' ||
+        !r ||
+        r.state === 'live' ||
+        run.shop ||
+        run.letterChoice
+      )
+        return run.state;
+      if (r.state === 'lost') {
+        run.state = 'lost';
+        return run.state;
+      }
       run.gold += r.gold;
       var interest = run.interestPreview();
       run.gold += interest;
       run.lastWin = { reward: r.gold, interest: interest };
       run.felled.push(run.enemy.id);
       var wasBoss = run.enemy.kind === 'boss';
-      var last = run.movement >= MOVEMENTS.length - 1 && run.stage >= MOVEMENTS[run.movement].enemies.length - 1;
+      var last =
+        run.movement >= MOVEMENTS.length - 1 &&
+        run.stage >= MOVEMENTS[run.movement].enemies.length - 1;
       // Quill discovery (NEXT_LEVEL_PLAN.md stage 4): felling a boss reveals
       // one hidden quill alongside the letter choice.
       run.quillFound = null;
@@ -727,7 +1033,10 @@
       }
       if (wasBoss && Sandbox.rollLetterChoice) {
         var choices = Sandbox.rollLetterChoice(opts.rng, 3);
-        if (choices && choices.length) { run.letterChoice = { options: choices, last: last }; return run.state; }
+        if (choices && choices.length) {
+          run.letterChoice = { options: choices, last: last };
+          return run.state;
+        }
       }
       return finishWin(last);
     };
@@ -772,7 +1081,8 @@
     // slot was full (shop.js takeConsumable) -- it was never stored, so
     // there is nothing to splice out of run.consumables afterward.
     run.useAdhocInk = function (id, tileIds, extra) {
-      if (!Sandbox.applyInk) return { ok: false, reason: 'That cannot be used yet.' };
+      if (!Sandbox.applyInk)
+        return { ok: false, reason: 'That cannot be used yet.' };
       return Sandbox.applyInk(run, id, tileIds || [], extra);
     };
     // A fresh hand drawn to use an ink on the spot, right after buying or
@@ -780,12 +1090,19 @@
     // what happens to it.
     run.drawInkHand = function () {
       var Tiles = window.Wordbound.Tiles;
-      return Tiles.shuffleIntoDrawPile(run.deck, opts.rng).slice(0, Math.min(tune.RACK_SIZE, run.deck.length));
+      return Tiles.shuffleIntoDrawPile(run.deck, opts.rng).slice(
+        0,
+        Math.min(tune.RACK_SIZE, run.deck.length),
+      );
     };
     // Hold an ink just bought or kept in run.consumables instead of using it
     // now -- the other half of the choice offered alongside run.useAdhocInk.
     run.saveInk = function (id) {
-      if (run.consumables.length >= tune.CONSUMABLE_SLOTS) return { ok: false, reason: 'No room for another ink — use or sell one first.' };
+      if (run.consumables.length >= tune.CONSUMABLE_SLOTS)
+        return {
+          ok: false,
+          reason: 'No room for another ink — use or sell one first.',
+        };
       run.consumables.push({ kind: 'ink', id: id });
       return { ok: true };
     };
@@ -793,7 +1110,9 @@
       var c = run.consumables[i];
       if (!c) return { ok: false, reason: 'Nothing there.' };
       run.consumables.splice(i, 1);
-      var paid = Math.floor((c.kind === 'ink' ? tune.INK_PRICE : tune.ETUDE_PRICE) / 2);
+      var paid = Math.floor(
+        (c.kind === 'ink' ? tune.INK_PRICE : tune.ETUDE_PRICE) / 2,
+      );
       run.gold += paid;
       return { ok: true, paid: paid };
     };

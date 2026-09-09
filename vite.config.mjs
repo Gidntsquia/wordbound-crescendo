@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // Relative base so the built output works when statically served from any
 // path (itch.io zip, GitHub Pages project subpath, etc.) without extra config.
@@ -11,7 +12,7 @@ import react from '@vitejs/plugin-react';
 // the ROUND SANDBOX is the app now.
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   build: {
     outDir: 'dist/app',
   },

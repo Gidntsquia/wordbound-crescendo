@@ -53,7 +53,20 @@
   window.Wordbound = window.Wordbound || {};
   window.Wordbound.Pieces = window.Wordbound.Pieces || {};
 
-  var SEMITONE_FROM_A = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+  var SEMITONE_FROM_A = {
+    C: -9,
+    'C#': -8,
+    D: -7,
+    'D#': -6,
+    E: -5,
+    F: -4,
+    'F#': -3,
+    G: -2,
+    'G#': -1,
+    A: 0,
+    'A#': 1,
+    B: 2,
+  };
   function f(note, octave) {
     var n = SEMITONE_FROM_A[note] + (octave - 4) * 12;
     return 440 * Math.pow(2, n / 12);
@@ -66,7 +79,12 @@
   var SUBJECT = ['D', 'F', 'E', 'D', 'C', 'D', 'E', 'F'];
   function subjectNotes(startBeat, octave, velocity) {
     return SUBJECT.map(function (note, i) {
-      return { beat: startBeat + i, duration: 1, freq: f(note, octave), velocity: velocity };
+      return {
+        beat: startBeat + i,
+        duration: 1,
+        freq: f(note, octave),
+        velocity: velocity,
+      };
     });
   }
 
@@ -82,7 +100,7 @@
   var STATEMENT_COUNT = 6;
   for (var i = 0; i < STATEMENT_COUNT; i++) {
     var start = i * 8;
-    var isCrossing = (i === 1 || i === 3 || i === 5); // 3 of the 6 statements cross registers
+    var isCrossing = i === 1 || i === 3 || i === 5; // 3 of the 6 statements cross registers
     if (isCrossing) {
       // A crossed-line surge: BOTH voices state the subject in the SAME
       // octave, in rhythmic unison, rather than staying separated --
@@ -103,9 +121,10 @@
     composer: 'Johann Sebastian Bach',
     vetting: { composed: 1723, composerDied: 1750, publicDomain: true },
     regularName: 'The Invention',
-    gimmick: 'Two contrapuntal voices fighting each other as much as you — brief crossed-line surges.',
+    gimmick:
+      'Two contrapuntal voices fighting each other as much as you — brief crossed-line surges.',
     stageTier: 'mid',
-    gain: 1.8,  // level trim; see PIECE FORMAT in music.js
+    gain: 1.8, // level trim; see PIECE FORMAT in music.js
     lengthBeats: LENGTH_BEATS,
     tempo: 132, // fast, constant -- a two-part invention's own brisk, continuous-motion tempo
     tracks: { voice1: voice1, voice2: voice2 },
@@ -126,13 +145,31 @@
         { beat: 32, intensity: 0.1 },
         { beat: 40, intensity: 0.12 },
         { beat: 44, intensity: 0.48 },
-        { beat: 48, intensity: 0.12 }
+        { beat: 48, intensity: 0.12 },
       ],
       crescendos: [
-        { id: 'crossed-lines-1', startBeat: 8, peakBeat: 12, peakIntensity: 0.48, rampDurationBeats: 4 },
-        { id: 'crossed-lines-2', startBeat: 24, peakBeat: 28, peakIntensity: 0.46, rampDurationBeats: 4 },
-        { id: 'crossed-lines-3', startBeat: 40, peakBeat: 44, peakIntensity: 0.48, rampDurationBeats: 4 }
-      ]
-    }
+        {
+          id: 'crossed-lines-1',
+          startBeat: 8,
+          peakBeat: 12,
+          peakIntensity: 0.48,
+          rampDurationBeats: 4,
+        },
+        {
+          id: 'crossed-lines-2',
+          startBeat: 24,
+          peakBeat: 28,
+          peakIntensity: 0.46,
+          rampDurationBeats: 4,
+        },
+        {
+          id: 'crossed-lines-3',
+          startBeat: 40,
+          peakBeat: 44,
+          peakIntensity: 0.48,
+          rampDurationBeats: 4,
+        },
+      ],
+    },
   };
 })();

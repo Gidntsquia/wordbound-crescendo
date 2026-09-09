@@ -12,6 +12,7 @@
 // a different mechanic from the shipped duel gauge, and keeping it here means
 // tuning it can never break the main app. The music is a soundtrack only.
 import { createRoot } from 'react-dom/client';
+import '../styles/globals.css';
 import './sandbox.css';
 
 import '../../js/core/namespace.js';
@@ -45,7 +46,7 @@ import './recordings.js';
 
 import RoundSandbox from './RoundSandbox.jsx';
 
-createRoot(document.getElementById('sandbox-root')).render(<RoundSandbox />);
+createRoot(document.getElementById('sandbox-root')!).render(<RoundSandbox />);
 
 // Offline audio cache (public/sw.js, stage 5): registers after load so it
 // never competes with the first paint or the first piece's own fetch.

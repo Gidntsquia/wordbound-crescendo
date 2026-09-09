@@ -28,22 +28,47 @@
   // High-value, rare letters first (the ones a player will miss most), then
   // the next tier, then the mid-value consonants -- about six locked at the
   // start, leaving roughly twenty available (DIVERGENCE_PLAN.md).
-  Sandbox.STOLEN_ORDER = ['J', 'Q', 'X', 'Z', 'K', 'W', 'V', 'Y', 'F', 'H', 'B', 'G', 'M', 'P'];
+  Sandbox.STOLEN_ORDER = [
+    'J',
+    'Q',
+    'X',
+    'Z',
+    'K',
+    'W',
+    'V',
+    'Y',
+    'F',
+    'H',
+    'B',
+    'G',
+    'M',
+    'P',
+  ];
   var STARTING_LOCKED = 6; // how many of STOLEN_ORDER are missing on a fresh install
 
   Sandbox.wonLetters = function () {
     try {
       var raw = window.localStorage.getItem(STORE_KEY);
       var arr = raw ? JSON.parse(raw) : null;
-      return Array.isArray(arr) ? arr.filter(function (l) { return typeof l === 'string'; }) : [];
-    } catch (e) { return []; }
+      return Array.isArray(arr)
+        ? arr.filter(function (l) {
+            return typeof l === 'string';
+          })
+        : [];
+    } catch (e) {
+      return [];
+    }
   };
 
   Sandbox.missingLetters = function () {
     var won = {};
-    Sandbox.wonLetters().forEach(function (l) { won[l] = true; });
+    Sandbox.wonLetters().forEach(function (l) {
+      won[l] = true;
+    });
     var locked = Sandbox.STOLEN_ORDER.slice(0, STARTING_LOCKED);
-    return locked.filter(function (l) { return !won[l]; });
+    return locked.filter(function (l) {
+      return !won[l];
+    });
   };
 
   Sandbox.isAvailable = function (letter) {
@@ -53,14 +78,20 @@
 
   Sandbox.availableLetters = function () {
     var missing = Sandbox.missingLetters();
-    return ALPHABET.split('').filter(function (l) { return missing.indexOf(l) < 0; });
+    return ALPHABET.split('').filter(function (l) {
+      return missing.indexOf(l) < 0;
+    });
   };
 
   Sandbox.winLetter = function (letter) {
     var won = Sandbox.wonLetters();
     if (won.indexOf(letter) >= 0) return false;
     won.push(letter);
-    try { window.localStorage.setItem(STORE_KEY, JSON.stringify(won)); } catch (e) { /* private mode etc */ }
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(won));
+    } catch (e) {
+      /* private mode etc */
+    }
     return true;
   };
 
@@ -76,7 +107,11 @@
 
   Sandbox.filterLetters = function (letters) {
     var avail = {};
-    Sandbox.availableLetters().forEach(function (l) { avail[l] = true; });
-    return letters.filter(function (l) { return avail[l]; });
+    Sandbox.availableLetters().forEach(function (l) {
+      avail[l] = true;
+    });
+    return letters.filter(function (l) {
+      return avail[l];
+    });
   };
 })();

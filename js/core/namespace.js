@@ -3,5 +3,5 @@
 // rng.js), which predates the Wordbound/Descent split and stayed engine-
 // level rather than moving under Wordbound.
 window.Game = window.Game || {
-  RNG: {}
+  RNG: {},
 };

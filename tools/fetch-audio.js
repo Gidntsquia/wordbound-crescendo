@@ -28,7 +28,8 @@ const { execFileSync, spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const MANIFEST = path.join(__dirname, 'audio-manifest.json');
 const CACHE_DIR = path.join(ROOT, '.cache', 'audio');
-const UA = 'wordbound-crescendo-fetch/1.0 (https://github.com/gidntsquia/wordbound-crescendo)';
+const UA =
+  'wordbound-crescendo-fetch/1.0 (https://github.com/gidntsquia/wordbound-crescendo)';
 const args = process.argv.slice(2);
 const FORCE = args.includes('--force');
 const CHECK = args.includes('--check');
@@ -38,7 +39,10 @@ const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
 const entries = manifest.recordings.filter((e) => !ONLY || e.id === ONLY);
 
 function sha256(file) {
-  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(fs.readFileSync(file))
+    .digest('hex');
 }
 
 async function download(url, dest) {
@@ -106,19 +110,32 @@ ${lines.join('\n')}
     const file = path.join(ROOT, e.file);
     const mod = path.join(ROOT, 'src/sandbox', e.module + '.js');
     if (!e.url) {
-      if (!fs.existsSync(file)) { console.error('MISSING (hand-placed): ' + e.file); missing++; }
-      else console.log('ok   ' + e.id + ' (committed)');
+      if (!fs.existsSync(file)) {
+        console.error('MISSING (hand-placed): ' + e.file);
+        missing++;
+      } else console.log('ok   ' + e.id + ' (committed)');
       continue;
     }
     if (CHECK) {
-      if (!fs.existsSync(file) || !fs.existsSync(mod)) { console.error('MISSING: ' + e.id); missing++; }
+      if (!fs.existsSync(file) || !fs.existsSync(mod)) {
+        console.error('MISSING: ' + e.id);
+        missing++;
+      }
       continue;
     }
-    if (!FORCE && fs.existsSync(file) && fs.existsSync(mod) && fs.readFileSync(mod, 'utf8').includes('durationSec:')) {
+    if (
+      !FORCE &&
+      fs.existsSync(file) &&
+      fs.existsSync(mod) &&
+      fs.readFileSync(mod, 'utf8').includes('durationSec:')
+    ) {
       console.log('ok   ' + e.id);
       continue;
     }
-    const ext = (new URL(e.url).pathname.match(/\.([a-z0-9]+)$/i) || [, 'bin'])[1].toLowerCase();
+    const ext = (new URL(e.url).pathname.match(/\.([a-z0-9]+)$/i) || [
+      ,
+      'bin',
+    ])[1].toLowerCase();
     const cached = path.join(CACHE_DIR, e.id + '.' + ext);
     if (!fs.existsSync(cached)) {
       process.stdout.write('get  ' + e.id + ' ... ');
@@ -127,11 +144,21 @@ ${lines.join('\n')}
     }
     const sum = sha256(cached);
     if (e.sha256 && e.sha256 !== sum) {
-      console.error('sha256 mismatch for ' + e.id + ': manifest ' + e.sha256 + ', got ' + sum
-        + '\n  The source changed upstream. Listen to it, then clear sha256 in the manifest to accept it.');
+      console.error(
+        'sha256 mismatch for ' +
+          e.id +
+          ': manifest ' +
+          e.sha256 +
+          ', got ' +
+          sum +
+          '\n  The source changed upstream. Listen to it, then clear sha256 in the manifest to accept it.',
+      );
       process.exit(1);
     }
-    if (!e.sha256) { e.sha256 = sum; changedManifest = true; }
+    if (!e.sha256) {
+      e.sha256 = sum;
+      changedManifest = true;
+    }
 
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const t = e.trim || { start: 0 };
@@ -139,8 +166,19 @@ ${lines.join('\n')}
     if (t.seconds) ff.push('-t', String(t.seconds));
     // A short fade at both ends so the loop point and the excerpt's cut do not click.
     const fades = ['afade=t=in:st=0:d=0.8'];
-    if (t.seconds) fades.push('afade=t=out:st=' + Math.max(0, t.seconds - 1.5) + ':d=1.5');
-    ff.push('-af', fades.join(','), '-codec:a', 'libmp3lame', '-b:a', '128k', '-ar', '44100', file);
+    if (t.seconds)
+      fades.push('afade=t=out:st=' + Math.max(0, t.seconds - 1.5) + ':d=1.5');
+    ff.push(
+      '-af',
+      fades.join(','),
+      '-codec:a',
+      'libmp3lame',
+      '-b:a',
+      '128k',
+      '-ar',
+      '44100',
+      file,
+    );
     process.stdout.write('trim ' + e.id + ' ... ');
     execFileSync('ffmpeg', ff, { stdio: ['ignore', 'ignore', 'inherit'] });
     console.log((fs.statSync(file).size / 1e6).toFixed(1) + ' MB');
@@ -149,9 +187,22 @@ ${lines.join('\n')}
       fs.writeFileSync(mod, moduleHeader(e));
       console.log('new  src/sandbox/' + e.module + '.js');
     }
-    const r = spawnSync('node', [path.join(__dirname, 'analyze-audio-piece.js'), '--in', file, '--out', mod, '--fresh'],
-      { stdio: ['ignore', 'pipe', 'inherit'] });
-    if (r.status !== 0) { console.error('analyze failed for ' + e.id); process.exit(1); }
+    const r = spawnSync(
+      'node',
+      [
+        path.join(__dirname, 'analyze-audio-piece.js'),
+        '--in',
+        file,
+        '--out',
+        mod,
+        '--fresh',
+      ],
+      { stdio: ['ignore', 'pipe', 'inherit'] },
+    );
+    if (r.status !== 0) {
+      console.error('analyze failed for ' + e.id);
+      process.exit(1);
+    }
     console.log('     ' + String(r.stdout).split('\n')[1].trim());
   }
   if (changedManifest) {
@@ -159,5 +210,13 @@ ${lines.join('\n')}
     console.log('manifest: sha256 recorded');
   }
   if (!CHECK) writeIndex();
-  if (missing) { console.error(missing + ' recording(s) missing -- run `npm run fetch:audio`'); process.exit(1); }
-})().catch((err) => { console.error(err.message || err); process.exit(1); });
+  if (missing) {
+    console.error(
+      missing + ' recording(s) missing -- run `npm run fetch:audio`',
+    );
+    process.exit(1);
+  }
+})().catch((err) => {
+  console.error(err.message || err);
+  process.exit(1);
+});

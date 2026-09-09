@@ -4,7 +4,7 @@
 # orphan gh-pages commit, force-pushes. Prints one line on success.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-npm run build:site >/dev/null 2>&1 || { echo "deploy: build:site failed"; npm run build:site 2>&1 | tail -15; exit 1; }
+bun run build:site >/dev/null 2>&1 || { echo "deploy: build:site failed"; bun run build:site 2>&1 | tail -15; exit 1; }
 src=$(git rev-parse --short HEAD)
 tmp=$(mktemp -d)
 git -C "$tmp" init -q -b gh-pages
