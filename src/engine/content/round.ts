@@ -319,23 +319,23 @@ export function scoreWordPoints(
   b.tierLevel = ts.level;
   b.tierPts = ts.pts;
   b.tierMult = ts.mult;
-  // Inked tiles (inks.ts): gilt and bold on the tiles played, steel on the
-  // tiles left waiting in the case.
+  // Marked tiles (marginalia.ts): gilt and bold on the tiles played, steel
+  // on the tiles left waiting in the case.
   b.inkPoints = 0;
   b.inkMult = 0;
   b.holdMult = 1;
   b.inkNotes = [];
   tilesUsed.forEach((t) => {
-    if (t.ink === 'gilt') {
+    if (t.mark === 'gilt') {
       b.inkPoints += Number(tune.MARK_GILT) || 0;
       b.inkNotes.push('gilt ' + t.letter + ' +' + tune.MARK_GILT);
-    } else if (t.ink === 'bold') {
+    } else if (t.mark === 'bold') {
       b.inkMult += Number(tune.MARK_BOLD) || 0;
       b.inkNotes.push('bold ' + t.letter + ' +' + tune.MARK_BOLD + ' mult');
     }
   });
   (ctx.heldTiles || []).forEach((t) => {
-    if (t.ink === 'steel') {
+    if (t.mark === 'steel') {
       b.holdMult *= Number(tune.MARK_STEEL) || 1;
       b.inkNotes.push('steel ' + t.letter + ' held ×' + tune.MARK_STEEL);
     }
@@ -502,7 +502,7 @@ export function scoreSteps(
     tile: t,
     pts: Lexicon.LETTER_VALUES[t.letter] || 0,
     mult: 0,
-    ink: t.ink || null,
+    ink: t.mark || null,
     bonusPts: 0,
   }));
   const letterSum = perTile.reduce((n, x) => n + x.pts, 0);
@@ -568,7 +568,7 @@ export function scoreSteps(
       tone: 'mult',
     });
   heldTiles.forEach((t) => {
-    if (t.ink === 'steel')
+    if (t.mark === 'steel')
       push({
         kind: 'hold',
         tile: t,

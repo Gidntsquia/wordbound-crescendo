@@ -304,9 +304,9 @@ export const ITEMS: Item[] = [
     glyph: '🔀',
     rarity: 'uncommon',
     price: 5,
-    hint: '+20 points if the word uses an inked tile',
+    hint: '+20 points if the word uses a marked tile',
     score(c, a) {
-      if (!c.tiles.some((t) => t.ink)) return null;
+      if (!c.tiles.some((t) => t.mark)) return null;
       a.points += 20;
       return '+20';
     },
