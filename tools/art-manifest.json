@@ -116,7 +116,14 @@
       "id": "tile_face",
       "kind": "piece",
       "poses": ["idle"],
-      "status": "placeholder"
+      "status": "sourced",
+      "image": "art/tile_face.png",
+      "url": "https://opengameart.org/content/denzis-public-domain-art",
+      "sourcePage": "https://opengameart.org/sites/default/files/DENZI_CC0_32x32_tileset.png",
+      "licence": "CC0",
+      "author": "DENZI (submitted by MedicineStorm)",
+      "sha256": "31144ce875eefb3a082f3f324449b9142638d86ab32232386aecf412f19091af",
+      "note": "Approximate stand-in: this is DENZI's full 32x32 CC0 tileset sheet (1024x1248), not a single tile cropped to a wood/paper tile face. Needs an image-editing pass (no ImageMagick/Pillow available in this session) to crop one plausible tile texture before it looks right in-game; wired here as sourced+real so licence/provenance is on record, not as finished art."
     },
     {
       "id": "mark_overlay_gilt",
