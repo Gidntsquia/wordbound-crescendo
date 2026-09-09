@@ -1,0 +1,505 @@
+{
+  "id": "mountain-king-recording",
+  "title": "In the Hall of the Mountain King",
+  "composer": "Edvard Grieg",
+  "performer": "Musopen Symphony Orchestra (Czech National Symphony Orchestra)",
+  "audio": "audio/mountain-king.mp3",
+  "durationSec": 69.09,
+  "peak": 1.161,
+  "loudness": 0.28965,
+  "dynamics": {
+    "keyframes": [
+      {
+        "sec": 0,
+        "intensity": 0.12
+      },
+      {
+        "sec": 1,
+        "intensity": 0.151
+      },
+      {
+        "sec": 2,
+        "intensity": 0.153
+      },
+      {
+        "sec": 3,
+        "intensity": 0.184
+      },
+      {
+        "sec": 4,
+        "intensity": 0.18
+      },
+      {
+        "sec": 6,
+        "intensity": 0.211
+      },
+      {
+        "sec": 7,
+        "intensity": 0.194
+      },
+      {
+        "sec": 12,
+        "intensity": 0.28
+      },
+      {
+        "sec": 13,
+        "intensity": 0.257
+      },
+      {
+        "sec": 15,
+        "intensity": 0.296
+      },
+      {
+        "sec": 16,
+        "intensity": 0.446
+      },
+      {
+        "sec": 17,
+        "intensity": 0.646
+      },
+      {
+        "sec": 18,
+        "intensity": 0.7
+      },
+      {
+        "sec": 19,
+        "intensity": 0.699
+      },
+      {
+        "sec": 20,
+        "intensity": 0.602
+      },
+      {
+        "sec": 21,
+        "intensity": 0.598
+      },
+      {
+        "sec": 22,
+        "intensity": 0.7
+      },
+      {
+        "sec": 23,
+        "intensity": 0.67
+      },
+      {
+        "sec": 25,
+        "intensity": 0.673
+      },
+      {
+        "sec": 26,
+        "intensity": 0.647
+      },
+      {
+        "sec": 27,
+        "intensity": 0.7
+      },
+      {
+        "sec": 28,
+        "intensity": 0.657
+      },
+      {
+        "sec": 29,
+        "intensity": 0.683
+      },
+      {
+        "sec": 31,
+        "intensity": 0.622
+      },
+      {
+        "sec": 33,
+        "intensity": 0.662
+      },
+      {
+        "sec": 34,
+        "intensity": 0.606
+      },
+      {
+        "sec": 35,
+        "intensity": 0.662
+      },
+      {
+        "sec": 36,
+        "intensity": 0.622
+      },
+      {
+        "sec": 37,
+        "intensity": 0.669
+      },
+      {
+        "sec": 38,
+        "intensity": 0.68
+      },
+      {
+        "sec": 39,
+        "intensity": 0.632
+      },
+      {
+        "sec": 40,
+        "intensity": 0.659
+      },
+      {
+        "sec": 41,
+        "intensity": 0.573
+      },
+      {
+        "sec": 42,
+        "intensity": 0.609
+      },
+      {
+        "sec": 43,
+        "intensity": 0.675
+      },
+      {
+        "sec": 45,
+        "intensity": 0.597
+      },
+      {
+        "sec": 46,
+        "intensity": 0.579
+      },
+      {
+        "sec": 47,
+        "intensity": 0.59
+      },
+      {
+        "sec": 49,
+        "intensity": 0.658
+      },
+      {
+        "sec": 50,
+        "intensity": 0.488
+      },
+      {
+        "sec": 51,
+        "intensity": 0.608
+      },
+      {
+        "sec": 52,
+        "intensity": 0.326
+      },
+      {
+        "sec": 53,
+        "intensity": 0.317
+      },
+      {
+        "sec": 54,
+        "intensity": 0.623
+      },
+      {
+        "sec": 55,
+        "intensity": 0.61
+      },
+      {
+        "sec": 56,
+        "intensity": 0.382
+      },
+      {
+        "sec": 57,
+        "intensity": 0.453
+      },
+      {
+        "sec": 58,
+        "intensity": 0.6
+      },
+      {
+        "sec": 60,
+        "intensity": 0.488
+      },
+      {
+        "sec": 61,
+        "intensity": 0.513
+      },
+      {
+        "sec": 62,
+        "intensity": 0.318
+      },
+      {
+        "sec": 63,
+        "intensity": 0.204
+      },
+      {
+        "sec": 64,
+        "intensity": 0.7
+      },
+      {
+        "sec": 65,
+        "intensity": 0.7
+      },
+      {
+        "sec": 66,
+        "intensity": 0.12
+      },
+      {
+        "sec": 69,
+        "intensity": 0.12
+      }
+    ],
+    "surges": [
+      {
+        "sec": 3.2,
+        "intensity": 0.182,
+        "rise": 0.098,
+        "mag": 0.028
+      },
+      {
+        "sec": 4.65,
+        "intensity": 0.184,
+        "rise": 0.049,
+        "mag": 0
+      },
+      {
+        "sec": 5.6,
+        "intensity": 0.205,
+        "rise": 0.069,
+        "mag": 0.006
+      },
+      {
+        "sec": 6.3,
+        "intensity": 0.192,
+        "rise": 0.038,
+        "mag": 0
+      },
+      {
+        "sec": 7.95,
+        "intensity": 0.213,
+        "rise": 0.066,
+        "mag": 0
+      },
+      {
+        "sec": 8.9,
+        "intensity": 0.213,
+        "rise": 0.079,
+        "mag": 0.028
+      },
+      {
+        "sec": 10.45,
+        "intensity": 0.237,
+        "rise": 0.073,
+        "mag": 0.024
+      },
+      {
+        "sec": 11.2,
+        "intensity": 0.262,
+        "rise": 0.092,
+        "mag": 0.065
+      },
+      {
+        "sec": 12,
+        "intensity": 0.28,
+        "rise": 0.139,
+        "mag": 0.166
+      },
+      {
+        "sec": 12.75,
+        "intensity": 0.264,
+        "rise": 0.066,
+        "mag": 0.031
+      },
+      {
+        "sec": 14.2,
+        "intensity": 0.272,
+        "rise": 0.076,
+        "mag": 0.055
+      },
+      {
+        "sec": 17.35,
+        "intensity": 0.688,
+        "rise": 0.475,
+        "mag": 0.912
+      },
+      {
+        "sec": 18.75,
+        "intensity": 0.7,
+        "rise": 0.292,
+        "mag": 0.629
+      },
+      {
+        "sec": 20.15,
+        "intensity": 0.614,
+        "rise": 0.081,
+        "mag": 0.27
+      },
+      {
+        "sec": 20.9,
+        "intensity": 0.605,
+        "rise": 0.08,
+        "mag": 0.246
+      },
+      {
+        "sec": 21.6,
+        "intensity": 0.666,
+        "rise": 0.148,
+        "mag": 0.393
+      },
+      {
+        "sec": 22.35,
+        "intensity": 0.683,
+        "rise": 0.169,
+        "mag": 0.438
+      },
+      {
+        "sec": 25.15,
+        "intensity": 0.686,
+        "rise": 0.135,
+        "mag": 0.397
+      },
+      {
+        "sec": 26.5,
+        "intensity": 0.675,
+        "rise": 0.178,
+        "mag": 0.462
+      },
+      {
+        "sec": 27.3,
+        "intensity": 0.696,
+        "rise": 0.178,
+        "mag": 0.462
+      },
+      {
+        "sec": 28.7,
+        "intensity": 0.65,
+        "rise": 0.133,
+        "mag": 0.365
+      },
+      {
+        "sec": 29.95,
+        "intensity": 0.663,
+        "rise": 0.089,
+        "mag": 0.295
+      },
+      {
+        "sec": 31.65,
+        "intensity": 0.627,
+        "rise": 0.085,
+        "mag": 0.268
+      },
+      {
+        "sec": 32.65,
+        "intensity": 0.653,
+        "rise": 0.129,
+        "mag": 0.363
+      },
+      {
+        "sec": 34.25,
+        "intensity": 0.612,
+        "rise": 0.094,
+        "mag": 0.273
+      },
+      {
+        "sec": 35.35,
+        "intensity": 0.678,
+        "rise": 0.163,
+        "mag": 0.422
+      },
+      {
+        "sec": 37.3,
+        "intensity": 0.689,
+        "rise": 0.185,
+        "mag": 0.473
+      },
+      {
+        "sec": 38.25,
+        "intensity": 0.655,
+        "rise": 0.133,
+        "mag": 0.36
+      },
+      {
+        "sec": 39.85,
+        "intensity": 0.668,
+        "rise": 0.145,
+        "mag": 0.393
+      },
+      {
+        "sec": 41.15,
+        "intensity": 0.585,
+        "rise": 0.061,
+        "mag": 0.211
+      },
+      {
+        "sec": 42.45,
+        "intensity": 0.63,
+        "rise": 0.172,
+        "mag": 0.432
+      },
+      {
+        "sec": 43.7,
+        "intensity": 0.66,
+        "rise": 0.201,
+        "mag": 0.495
+      },
+      {
+        "sec": 44.95,
+        "intensity": 0.595,
+        "rise": 0.116,
+        "mag": 0.315
+      },
+      {
+        "sec": 48.3,
+        "intensity": 0.624,
+        "rise": 0.116,
+        "mag": 0.316
+      },
+      {
+        "sec": 49.2,
+        "intensity": 0.578,
+        "rise": 0.175,
+        "mag": 0.453
+      },
+      {
+        "sec": 50.4,
+        "intensity": 0.426,
+        "rise": 0.533,
+        "mag": 1
+      },
+      {
+        "sec": 51.45,
+        "intensity": 0.495,
+        "rise": 0.533,
+        "mag": 1
+      },
+      {
+        "sec": 54.4,
+        "intensity": 0.555,
+        "rise": 0.506,
+        "mag": 0.959
+      },
+      {
+        "sec": 55.35,
+        "intensity": 0.5,
+        "rise": 0.479,
+        "mag": 0.918
+      },
+      {
+        "sec": 58.2,
+        "intensity": 0.549,
+        "rise": 0.477,
+        "mag": 0.915
+      },
+      {
+        "sec": 59.2,
+        "intensity": 0.498,
+        "rise": 0.425,
+        "mag": 0.836
+      },
+      {
+        "sec": 60.05,
+        "intensity": 0.485,
+        "rise": 0.425,
+        "mag": 0.836
+      },
+      {
+        "sec": 61.5,
+        "intensity": 0.512,
+        "rise": 0.37,
+        "mag": 0.717
+      },
+      {
+        "sec": 65.05,
+        "intensity": 0.68,
+        "rise": 0.58,
+        "mag": 1
+      }
+    ]
+  },
+  "excerpt": true
+}

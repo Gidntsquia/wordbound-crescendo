@@ -41,7 +41,7 @@ import '../engine/content/quillDiscovery';
 import '../engine/content/audioPiece';
 // Synthesized input sounds and the scoring cascade's hits (sfx.js).
 import '../engine/content/sfx';
-import './recordings.js';
+import '../engine/content/recordings';
 
 import RoundSandbox from './RoundSandbox.jsx';
 

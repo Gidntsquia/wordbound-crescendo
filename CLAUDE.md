@@ -122,21 +122,25 @@ not something to reintroduce piecemeal mid-task.
     (tick climbing the stick, shuffle, thud, coin, shimmer) and the
     cascade's hits (lock, letter, item, rule, hit, resolve, riffle);
     `SFX_DEFAULTS` is the table.
-  - `audioPiece.js` (also owns THE CRESCENDO WINDOW: `seq.crescendo()` →
-    idle / soon / live from the big surges, `Sandbox.CRESCENDO` holds the
-    0.4 s-before / 1.0 s-after / 5 s-countdown numbers; the quill card in
-    RoundSandbox polls it) + `recordings.js` (generated import index) +
-    `recorded*.js` ×9 — the nine RECORDINGS under public/audio/, one per
-    enemy. `tools/audio-manifest.json` is the source of truth (URL, licence,
+  - `src/engine/content/audioPiece.ts` (also owns THE CRESCENDO WINDOW:
+    `seq.crescendo()` → idle / soon / live from the big surges,
+    `Sandbox.CRESCENDO` holds the 0.4 s-before / 1.0 s-after / 5 s-countdown
+    numbers; the quill card in RoundSandbox polls it) +
+    `src/engine/content/recordings.ts` (generated import index) +
+    `src/recordings/*.json` ×9 — the nine RECORDINGS under public/audio/,
+    one per enemy; each JSON holds title/composer/performer/audio plus the
+    analyzed envelope (durationSec/peak/loudness/dynamics).
+    `tools/audio-manifest.json` is the source of truth (URL, licence,
     performer, trim, sha256); `npm run fetch:audio` (tools/fetch-audio.js)
     downloads into `.cache/audio/`, trims/transcodes with ffmpeg to 128 kbps
-    excerpts, writes a new recorded file's header once, and refreshes the
-    GENERATED envelope block via tools/analyze-audio-piece.js (ffmpeg
-    decode, Chromium fallback). Fetched MP3s are gitignored; `build:site`
-    fetches any that are missing. Für Elise and Moonlight are Pixabay
-    (permissive, not PD, committed); the other seven are public domain in
-    composition and performance. These are the logged exceptions to the
-    synthesized-only rule; the sandbox does not load music.js. Soundtrack
+    excerpts, writes a new recording's initial JSON once, and refreshes the
+    analyzed fields via tools/analyze-audio-piece.js (ffmpeg decode, Chromium
+    fallback), which also regenerates recordings.ts's import list. Fetched
+    MP3s are gitignored; `build:site` fetches any that are missing. Für
+    Elise and Moonlight are Pixabay (permissive, not PD, committed); the
+    other seven are public domain in composition and performance. These are
+    the logged exceptions to the synthesized-only rule; the sandbox does not
+    load music.js. Soundtrack
     only; the music never touches the score.
 - `wordbound.html` + `css/` — the complete pre-React reference implementation,
   kept until the React port reaches full parity.
