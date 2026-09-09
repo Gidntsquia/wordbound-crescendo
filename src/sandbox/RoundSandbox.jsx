@@ -7,7 +7,6 @@
 // touches the score. The tile play (case + composing stick + FLIP slide) is
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
-import { createDragReorder } from '../engine/dragReorder';
 import {
   KEYS as STORAGE_KEYS,
   readRaw,
@@ -60,6 +59,8 @@ import EnemyIntroCard from '../ui/fight/EnemyIntroCard';
 import ScoreLine from '../ui/fight/ScoreLine';
 import PlaysList from '../ui/fight/PlaysList';
 import WonBanner from '../ui/fight/WonBanner';
+import { useCrescendo } from '../ui/hooks/useCrescendo';
+import { useDragReorder } from '../ui/hooks/useDragReorder';
 import LetterChoice from '../ui/fight/LetterChoice';
 import SetupPanel from '../ui/chrome/SetupPanel';
 import StartingQuills from '../ui/chrome/StartingQuills';
@@ -492,10 +493,7 @@ export default function RoundSandbox() {
   const [wonResolved, setWonResolved] = useState(false);
   // The soundtrack's crescendo window, polled while a crescendo quill is held
   // (audioPiece.js `crescendo()`): { phase: 'idle' | 'soon' | 'live', secs }.
-  const [cres, setCres] = useState({ phase: 'idle' });
-  const holdsCrescendoItem = (run) =>
-    !!run &&
-    run.items.some((id) => SB.ITEM_DEFS[id] && SB.ITEM_DEFS[id].crescendo);
+  const cres = useCrescendo(phase, fight, SB.ITEM_DEFS, sfx);
   // Returns audioPiece.js's own crescendo state ({ phase, mag?, ... }) or
   // null with no recording playing -- round.js reads .phase and .mag off it
   // (Climax/Fortissimo need 'live', Anticipation needs 'soon').
@@ -816,38 +814,6 @@ export default function RoundSandbox() {
       crescendoNow,
     ],
   );
-
-  // Poll the crescendo window for the card's countdown. Only runs while a
-  // round is live and a crescendo quill is held; 100 ms keeps the seconds
-  // readout honest without redrawing when nothing has changed.
-  useEffect(() => {
-    if (phase !== 'live' || !holdsCrescendoItem(fight.current?.run)) {
-      setCres({ phase: 'idle' });
-      return undefined;
-    }
-    let last = '',
-      lastPhase = 'idle';
-    const id = setInterval(() => {
-      const s = fight.current?.seq;
-      const c = s && s.crescendo ? s.crescendo() : { phase: 'idle' };
-      const key =
-        c.phase +
-        ':' +
-        (c.secs == null
-          ? ''
-          : c.phase === 'live'
-            ? c.secs.toFixed(1)
-            : Math.ceil(c.secs));
-      if (key === last) return;
-      last = key;
-      // The window opening gets a sound of its own so the ear is told too.
-      if (c.phase === 'live' && lastPhase !== 'live') sfx('shimmer');
-      lastPhase = c.phase;
-      setCres(c);
-    }, 100);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, fight.current?.run?.items.length]);
 
   // After a won round: bank the gold and move to the next enemy, or end the run.
   const nextStage = useCallback(() => {
@@ -1258,86 +1224,16 @@ export default function RoundSandbox() {
   // Drag a tile along its row to reorder it -- the case and the stick both.
   // Every tile in the row is FLIPped so its neighbours slide aside; the
   // dragged tile slides in from where the finger let go of its ghost.
-  const wordRef = useRef(letters);
-  wordRef.current = letters;
-  // While a drag is on, both rows are drawn in PREVIEW: the hollow tile stands
-  // where the drop would put it, in whichever row the finger is over.
-  const [preview, setPreview] = useState(null); // { id, fromRow, fromIndex, toRow, to } | null
-  const playRef = useRef(null);
-  const dragRef = useRef(null);
-  if (!dragRef.current) {
-    const flipAll = (id) => {
-      const r = fight.current?.round;
-      if (!r) return;
-      r.rack.forEach((t) => {
-        if (t.id !== id) captureFlipFrom(t.id);
-      });
-    };
-    dragRef.current = createDragReorder({
-      rows: () => ({
-        rack: playRef.current.querySelector('.sb-rack'),
-        stick: playRef.current.querySelector('.sb-stick'),
-      }),
-      onPreview: (p) => {
-        flipAll(p.id);
-        setPreview(p);
-      },
-      onSettle: (id, ghostRect) => {
-        setPreview(null);
-        if (id) pendingFlipFromRef.current[id] = ghostRect;
-        refresh();
-      },
-      onDrop: (p, ghostRect) => {
-        const r = fight.current?.round;
-        if (!r) return;
-        setPreview(null);
-        if (p.id) pendingFlipFromRef.current[p.id] = ghostRect;
-        sfx('tick', p.to, 0);
-        const cur = wordRef.current;
-        if (p.fromRow === 'rack') {
-          const tile = r.rack[p.fromIndex];
-          if (!tile) return;
-          if (p.toRow === 'rack') {
-            dispatchFight({
-              type: 'fight/moveTile',
-              fight,
-              fromIndex: p.fromIndex,
-              to: p.to,
-            });
-            return;
-          }
-          // Case -> stick: stage the letter at the finger's slot.
-          const ch = tile.letter === '?' ? '?' : tile.letter;
-          setWord(cur.slice(0, p.to) + ch + cur.slice(p.to));
-          return;
-        }
-        if (p.fromIndex >= cur.length) return;
-        const arr = cur.split('');
-        const ch = arr.splice(p.fromIndex, 1)[0];
-        if (p.toRow === 'stick') {
-          arr.splice(p.to, 0, ch);
-          setWord(arr.join(''));
-          return;
-        }
-        // Stick -> case: send the tile home, to the slot the finger chose.
-        setWord(arr.join(''));
-        if (p.id) {
-          const i = r.rack.findIndex((t) => t.id === p.id);
-          if (i >= 0) {
-            dispatchFight({
-              type: 'fight/moveTile',
-              fromIndex: i,
-              to: p.to,
-              fight,
-            });
-          } else {
-            refresh();
-          }
-        }
-      },
-    });
-  }
-  const drag = dragRef.current;
+  const { drag, preview, playRef } = useDragReorder({
+    letters,
+    setWord,
+    fight,
+    dispatchFight,
+    refresh,
+    sfx,
+    captureFlipFrom,
+    pendingFlipFromRef,
+  });
 
   const setConst = (key, value) => {
     setTune((t) => ({ ...t, [key]: value }));
