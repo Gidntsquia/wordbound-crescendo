@@ -191,12 +191,17 @@ from the "engine never touches `window`" rule this item doesn't fix).
 for their side effects, since `window.Wordbound.Lexicon`/`Tiles` are the
 separate, out-of-scope global predating the Sandbox-namespace removal);
 every other content module is now reached transitively via
-`RoundSandbox.jsx`'s real imports (`5523b48`). Still open: move to the
-rest of the tree in A2 below — `src/app/App.tsx` phase router,
-`src/audio/` for `audioPiece`/`sfx`, `src/engine/meta/` for the two
-metas, `src/ui/hooks/` (`useDragReorder`, `useCrescendo`, `useSfx`), and
-renaming surviving `inks`-era names (`applyInk`, `useInk`, `is-mark-*` is
-fine).
+`RoundSandbox.jsx`'s real imports (`5523b48`). `audioPiece.ts`/`sfx.ts`
+moved to `src/audio/` (the former renamed `recordingPlayer.ts` per the
+target-layout spec) and `stolenLetters.ts`/`quillDiscovery.ts` to
+`src/engine/meta/`, with every import site and `tools/fetch-audio.js`'s
+recordings.ts generator fixed to match (`a994c15`). Still open: the rest
+of the tree in A2 below — `src/app/App.tsx` phase router, `src/ui/hooks/`
+(`useDragReorder`, `useCrescendo`, `useSfx`) and the full `ui/` split by
+feature — both genuinely overlap A4's component-split item below and are
+left for that pass rather than done twice; renaming surviving `inks`-era
+names (`applyInk`, `useInk`, `is-mark-*` is fine — already the current
+names, nothing left to rename there).
 
 **A4 — component split.** `RoundSandbox.jsx` is 1,898 lines; `PlayBoard.jsx`
 is 464, `Shop.jsx` 316, `HeldRow.jsx` 218; `sandbox.css` is 3,217 lines
