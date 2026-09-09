@@ -68,14 +68,36 @@ true`) driving `vite preview` — start a run, tap-play several words,
   land on a tile-targeting mark for that extra assertion, but the dispatch
   path itself (buy → pick → select → commit → useAdhocMark) is exercised
   end to end.
-- **A4** (component split): not touched by pass 3 (time/scope, not
-  because it's blocked -- all ten run/round mutations now go through typed
-  dispatch, so the remaining extraction is a pure JSX code-move same as
-  the prior HeldRow/Shop/etc. passes). `RoundSandbox.jsx` is 2,333 lines.
-  The remaining blocks (pack-pick, callout/toast rendering, the board/
-  rack/stick/drag wrapper -- drag internals via `createDragReorder` stay
-  untouched, only the JSX around them moves) are the next pass, each its
-  own smoke-tested commit.
+- **A4** (component split): pass 4 checked the three blocks the plan named
+  as remaining and found less left than expected, plus one block judged
+  not worth the risk:
+  - **Pack-pick** turned out to already be extracted -- it lives inside
+    `src/ui/shop/Shop.jsx` (the `selecting`/`run.pack` branches), moved
+    there in an earlier A4 pass along with the rest of the shop. Nothing
+    to do.
+  - **Callout/toast rendering** is three small one-line conditional
+    `<span className="sb-callout">` elements, each gated on its own
+    `!seen.has(...)` check and interleaved with unrelated markup (rack
+    header, stick header, swap-button row). Pulling them into a shared
+    file would trade three inline lines for a component call plus a prop
+    for each condition -- not a real simplification, so left as-is.
+  - **The board/rack/stick/drag wrapper** (`<section className="sb-play">`,
+    lines ~1875-2316, ~440 lines) was read in full and is the one block
+    still genuinely entangled: it closes over ~30 values with no natural
+    prop boundary -- `drag.bind`, live scoring/premium-slot rendering,
+    inking mode and vowel-picker state, the word-helper's suggestions/
+    piles UI, and the tile click handlers that dispatch `stageTile`/
+    `unstageAt`/`toggleInkTile`. Extracting it would mean a ~30-prop
+    interface with no way to verify feel-sensitive parts (drag reorder,
+    scoring pop/lit timing) beyond "didn't throw." Given no test suite and
+    only headless Playwright (no drag gestures, no visual check) to
+    verify against, judged not worth the risk this pass -- left in
+    `RoundSandbox.jsx` alongside the file's own noted "predates this
+    rule" exception in CLAUDE.md. A future pass with a human at a real
+    device (E4's phone pass is that moment) could extract and eyeball it
+    in one go.
+    `RoundSandbox.jsx` stays 2,333 lines; no code changed this pass, so
+    nothing was deployed.
 - **E4** (phone perf pass): still needs an actual phone playing the actual
   build; headless Playwright can't stand in for this one.
 
