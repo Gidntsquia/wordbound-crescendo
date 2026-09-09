@@ -1,0 +1,874 @@
+// READ_SLOWLY_PLAN.md A3: immutable RunState + pure transitions, ported from
+// content/round.ts's mutable `createRun` (begin/skip/next/pickLetter/
+// leaveShop) and content/shop.ts's mutable `createShop` (buy/sell/reroll/
+// openPack/pick). Same RNG call order as the mutable versions -- verified by
+// tools/parity-new.ts against tools/parity-old.ts's trace.
+//
+// stolenLetters.ts and quillDiscovery.ts stay RngStream-based and
+// side-effecting on localStorage (READ_SLOWLY_PLAN.md A2's persistence.ts is
+// the slice that gives them a versioned, pure-friendly home) -- toStream
+// (rng.ts) bridges a pure RngState into a mutable RngStream for the span of
+// one call into them, then hands back the RngState so the rest of this
+// module stays pure.
+import type { Tile } from '../tiles';
+import type { RngState } from '../rng';
+import * as rng from '../rng';
+import { MOVEMENTS, enemyAt, type Enemy } from '../content/enemies';
+import {
+  FAVOURS,
+  ROUND_DEFAULTS,
+  TIER_DEFS,
+  applyKey,
+  type Breakdown,
+  type Tune,
+} from '../content/round';
+import * as R from './round';
+import type { RoundState } from './round';
+
+export interface Card {
+  kind: 'item' | 'mark' | 'etude';
+  id: string;
+  price: number;
+  sold: boolean;
+}
+
+export interface Pack {
+  kind: 'tile' | 'mark' | 'etude';
+  price: number;
+  opened: boolean;
+  free?: boolean;
+}
+
+export type PackChoice =
+  | { kind: 'tile'; tile: Tile }
+  | { kind: 'etude'; id: string }
+  | { kind: 'mark'; id: string };
+
+export interface ShopState {
+  readonly cards: readonly Card[];
+  readonly packs: readonly Pack[];
+  readonly rerolls: number;
+  readonly coupon: boolean;
+  readonly favours: readonly string[];
+}
+
+const PACK_KINDS: { kind: 'tile' | 'mark' | 'etude' }[] = [
+  { kind: 'tile' },
+  { kind: 'mark' },
+  { kind: 'etude' },
+];
+
+const RARITY_PRICE: Record<string, [number, number]> = {
+  common: [3, 5],
+  uncommon: [5, 7],
+  rare: [8, 8],
+};
+
+function priceOf(
+  def: { price?: number; rarity?: string },
+  s: RngState,
+): [number, RngState] {
+  if (def.price != null) return [def.price, s];
+  const band = RARITY_PRICE[def.rarity || 'common']!;
+  return rng.randInt(s, band[0], band[1]);
+}
+
+export interface Consumable {
+  kind: string;
+  id: string;
+}
+
+export interface RunState {
+  readonly key: string;
+  readonly tune: Tune;
+  readonly movement: number;
+  readonly stage: number;
+  readonly enemy: Enemy | null;
+  readonly round: RoundState | null;
+  readonly deck: readonly Tile[];
+  readonly items: readonly string[];
+  readonly startItems: readonly string[];
+  readonly consumables: readonly Consumable[];
+  readonly itemState: Readonly<Record<string, number>>;
+  readonly shop: ShopState | null;
+  readonly letterChoice: { options: readonly string[]; last: boolean } | null;
+  readonly pack: {
+    kind: string;
+    choices: readonly (PackChoice | null)[];
+  } | null;
+  readonly tierLevels: Readonly<Record<string, number>>;
+  readonly ink: number;
+  readonly felled: readonly string[];
+  readonly resolved: readonly string[];
+  readonly skipped: readonly string[];
+  readonly favours: readonly string[];
+  readonly bestPlay: {
+    word: string;
+    breakdown: Breakdown;
+    enemy: string;
+  } | null;
+  readonly wordsPlayed: number;
+  readonly lastWin: { reward: number; interest: number } | null;
+  readonly state: 'live' | 'won' | 'lost';
+  readonly movementIIIQuillDone?: boolean;
+  readonly movementIIIQuillFound?: string | null;
+  readonly quillFound?: string | null;
+}
+
+export interface CreateRunStateOpts {
+  tune?: Partial<Tune>;
+  key?: string;
+  deck?: Tile[];
+  items?: string[];
+}
+
+function kindMult(tune: Tune): Record<string, number> {
+  return { small: 1, big: Number(tune.BIG_MULT), boss: Number(tune.BOSS_MULT) };
+}
+function kindInk(tune: Tune): Record<string, number> {
+  return {
+    small: Number(tune.INK_SMALL),
+    big: Number(tune.INK_BIG),
+    boss: Number(tune.INK_BOSS),
+  };
+}
+
+export function targetFor(
+  run: RunState,
+  movement: number,
+  stage: number,
+): number {
+  const e = enemyAt(movement, stage);
+  const base =
+    Number(run.tune['MOVEMENT_BASE_' + (movement + 1)]) ||
+    Number(run.tune.MOVEMENT_BASE_1) * Math.pow(2.5, movement);
+  return Math.round(
+    base *
+      (e ? (kindMult(run.tune)[e.kind] ?? 1) : 1) *
+      (Number(run.tune.KEY_TARGET_MULT) || 1),
+  );
+}
+
+export function interestPreview(run: RunState): number {
+  return Math.min(
+    Number(run.tune.INTEREST_CAP),
+    Math.floor(run.ink / Number(run.tune.INTEREST_PER)),
+  );
+}
+
+// The pure twin of createRun's begin(): rolls the Movement-III quill (once),
+// picks the enemy, reshuffles the deck into a fresh pile, creates the round,
+// and rolls its favour. Called once at run creation and again whenever the
+// walk advances (skip, finishWin).
+function begin(run: RunState, rngState: RngState): [RunState, RngState] {
+  let s = rngState;
+  let movementIIIQuillDone = run.movementIIIQuillDone;
+  let movementIIIQuillFound = run.movementIIIQuillFound ?? null;
+  if (run.movement >= 2 && !movementIIIQuillDone) {
+    movementIIIQuillDone = true;
+    const rollQuillDiscovery = window.Wordbound.Sandbox.rollQuillDiscovery as
+      ((rng: import('../rng').RngStream) => string | null) | undefined;
+    const discoverQuill = window.Wordbound.Sandbox.discoverQuill as
+      ((id: string) => boolean) | undefined;
+    if (rollQuillDiscovery) {
+      const bridge = rng.toStream(s);
+      const found = rollQuillDiscovery(bridge.stream);
+      s = bridge.get();
+      if (found && discoverQuill && discoverQuill(found))
+        movementIIIQuillFound = found;
+    }
+  }
+  const enemy = enemyAt(run.movement, run.stage);
+  const [shuffledDeck, s2] = rng.shuffle(s, run.deck);
+  s = s2;
+  const pile = { drawPile: shuffledDeck, discardPile: [] };
+  const [roundState, s3] = R.createRoundState(
+    {
+      deck: run.deck as Tile[],
+      pile,
+      tune: run.tune,
+      items: run.items as string[],
+      tierLevels: run.tierLevels as Record<string, number>,
+      noPremium: !!(run.tune.KEY_NO_BOSS_PREMIUM && enemy!.kind === 'boss'),
+      target: targetFor(run, run.movement, run.stage),
+      reward: kindInk(run.tune)[enemy!.kind],
+      rule: enemy!.rule
+        ? (window.Wordbound.Sandbox.RULES as never)[enemy!.rule]
+        : null,
+      situation: enemy!.situation,
+    },
+    s,
+  );
+  s = s3;
+  let favourId: string | null = null;
+  if (enemy!.kind !== 'boss') {
+    const [favour, s4] = rng.randInt(s, 0, FAVOURS.length - 1);
+    s = s4;
+    favourId = FAVOURS[favour]!.id;
+  }
+  const roundWithFavour: RoundState = {
+    ...roundState,
+    favour: favourId,
+  };
+  const next: RunState = {
+    ...run,
+    movementIIIQuillDone,
+    movementIIIQuillFound,
+    enemy,
+    round: roundWithFavour,
+  };
+  return [next, s];
+}
+
+export function createRunState(
+  opts: CreateRunStateOpts,
+  rngState: RngState,
+): [RunState, RngState] {
+  const tune = applyKey(
+    Object.assign({}, ROUND_DEFAULTS, opts.tune || {}),
+    opts.key,
+  );
+  const run: RunState = {
+    key: opts.key || 'c_major',
+    tune,
+    movement: 0,
+    stage: 0,
+    enemy: null,
+    round: null,
+    deck: opts.deck || [],
+    items: (opts.items || []).slice(),
+    startItems: (opts.items || []).slice(),
+    consumables: [],
+    itemState: {},
+    shop: null,
+    letterChoice: null,
+    pack: null,
+    tierLevels: {},
+    ink: Number(tune.START_INK),
+    felled: [],
+    resolved: [],
+    skipped: [],
+    favours: [],
+    bestPlay: null,
+    wordsPlayed: 0,
+    lastWin: null,
+    state: 'live',
+  };
+  return begin(run, rngState);
+}
+
+// The bag is the whole deck reshuffled at the start of every fight; within a
+// fight, played and swapped tiles wait in the discard until the bag runs
+// dry. Leaving a round (skip, or a win on the way to a shop/the next fight)
+// discards whatever is still in the rack -- content/round.ts's discardRack.
+function discardRack(round: RoundState): RoundState {
+  return {
+    ...round,
+    rack: [],
+    pile: {
+      drawPile: round.pile.drawPile,
+      discardPile: (round.pile.discardPile as Tile[]).concat(
+        round.rack as Tile[],
+      ),
+    },
+  };
+}
+
+function advanceStage(run: RunState): { movement: number; stage: number } {
+  let stage = run.stage + 1;
+  let movement = run.movement;
+  if (stage >= MOVEMENTS[movement]!.enemies.length) {
+    stage = 0;
+    movement += 1;
+  }
+  return { movement, stage };
+}
+
+export interface SkipResult {
+  ok: boolean;
+  reason?: string;
+  favour?: string;
+}
+
+export function skip(
+  run: RunState,
+  rngState: RngState,
+): [RunState, SkipResult, RngState] {
+  const r = run.round;
+  if (run.state !== 'live' || !r || r.state !== 'live' || run.shop)
+    return [run, { ok: false, reason: 'Nothing to skip.' }, rngState];
+  if (run.tune.KEY_NO_SKIP)
+    return [run, { ok: false, reason: 'No skipping in B minor.' }, rngState];
+  if (!r.favour)
+    return [
+      run,
+      { ok: false, reason: 'The boss cannot be skipped.' },
+      rngState,
+    ];
+  if (r.plays.length)
+    return [
+      run,
+      { ok: false, reason: 'Too late — a word has been played.' },
+      rngState,
+    ];
+  const favour = r.favour;
+  let ink = run.ink;
+  let favours = run.favours as string[];
+  if (favour === 'bounty') ink += Number(run.tune.BOUNTY_INK);
+  else favours = favours.concat([favour]);
+  const { movement, stage } = advanceStage(run);
+  const afterSkip: RunState = {
+    ...run,
+    ink,
+    favours,
+    skipped: (run.skipped as string[]).concat([run.enemy!.id]),
+    movement,
+    stage,
+    round: discardRack(r),
+  };
+  const [next, s] = begin(afterSkip, rngState);
+  return [next, { ok: true, favour }, s];
+}
+
+function finishWin(
+  run: RunState,
+  last: boolean,
+  rngState: RngState,
+): [RunState, RngState] {
+  if (last) return [{ ...run, state: 'won' }, rngState];
+  const { movement, stage } = advanceStage(run);
+  const enemy = enemyAt(movement, stage);
+  const afterAdvance: RunState = {
+    ...run,
+    movement,
+    stage,
+    enemy,
+    round: run.round ? discardRack(run.round) : run.round,
+  };
+  const createShop = window.Wordbound.Sandbox.createShop as
+    ((run: unknown, rng: import('../rng').RngStream) => unknown) | undefined;
+  let s = rngState;
+  let shop: ShopState | null = null;
+  if (createShop) {
+    shop = rollShop(afterAdvance);
+  }
+  if (!shop) return begin(afterAdvance, s);
+  // Favours owed from a skipped enemy are spent entering the shop.
+  let coupon = false;
+  const packs = shop.packs.slice();
+  shop.favours.forEach((f) => {
+    if (f === 'free_pack' && packs[0]) packs[0] = { ...packs[0], free: true };
+    if (f === 'coupon') coupon = true;
+  });
+  const cards = coupon
+    ? shop.cards.map((c) => ({ ...c, price: 0 }))
+    : shop.cards;
+  const withFavour: ShopState = { ...shop, cards, packs, coupon, favours: [] };
+  return [{ ...afterAdvance, shop: withFavour, favours: [] }, s];
+
+  // Pure reroll of the shop's cards/packs, threading rngState through the
+  // outer closure's `s` (rollShop is only ever called once here, right
+  // after advancing, so this local mutation of `s` stays confined to this
+  // function call).
+  function rollShop(runForShop: RunState): ShopState {
+    const [rolled, s2] = rollCardsAndPacks(runForShop, s);
+    s = s2;
+    return rolled;
+  }
+}
+
+function itemIds(): string[] {
+  return ((window.Wordbound.Sandbox.ITEMS as { id: string }[]) || []).map(
+    (it) => it.id,
+  );
+}
+function itemDefs(): Record<
+  string,
+  { id: string; rarity?: string; price?: number }
+> {
+  return (
+    (window.Wordbound.Sandbox.ITEM_DEFS as Record<
+      string,
+      { id: string; rarity?: string; price?: number }
+    >) || {}
+  );
+}
+function tiers(): { id: string }[] {
+  return (window.Wordbound.Sandbox.TIERS as { id: string }[]) || [];
+}
+function marginalia(): { id: string }[] {
+  return (window.Wordbound.Sandbox.MARGINALIA as { id: string }[]) || [];
+}
+function pick<T>(s: RngState, arr: T[]): [T, RngState] {
+  const [i, s2] = rng.randInt(s, 0, arr.length - 1);
+  return [arr[i]!, s2];
+}
+
+function rollEtude(
+  s: RngState,
+  exclude: string[],
+): [{ kind: 'etude'; id: string }, RngState] {
+  let pool = tiers().filter((t) => exclude.indexOf(t.id) < 0);
+  if (!pool.length) pool = tiers();
+  const [t, s2] = pick(s, pool);
+  return [{ kind: 'etude', id: t.id }, s2];
+}
+function rollMark(
+  s: RngState,
+  exclude: string[],
+): [{ kind: 'mark'; id: string } | null, RngState] {
+  let pool = marginalia().filter((m) => exclude.indexOf(m.id) < 0);
+  if (!pool.length) pool = marginalia();
+  if (!pool.length) return [null, s];
+  const [m, s2] = pick(s, pool);
+  return [{ kind: 'mark', id: m.id }, s2];
+}
+function rollItem(
+  run: RunState,
+  s: RngState,
+  taken: string[],
+): [{ kind: 'item'; id: string } | null, RngState] {
+  const isQuillDiscovered = window.Wordbound.Sandbox.isQuillDiscovered as
+    ((id: string) => boolean) | undefined;
+  const pool = itemIds().filter((id) => {
+    if (isQuillDiscovered && !isQuillDiscovered(id)) return false;
+    return (run.items as string[]).indexOf(id) < 0 && taken.indexOf(id) < 0;
+  });
+  if (!pool.length) return [null, s];
+  const weights: Record<string, number> = { common: 70, uncommon: 25, rare: 5 };
+  const defs = itemDefs();
+  let total = 0;
+  pool.forEach((id) => {
+    total += weights[defs[id]?.rarity || 'common'] ?? 0;
+  });
+  const [v, s2] = rng.next(s);
+  let roll = v * total;
+  for (const id of pool) {
+    roll -= weights[defs[id]?.rarity || 'common'] ?? 0;
+    if (roll <= 0) return [{ kind: 'item', id }, s2];
+  }
+  return [{ kind: 'item', id: pool[pool.length - 1]! }, s2];
+}
+function rollCard(
+  run: RunState,
+  s: RngState,
+  taken: string[],
+): [Card, RngState] {
+  const tune = run.tune;
+  const [v, s2] = rng.next(s);
+  let s3 = s2;
+  const r =
+    v *
+    ((Number(tune.CARD_ITEM) || 0) +
+      (Number(tune.CARD_MARK) || 0) +
+      (Number(tune.CARD_ETUDE) || 0));
+  let card: { kind: 'item' | 'mark' | 'etude'; id: string } | null = null;
+  if (r < (Number(tune.CARD_ITEM) || 0)) {
+    const [c, s4] = rollItem(run, s3, taken);
+    card = c;
+    s3 = s4;
+  } else if (
+    r <
+    (Number(tune.CARD_ITEM) || 0) + (Number(tune.CARD_MARK) || 0)
+  ) {
+    const [c, s4] = rollMark(s3, []);
+    card = c;
+    s3 = s4;
+  }
+  if (!card) {
+    const [c, s4] = rollItem(run, s3, taken);
+    s3 = s4;
+    if (c) card = c;
+    else {
+      const [e, s5] = rollEtude(s3, []);
+      card = e;
+      s3 = s5;
+    }
+  }
+  let price: number;
+  if (card.kind === 'item') {
+    const [p, s5] = priceOf(itemDefs()[card.id] || {}, s3);
+    price = p;
+    s3 = s5;
+  } else {
+    price =
+      card.kind === 'mark'
+        ? Number(run.tune.MARK_PRICE) || 0
+        : Number(run.tune.ETUDE_PRICE) || 0;
+  }
+  return [{ ...card, price, sold: false }, s3];
+}
+
+function rollCardsAndPacks(
+  run: RunState,
+  rngState: RngState,
+): [ShopState, RngState] {
+  let s = rngState;
+  const cards: Card[] = [];
+  const taken: string[] = [];
+  for (let i = 0; i < (Number(run.tune.CARD_SLOTS) || 0); i++) {
+    const [c, s2] = rollCard(run, s, taken);
+    s = s2;
+    if (c.kind === 'item') taken.push(c.id);
+    cards.push(c);
+  }
+  const packs: Pack[] = [];
+  const kinds = PACK_KINDS.filter(
+    (k) => k.kind !== 'mark' || marginalia().length,
+  );
+  let left = kinds.slice();
+  for (let i = 0; i < (Number(run.tune.PACK_SLOTS) || 0); i++) {
+    if (!left.length) left = kinds.slice();
+    const [idx, s2] = rng.randInt(s, 0, left.length - 1);
+    s = s2;
+    const k = left.splice(idx, 1)[0]!;
+    packs.push({
+      kind: k.kind,
+      price: Number(run.tune.PACK_PRICE) || 0,
+      opened: false,
+    });
+  }
+  return [
+    {
+      cards,
+      packs,
+      rerolls: 0,
+      coupon: false,
+      favours: run.favours as string[],
+    },
+    s,
+  ];
+}
+
+export interface NextResult {
+  state: 'live' | 'won' | 'lost';
+}
+
+export function next(run: RunState, rngState: RngState): [RunState, RngState] {
+  const r = run.round;
+  if (
+    run.state !== 'live' ||
+    !r ||
+    r.state === 'live' ||
+    run.shop ||
+    run.letterChoice
+  )
+    return [run, rngState];
+  if (r.state === 'lost') return [{ ...run, state: 'lost' }, rngState];
+
+  let s = rngState;
+  const inkAfterReward = run.ink + r.ink;
+  const interest = interestPreview({ ...run, ink: inkAfterReward });
+  const ink = inkAfterReward + interest;
+  const lastWin = { reward: r.ink, interest };
+  const felled = (run.felled as string[]).concat([run.enemy!.id]);
+  const resolved =
+    run.enemy!.situation &&
+    (run.resolved as string[]).indexOf(run.enemy!.situation) < 0
+      ? (run.resolved as string[]).concat([run.enemy!.situation])
+      : run.resolved;
+  const wasBoss = run.enemy!.kind === 'boss';
+  const last =
+    run.movement >= MOVEMENTS.length - 1 &&
+    run.stage >= MOVEMENTS[run.movement]!.enemies.length - 1;
+
+  let quillFound: string | null = null;
+  if (wasBoss) {
+    const rollQuillDiscovery = window.Wordbound.Sandbox.rollQuillDiscovery as
+      ((rng: import('../rng').RngStream) => string | null) | undefined;
+    const discoverQuill = window.Wordbound.Sandbox.discoverQuill as
+      ((id: string) => boolean) | undefined;
+    if (rollQuillDiscovery) {
+      const bridge = rng.toStream(s);
+      const found = rollQuillDiscovery(bridge.stream);
+      s = bridge.get();
+      if (found && discoverQuill && discoverQuill(found)) quillFound = found;
+    }
+  }
+
+  const afterSettle: RunState = {
+    ...run,
+    ink,
+    lastWin,
+    felled,
+    resolved,
+    quillFound,
+  };
+
+  if (wasBoss) {
+    const rollLetterChoice = window.Wordbound.Sandbox.rollLetterChoice as
+      | ((rng: import('../rng').RngStream, count?: number) => string[] | null)
+      | undefined;
+    if (rollLetterChoice) {
+      const bridge = rng.toStream(s);
+      const choices = rollLetterChoice(bridge.stream, 3);
+      s = bridge.get();
+      if (choices && choices.length) {
+        return [
+          { ...afterSettle, letterChoice: { options: choices, last } },
+          s,
+        ];
+      }
+    }
+  }
+  return finishWin(afterSettle, last, s);
+}
+
+export function pickLetter(
+  run: RunState,
+  letter: string,
+  rngState: RngState,
+): [RunState, boolean, RngState] {
+  if (!run.letterChoice) return [run, false, rngState];
+  if (run.letterChoice.options.indexOf(letter) < 0)
+    return [run, false, rngState];
+  const winLetter = window.Wordbound.Sandbox.winLetter as
+    ((letter: string) => boolean) | undefined;
+  if (winLetter) winLetter(letter);
+  const last = run.letterChoice.last;
+  const [next, s] = finishWin({ ...run, letterChoice: null }, last, rngState);
+  return [next, true, s];
+}
+
+export function leaveShop(
+  run: RunState,
+  rngState: RngState,
+): [RunState, boolean, RngState] {
+  if (!run.shop || run.pack) return [run, false, rngState];
+  const [next, s] = begin({ ...run, shop: null }, rngState);
+  return [next, true, s];
+}
+
+export interface ShopResult {
+  ok: boolean;
+  reason?: string;
+  [key: string]: unknown;
+}
+
+export function buyCard(run: RunState, i: number): [RunState, ShopResult] {
+  const shop = run.shop;
+  const c = shop?.cards[i];
+  if (!shop || !c || c.sold)
+    return [run, { ok: false, reason: 'Nothing there.' }];
+  if (run.ink < c.price) return [run, { ok: false, reason: 'Not enough ink.' }];
+  let items = run.items as string[];
+  let consumables = run.consumables as Consumable[];
+  let mark: string | null = null;
+  if (c.kind === 'item') {
+    if (items.length >= (Number(run.tune.ITEM_SLOTS) || 0))
+      return [
+        run,
+        {
+          ok: false,
+          reason:
+            'All ' +
+            run.tune.ITEM_SLOTS +
+            ' quill slots are full — sell one first.',
+        },
+      ];
+    items = items.concat([c.id]);
+  } else {
+    const markDefs =
+      (window.Wordbound.Sandbox.MARK_DEFS as Record<string, unknown>) || {};
+    if (c.kind === 'mark' && markDefs[c.id]) {
+      mark = c.id;
+    } else if (consumables.length >= (Number(run.tune.CONSUMABLE_SLOTS) || 0)) {
+      if (c.kind === 'etude') {
+        const tierLevels = { ...run.tierLevels } as Record<string, number>;
+        if (TIER_DEFS[c.id]) tierLevels[c.id] = (tierLevels[c.id] || 1) + 1;
+        const soldCard = { ...c, sold: true };
+        const cards = shop.cards.map((x, idx) => (idx === i ? soldCard : x));
+        return [
+          {
+            ...run,
+            tierLevels,
+            ink: run.ink - c.price,
+            shop: { ...shop, cards },
+          },
+          { ok: true, card: soldCard, used: true },
+        ];
+      }
+      return [
+        run,
+        {
+          ok: false,
+          reason: 'No room for another consumable — use or sell one first.',
+        },
+      ];
+    } else {
+      consumables = consumables.concat([{ kind: c.kind, id: c.id }]);
+    }
+  }
+  const soldCard = { ...c, sold: true };
+  const cards = shop.cards.map((x, idx) => (idx === i ? soldCard : x));
+  return [
+    {
+      ...run,
+      items,
+      consumables,
+      ink: run.ink - c.price,
+      shop: { ...shop, cards },
+    },
+    { ok: true, card: soldCard, mark },
+  ];
+}
+
+function priceNoRoll(def: { price?: number; rarity?: string }): number {
+  if (def.price != null) return def.price;
+  return RARITY_PRICE[def.rarity || 'common']![0];
+}
+
+export function sellItem(
+  run: RunState,
+  itemIndex: number,
+): [RunState, ShopResult] {
+  const id = (run.items as string[])[itemIndex];
+  if (!id) return [run, { ok: false, reason: 'No item there.' }];
+  const items = (run.items as string[]).filter((_, i) => i !== itemIndex);
+  const paid = Math.floor(priceNoRoll(itemDefs()[id] || {}) / 2);
+  return [
+    { ...run, items, ink: run.ink + paid },
+    { ok: true, id, paid },
+  ];
+}
+
+export function reroll(
+  run: RunState,
+  rngState: RngState,
+): [RunState, ShopResult, RngState] {
+  const shop = run.shop;
+  if (!shop)
+    return [run, { ok: false, reason: 'The shop is closed.' }, rngState];
+  const price =
+    (Number(run.tune.REROLL_PRICE) || 0) +
+    (Number(run.tune.REROLL_STEP) || 0) * shop.rerolls;
+  if (run.ink < price)
+    return [
+      run,
+      { ok: false, reason: 'Not enough ink to reroll (' + price + ').' },
+      rngState,
+    ];
+  const [rolled, s] = rollCardsAndPacks(run, rngState);
+  const cards = shop.coupon
+    ? rolled.cards.map((c) => ({ ...c, price: 0 }))
+    : rolled.cards;
+  const next: ShopState = {
+    ...shop,
+    cards,
+    packs: shop.packs,
+    rerolls: shop.rerolls + 1,
+  };
+  return [{ ...run, ink: run.ink - price, shop: next }, { ok: true }, s];
+}
+
+export function openPack(
+  run: RunState,
+  i: number,
+  rngState: RngState,
+): [RunState, ShopResult, RngState] {
+  const shop = run.shop;
+  const p = shop?.packs[i];
+  if (!shop || !p || p.opened)
+    return [run, { ok: false, reason: 'Nothing there.' }, rngState];
+  if (run.pack)
+    return [
+      run,
+      { ok: false, reason: 'Settle the open pack first.' },
+      rngState,
+    ];
+  const price = p.free ? 0 : p.price;
+  if (run.ink < price)
+    return [run, { ok: false, reason: 'Not enough ink.' }, rngState];
+  let s = rngState;
+  const choices: PackChoice[] = [];
+  const n = Number(run.tune.PACK_CHOICES) || 0;
+  if (p.kind === 'tile') {
+    const Tiles = window.Wordbound.Tiles;
+    const getTileBag = window.Wordbound.Sandbox.getTileBag as (id: string) => {
+      counts: Record<string, number>;
+    };
+    const isAvailable = window.Wordbound.Sandbox.isAvailable as
+      ((letter: string) => boolean) | undefined;
+    const counts = getTileBag('strong').counts;
+    const letters: string[] = [];
+    Object.keys(counts).forEach((l) => {
+      if (isAvailable && !isAvailable(l)) return;
+      for (let k = 0; k < (counts[l] ?? 0); k++) letters.push(l);
+    });
+    for (let a = 0; a < n; a++) {
+      const [letter, s2] = pick(s, letters);
+      s = s2;
+      choices.push({ kind: 'tile', tile: Tiles.createTile(letter, null) });
+    }
+  } else if (p.kind === 'etude') {
+    const taken: string[] = [];
+    for (let b = 0; b < n; b++) {
+      const [c, s2] = rollEtude(s, taken);
+      s = s2;
+      taken.push(c.id);
+      choices.push(c);
+    }
+  } else {
+    const taken: string[] = [];
+    for (let c = 0; c < n; c++) {
+      const [mc, s2] = rollMark(s, taken);
+      s = s2;
+      if (mc) {
+        taken.push(mc.id);
+        choices.push(mc);
+      }
+    }
+  }
+  const packs = shop.packs.map((x, idx) =>
+    idx === i ? { ...x, opened: true } : x,
+  );
+  const pack = { kind: p.kind, choices };
+  return [
+    { ...run, ink: run.ink - price, shop: { ...shop, packs }, pack },
+    { ok: true, pack },
+    s,
+  ];
+}
+
+export function pick_(run: RunState, i: number | null): [RunState, ShopResult] {
+  const pack = run.pack;
+  if (!pack) return [run, { ok: false, reason: 'No pack is open.' }];
+  if (i == null) return [{ ...run, pack: null }, { ok: true }];
+  const c = pack.choices[i];
+  if (!c) return [run, { ok: false, reason: 'Nothing there.' }];
+  let mark: string | null = null;
+  let deck = run.deck as Tile[];
+  let consumables = run.consumables as Consumable[];
+  const used: unknown = null;
+  if (c.kind === 'tile') {
+    deck = deck.concat([c.tile]);
+  } else {
+    const markDefs =
+      (window.Wordbound.Sandbox.MARK_DEFS as Record<string, unknown>) || {};
+    if (c.kind === 'mark' && markDefs[c.id]) {
+      mark = c.id;
+    } else if (consumables.length >= (Number(run.tune.CONSUMABLE_SLOTS) || 0)) {
+      if (c.kind === 'etude') {
+        const tierLevels = { ...run.tierLevels } as Record<string, number>;
+        if (TIER_DEFS[c.id]) tierLevels[c.id] = (tierLevels[c.id] || 1) + 1;
+        return [
+          { ...run, tierLevels, pack: null },
+          { ok: true, choice: c, used: true, mark },
+        ];
+      }
+      return [
+        run,
+        {
+          ok: false,
+          reason: 'No room for another consumable — use or sell one first.',
+        },
+      ];
+    } else {
+      consumables = consumables.concat([{ kind: c.kind, id: c.id }]);
+    }
+  }
+  return [
+    { ...run, deck, consumables, pack: null },
+    { ok: true, choice: c, used, mark },
+  ];
+}

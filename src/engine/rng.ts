@@ -196,6 +196,68 @@ export function chance(
   return [v < probability, s];
 }
 
+// Bridges a pure RngState into a mutable RngStream for calling legacy
+// RngStream-consuming helpers (stolenLetters.ts's rollLetterChoice,
+// quillDiscovery.ts's rollQuillDiscovery -- not ported to pure state yet
+// since both are inherently side-effecting on localStorage already). `get()`
+// reads back the RngState as it stands after whatever calls were made
+// through `stream`, so the pure caller can keep threading it.
+export function toStream(state: RngState): {
+  stream: RngStream;
+  get(): RngState;
+} {
+  let s = state;
+  const nextFn = (): number => {
+    const [v, ns] = next(s);
+    s = ns;
+    return v;
+  };
+  const stream: RngStream = {
+    seed: state.seed,
+    next: nextFn,
+    randInt(min, max) {
+      return Math.floor(nextFn() * (max - min + 1)) + min;
+    },
+    randFloat(min, max) {
+      return nextFn() * (max - min) + min;
+    },
+    choice(arr) {
+      if (!arr || arr.length === 0) return undefined;
+      return arr[Math.floor(nextFn() * arr.length)];
+    },
+    weightedChoice<T>(
+      items: T[] | undefined | null,
+      weightFn?: (item: T) => number,
+    ) {
+      if (!items || items.length === 0) return undefined;
+      const wf =
+        weightFn || ((it: T) => (it as { weight?: number })?.weight || 1);
+      const total = items.reduce((sum, it) => sum + wf(it), 0);
+      if (total <= 0) return items[Math.floor(nextFn() * items.length)];
+      let r = nextFn() * total;
+      for (const it of items) {
+        r -= wf(it);
+        if (r <= 0) return it;
+      }
+      return items[items.length - 1];
+    },
+    shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(nextFn() * (i + 1));
+        const tmp = a[i]!;
+        a[i] = a[j]!;
+        a[j] = tmp;
+      }
+      return a;
+    },
+    chance(probability) {
+      return nextFn() < probability;
+    },
+  };
+  return { stream, get: () => s };
+}
+
 declare global {
   interface Window {
     Game: {

@@ -713,7 +713,8 @@ export function createRound(opts: CreateRoundOpts): Round {
   (function rollPremium() {
     if (rule && rule.noPremium) return;
     if (opts.noPremium) return; // A minor: never on a boss round
-    if (!rng.chance(Number(tune.PREMIUM_CHANCE))) return;
+    const chanceHit = rng.chance(Number(tune.PREMIUM_CHANCE));
+    if (!chanceHit) return;
     const kind = rng.weightedChoice(PREMIUM_KINDS, (k) => k.weight);
     if (!kind) return;
     const pos =

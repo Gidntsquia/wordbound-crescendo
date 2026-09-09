@@ -163,7 +163,14 @@ export function createRoundState(
     reward: opts.reward != null ? opts.reward : Number(tune.INK_SMALL),
     playsLeft: Math.max(
       1,
-      Number(tune.PLAYS) + (rule && rule.plays ? rule.plays : 0),
+      Number(tune.PLAYS) +
+        (rule && rule.plays ? rule.plays : 0) +
+        items.reduce((n, id) => {
+          const itemDefs = window.Wordbound.Sandbox.ITEM_DEFS as
+            Record<string, { plays?: number }> | undefined;
+          const it = itemDefs?.[id];
+          return n + (it && it.plays ? it.plays : 0);
+        }, 0),
     ),
     changeoutsLeft: Number(tune.CHANGEOUTS),
     rackSize,
@@ -314,6 +321,17 @@ export function playWord(
   if (score >= round.target) {
     state = 'won';
     ink = round.reward + Number(round.tune.INK_PER_WORD_LEFT) * playsLeft;
+    const itemDefs = window.Wordbound.Sandbox.ITEM_DEFS as
+      | Record<
+          string,
+          { inkAtWin?: (round: { changeoutsLeft: number }) => number }
+        >
+      | undefined;
+    round.items.forEach((id) => {
+      const it = itemDefs?.[id];
+      if (it && it.inkAtWin)
+        ink += it.inkAtWin({ changeoutsLeft: round.changeoutsLeft });
+    });
   } else if (playsLeft <= 0) {
     state = 'lost';
   }
