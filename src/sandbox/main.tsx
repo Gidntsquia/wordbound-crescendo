@@ -17,8 +17,8 @@ import './sandbox.css';
 
 import '../engine/rng';
 import '../../js/wordbound/wordlist.js';
-import '../../js/wordbound/lexicon.js';
-import '../../js/wordbound/tiles.js';
+import '../engine/lexicon';
+import '../engine/tiles';
 
 import './enemies.js';
 import './items.js';
