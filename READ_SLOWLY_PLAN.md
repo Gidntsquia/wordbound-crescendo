@@ -117,6 +117,14 @@ format:check` clean.
   now; the old mutable `content/round.ts`/`content/shop.ts` stay in place
   underneath nothing (only the facade calls the pure engine) and can be
   deleted once nothing else references them (see Open below).
+- **A5 step 6 — proof.** `any` count confirmed zero outside `tools/`
+  (`grep -rn ": any\b\|<any>\|as any\b" src/` returns nothing after
+  `4f644af`'s store.ts cleanup). Pre-commit hook proven live: staged a
+  deliberate `any` onto `facade.ts`, `git commit` correctly failed on
+  `eslint --fix`'s `@typescript-eslint/no-explicit-any` and lint-staged
+  reverted the working tree to its pre-commit state; confirmed clean via
+  `git status`/`git diff` after. No commit created (this needed no code
+  change, so nothing to deploy).
 
 ### Open (in build order)
 
@@ -178,9 +186,6 @@ Sonner (callouts) copied into `src/ui/primitives/` and used for all chrome.
 (`transform` on `.sb-tile` still forbidden) and is otherwise deleted.
 Theme tokens already sit in the `@theme` block; the components must consume
 them.
-
-**A5 step 6 — proof.** Pre-commit hook proven by a deliberate bad commit;
-`any` count zero outside `tools/`.
 
 **A1 (remainder) — `.jsx` → `.tsx`.** Sixteen `.jsx` files remain
 (`RoundSandbox`, `SituationPanel`, `CharacterSelect`, `Sprite`, the four
