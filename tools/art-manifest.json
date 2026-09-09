@@ -1,0 +1,185 @@
+{
+  "_comment": "READ_SLOWLY_PLAN.md stage E2: every sprite sheet the scene/pieces layers need, mirroring tools/audio-manifest.json's shape. Every entry here is `status: \"placeholder\"` -- there is no real art yet. Jaxon's call (plan E1) was CC0 packs (Kenney/OpenGameArt-style); when a real sheet is sourced, add `url`/`licence`/`author`/`sourcePage`/`sha256` (same fields audio-manifest.json uses) and flip `status` to \"sourced\", then a human/tool writes the PNG to src/art/ and fills `frameW`/`frameH`/`poses` for real. Until then src/art/Sprite.jsx renders a CSS placeholder keyed off `id`/`pose` -- the manifest is the source of truth for what's needed, not what's drawn.",
+  "sheets": [
+    {
+      "id": "commuter",
+      "kind": "person",
+      "chapter": 1,
+      "poses": [
+        "scrolling",
+        "paused",
+        "looking-up",
+        "reaching",
+        "reading",
+        "win-idle"
+      ],
+      "status": "placeholder"
+    },
+    {
+      "id": "bench_sitter",
+      "kind": "person",
+      "chapter": 2,
+      "poses": [
+        "slumped",
+        "attentive",
+        "leaning",
+        "searching",
+        "reading",
+        "win-idle"
+      ],
+      "status": "placeholder"
+    },
+    {
+      "id": "waiting_room_sitter",
+      "kind": "person",
+      "chapter": 3,
+      "poses": [
+        "blank",
+        "blinking",
+        "turning",
+        "reaching",
+        "reading",
+        "win-idle"
+      ],
+      "status": "placeholder"
+    },
+    {
+      "id": "phone_glow",
+      "kind": "antagonist",
+      "chapter": 1,
+      "poses": ["idle", "weakening", "gone"],
+      "status": "placeholder"
+    },
+    {
+      "id": "clock",
+      "kind": "antagonist",
+      "chapter": 1,
+      "poses": ["idle", "weakening", "gone"],
+      "status": "placeholder"
+    },
+    {
+      "id": "knocking_door",
+      "kind": "antagonist",
+      "chapter": 1,
+      "poses": ["idle", "weakening", "gone", "crescendo"],
+      "status": "placeholder"
+    },
+    {
+      "id": "empty_bench",
+      "kind": "antagonist",
+      "chapter": 2,
+      "poses": ["idle", "weakening", "gone"],
+      "status": "placeholder"
+    },
+    {
+      "id": "loudspeaker",
+      "kind": "antagonist",
+      "chapter": 2,
+      "poses": ["idle", "weakening", "gone"],
+      "status": "placeholder"
+    },
+    {
+      "id": "parade",
+      "kind": "antagonist",
+      "chapter": 2,
+      "poses": ["idle", "weakening", "gone", "crescendo"],
+      "status": "placeholder"
+    },
+    {
+      "id": "blank_wall",
+      "kind": "antagonist",
+      "chapter": 3,
+      "poses": ["idle", "weakening", "gone"],
+      "status": "placeholder"
+    },
+    {
+      "id": "podium",
+      "kind": "antagonist",
+      "chapter": 3,
+      "poses": ["idle", "weakening", "gone"],
+      "status": "placeholder"
+    },
+    {
+      "id": "the_night",
+      "kind": "antagonist",
+      "chapter": 3,
+      "poses": ["idle", "weakening", "gone", "crescendo"],
+      "status": "placeholder"
+    },
+    {
+      "id": "wordsmith",
+      "kind": "player",
+      "poses": ["idle", "write", "flourish"],
+      "status": "placeholder"
+    },
+    {
+      "id": "tile_face",
+      "kind": "piece",
+      "poses": ["idle"],
+      "status": "placeholder"
+    },
+    {
+      "id": "mark_overlay_gilt",
+      "kind": "piece",
+      "poses": ["idle"],
+      "status": "placeholder"
+    },
+    {
+      "id": "mark_overlay_bold",
+      "kind": "piece",
+      "poses": ["idle"],
+      "status": "placeholder"
+    },
+    {
+      "id": "mark_overlay_steel",
+      "kind": "piece",
+      "poses": ["idle"],
+      "status": "placeholder"
+    },
+    {
+      "id": "premium_slot_marker",
+      "kind": "piece",
+      "poses": ["idle"],
+      "status": "placeholder"
+    },
+    {
+      "id": "bookmark_card_frame",
+      "kind": "piece",
+      "poses": ["idle"],
+      "status": "placeholder"
+    },
+    {
+      "id": "pack_wrapper",
+      "kind": "piece",
+      "poses": ["idle"],
+      "status": "placeholder"
+    },
+    {
+      "id": "coin",
+      "kind": "piece",
+      "poses": ["idle"],
+      "status": "placeholder"
+    },
+    {
+      "id": "backdrop_chapter_1",
+      "kind": "backdrop",
+      "chapter": 1,
+      "poses": ["far", "near"],
+      "status": "placeholder"
+    },
+    {
+      "id": "backdrop_chapter_2",
+      "kind": "backdrop",
+      "chapter": 2,
+      "poses": ["far", "near"],
+      "status": "placeholder"
+    },
+    {
+      "id": "backdrop_chapter_3",
+      "kind": "backdrop",
+      "chapter": 3,
+      "poses": ["far", "near"],
+      "status": "placeholder"
+    }
+  ]
+}

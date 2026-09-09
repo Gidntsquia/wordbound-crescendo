@@ -1,0 +1,41 @@
+// READ_SLOWLY_PLAN.md stage E1: the sprite-sheet renderer. `sheet` is a
+// tools/art-manifest.json id, `pose` one of that sheet's manifest poses.
+// Real sheets (once sourced -- see the manifest's header comment) are PNGs
+// played via `steps()` on `background-position`, no JS frame timers; until
+// then every sheet is `status: "placeholder"` and this renders a plain CSS
+// box so the pose-driven wiring (ladder step -> pose prop -> crossfade) is
+// real end-to-end even though the art isn't. Swapping in real PNGs later
+// is a manifest + CSS background-image change here, not a caller change.
+import ART_MANIFEST from '../../tools/art-manifest.json';
+
+const SHEETS = Object.fromEntries(
+  ART_MANIFEST.sheets.map((s) => [s.id, s]),
+);
+
+// A stable placeholder hue per sheet id so different sprites read as
+// visually distinct boxes without any art.
+function hueFor(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
+  return h;
+}
+
+export default function Sprite({ sheet, pose, className }) {
+  const def = SHEETS[sheet];
+  if (!def) return null;
+  const hue = hueFor(sheet);
+  return (
+    <span
+      key={pose}
+      className={'sb-sprite sb-sprite-pose-in ' + (className || '')}
+      data-sheet={sheet}
+      data-pose={pose}
+      title={sheet + ' · ' + pose}
+      style={{
+        '--sb-sprite-hue': hue,
+      }}
+    >
+      {def.status === 'placeholder' ? sheet.slice(0, 1).toUpperCase() : null}
+    </span>
+  );
+}

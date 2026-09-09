@@ -3060,6 +3060,39 @@ button.sb-card:disabled {
   color: var(--leaf-dim);
   flex: 1;
 }
+/* READ_SLOWLY_PLAN.md stage E: Sprite.jsx placeholder + crossfade. Real PNG
+   sheets swap in as a background-image + steps() animation on this same
+   class later; the crossfade-on-pose-change wiring stays the same. */
+.sb-sprite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: hsl(var(--sb-sprite-hue) 45% 42%);
+  flex: none;
+}
+.sb-sprite-pose-in {
+  animation: sb-sprite-crossfade 200ms ease-out;
+}
+@keyframes sb-sprite-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-sprite-pose-in {
+    animation: none;
+  }
+}
 .sb-intro-flavour {
   font-family: var(--display);
   font-style: italic;

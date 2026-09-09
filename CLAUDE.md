@@ -193,6 +193,17 @@ orphaned dead weight, nothing references it; nothing loads `music.js` either
     the logged exceptions to the synthesized-only rule; the sandbox does not
     load music.js. Soundtrack
     only; the music never touches the score.
+  - `src/art/Sprite.jsx` (also owns THE SITUATION SCENE, stage E) +
+    `tools/art-manifest.json` — the ~20 sprite sheets stage E's scene/pieces
+    layers need (situation people, antagonists, the wordsmith player, tile
+    pieces, chapter backdrops), one manifest entry per sheet mirroring
+    `audio-manifest.json`'s licence-tracking shape. Every entry is
+    currently `status: "placeholder"` — there is no real art yet (Jaxon's
+    call, still open, is draw/CC0 packs/generated); `Sprite` renders a
+    plain CSS box keyed by sheet id + pose so the pose-driven wiring
+    (ladder step → pose prop → CSS crossfade in `SituationPanel.jsx`) is
+    real end-to-end even without art. Swapping in real PNGs later is a
+    manifest + CSS `background-image` change, not a caller change.
 - `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`, `fetch-wiktionary.js` (`npm run fetch:words`: pulls Wiktionary's English lemmas into the GENERATED WIKT_EXTRA block of `js/wordbound/wordlist.js`, 4+ letter lowercase titles only; cache in `.cache/wiktionary/`).
 - `DIVERGENCE_PLAN.md` — the 2026-09-07 plan for leaving Balatro's shape:
   crescendo-effect contract, second-axis quills, stolen letters meta,
