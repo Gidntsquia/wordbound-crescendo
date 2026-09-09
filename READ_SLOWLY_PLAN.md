@@ -196,6 +196,29 @@ modules, and importing an `src/app/` module from there would be a
 backwards engine-depends-on-app layering violation (those three files
 already touch `window` directly, a separate, pre-existing departure
 from the "engine never touches `window`" rule this item doesn't fix).
+`src/ui/hooks/useCrescendo.ts` and `useDragReorder.js` now exist,
+extracted from `RoundSandbox.jsx` (`23d7f71`): the crescendo-window poll
+and the tile drag-reorder wiring, each pulled out mechanically (same
+closures, same one-time-init timing) with two lint-driven restructures
+that preserve behavior — `useCrescendo`'s idle-reset moved from a
+synchronous `setState` in the effect body to a derived `active` boolean
+(state only written from the interval callback), and `useDragReorder`'s
+lazy `if (!ref.current) ref.current = ...` render-time init moved into a
+zero-dep effect writing to state instead — both flagged by
+`react-hooks/set-state-in-effect`/`react-hooks/refs` only once the code
+lived inside a function literally named `use*` (the lint rules are
+hook-aware, not just file-aware). Verified: typecheck/lint/format clean;
+live Playwright pass confirms tile-tap (crescendo path) and pointer-drag
+rack-to-stick (drag-reorder path) both still work with zero console
+errors. `useSfx` is NOT extracted — the audio-context lifecycle
+(visibility/resume, rebuild-after-`closed`, warm-ahead, stage-start
+music) is tightly coupled to the mutable `fight` ref and has mobile
+background/resume failure modes nothing automated here can exercise;
+extracting it risks a regression only a phone check would catch, so it's
+left open pending that check. `src/app/App.tsx`'s phase router and the
+rest of the `ui/` feature split remain open too, tied to A4's remaining
+`RoundSandbox.jsx` reduction below.
+
 `main.tsx` is mount only now beyond four unavoidable legacy-global loads
 (`rng.ts`/`lexicon.ts`/`tiles.ts`/`wordlist.js` — nothing ES-imports them
 for their side effects, since `window.Wordbound.Lexicon`/`Tiles` are the
