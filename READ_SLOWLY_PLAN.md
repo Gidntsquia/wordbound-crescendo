@@ -315,16 +315,28 @@ check alongside A6.
 **A6 — shadcn + Tailwind actually used.** All twelve primitives (Button,
 Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
 Slider, Sonner) are now copied into `src/ui/primitives/` via `bunx shadcn
-add` (`d8f0ef0`), but none is wired into a component yet — this is
-scaffolding, not the item. Still open: actually use them for all chrome
-(gear panel on Sheet, callouts on Sonner, volume/tuning on Slider, etc.);
-`sandbox.css` shrinks to a small `game.css` holding only the FLIP/pop
-rules (`transform` on `.sb-tile` still forbidden) and is otherwise
-deleted. Theme tokens already sit in the `@theme` block; the components
-must consume them. This is a large, cohesive visual change better done in
-one pass across the whole app (alongside A4's split) than piecemeal —
-mixing old bespoke classNames with new shadcn base styles screen-by-screen
-would leave a visibly inconsistent intermediate look.
+add` (`d8f0ef0`). Callouts on Sonner — DONE (`ba2f69f`, see A4 above).
+Gear panel on Sheet — DONE (`58acb5d`): `RoundSandbox`'s gear panel
+(`SetupPanel`, `StartingQuills`, `TuningPanel`) was three CSS-toggled
+siblings (`.sb:not(.is-gear-open) .sb-gear-panel { display: none }`),
+non-adjacent in the render tree; now a real `<Sheet>` controlled by the
+existing `gearReducer`. This surfaced and fixed a latent runtime bug in
+the shadcn scaffolding itself: `sheet.tsx`/`dialog.tsx` import
+`@/ui/primitives/button`, and while `tsconfig.json`'s `paths` resolved
+that for `tsc`, `vite.config.mjs` had no matching `resolve.alias` —
+nothing had rendered a `Sheet` or `Dialog` before, so it never 500'd
+until now. Fixed by adding the alias to `vite.config.mjs`. Verified:
+typecheck/lint/format:check clean; live Playwright pass confirms the
+Sheet opens/closes and the fight flow is unaffected.
+Still open: volume/tuning on Slider (the raw `<input type="range">` in
+`SetupPanel`/`TuningPanel` isn't the shadcn `Slider` yet), Tooltip/Popover/
+Tabs/Badge/Progress/Toggle/Card/Dialog remain unused anywhere in the app,
+and `sandbox.css` still hasn't shrunk — it's the FLIP/pop rules plus every
+other hand-rolled `.sb-*` class the app still runs on (`transform` on
+`.sb-tile` stays forbidden). Converting the rest of the chrome
+(scoreboard, shop cards, tile buttons) to shadcn base styles is the bulk
+of this item and is still a large, cohesive visual change better done as
+one pass per screen than left half-migrated mid-screen.
 
 **A1 (remainder) — `.jsx` → `.tsx`.** `Sprite.tsx`, the four `svg/*.tsx`
 files, `CharacterSelect.tsx`, `SituationPanel.tsx` (`811df5d`/`4722c2c`),
