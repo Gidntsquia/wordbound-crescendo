@@ -79,7 +79,9 @@ const PlayBoard = forwardRef(function PlayBoard(
               data-flip-tile-id={t.id}
               title={
                 t.mark
-                  ? SB.MARK_DEFS[t.mark].name + ' — ' + SB.MARK_DEFS[t.mark].hint
+                  ? SB.MARK_DEFS[t.mark].name +
+                    ' — ' +
+                    SB.MARK_DEFS[t.mark].hint
                   : undefined
               }
               {...(inking ? {} : drag.bind('rack', i, t.id))}
@@ -132,7 +134,9 @@ const PlayBoard = forwardRef(function PlayBoard(
             type="button"
             className="sb-go"
             onClick={applyInk}
-            disabled={!inking.ids.length || (inking.ink.needsVowel && !inking.vowel)}
+            disabled={
+              !inking.ids.length || (inking.ink.needsVowel && !inking.vowel)
+            }
           >
             Apply{inking.ids.length ? ' to ' + inking.ids.length : ''}
           </button>
@@ -169,7 +173,8 @@ const PlayBoard = forwardRef(function PlayBoard(
               </span>
               <b
                 className={
-                  'sb-figure sb-total' + (scoring.total != null ? ' is-hit' : '')
+                  'sb-figure sb-total' +
+                  (scoring.total != null ? ' is-hit' : '')
                 }
               >
                 {scoring.total != null ? scoring.total : '…'}
@@ -253,77 +258,83 @@ const PlayBoard = forwardRef(function PlayBoard(
                   {x.text}
                 </i>
               ))}
-          {stickShown.map(({ t, i, ch, hollow }) => {
-            const premiumHere = round.premium && round.premium.pos === i;
-            return t ? (
-              <button
-                key={t.id}
-                type="button"
-                disabled={!live}
-                className={
-                  'sb-tile is-set' +
-                  (hollow ? ' is-dragging' : '') +
-                  (t.mark ? ' is-mark-' + t.mark : '') +
-                  (round.isBarred(t) ? ' is-barred' : '') +
-                  (premiumHere ? ' is-premium-' + round.premium.kind : '')
-                }
-                data-flip-tile-id={t.id}
-                title={
-                  (premiumHere ? PREMIUM_HINT[round.premium.kind] + ' · ' : '') +
-                  'Tap to send home · drag to reorder'
-                }
-                {...drag.bind('stick', i, t.id)}
-                onClick={() => unstageAt(i)}
-              >
-                {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}
-                <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
-              </button>
-            ) : (
-              <button
-                key={'gap' + i}
-                type="button"
-                disabled={!live}
-                className={'sb-tile is-missing' + (hollow ? ' is-dragging' : '')}
-                title="None of your tiles spells this"
-                {...drag.bind('stick', i, null)}
-                onClick={() => unstageAt(i)}
-              >
-                {ch}
-              </button>
-            );
-          })}
-          {(() => {
-            const minEnd = Math.max(5, round.premium ? round.premium.pos : 0);
-            return (
-              minEnd >= stickShown.length &&
-              Array.from(
-                { length: minEnd - stickShown.length + 1 },
-                (_, k) => stickShown.length + k,
-              ).map((i) =>
-                round.premium && i === round.premium.pos ? (
-                  <span
-                    key="premium-preview"
-                    className={
-                      'sb-tile sb-premium-slot is-premium-' + round.premium.kind
-                    }
-                    title={
-                      PREMIUM_HINT[round.premium.kind] +
-                      ' — lands on stick position ' +
-                      (round.premium.pos + 1)
-                    }
-                  >
-                    {PREMIUM_ICON[round.premium.kind]}
-                  </span>
-                ) : (
-                  <span
-                    key={'premium-gap' + i}
-                    className="sb-tile sb-premium-slot is-slot-empty"
-                    title={'Stick position ' + (i + 1)}
-                  />
-                ),
-              )
-            );
-          })()}
+          {!(scoring && !scoring.cleared) &&
+            stickShown.map(({ t, i, ch, hollow }) => {
+              const premiumHere = round.premium && round.premium.pos === i;
+              return t ? (
+                <button
+                  key={t.id}
+                  type="button"
+                  disabled={!live}
+                  className={
+                    'sb-tile is-set' +
+                    (hollow ? ' is-dragging' : '') +
+                    (t.mark ? ' is-mark-' + t.mark : '') +
+                    (round.isBarred(t) ? ' is-barred' : '') +
+                    (premiumHere ? ' is-premium-' + round.premium.kind : '')
+                  }
+                  data-flip-tile-id={t.id}
+                  title={
+                    (premiumHere
+                      ? PREMIUM_HINT[round.premium.kind] + ' · '
+                      : '') + 'Tap to send home · drag to reorder'
+                  }
+                  {...drag.bind('stick', i, t.id)}
+                  onClick={() => unstageAt(i)}
+                >
+                  {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}
+                  <sub>{W.Lexicon.LETTER_VALUES[t.letter] || 0}</sub>
+                </button>
+              ) : (
+                <button
+                  key={'gap' + i}
+                  type="button"
+                  disabled={!live}
+                  className={
+                    'sb-tile is-missing' + (hollow ? ' is-dragging' : '')
+                  }
+                  title="None of your tiles spells this"
+                  {...drag.bind('stick', i, null)}
+                  onClick={() => unstageAt(i)}
+                >
+                  {ch}
+                </button>
+              );
+            })}
+          {!(scoring && !scoring.cleared) &&
+            (() => {
+              const minEnd = Math.max(5, round.premium ? round.premium.pos : 0);
+              return (
+                minEnd >= stickShown.length &&
+                Array.from(
+                  { length: minEnd - stickShown.length + 1 },
+                  (_, k) => stickShown.length + k,
+                ).map((i) =>
+                  round.premium && i === round.premium.pos ? (
+                    <span
+                      key="premium-preview"
+                      className={
+                        'sb-tile sb-premium-slot is-premium-' +
+                        round.premium.kind
+                      }
+                      title={
+                        PREMIUM_HINT[round.premium.kind] +
+                        ' — lands on stick position ' +
+                        (round.premium.pos + 1)
+                      }
+                    >
+                      {PREMIUM_ICON[round.premium.kind]}
+                    </span>
+                  ) : (
+                    <span
+                      key={'premium-gap' + i}
+                      className="sb-tile sb-premium-slot is-slot-empty"
+                      title={'Stick position ' + (i + 1)}
+                    />
+                  ),
+                )
+              );
+            })()}
         </div>
       </div>
 
@@ -350,7 +361,12 @@ const PlayBoard = forwardRef(function PlayBoard(
             if (e.key === 'Enter') play();
           }}
         />
-        <button type="button" className="sb-go" onClick={play} disabled={!live || !letters}>
+        <button
+          type="button"
+          className="sb-go"
+          onClick={play}
+          disabled={!live || !letters}
+        >
           Play
         </button>
         <button
@@ -368,7 +384,11 @@ const PlayBoard = forwardRef(function PlayBoard(
           <button
             type="button"
             onClick={() => {
-              const best = SB.bestFromRack(rackLetters, (w) => round.scoreFor(w), 1);
+              const best = SB.bestFromRack(
+                rackLetters,
+                (w) => round.scoreFor(w),
+                1,
+              );
               if (best.length) setWord(best[0].word);
               else say('Nothing spells out of this rack.');
             }}
@@ -393,7 +413,10 @@ const PlayBoard = forwardRef(function PlayBoard(
             <span className="sb-hint">Nothing discarded yet.</span>
           )}
           {round.pile.discardPile.map((t) => (
-            <span key={t.id} className={'sb-pile-tile' + (t.mark ? ' is-' + t.mark : '')}>
+            <span
+              key={t.id}
+              className={'sb-pile-tile' + (t.mark ? ' is-' + t.mark : '')}
+            >
               {t.letter}
             </span>
           ))}
@@ -403,7 +426,9 @@ const PlayBoard = forwardRef(function PlayBoard(
         <details className="sb-suggests-drop">
           <summary>
             <span className="sb-suggests-title">Words</span>
-            {indexing && <span className="sb-hint">reading the dictionary…</span>}
+            {indexing && (
+              <span className="sb-hint">reading the dictionary…</span>
+            )}
             {!indexing && !letters && (
               <span className="sb-hint">pick tiles or type letters</span>
             )}
@@ -442,8 +467,8 @@ const PlayBoard = forwardRef(function PlayBoard(
       )}
       {formable && barredNow.length > 0 && (
         <p className="sb-hint sb-warn-line">
-          {barredNow.map((t) => t.letter).join(', ')} has been played this round —{' '}
-          {round.rule.name}.
+          {barredNow.map((t) => t.letter).join(', ')} has been played this round
+          — {round.rule.name}.
         </p>
       )}
     </section>

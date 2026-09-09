@@ -114,6 +114,45 @@ Playwright confirmed no exceptions across a full play loop but can't judge
 whether the _feel_ of timing/audio is right; that still wants a human
 playtest.
 
+Update (2026-09-09, E4 phone-report fixes): Jaxon actually played the
+deployed build and reported five things. Fixed three:
+
+- **Scoring-tile alignment**: during the scoring cascade, `PlayBoard.jsx`
+  was rendering both the frozen `scoring.tiles` snapshot AND the _live_
+  stick (`stickShown` plus the premium-slot preview span) in the same flex
+  row. `setWord('')` clears the real stick as soon as a word is submitted,
+  so by the time the cascade badges (+1/+2/+3) animate, the live block
+  below them is showing the now-empty next stick's placeholder tiles
+  (including a stray premium-slot marker, the floating "TL" box in Jaxon's
+  screenshot) — unrelated to the word just scored, sharing the row, and
+  visibly offset from it. Fix: hide both the live `stickShown` map and the
+  premium-slot-preview block while `scoring && !scoring.cleared`.
+- **Audio going silent after backgrounding**: the existing
+  visibilitychange/focus/pointerdown resume handler in `RoundSandbox.jsx`
+  only listened on the bubble phase; most real taps land on a _disabled_
+  `<button>` (Play mid-round, a tile mid-scoring), and a disabled element's
+  pointerdown never bubbles to `document` in the affected browsers, so the
+  gesture-gated `ctx.resume()` frequently never fired. Switched the
+  pointerdown/touchstart listeners to the capture phase (fires regardless
+  of the target's disabled state), added `pageshow`, and added a 2s
+  watchdog interval while the tab is visible that re-checks/resumes or
+  rebuilds a closed `AudioContext` even if every event-based path missed.
+- **Wasted vertical space on phone**: `.sb-rope` (the gauge/meter box) was
+  124px tall at the ≤920px breakpoint with no further reduction for actual
+  phone widths; added an ≤620px override to 84px, plus a small
+  `.sb-piles` bottom-margin trim.
+
+Not touched (Jaxon's report items 1 and, partly, 2): no sprites
+anywhere / the letter character isn't playable in the deployed build. This
+plan's Status line above claims E1–E3 art is done and deployed, but that
+doesn't match what's live on Jaxon's phone — worth Jaxon or a future pass
+checking whether `build:site`/`dist/site` is actually shipping
+`public/art/` and the sprite-bearing bundle, since the code-level claim and
+the phone-observed behavior disagree. Playable-letter-character (stage D)
+remains open art/asset work either way — not attempted here per scope.
+Verified: `bun run typecheck`/`lint`/`build` clean, headless Playwright
+full play+score loop, zero console errors. Deployed.
+
 ---
 
 ## 0. What exists today (audit findings)

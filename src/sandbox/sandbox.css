@@ -1566,6 +1566,15 @@ button:disabled {
   .sb-input {
     margin-bottom: 6px;
   }
+  /* The gauge box carries mostly empty ground at rest on a phone -- 124px
+     desktop/tablet height is scaled for a wider staff; a 375px-wide phone
+     doesn't need that much air below the meter. */
+  .sb-rope {
+    height: 84px;
+  }
+  .sb-piles {
+    margin-bottom: 4px;
+  }
   .sb-skip {
     margin: 4px 0 0;
   }

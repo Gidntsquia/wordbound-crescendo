@@ -554,15 +554,30 @@ export default function RoundSandbox() {
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
+    window.addEventListener('pageshow', onVisible);
     // A tab backgrounded for a few minutes can leave some mobile browsers
     // (Firefox on Android in particular) refusing resume() unless it rides
     // on an actual user gesture -- visibilitychange alone does not count.
     // The player's first tap back on the page doubles as that gesture.
-    document.addEventListener('pointerdown', tryResume);
+    // Capture phase, not bubble: most taps land on a disabled <button>
+    // (Play/Swap/tiles mid-scoring) whose pointerdown never bubbles to
+    // document, so a bubble-phase listener alone misses most real taps.
+    document.addEventListener('pointerdown', tryResume, true);
+    document.addEventListener('touchstart', tryResume, true);
+    // Belt and suspenders: some mobile browsers report 'visible' before the
+    // context is actually allowed to resume, or drop the state change
+    // entirely. Poll while the tab is visible so a silently-stuck context
+    // (suspended or closed) never survives more than a couple of seconds.
+    const watchdog = setInterval(() => {
+      if (document.visibilityState === 'visible') tryResume();
+    }, 2000);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
-      document.removeEventListener('pointerdown', tryResume);
+      window.removeEventListener('pageshow', onVisible);
+      document.removeEventListener('pointerdown', tryResume, true);
+      document.removeEventListener('touchstart', tryResume, true);
+      clearInterval(watchdog);
     };
   }, []);
 
