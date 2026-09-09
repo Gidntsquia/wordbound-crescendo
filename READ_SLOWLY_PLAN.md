@@ -125,6 +125,29 @@ format:check` clean.
   reverted the working tree to its pre-commit state; confirmed clean via
   `git status`/`git diff` after. No commit created (this needed no code
   change, so nothing to deploy).
+- **A2 (remainder) — no globals (Sandbox namespace + Game.RNG).** Every
+  content module now exports plain ES bindings only; the
+  `window.Wordbound.Sandbox`/`window.Game.RNG` attachment blocks are
+  deleted, `sandboxGlobal.ts` is trimmed to just the `SandboxNamespace`
+  type `store.ts`'s `FightAction.SB` fields still need.
+  `RoundSandbox.jsx` builds its `SB` prop-bag from direct imports at
+  module scope instead of reading the global (dissolving `SB`-as-prop
+  entirely into real child-component imports is A4's job, not this
+  item's). Along the way, deleted `content/round.ts`'s dead mutable
+  `createRound`/`createRun` and all of `content/shop.ts`/
+  `tools/parity-*.ts` (confirmed via grep nothing else referenced them),
+  restoring their display-only `PACK_KINDS`/`priceOf` into
+  `content/round.ts` since `Shop.jsx`/`HeldRow.jsx` still read them;
+  fixed a real dead-check bug in `state/run.ts`'s `finishWin` (fetched
+  but never called `Sandbox.createShop`). `window.Wordbound.Lexicon/
+Tiles/WORD_SET/WORDLIST/Items/StolenLetters` stay — that's
+  `js/wordbound/wordlist.js`'s legacy plumbing, a separate global not
+  named by this item's spec. `main.tsx`'s ~15 side-effect content
+  imports are NOT yet trimmed to mount-only (see Open, folded into the
+  target-layout item below). Verified: `bun run typecheck`/`lint`/
+  `format:check` clean; browser smoke test (title → fight a situation →
+  play a word → score cascade → new draw) zero console/page errors
+  (`0405687`).
 
 ### Open (in build order)
 
@@ -145,21 +168,17 @@ literal spec beyond that — a data-only discriminated `Action` union
 dispatching into `state/round.ts`/`state/run.ts`'s pure transitions
 directly, with `say`/`sfx`/etc. run as effects by the UI after dispatch —
 is a further, separate rewrite of `store.ts` itself; not attempted this
-pass for the same no-test-suite/live-app reason the facade exists. Once
-`store.ts` (and `Shop.jsx`/`HeldRow.jsx`/`RunStrip.jsx`, which call the
-facade directly) no longer need the mutable-shaped API, delete
-`content/round.ts`'s/`content/shop.ts`'s mutable `createRound`/`createRun`/
-`createShop` (superseded, now unused) and `tools/parity-run.ts` (its job is
-done) or keep them only as long as useful to diff against.
+pass for the same no-test-suite/live-app reason the facade exists.
+(`content/round.ts`'s/`content/shop.ts`'s mutable `createRound`/
+`createRun`/`createShop` and `tools/parity-run.ts` were already deleted
+as part of the A2 no-globals item, once confirmed nothing referenced
+them — see Done.)
 
-**A2 (remainder) — no globals.** Every engine module still attaches to
-`window.Wordbound.*` via `sandboxGlobal.ts`, `main.tsx` still imports them
-in a fixed order for side effects, and `RoundSandbox.jsx` / `Shop.jsx` still
-read `SB = window.Wordbound.Sandbox`. Spec: ES module imports only, delete
-`sandboxGlobal.ts` and the shim attachments, and `main.tsx` becomes mount
-only. The `window.Game.RNG` attachment goes too.
-
-**A2 (remainder) — target layout.** Move to the tree in A2 below:
+**A2 (remainder) — target layout.** `main.tsx` still needs to become mount
+only (its ~15 side-effect content-module imports remain — the `window.
+Wordbound.Sandbox` global they used to also populate is gone (see Done),
+but the modules themselves are still loaded this way rather than pulled
+in transitively via real imports). Move to the tree in A2 below:
 `src/app/App.tsx` phase router, `src/app/persistence.ts` owning every
 `wbc.*` key (`best/key/keyUnlocked/letters/quills/seen/sfx/characters`,
 plus the tuning-panel key) with a versioned schema and `migrate()`;
