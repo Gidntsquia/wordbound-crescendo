@@ -6,6 +6,7 @@ import HeldRow from '../fight/HeldRow';
 import CardSlot from './CardSlot';
 import PackPick from './PackPick';
 import ShopInkPicker from './ShopInkPicker';
+import { useCallout } from '../chrome/Callout';
 
 interface Tile {
   id: string;
@@ -138,6 +139,10 @@ export default function Shop({
   const shop = run.shop;
   const next = SB.enemyAt(run.movement, run.stage);
   const packDef = (kind: string) => SB.PACK_KINDS.find((k) => k.kind === kind)!;
+  useCallout(
+    firstVisit && !selecting,
+    'Quills score every word. Gold carries over.',
+  );
   return (
     <div className="sb-shop">
       <div className="sb-shop-head">
@@ -150,11 +155,6 @@ export default function Shop({
           <b>{run.ink}</b> ink
         </span>
       </div>
-      {firstVisit && !selecting && (
-        <div className="sb-callout sb-callout-inline">
-          Quills score every word. Gold carries over.
-        </div>
-      )}
       {selecting && (
         <ShopInkPicker
           selecting={selecting}

@@ -8,6 +8,7 @@
 import CharacterSelect from '../../sandbox/CharacterSelect';
 import type { Key } from '../../engine/content/round';
 import type { Character } from '../../engine/content/characters';
+import { useCallout } from '../chrome/Callout';
 
 interface BestState {
   word?: { word: string; total: number };
@@ -48,6 +49,10 @@ export default function TitleScreen({
   randomSeed: () => string;
   best: BestState;
 }) {
+  useCallout(
+    !seen.has('character'),
+    'Your letter. Play it once a round; it scores extra.',
+  );
   return (
     <section className="sb-title">
       <p className="sb-title-line">
@@ -74,11 +79,6 @@ export default function TitleScreen({
               {k.name}
             </button>
           ))}
-        </div>
-      )}
-      {!seen.has('character') && (
-        <div className="sb-callout">
-          Your letter. Play it once a round; it scores extra.
         </div>
       )}
       <CharacterSelect

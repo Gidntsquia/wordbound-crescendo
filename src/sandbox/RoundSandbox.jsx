@@ -62,6 +62,7 @@ import WonBanner from '../ui/fight/WonBanner';
 import { useCrescendo } from '../ui/hooks/useCrescendo';
 import { useDragReorder } from '../ui/hooks/useDragReorder';
 import { useSfx } from '../ui/hooks/useSfx';
+import { Toaster } from '../ui/primitives/sonner';
 import LetterChoice from '../ui/fight/LetterChoice';
 import SetupPanel from '../ui/chrome/SetupPanel';
 import StartingQuills from '../ui/chrome/StartingQuills';
@@ -1293,6 +1294,7 @@ export default function RoundSandbox() {
       }
       onPointerDownCapture={scoring ? skipCascade : undefined}
     >
+      <Toaster position="top-center" />
       <header className="sb-head">
         <button
           type="button"

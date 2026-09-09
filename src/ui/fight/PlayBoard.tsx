@@ -14,6 +14,7 @@ import Stick from './Stick';
 import InputRow from './InputRow';
 import PilesDrawer from './PilesDrawer';
 import SuggestionsDrawer from './SuggestionsDrawer';
+import { useCallout } from '../chrome/Callout';
 
 interface Tile {
   id: string;
@@ -173,11 +174,12 @@ const PlayBoard = forwardRef<
   },
   playRef,
 ) {
+  useCallout(
+    live && !seen.has('rack') && round.plays.length === 0,
+    'Tap letters to spell a word',
+  );
   return (
     <section className="sb-play" ref={playRef as React.Ref<HTMLElement>}>
-      {live && !seen.has('rack') && round.plays.length === 0 && (
-        <div className="sb-callout">Tap letters to spell a word</div>
-      )}
       <Rack
         rackShown={rackShown}
         live={live}

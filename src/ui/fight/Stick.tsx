@@ -2,6 +2,8 @@
 // row itself (scoring-locked view vs. live view), and the premium-slot
 // preview past the end. Extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md
 // A4) verbatim -- no logic changes, only prop-threading.
+import { useCallout } from '../chrome/Callout';
+
 const PREMIUM_HINT: Record<string, string> = {
   dl: 'Double letter',
   tl: 'Triple letter',
@@ -103,18 +105,16 @@ export default function Stick({
   unstageAt: (i: number) => void;
   letterValues: Record<string, number>;
 }) {
+  useCallout(
+    live && !seen.has('stick') && letters.length >= 2,
+    'Tap Play, or tap a tile to send it back',
+  );
   return (
     <div className="sb-stick-wrap">
       <div className="sb-stick-head">
-        {live && !seen.has('stick') && letters.length >= 2 ? (
-          <span className="sb-callout sb-callout-inline">
-            Tap Play, or tap a tile to send it back
-          </span>
-        ) : (
-          <span className="sb-eyebrow">
-            {scoring ? 'Scoring' : letters.length ? 'Your word' : ' '}
-          </span>
-        )}
+        <span className="sb-eyebrow">
+          {scoring ? 'Scoring' : letters.length ? 'Your word' : ' '}
+        </span>
         {scoring && (
           <span className="sb-stick-worth is-hand is-scoring">
             <span className="sb-stick-math">

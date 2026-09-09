@@ -1,5 +1,7 @@
-// Play / Swap / Clear / Best-play buttons, plus the swap callout above them.
+// Play / Swap / Clear / Best-play buttons, plus the swap callout.
 // Extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md A4).
+import { useCallout } from '../chrome/Callout';
+
 export default function InputRow({
   live,
   letters,
@@ -25,17 +27,16 @@ export default function InputRow({
   seen: ReadonlySet<string>;
   onBestPlay: () => void;
 }) {
+  useCallout(
+    live &&
+      !seen.has('swap') &&
+      pickedIds.size > 0 &&
+      changeoutsLeft > 0 &&
+      seen.has('stick'),
+    'Swap tiles you don’t want — ' + changeoutsPerFight + ' per fight',
+  );
   return (
     <>
-      {live &&
-        !seen.has('swap') &&
-        pickedIds.size > 0 &&
-        changeoutsLeft > 0 &&
-        seen.has('stick') && (
-          <div className="sb-callout">
-            Swap tiles you don’t want — {changeoutsPerFight} per fight
-          </div>
-        )}
       <div className="sb-input">
         <button
           type="button"

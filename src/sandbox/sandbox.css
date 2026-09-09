@@ -3180,34 +3180,6 @@ button.sb-card:disabled {
   border-color: var(--brass-hot);
   color: var(--leaf);
 }
-.sb-callout {
-  pointer-events: none;
-  display: inline-block;
-  margin: 0 0 8px;
-  padding: 6px 12px;
-  border: 1px solid var(--brass-hot);
-  border-radius: 2px;
-  background: rgba(242, 194, 96, 0.12);
-  color: var(--brass-hot);
-  font-family: var(--ui);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  animation: callout-in 320ms ease-out;
-}
-.sb-callout-inline {
-  margin: 0;
-}
-@keyframes callout-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 .sb-shop-leave {
   display: flex;
   flex-direction: column;
