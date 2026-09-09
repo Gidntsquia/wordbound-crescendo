@@ -27,7 +27,7 @@ import '../engine/content/shop';
 import '../engine/content/inks';
 import './wordFinder.js';
 // Which letters a fight draws from -- three bags, weak/normal/strong.
-import './tileBags.js';
+import '../engine/content/tileBags';
 // The stolen-letters meta: which letters are locked out of every bag/pack
 // until a boss is felled and one is won back (localStorage wbc.letters).
 import './stolenLetters.js';
