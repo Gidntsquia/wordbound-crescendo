@@ -195,6 +195,10 @@ orphaned dead weight, nothing references it; nothing loads `music.js` either
     only; the music never touches the score.
   - `src/art/Sprite.jsx` (also owns THE SITUATION SCENE, stage E) +
     `tools/art-manifest.json` — the ~20 sprite sheets stage E's scene/pieces
+    need; a `status: "sourced"` entry (`coin`, `premium_slot_marker` so far,
+    CC0 Kenney Game Icons pack) has an `image` path under `public/art/`
+    that Sprite.jsx renders as a real background-image; everything else is
+    still `status: "placeholder"` (a CSS box) until sourced.
     layers need (situation people, antagonists, the wordsmith player, tile
     pieces, chapter backdrops), one manifest entry per sheet mirroring
     `audio-manifest.json`'s licence-tracking shape. Every entry is
