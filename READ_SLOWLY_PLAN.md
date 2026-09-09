@@ -125,8 +125,15 @@ format:check` clean.
 shape: its `FightAction` cases still call methods on the run/round facade
 object (`r.playWord(...)`, `f.run.next()`, etc.) and still carry closures
 (`say`, `sfx`, `startStage`, `markSeen`, `SB`, ...) as action payload
-fields, and its eight `any`s (`run`, `round`, `SB` in `FightRef`) are still
-there. The plan's literal spec — a data-only discriminated `Action` union
+fields. Its eight `any`s ARE now gone (`4f644af`): `FightRef.run`/`.round`
+are typed `RunFacade`/`RoundFacade` (new exports off `state/facade.ts`),
+and the six `SB: any` action fields are `SB: SandboxNamespace`, with the
+resulting typecheck fallout (optional `PlayResult` fields, `unknown`-typed
+SB content-table lookups) fixed via narrow local casts/guards rather than
+new `any`s — verified via `bun run typecheck`/`lint`, the parity harness,
+and a live browser playthrough (title → fight → play CODE → scored 54,
+zero console errors). Grep confirms zero `any` left in `src/`. The plan's
+literal spec beyond that — a data-only discriminated `Action` union
 dispatching into `state/round.ts`/`state/run.ts`'s pure transitions
 directly, with `say`/`sfx`/etc. run as effects by the UI after dispatch —
 is a further, separate rewrite of `store.ts` itself; not attempted this
