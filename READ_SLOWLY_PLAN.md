@@ -328,15 +328,24 @@ nothing had rendered a `Sheet` or `Dialog` before, so it never 500'd
 until now. Fixed by adding the alias to `vite.config.mjs`. Verified:
 typecheck/lint/format:check clean; live Playwright pass confirms the
 Sheet opens/closes and the fight flow is unaffected.
-Still open: volume/tuning on Slider (the raw `<input type="range">` in
-`SetupPanel`/`TuningPanel` isn't the shadcn `Slider` yet), Tooltip/Popover/
-Tabs/Badge/Progress/Toggle/Card/Dialog remain unused anywhere in the app,
-and `sandbox.css` still hasn't shrunk — it's the FLIP/pop rules plus every
-other hand-rolled `.sb-*` class the app still runs on (`transform` on
-`.sb-tile` stays forbidden). Converting the rest of the chrome
-(scoreboard, shop cards, tile buttons) to shadcn base styles is the bulk
-of this item and is still a large, cohesive visual change better done as
-one pass per screen than left half-migrated mid-screen.
+Volume on Slider — DONE (`45d8195`): `SetupPanel`'s raw `<input
+type="range">` replaced with the shadcn `Slider`. Surfaced and fixed a
+real bug in the `Slider` primitive itself (also from `d8f0ef0`, also
+never actually rendered until now): its single-value fallback treated a
+plain number `value` as falsy for the `Array.isArray` check, so any
+single-thumb slider silently fell through to the two-thumb `[min, max]`
+default. Fixed the fallback chain in `src/ui/primitives/slider.tsx`.
+`TuningPanel`'s per-constant tuning inputs are plain `<input
+type="number">`, not ranges — left as-is (a Slider doesn't fit an
+open-ended numeric tuning knob the way it fits a 0–1 volume). Still
+open: Tooltip/Popover/Tabs/Badge/Progress/Toggle/Card/Dialog remain
+unused anywhere in the app, and `sandbox.css` still hasn't shrunk — it's
+the FLIP/pop rules plus every other hand-rolled `.sb-*` class the app
+still runs on (`transform` on `.sb-tile` stays forbidden). Converting the
+rest of the chrome (scoreboard, shop cards, tile buttons) to shadcn base
+styles is the bulk of this item and is still a large, cohesive visual
+change better done as one pass per screen than left half-migrated
+mid-screen.
 
 **A1 (remainder) — `.jsx` → `.tsx`.** `Sprite.tsx`, the four `svg/*.tsx`
 files, `CharacterSelect.tsx`, `SituationPanel.tsx` (`811df5d`/`4722c2c`),
