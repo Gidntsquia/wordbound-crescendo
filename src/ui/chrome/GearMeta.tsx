@@ -1,8 +1,34 @@
 // Pure code-move from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4): the
 // read-only meta rows inside the gear panel -- Editions unlocked, Letters
 // won back, Bookmarks discovered. No closures over run/round mutation or
-// forceRender; everything it needs is a prop.
-export default function GearMeta({ SB, keyUnlocked, discovered }) {
+// forceRender; everything it needs is a prop. Ported to .tsx
+// (READ_SLOWLY_PLAN.md A1 remainder).
+interface KeyDef {
+  id: string;
+  index: number;
+  name: string;
+  hint: string;
+}
+
+interface ItemDef {
+  id: string;
+  name: string;
+}
+
+export default function GearMeta({
+  SB,
+  keyUnlocked,
+  discovered,
+}: {
+  SB: {
+    KEYS: KeyDef[];
+    availableLetters?: unknown;
+    isAvailable: (letter: string) => boolean;
+    ITEMS?: ItemDef[];
+  };
+  keyUnlocked: number;
+  discovered: ReadonlySet<string>;
+}) {
   return (
     <>
       <div className="sb-key-tune" role="group" aria-label="Editions">

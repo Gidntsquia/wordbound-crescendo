@@ -1,7 +1,33 @@
 // READ_SLOWLY_PLAN.md A4 -- pure code-move from RoundSandbox.jsx. The chapter
 // pip strip plus the ink purse readout. Read-only over `run`/`phase`; no
-// fight.current/round mutation, no refresh/dispatch of its own.
-export default function RunStrip({ run, phase }) {
+// fight.current/round mutation, no refresh/dispatch of its own. Ported to
+// .tsx (READ_SLOWLY_PLAN.md A1 remainder).
+interface RunLike {
+  movements: { numeral: string; enemies: Enemy[] }[];
+  movement: number;
+  stage: number;
+  felled: string[];
+  targetFor: (movement: number, stage: number) => number;
+  enemy: { glyph: string; name: string };
+  tune: { INTEREST_PER: number; INTEREST_CAP: number };
+  ink: number;
+  interestPreview: () => number;
+}
+
+interface Enemy {
+  id: string;
+  kind: string;
+  glyph: string;
+  name: string;
+}
+
+export default function RunStrip({
+  run,
+  phase,
+}: {
+  run: RunLike | null;
+  phase: string;
+}) {
   if (!run) return null;
   return (
     <nav className="sb-strip" aria-label="The run">

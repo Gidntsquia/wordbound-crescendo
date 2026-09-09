@@ -52,7 +52,7 @@ import { createSfx } from '../audio/sfx';
 import { situationFor, ladderIndex } from '../engine/content/situations';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';
-import TitleScreen from '../ui/meta/TitleScreen.jsx';
+import TitleScreen from '../ui/meta/TitleScreen';
 import HeldRow from '../ui/fight/HeldRow';
 import Shop from '../ui/shop/Shop';
 import EndScreen from '../ui/meta/EndScreen';
@@ -210,7 +210,7 @@ function shareText(run, won, seed) {
   return lines.join('\n');
 }
 
-// EndScreen moved to src/ui/meta/EndScreen.jsx (READ_SLOWLY_PLAN.md A4).
+// EndScreen moved to src/ui/meta/EndScreen.tsx (READ_SLOWLY_PLAN.md A4).
 
 // The score flies from the stick to the readout: its own element, never the
 // tile (the FLIP owns .sb-tile's transform).

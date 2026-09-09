@@ -1,7 +1,8 @@
 // READ_SLOWLY_PLAN.md A4: pure code-move out of RoundSandbox.jsx. The
 // tuning panel -- a live editor over every ROUND_DEFAULTS constant, no
 // persistence (copy numbers into round.ts by hand once you like them).
-const TUNE_LABELS = {
+// Ported to .tsx (READ_SLOWLY_PLAN.md A1 remainder).
+const TUNE_LABELS: Record<string, string> = {
   MOVEMENT_BASE_1: 'Target base, movement I',
   MOVEMENT_BASE_2: 'Target base, movement II',
   MOVEMENT_BASE_3: 'Target base, movement III',
@@ -53,7 +54,15 @@ const TUNE_LABELS = {
   PREMIUM_DW: 'Premium · double word ×',
 };
 
-export default function TuningPanel({ SB, tune, setConst }) {
+export default function TuningPanel({
+  SB,
+  tune,
+  setConst,
+}: {
+  SB: { ROUND_DEFAULTS: Record<string, number> };
+  tune: Record<string, number>;
+  setConst: (key: string, value: number) => void;
+}) {
   return (
     <div className="sb-gear-panel sb-gear-panel-tune">
       <details className="sb-tune">

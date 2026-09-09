@@ -1,6 +1,39 @@
 // The run's end screen -- extracted unchanged from RoundSandbox.jsx
-// (READ_SLOWLY_PLAN.md A4, mechanical extraction).
+// (READ_SLOWLY_PLAN.md A4, mechanical extraction). Ported to .tsx
+// (READ_SLOWLY_PLAN.md A1 remainder) with real prop types; still the
+// pre-A6 bespoke classNames -- the shadcn/Tailwind chrome pass is a
+// separate, larger visual change tracked under A6.
 import * as copy from '../copy';
+
+interface Enemy {
+  id: string;
+  kind: string;
+  name: string;
+}
+
+interface EndRun {
+  felled: string[];
+  movements: { enemies: Enemy[] }[];
+  round: { situation?: unknown; target: number; score: number } | null;
+  resolved?: unknown[] | null;
+  wordsPlayed: number;
+  ink: number;
+  skipped: unknown[];
+  bestPlay?: {
+    word: string;
+    breakdown: { total: number };
+    enemy: string;
+  } | null;
+  items: string[];
+  enemy: { name: string };
+}
+
+interface BestState {
+  word?: { word: string; total: number };
+  deepest?: { name: string };
+  wins?: number;
+  runs?: number;
+}
 
 export default function EndScreen({
   run,
@@ -12,6 +45,19 @@ export default function EndScreen({
   onShare,
   best,
   describe,
+}: {
+  run: EndRun;
+  won: boolean;
+  SB: {
+    situationFor?: (situation: unknown) => { failure: string } | undefined;
+    ITEM_DEFS: Record<string, { name: string; rarity?: string }>;
+  };
+  seed: string;
+  onAgain: () => void;
+  onCopy: () => void;
+  onShare: () => void;
+  best: BestState;
+  describe: (breakdown: unknown) => string;
 }) {
   const felled = run.felled
     .map((id) => {
@@ -19,7 +65,7 @@ export default function EndScreen({
         for (const e of m.enemies) if (e.id === id) return e;
       return null;
     })
-    .filter(Boolean);
+    .filter((e): e is Enemy => Boolean(e));
   return (
     <div className={'sb-end ' + (won ? 'sb-win' : 'sb-lose')}>
       <h2 className="sb-end-title">
@@ -30,7 +76,7 @@ export default function EndScreen({
         SB.situationFor &&
         SB.situationFor(run.round.situation) && (
           <p className="sb-end-failure">
-            {SB.situationFor(run.round.situation).failure}
+            {SB.situationFor(run.round.situation)!.failure}
           </p>
         )}
       <p className="sb-end-sub">
@@ -40,7 +86,7 @@ export default function EndScreen({
             ' movements, ' +
             run.felled.length +
             ' enemies felled'
-          : run.round.target - run.round.score + ' short of the target'}
+          : run.round!.target - run.round!.score + ' short of the target'}
         {' · '}
         {copy.resolvedSummary(run.resolved ? run.resolved.length : 0)}
         {' · '}
@@ -89,10 +135,10 @@ export default function EndScreen({
                 key={id}
                 className={
                   'sb-card sb-card-item is-' +
-                  (SB.ITEM_DEFS[id].rarity || 'common')
+                  (SB.ITEM_DEFS[id]!.rarity || 'common')
                 }
               >
-                <b>{SB.ITEM_DEFS[id].name}</b>
+                <b>{SB.ITEM_DEFS[id]!.name}</b>
               </span>
             ))}
             {run.items.length === 0 && <em className="sb-hint">none</em>}

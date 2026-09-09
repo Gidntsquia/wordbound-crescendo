@@ -2,7 +2,19 @@
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction). Pure UI: key choice,
 // character choice, and Play all go through the same setters/callbacks the
 // parent already owned; nothing here touches fight.current/run/round.
-import CharacterSelect from '../../sandbox/CharacterSelect.jsx';
+// Ported to .tsx (READ_SLOWLY_PLAN.md A1 remainder) with real prop types;
+// still the pre-A6 bespoke classNames -- the shadcn/Tailwind chrome pass
+// is a separate, larger visual change tracked under A6.
+import CharacterSelect from '../../sandbox/CharacterSelect';
+import type { Key } from '../../engine/content/round';
+import type { Character } from '../../engine/content/characters';
+
+interface BestState {
+  word?: { word: string; total: number };
+  wins?: number;
+  runs?: number;
+  winsByKey?: Record<string, number>;
+}
 
 export default function TitleScreen({
   SB,
@@ -17,6 +29,24 @@ export default function TitleScreen({
   start,
   randomSeed,
   best,
+}: {
+  SB: {
+    KEYS: Key[];
+    KEY_DEFS: Record<string, Key>;
+    CHARACTERS: Character[];
+    unlockedCharacters: () => string[];
+  };
+  keyUnlocked: number;
+  keyId: string;
+  setKey: (id: string) => void;
+  writeKeyChoice: (id: string) => void;
+  seen: ReadonlySet<string>;
+  markSeen: (id: string) => void;
+  characterId: string;
+  setCharacterId: (id: string) => void;
+  start: (seed: string) => void;
+  randomSeed: () => string;
+  best: BestState;
 }) {
   return (
     <section className="sb-title">
@@ -76,7 +106,7 @@ export default function TitleScreen({
             {best.winsByKey && best.winsByKey[keyId] ? (
               <>
                 {' '}
-                ({best.winsByKey[keyId]} in {SB.KEY_DEFS[keyId].name})
+                ({best.winsByKey[keyId]} in {SB.KEY_DEFS[keyId]!.name})
               </>
             ) : (
               ''
