@@ -31,7 +31,7 @@ of hand-written classes. The engine in `js/wordbound/` is down to
 - Model/UI split is real. `round.js`, `shop.js`, `items.js` have no React,
   no timers. The scoring cascade reads a `breakdown.steps` list the model
   produces, so the model is testable headless and the UI is a narrator.
-- Data-driven definitions: `ITEMS`, `INKS`, `RULES`, `KEYS`, `MOVEMENTS`,
+- Data-driven definitions: `ITEMS`, `INKS` (→ marginalia), `RULES`, `KEYS`, `MOVEMENTS`,
   `TIERS`, `ROUND_DEFAULTS` are tables with small hook functions
   (`score(ctx, acc)`, `barsLetter`, `goldAtWin`). Adding a mechanic mostly
   means adding a row. The TypeScript port should preserve this shape.
@@ -71,6 +71,7 @@ parity, verified by playing the same seed before and after and getting the
 same words, targets, shop contents and scores.
 
 ### A1. Toolchain
+- Add `tailwindcss` + `@tailwindcss/vite`, then `shadcn` init (see A6).
 - Add `typescript`, `@types/react`, `@types/react-dom`, `tsconfig.json`
   (`strict: true`, `noUncheckedIndexedAccess: true`, `jsx: react-jsx`,
   `moduleResolution: bundler`). Vite already handles TS.
@@ -95,7 +96,7 @@ src/
     scoring.ts             scoreWordPoints + scoreSteps -> Breakdown
     round.ts               createRound -> pure functions on RoundState
     run.ts                 createRun, targets, gold, interest, skip
-    shop.ts, inks.ts, etudes.ts
+    shop.ts, marginalia.ts (was inks), etudes.ts
     content/               data tables only
       items.ts  rules.ts  keys.ts  enemies.ts  situations.ts (C)
       characters.ts (D)  tileBags.ts
@@ -112,6 +113,7 @@ src/
     quills/ QuillRow.tsx  QuillCard.tsx
     meta/   TitleScreen.tsx  EndScreen.tsx  CharacterSelect.tsx (D)
     chrome/ RunStrip.tsx  GearPanel.tsx  TuningPanel.tsx  Callout.tsx
+    primitives/ shadcn-generated components (button, card, dialog, ...)
     hooks/  useDragReorder.ts  useCrescendo.ts  useSfx.ts
   art/                     sprite sheets + manifests (E)
 tools/                     unchanged, converted to .mjs where trivial
@@ -139,7 +141,7 @@ tools/                     unchanged, converted to .mjs where trivial
 ### A4. Core types (sketch)
 ```ts
 type Letter = 'A' | ... | 'Z' | '?';
-interface Tile { id: string; letter: Letter; ink?: InkId; origin: 'bag' | 'pack' | 'character' }
+interface Tile { id: string; letter: Letter; mark?: MarkId; origin: 'bag' | 'pack' | 'character' }
 interface Breakdown { points: number; mult: number; total: number; steps: ScoreStep[]; /* ... */ }
 type ScoreStep = { kind: 'lock' | 'letters' | 'item' | 'rule' | 'character' | 'slot' | 'total'; label: string; pts?: number; mult?: number; ratio?: number }
 interface Quill { id: QuillId; name: string; rarity: Rarity; price: number; hint: string;
@@ -147,7 +149,7 @@ interface Quill { id: QuillId; name: string; rarity: Rarity; price: number; hint
   onPlayed?(run: RunState): RunState; crescendo?: boolean }
 interface Enemy { id: string; name: string; kind: 'small' | 'big' | 'boss'; situation: SituationId;
   recording?: RecordingId; rule?: RuleId; sprite: SpriteId }
-interface RunState { seed: string; rng: RngState; movement: number; stage: number; gold: number;
+interface RunState { seed: string; rng: RngState; movement: number; stage: number; ink: number;
   deck: Tile[]; pile: Pile; quills: QuillId[]; consumables: Consumable[]; tierLevels: Record<TierId, number>;
   key: KeyId; character: CharacterId; characterTile: CharacterTileState; round: RoundState | null;
   shop: ShopState | null; pack: PackState | null; phase: RunPhase; bestPlay: BestPlay | null }
@@ -174,9 +176,15 @@ interface RunState { seed: string; rng: RngState; movement: number; stage: numbe
 - Content tables are data plus small hooks; no content in components.
 - One component per file, under ~200 lines; a component that grows past
   that gets a child extracted.
-- CSS: one module per component (`*.module.css`) or keep the single
-  stylesheet but namespace by component. Recommendation: CSS modules,
-  because `sandbox.css` at 2k lines is already hard to navigate.
+- Styling: **shadcn/ui** on Tailwind v4 (`npx shadcn@latest init`; components
+  copied into `src/ui/primitives/` and owned by the repo). Use its Button,
+  Card, Dialog, Sheet (gear panel), Tooltip, Popover, Tabs, Badge, Progress,
+  Toggle, Slider (volume, tuning), Sonner (callouts). Game pieces (Tile,
+  Stick, Cascade, Sprite) stay bespoke components styled with Tailwind
+  utilities plus a small `game.css` for the FLIP/pop rules that must not
+  move (`transform` on `.sb-tile` still forbidden). `sandbox.css` is
+  deleted at the end of A5 step 4. Theme tokens (paper, ink, gilt) go in
+  the Tailwind `@theme` block so shadcn primitives pick up the look.
 - All persisted keys go through `persistence.ts` with a versioned schema
   and a `migrate()`.
 
@@ -200,50 +208,52 @@ becomes a full orchestra. Beating a boss is a chapter read to the end.
 | Enemy (small/big/boss) | Distraction / Pressure / Finale (boss) | kind ids unchanged |
 | Target score | Attention needed | the number a situation needs to resolve |
 | Quills | Bookmarks | jokers; `items.ts` stays |
-| Inks | Marginalia | tarots; still ink on a tile |
+| Inks (tarots) | Marginalia | `inks.ts` → `marginalia.ts`; `tile.ink` → `tile.mark` |
 | Études | Rereads | planet cards; level a length tier |
 | Tempo marking (boss rule) | Reading condition | still `RULES` |
 | Keys (stakes) | Editions (First Edition … Sixth) | `KEYS` |
 | Stolen letters | Lost letters ("the alphabet is being forgotten") | same module |
 | Skip for a bonus | Walk past (for a favour) | same |
-| Gold | Coins → keep "gold" or "pages"? Recommend **pages** | pure label |
+| Gold | **Ink** | the currency; `run.gold` → `run.ink`, GOLD_* tunables → INK_*; the old INK_GILT/BOLD/STEEL tunables become MARK_* |
 
 Word kinds already exist (`MUSIC_WORDS` for `libretto`). Add `BOOK_WORDS`
 (PAGE, INK, SPINE, NOVEL, VERSE, PROSE, READ, STORY…) and `SLOW_WORDS`
 (PAUSE, REST, BREATHE, LINGER, DWELL…) as new second-axis quill kinds.
 
 ### B2. New enemy lineup (`content/enemies.ts`)
-Bosses keep their current recordings and rules; only names/framing change.
-Small and big enemies lose their recordings (they were the seven public-
-domain tracks) and get a short synthesized ambient loop each from `sfx.ts`
-instead, keeping the "synthesized-only outside the exception" rule true
-for everything but the three bosses. If Jaxon wants all nine recordings
-kept, park the six spare ones as optional boss alternates; do not spend
-them on non-bosses.
+All nine recordings stay, one per enemy as today; only names and framing
+change. The recording-to-enemy mapping below is the current one, so
+`recorded` ids in `enemies.ts` do not move. Six situations, not nine: the
+three small enemies are each one distraction, and the big enemies reuse a
+chapter's person under more pressure rather than introducing a new phone.
 
 Chapter 1 — *The Commute*
-- Distraction: **The Doomscroll** — a commuter hypnotised by a phone.
-- Pressure: **The Notification** — the phone fights back; every ping pulls
-  the eyes down again.
+- Distraction: **The Doomscroll** (Für Elise) — a commuter hypnotised by a
+  phone. The only phone enemy in the game.
+- Pressure: **The Deadline** (Moonlight) — the same commuter, now at a desk,
+  a clock face where the phone was. Rushing, not scrolling.
 - Finale: **Fate at the Door** (Symphony 5, rule `four_knocks`) — the
-  deadline itself, knocking.
+  deadline arrives in person and knocks.
 
 Chapter 2 — *The Square*
-- Distraction: **The Bored Bench** — someone with nothing to do and no idea
-  a book counts as something.
-- Pressure: **The Loudspeaker** — a leader who talks so no one has to think.
+- Distraction: **The Bored Bench** (Goldberg Aria) — someone with nothing
+  to do and no idea a book counts as something.
+- Pressure: **The Loudspeaker** (Mountain King, rule `presto`) — a leader
+  who talks so no one has to think; the bench-sitter is in the crowd.
 - Finale: **The Gallop** (William Tell, rule `no_repeats`) — the parade
   that never stops for anyone.
 
 Chapter 3 — *The Tower*
-- Distraction: **The Infinite Feed** — the scroll that never ends.
-- Pressure: **The Chancellor** — hegemony; a hall full of people repeating
-  the same word. Pairs well with `no_repeats`-style variants later.
+- Distraction: **The Waiting Room** (Gymnopédie) — a person staring at a
+  wall, so bored they have forgotten boredom has a cure.
+- Pressure: **The Chancellor** (Nachtmusik) — hegemony; a hall repeating
+  the same word after a podium.
 - Finale: **The Bare Mountain** (Mussorgsky, rule `sotto_voce`) — the whole
   night of noise; win and the sun comes up on someone reading.
 
-Moonlight, Mountain King, Bagatelle, Aria, Gymnopédie, Serenade become
-unused recording ids; leave them in the manifest for now.
+Removed from the earlier draft: The Notification and The Infinite Feed
+(both were the Doomscroll again). Situations table therefore has six
+persons/antagonists, and Chapter 1's finale reuses the commuter.
 
 ### B3. Copy pass
 - Title: keep "Wordbound: Crescendo" but the eyebrow becomes
@@ -311,16 +321,15 @@ person stays scrolling; the run ends. No extra mechanic.
 ## D. Playable characters: the letter tile
 
 You pick a **letter**. That letter is a permanent extra tile you may play
-in any word at any time, once per round, and it scores extra. It can be
+in any word, every word, and it scores extra. It can be
 inked (boosted) like any tile and the ink persists for the run. The rack
 stays seven; the character tile sits in its own slot beside the rack.
 
 ### D1. Rules
-- `CharacterTileState = { tile: Tile; usedThisRound: boolean }` on `RunState`.
-- Playable whenever the round is live and `usedThisRound` is false. It is
-  placed on the stick like any tile; it is never drawn from the bag and
-  never goes to the discard; after the word scores it returns to its slot
-  and `usedThisRound` becomes true. Reset on each new round.
+- `CharacterTileState = { tile: Tile }` on `RunState` (no per-round flag).
+- Playable in every word: at most one copy on the stick at a time. It is
+  never drawn from the bag and never goes to the discard; after the word
+  scores it returns to its slot, ready for the next word.
 - Scoring: the character tile's letter points count ×`CHAR_LETTER_MULT`
   (default 3) and the word gets `+CHAR_MULT` (default 2) mult. Both in
   `ROUND_DEFAULTS`. Reported as a `character` `ScoreStep` so the cascade
@@ -336,9 +345,9 @@ stays seven; the character tile sits in its own slot beside the rack.
 Start with six, chosen for distinct play patterns rather than lore:
 | id | letter | passive (small, one line) |
 |---|---|---|
-| zed | Z | high value, rare in words; +1 play per round (you need it) |
+| zed | Z | high value, rare in words; +1 swap per round |
 | ess | S | pluraliser; words ending in S get +10 points |
-| ee | E | the common one; the character tile may be used twice per round |
+| ee | E | the common one; a second E tile in the slot (two per word) |
 | queue | Q | Q and U played together score ×2 mult |
 | why | Y | counts as a vowel for vowel quills |
 | ex | X | +15 points when the word is 3–4 letters |
@@ -357,9 +366,11 @@ chapter with the previous one (persisted via `persistence.ts`).
   extra."
 
 ### D4. Balance note
-A guaranteed Z with ×3 letter points is ~30 points a round before mult; on
-Chapter 1's 300 target that is loud. Start with `CHAR_LETTER_MULT: 2`,
-`CHAR_MULT: 1` and let the tuning panel find it. Character tile stats sit
+A guaranteed Z in every word at ×3 letter points is ~30 points per word
+before mult, ~120 a round on Chapter 1's 300 target: loud. Start with
+`CHAR_LETTER_MULT: 2`, `CHAR_MULT: 1`, and expect targets to rise once
+the character is standard; every player has one, so bake it into
+MOVEMENT_BASE rather than nerfing the letters. Character tile stats sit
 in the tuning panel like everything else.
 
 ---
@@ -386,11 +397,12 @@ existing tap/drag/FLIP rules keep working.
 - `tools/pack-sprites.js` optional later; start with hand-exported sheets.
 
 ### E2. Asset list (first pass, ~20 sheets)
-- Six situation *people*: commuter, phone-fighter's owner, bored bench
-  sitter, crowd-member, feed-scroller, hall-listener. Poses: 5 ladder
-  poses each (see C1) + `win-idle`.
-- Six antagonists: phone glow, notification swarm, empty bench/clock,
-  loudspeaker, infinite feed column, chancellor podium. Poses: `idle`,
+- Three situation *people*, one per chapter (commuter, bench-sitter,
+  waiting-room sitter), each with 5 ladder poses (see C1) + `win-idle`;
+  the pressure and finale fights reuse the chapter's person with a
+  different antagonist.
+- Nine antagonists: phone glow, clock, knocking door, empty bench,
+  loudspeaker, parade, blank wall, podium, the night. Poses: `idle`,
   `weakening`, `gone`. Boss antagonists get a `crescendo` pose the
   `useCrescendo` hook toggles.
 - Player: a wordsmith at a writing desk, `idle`, `write` (on play),
@@ -431,10 +443,10 @@ deployed link before calling it done.
 D can run in parallel with B/C. C should ship with plain text captions
 before any art exists, so the pacing can be felt early.
 
-## Decisions for Jaxon before the new session starts
-1. Small/big enemies: drop their recordings for synthesized ambience
-   (keeps the audio rule clean) or keep all nine? Plan assumes drop.
-2. Gold → "pages" or keep gold?
-3. Art source (E1): draw, CC0 placeholders, or generated?
-4. Character tile once-per-round (planned) vs once-per-word?
-5. CSS modules (recommended) vs keeping one stylesheet.
+## Decisions (settled by Jaxon 2026-09-08)
+1. Keep all nine recordings for now; small/big enemies keep theirs.
+2. Gold → **ink**. The old tarot-style "ink" → **marginalia**.
+3. Character tile is playable **once per word**, not once per round.
+4. UI built on **shadcn/ui** (Radix + Tailwind), not hand-rolled CSS.
+5. Situations deduplicated: one phone enemy per chapter at most.
+Still open: art source for E1 (draw, CC0 placeholders, or generated).
