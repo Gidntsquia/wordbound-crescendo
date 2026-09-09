@@ -1600,8 +1600,26 @@ button:disabled {
 
 /* ---- the round board: meter, counters, plays so far ------------------- */
 .sb-board {
+  position: relative;
   padding: 0 0 18px;
   margin-bottom: 4px;
+}
+
+/* Chapter backdrop (READ_SLOWLY_PLAN.md stage E1): fills the board behind
+   the intro/fight content, low-opacity so text on top stays legible. */
+.sb-board .sb-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  opacity: 0.32;
+  pointer-events: none;
+  z-index: 0;
+}
+.sb-board > :not(.sb-backdrop) {
+  position: relative;
+  z-index: 1;
 }
 
 .sb-dyn-mark small {
@@ -3068,6 +3086,12 @@ button.sb-card:disabled {
   font-size: 13px;
   color: var(--leaf-dim);
   flex: 1;
+}
+.sb-situation .sb-situation-person,
+.sb-situation .sb-situation-antagonist {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
 }
 /* READ_SLOWLY_PLAN.md stage E: Sprite.jsx placeholder + crossfade. Real PNG
    sheets swap in as a background-image + steps() animation on this same

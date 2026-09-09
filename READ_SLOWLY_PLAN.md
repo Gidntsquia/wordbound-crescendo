@@ -134,24 +134,50 @@ deployed build and reported five things. Fixed three:
   pointerdown never bubbles to `document` in the affected browsers, so the
   gesture-gated `ctx.resume()` frequently never fired. Switched the
   pointerdown/touchstart listeners to the capture phase (fires regardless
-  of the target's disabled state), added `pageshow`, and added a 2s
-  watchdog interval while the tab is visible that re-checks/resumes or
-  rebuilds a closed `AudioContext` even if every event-based path missed.
+  of the target's disabled state) and added `pageshow`. (A first cut also
+  added a 2s `setInterval` watchdog as a backstop; Jaxon asked for it back
+  out as unnecessary resource use, so it's gone — the capture-phase
+  listeners plus `pageshow` are the fix.)
 - **Wasted vertical space on phone**: `.sb-rope` (the gauge/meter box) was
   124px tall at the ≤920px breakpoint with no further reduction for actual
   phone widths; added an ≤620px override to 84px, plus a small
   `.sb-piles` bottom-margin trim.
 
-Not touched (Jaxon's report items 1 and, partly, 2): no sprites
-anywhere / the letter character isn't playable in the deployed build. This
-plan's Status line above claims E1–E3 art is done and deployed, but that
-doesn't match what's live on Jaxon's phone — worth Jaxon or a future pass
-checking whether `build:site`/`dist/site` is actually shipping
-`public/art/` and the sprite-bearing bundle, since the code-level claim and
-the phone-observed behavior disagree. Playable-letter-character (stage D)
-remains open art/asset work either way — not attempted here per scope.
+Update (2026-09-09, "no sprites" root-caused): the code-level claim above
+(E1–E3 art done and deployed) was correct about the art existing, but two
+real bugs made it invisible on Jaxon's phone:
+
+- `SituationPanel.jsx`'s person/antagonist `<Sprite>`s were rendering at
+  the generic 28×28px `.sb-sprite` icon size — small enough on a phone
+  screen to not register as "sprites" at all. Sized up to 44×44px
+  (`.sb-situation-person`/`.sb-situation-antagonist` override).
+- The three `backdrop_chapter_1/2/3` sheets (real hand-authored SVG,
+  `src/art/svg/backdrops.jsx`) were marked `"status": "sourced"` in
+  `tools/art-manifest.json` but **no `<Sprite sheet="backdrop_...">` call
+  existed anywhere** — authored and marked done, never wired in. Added one
+  to `.sb-board` (`RoundSandbox.jsx`), keyed off `run.movement + 1`,
+  absolutely positioned behind the intro/fight content at 32% opacity via
+  a new `.sb-backdrop` class. (First cut of the CSS override lost the
+  cascade to the base `.sb-sprite` rule — same specificity, later in the
+  file — fixed by scoping both this and the situation-sprite overrides
+  under a parent-class selector.)
+
+Other manifest entries still marked `"sourced"` but never referenced by
+any `<Sprite sheet=...>` call, confirmed orphaned, no obvious wiring spot
+found in this pass: `clock`, `knocking_door`, `loudspeaker`, `parade`,
+`podium`, `the_night`, `wordsmith`, `mark_overlay_gilt/bold/steel`,
+`bookmark_card_frame`, `pack_wrapper`. `wordsmith` is presumably meant for
+the stage D playable-letter-character work (still open, not attempted
+here); the mark-overlay/bookmark/pack sheets look like they'd want wiring
+into the ink/shop UI (`Shop.jsx`, ink-application flow) — flagged, not
+done.
+
+Not touched (Jaxon's report item 1, remainder): playable-letter-character
+(stage D) is open art/asset work, out of scope for this pass.
 Verified: `bun run typecheck`/`lint`/`build` clean, headless Playwright
-full play+score loop, zero console errors. Deployed.
+full play+score loop plus a screenshot check of the intro screen
+confirming the backdrop and both situation sprites are visually present,
+zero console errors. Deployed.
 
 ---
 

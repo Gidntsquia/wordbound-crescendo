@@ -10,6 +10,7 @@
 import { createDragReorder } from '../engine/dragReorder';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';
+import Sprite from '../art/Sprite.jsx';
 import TitleScreen from '../ui/meta/TitleScreen.jsx';
 import HeldRow from '../ui/fight/HeldRow';
 import Shop from '../ui/shop/Shop';
@@ -564,20 +565,12 @@ export default function RoundSandbox() {
     // document, so a bubble-phase listener alone misses most real taps.
     document.addEventListener('pointerdown', tryResume, true);
     document.addEventListener('touchstart', tryResume, true);
-    // Belt and suspenders: some mobile browsers report 'visible' before the
-    // context is actually allowed to resume, or drop the state change
-    // entirely. Poll while the tab is visible so a silently-stuck context
-    // (suspended or closed) never survives more than a couple of seconds.
-    const watchdog = setInterval(() => {
-      if (document.visibilityState === 'visible') tryResume();
-    }, 2000);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       window.removeEventListener('pageshow', onVisible);
       document.removeEventListener('pointerdown', tryResume, true);
       document.removeEventListener('touchstart', tryResume, true);
-      clearInterval(watchdog);
     };
   }, []);
 
@@ -1611,6 +1604,11 @@ export default function RoundSandbox() {
             (scoring && scoring.hit ? ' is-hit-' + scoring.hit : '')
           }
         >
+          <Sprite
+            sheet={'backdrop_chapter_' + (run.movement + 1)}
+            pose="far"
+            className="sb-backdrop"
+          />
           {showIntro ? (
             <div className="sb-intro">
               <div className="sb-enemy-line">
