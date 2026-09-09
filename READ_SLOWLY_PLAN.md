@@ -174,17 +174,28 @@ pass for the same no-test-suite/live-app reason the facade exists.
 as part of the A2 no-globals item, once confirmed nothing referenced
 them — see Done.)
 
-**A2 (remainder) — target layout.** `main.tsx` still needs to become mount
-only (its ~15 side-effect content-module imports remain — the `window.
-Wordbound.Sandbox` global they used to also populate is gone (see Done),
-but the modules themselves are still loaded this way rather than pulled
-in transitively via real imports). Move to the tree in A2 below:
-`src/app/App.tsx` phase router, `src/app/persistence.ts` owning every
-`wbc.*` key (`best/key/keyUnlocked/letters/quills/seen/sfx/characters`,
-plus the tuning-panel key) with a versioned schema and `migrate()`;
-`src/audio/` for `audioPiece` and `sfx`; `src/engine/meta/` for the two
-metas; `src/ui/hooks/` (`useDragReorder`, `useCrescendo`, `useSfx`).
-Rename `inks`-era names that survive (`applyInk`, `useInk`, `is-mark-*` is
+**A2 (remainder) — target layout.** `src/app/persistence.ts` now owns
+`wbc.best/key/keyUnlocked/seen/sfx` (the app/UI-layer keys, behind typed
+`readRaw`/`writeRaw`/`readJSON`/`writeJSON`, a `KEYS` map, and a
+`migrate()` that stamps `wbc.schemaVersion` — no schema change has ever
+shipped so there's nothing to migrate yet, but the hook is real and
+exercised at startup). `wbc.letters`/`wbc.quills`/`wbc.characters` stay
+as direct `window.localStorage` calls inside `stolenLetters.ts`/
+`quillDiscovery.ts`/`characters.ts` — those are `engine/content/`
+modules, and importing an `src/app/` module from there would be a
+backwards engine-depends-on-app layering violation (those three files
+already touch `window` directly, a separate, pre-existing departure
+from the "engine never touches `window`" rule this item doesn't fix).
+`main.tsx` is mount only now beyond four unavoidable legacy-global loads
+(`rng.ts`/`lexicon.ts`/`tiles.ts`/`wordlist.js` — nothing ES-imports them
+for their side effects, since `window.Wordbound.Lexicon`/`Tiles` are the
+separate, out-of-scope global predating the Sandbox-namespace removal);
+every other content module is now reached transitively via
+`RoundSandbox.jsx`'s real imports (`5523b48`). Still open: move to the
+rest of the tree in A2 below — `src/app/App.tsx` phase router,
+`src/audio/` for `audioPiece`/`sfx`, `src/engine/meta/` for the two
+metas, `src/ui/hooks/` (`useDragReorder`, `useCrescendo`, `useSfx`), and
+renaming surviving `inks`-era names (`applyInk`, `useInk`, `is-mark-*` is
 fine).
 
 **A4 — component split.** `RoundSandbox.jsx` is 1,898 lines; `PlayBoard.jsx`
