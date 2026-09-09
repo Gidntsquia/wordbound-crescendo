@@ -31,9 +31,9 @@ export interface Tile {
   bonus: TileBonus | null;
   variant: Variant | null;
   crackedThisFight: boolean;
-  // Set by inks.ts's applyInk (gilt/bold/steel/blank); persists on the tile
-  // for the rest of the run, whether it's in the live case or not.
-  ink?: string | null;
+  // Set by marginalia.ts's applyMark (gilt/bold/steel/blank); persists on
+  // the tile for the rest of the run, whether it's in the live case or not.
+  mark?: string | null;
 }
 
 export interface PileState {

@@ -64,7 +64,7 @@ export interface Item {
     breakdown?: { crescendo?: boolean },
   ): void;
   plays?: number;
-  goldAtWin?(round: { changeoutsLeft: number }): number;
+  inkAtWin?(round: { changeoutsLeft: number }): number;
 }
 
 const VOWELS: Record<string, 1> = { A: 1, E: 1, I: 1, O: 1, U: 1 };
@@ -114,6 +114,40 @@ BARD_WORDS.forEach((w) => {
 });
 export function isBardWord(word: string): boolean {
   return !!BARD[String(word).toUpperCase()];
+}
+
+// READ_SLOWLY_PLAN.md stage B: two new second-axis word kinds for the
+// "slow down and read" theme, alongside MUSIC_WORDS/BARD_WORDS above. Not
+// yet wired to a quill -- that pairing is a future quill-design pass.
+const BOOK_WORDS = (
+  'PAGE INK SPINE NOVEL VERSE PROSE READ STORY BOOK TALE PLOT WORD TEXT LINE ' +
+  'CHAPTER BINDING COVER JACKET SHELF LIBRARY AUTHOR EDITOR PRINT PRESS FONT ' +
+  'MARGIN FOOTNOTE INDEX PREFACE EPILOGUE VOLUME EDITION QUOTE PASSAGE PARAGRAPH ' +
+  'SENTENCE LETTER ALPHABET GLOSSARY LEXICON SCRIPT PEN QUILL PARCHMENT SCROLL ' +
+  'BOOKMARK DUSTJACKET PAPERBACK HARDCOVER ANTHOLOGY MEMOIR ESSAY POEM SAGA MYTH ' +
+  'FABLE LEGEND EPIC BALLAD FOLIO'
+).split(' ');
+const BOOK: Record<string, 1> = {};
+BOOK_WORDS.forEach((w) => {
+  BOOK[w] = 1;
+});
+export function isBookWord(word: string): boolean {
+  return !!BOOK[String(word).toUpperCase()];
+}
+
+const SLOW_WORDS = (
+  'PAUSE REST BREATHE LINGER DWELL STILL QUIET CALM SLOW EASE DRIFT SETTLE ' +
+  'STAY WAIT HOLD SOFTEN SIGH DOZE DRIFT MUSE PONDER REFLECT SAVOR SAVOUR ' +
+  'UNWIND RELAX IDLE LOITER TARRY SIT PERCH NEST ROOT NOTICE STARE GAZE ' +
+  'WANDER WONDER HUSH LULL DRIFT SLEEP DREAM YAWN STRETCH LOUNGE RECLINE ' +
+  'MEANDER AMBLE STROLL SAUNTER LOAF'
+).split(' ');
+const SLOW: Record<string, 1> = {};
+SLOW_WORDS.forEach((w) => {
+  SLOW[w] = 1;
+});
+export function isSlowWord(word: string): boolean {
+  return !!SLOW[String(word).toUpperCase()];
 }
 
 export const ITEMS: Item[] = [
@@ -283,8 +317,8 @@ export const ITEMS: Item[] = [
     glyph: '💰',
     rarity: 'uncommon',
     price: 5,
-    hint: '+1 gold per unused changeout at a win',
-    goldAtWin(round) {
+    hint: '+1 ink per unused changeout at a win',
+    inkAtWin(round) {
       return round.changeoutsLeft;
     },
   },

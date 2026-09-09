@@ -67,24 +67,24 @@ const TUNE_LABELS = {
   CONSUMABLE_SLOTS: 'Consumable slots',
   CARD_SLOTS: 'Shop card slots',
   CARD_ITEM: 'Card roll · quill weight',
-  CARD_INK: 'Card roll · ink weight',
+  CARD_MARK: 'Card roll · marginalia weight',
   CARD_ETUDE: 'Card roll · étude weight',
   PACK_SLOTS: 'Shop pack slots',
   PACK_PRICE: 'Pack price',
   PACK_CHOICES: 'Pack · choices shown',
-  INK_PRICE: 'Ink price',
+  MARK_PRICE: 'Marginalia price',
   ETUDE_PRICE: 'Étude price',
   REROLL_PRICE: 'Reroll price',
   REROLL_STEP: 'Reroll price step',
-  INK_GILT: 'Gilt · points per tile',
-  INK_BOLD: 'Bold · mult per tile',
-  INK_STEEL: 'Steel · × mult held',
-  INK_COIN_CAP: 'Coin · gold cap',
+  MARK_GILT: 'Gilt · points per tile',
+  MARK_BOLD: 'Bold · mult per tile',
+  MARK_STEEL: 'Steel · × mult held',
+  MARK_COIN_CAP: 'Coin · ink cap',
   BOUNTY_GOLD: 'Skip bonus · gold',
-  GOLD_SMALL: 'Gold, small enemy',
-  GOLD_BIG: 'Gold, big enemy',
-  GOLD_BOSS: 'Gold, boss',
-  GOLD_PER_WORD_LEFT: 'Gold per word left',
+  INK_SMALL: 'Ink, small enemy',
+  INK_BIG: 'Ink, big enemy',
+  INK_BOSS: 'Ink, boss',
+  INK_PER_WORD_LEFT: 'Ink per word left',
   START_GOLD: 'Starting gold',
   INTEREST_PER: 'Interest: 1 gold per',
   INTEREST_CAP: 'Interest cap',
@@ -157,7 +157,7 @@ function itemBlurb(d) {
 }
 function consumableName(SB, c) {
   if (c.kind === 'etude') return SB.TIER_DEFS[c.id].name + ' étude';
-  const ink = SB.INK_DEFS ? SB.INK_DEFS[c.id] : null;
+  const ink = SB.MARK_DEFS ? SB.MARK_DEFS[c.id] : null;
   return ink ? ink.name : c.id;
 }
 function consumableBlurb(SB, c, run) {
@@ -176,7 +176,7 @@ function consumableBlurb(SB, c, run) {
       ' mult'
     );
   }
-  const ink = SB.INK_DEFS ? SB.INK_DEFS[c.id] : null;
+  const ink = SB.MARK_DEFS ? SB.MARK_DEFS[c.id] : null;
   return ink ? ink.hint : '';
 }
 function cardName(SB, c) {
@@ -370,9 +370,9 @@ function HeldRow({
                     use
                   </button>
                 )}
-                {c.kind === 'ink' &&
+                {c.kind === 'mark' &&
                   onInk &&
-                  (live || SB.INK_DEFS[c.id].targets === 0) && (
+                  (live || SB.MARK_DEFS[c.id].targets === 0) && (
                     <button
                       type="button"
                       className="sb-card-use"
@@ -396,7 +396,7 @@ function HeldRow({
                   >
                     sell{' '}
                     {Math.floor(
-                      (c.kind === 'ink' ? tune.INK_PRICE : tune.ETUDE_PRICE) /
+                      (c.kind === 'mark' ? tune.MARK_PRICE : tune.ETUDE_PRICE) /
                         2,
                     )}
                   </button>
@@ -442,7 +442,7 @@ function Shop({
           {shop.packs.some((p) => p.free && !p.opened) ? ' · a free pack' : ''}
         </span>
         <span className="sb-purse">
-          <b>{run.gold}</b> gold
+          <b>{run.ink}</b> ink
         </span>
       </div>
       {firstVisit && !selecting && (
@@ -474,14 +474,14 @@ function Shop({
                   type="button"
                   className={
                     'sb-tile' +
-                    (t.ink ? ' is-ink-' + t.ink : '') +
+                    (t.mark ? ' is-mark-' + t.mark : '') +
                     (selecting.ids.includes(t.id) ? ' is-inking' : '')
                   }
                   title={
-                    t.ink
-                      ? SB.INK_DEFS[t.ink].name +
+                    t.mark
+                      ? SB.MARK_DEFS[t.mark].name +
                         ' — ' +
-                        SB.INK_DEFS[t.ink].hint
+                        SB.MARK_DEFS[t.mark].hint
                       : undefined
                   }
                   onClick={() => toggleSelectTile(t.id)}
@@ -590,7 +590,7 @@ function Shop({
             {shop.cards.map((c, i) => {
               const disabled =
                 c.sold ||
-                run.gold < c.price ||
+                run.ink < c.price ||
                 (c.kind === 'item' && run.items.length >= run.tune.ITEM_SLOTS);
               const tipId = 'shop:' + i;
               if (c.kind === 'item' && !c.sold) {
@@ -668,7 +668,7 @@ function Shop({
             <button
               type="button"
               className="sb-reroll"
-              disabled={run.gold < shop.rerollPrice()}
+              disabled={run.ink < shop.rerollPrice()}
               onClick={() => act('Rerolled.', shop.reroll(), 'coin')}
             >
               Reroll <span className="sb-price">{shop.rerollPrice()}</span>
@@ -679,7 +679,7 @@ function Shop({
               <button
                 key={i}
                 type="button"
-                disabled={p.opened || run.gold < (p.free ? 0 : p.price)}
+                disabled={p.opened || run.ink < (p.free ? 0 : p.price)}
                 className={
                   'sb-card sb-card-pack sb-pack-' +
                   p.kind +
@@ -877,8 +877,8 @@ function shareText(run, won, seed) {
   lines.push(
     run.wordsPlayed +
       ' words · ' +
-      run.gold +
-      ' gold' +
+      run.ink +
+      ' ink' +
       (run.items.length
         ? ' · ' +
           run.items
@@ -925,7 +925,7 @@ function EndScreen({
           : run.round.target - run.round.score + ' short of the target'}
         {' · '}
         {run.wordsPlayed} word{run.wordsPlayed === 1 ? '' : 's'} played ·{' '}
-        <b>{run.gold}</b> gold
+        <b>{run.ink}</b> ink
       </p>
       <div className="sb-end-grid">
         <div>
@@ -1513,7 +1513,7 @@ export default function RoundSandbox() {
     }
     if (state === 'won') {
       setPhase('run-won');
-      say('The last boss falls. Run won with ' + f.run.gold + ' gold.');
+      say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
       setBest(recordRun(f.run, true));
       unlockNextKey(f.run);
       refresh();
@@ -1528,7 +1528,7 @@ export default function RoundSandbox() {
     if (f.run.shop) {
       warm(f.run.movement, f.run.stage);
       setPhase('shop');
-      say('The shop opens. ' + f.run.gold + ' gold in the purse.');
+      say('The shop opens. ' + f.run.ink + ' ink in the purse.');
       refresh();
       return;
     }
@@ -1552,7 +1552,7 @@ export default function RoundSandbox() {
         return;
       if (f.run.state === 'won') {
         setPhase('run-won');
-        say('The last boss falls. Run won with ' + f.run.gold + ' gold.');
+        say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
         setBest(recordRun(f.run, true));
         unlockNextKey(f.run);
         refresh();
@@ -1561,7 +1561,7 @@ export default function RoundSandbox() {
       if (f.run.shop) {
         warm(f.run.movement, f.run.stage);
         setPhase('shop');
-        say('The shop opens. ' + f.run.gold + ' gold in the purse.');
+        say('The shop opens. ' + f.run.ink + ' ink in the purse.');
         refresh();
         return;
       }
@@ -1642,11 +1642,12 @@ export default function RoundSandbox() {
   // INKING (mid-round, from a held consumable): unchanged -- `inking` picks
   // tiles for run.useConsumable.
   const [inking, setInking] = useState(null);
-  // SELECTING (shop/pack): clicking an ink card doesn't spend anything yet.
-  // It draws a hand right away (run.drawInkHand -- free, just a preview of
-  // the deck to tap) and offers Buy (shop.buy/run.pick, then run.saveInk --
-  // straight to the inventory) or Apply (same purchase, then run.useAdhocInk
-  // on the tiles picked here) so the tile choice happens before gold moves.
+  // SELECTING (shop/pack): clicking a marginalia card doesn't spend anything
+  // yet. It draws a hand right away (run.drawMarkHand -- free, just a
+  // preview of the deck to tap) and offers Buy (shop.buy/run.pick, then
+  // run.saveMark -- straight to the inventory) or Apply (same purchase, then
+  // run.useAdhocMark on the tiles picked here) so the tile choice happens
+  // before ink moves.
   const [selecting, setSelecting] = useState(null);
   const buyCard = useCallback(
     (i) => {
@@ -1654,8 +1655,8 @@ export default function RoundSandbox() {
       const shop = run?.shop;
       const c = shop?.cards[i];
       if (!c) return;
-      if (c.kind === 'ink') {
-        const ink = SB.INK_DEFS[c.id];
+      if (c.kind === 'mark') {
+        const ink = SB.MARK_DEFS[c.id];
         setWord('');
         setSelecting({
           from: 'shop',
@@ -1663,7 +1664,7 @@ export default function RoundSandbox() {
           price: c.price,
           name: cardName(SB, c),
           ink,
-          hand: run.drawInkHand(),
+          hand: run.drawMarkHand(),
           ids: [],
           vowel: null,
         });
@@ -1686,15 +1687,15 @@ export default function RoundSandbox() {
       const run = fight.current?.run;
       const c = run?.pack?.choices[i];
       if (!c) return;
-      if (c.kind === 'ink') {
-        const ink = SB.INK_DEFS[c.id];
+      if (c.kind === 'mark') {
+        const ink = SB.MARK_DEFS[c.id];
         setWord('');
         setSelecting({
           from: 'pack',
           index: i,
           name: cardName(SB, c),
           ink,
-          hand: run.drawInkHand(),
+          hand: run.drawMarkHand(),
           ids: [],
           vowel: null,
         });
@@ -1730,7 +1731,7 @@ export default function RoundSandbox() {
       }
       const verb = selecting.from === 'shop' ? 'Bought' : 'Kept';
       if (!apply) {
-        const res = run.saveInk(purchase.ink);
+        const res = run.saveMark(purchase.mark);
         if (
           act(
             res.ok ? verb + ' ' + selecting.name + ' — saved for later.' : null,
@@ -1741,7 +1742,7 @@ export default function RoundSandbox() {
           setSelecting(null);
         return;
       }
-      const res = run.useAdhocInk(purchase.ink, selecting.ids, {
+      const res = run.useAdhocMark(purchase.mark, selecting.ids, {
         vowel: selecting.vowel,
       });
       if (
@@ -1775,8 +1776,8 @@ export default function RoundSandbox() {
       const r = fight.current?.run;
       if (!r) return;
       const c = r.consumables[i];
-      if (!c || c.kind !== 'ink') return;
-      const ink = SB.INK_DEFS[c.id];
+      if (!c || c.kind !== 'mark') return;
+      const ink = SB.MARK_DEFS[c.id];
       if (ink.targets === 0) {
         const res = r.useConsumable(i, []);
         act(res.ok ? res.result.note : null, res, 'shimmer');
@@ -1791,7 +1792,7 @@ export default function RoundSandbox() {
     const r = fight.current?.run;
     if (!r || !inking) return;
     const res = inking.adhocId
-      ? r.useAdhocInk(inking.adhocId, inking.ids, { vowel: inking.vowel })
+      ? r.useAdhocMark(inking.adhocId, inking.ids, { vowel: inking.vowel })
       : r.useConsumable(inking.index, inking.ids, { vowel: inking.vowel });
     const label = inking.adhocId
       ? res.ok
@@ -1866,8 +1867,8 @@ export default function RoundSandbox() {
             ' word' +
             (r.playsLeft === 1 ? '' : 's') +
             ' left → ' +
-            r.gold +
-            ' gold' +
+            r.ink +
+            ' ink' +
             (run.interestPreview()
               ? ' + ' + run.interestPreview() + ' interest'
               : '') +
@@ -2428,7 +2429,7 @@ export default function RoundSandbox() {
               run.tune.INTEREST_CAP
             }
           >
-            <b>{run.gold}</b> gold
+            <b>{run.ink}</b> ink
             {run.interestPreview() > 0 && (
               <em>+{run.interestPreview()} interest</em>
             )}
@@ -2785,8 +2786,8 @@ export default function RoundSandbox() {
           )}
           {phase === 'won' && (
             <div className="sb-outcome sb-win">
-              Won — {round.gold} gold ({round.reward} +{' '}
-              {round.tune.GOLD_PER_WORD_LEFT} × {round.playsLeft} word
+              Won — {round.ink} ink ({round.reward} +{' '}
+              {round.tune.INK_PER_WORD_LEFT} × {round.playsLeft} word
               {round.playsLeft === 1 ? '' : 's'} left)
               {run.interestPreview() > 0 && (
                 <> + {run.interestPreview()} interest</>
@@ -2880,7 +2881,7 @@ export default function RoundSandbox() {
                     className={
                       'sb-tile' +
                       (hollow ? ' is-dragging' : '') +
-                      (t.ink ? ' is-ink-' + t.ink : '') +
+                      (t.mark ? ' is-mark-' + t.mark : '') +
                       (inking && inking.ids.includes(t.id)
                         ? ' is-inking'
                         : '') +
@@ -2889,10 +2890,10 @@ export default function RoundSandbox() {
                     }
                     data-flip-tile-id={t.id}
                     title={
-                      t.ink
-                        ? SB.INK_DEFS[t.ink].name +
+                      t.mark
+                        ? SB.MARK_DEFS[t.mark].name +
                           ' — ' +
-                          SB.INK_DEFS[t.ink].hint
+                          SB.MARK_DEFS[t.mark].hint
                         : undefined
                     }
                     {...(inking ? {} : drag.bind('rack', i, t.id))}
@@ -3057,7 +3058,7 @@ export default function RoundSandbox() {
                         data-flip-tile-id={t.id}
                         className={
                           'sb-tile is-set' +
-                          (t.ink ? ' is-ink-' + t.ink : '') +
+                          (t.mark ? ' is-mark-' + t.mark : '') +
                           (scoring.litTile === t.id ? ' is-lit' : '') +
                           (round.premium && round.premium.pos === i
                             ? ' is-premium-' + round.premium.kind
@@ -3088,7 +3089,7 @@ export default function RoundSandbox() {
                       className={
                         'sb-tile is-set' +
                         (hollow ? ' is-dragging' : '') +
-                        (t.ink ? ' is-ink-' + t.ink : '') +
+                        (t.mark ? ' is-mark-' + t.mark : '') +
                         (round.isBarred(t) ? ' is-barred' : '') +
                         (premiumHere ? ' is-premium-' + round.premium.kind : '')
                       }
@@ -3243,7 +3244,7 @@ export default function RoundSandbox() {
                 {round.pile.discardPile.map((t) => (
                   <span
                     key={t.id}
-                    className={'sb-pile-tile' + (t.ink ? ' is-' + t.ink : '')}
+                    className={'sb-pile-tile' + (t.mark ? ' is-' + t.mark : '')}
                   >
                     {t.letter}
                   </span>

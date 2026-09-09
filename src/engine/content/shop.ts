@@ -2,9 +2,9 @@
 // shop after every won round short of the last boss. Still attaches to
 // window.Wordbound.Sandbox for the untyped sandbox modules that read it off
 // the global (RoundSandbox.jsx). Reads several Sandbox tables not yet ported
-// (ITEMS, TIERS, INKS, getTileBag, isAvailable, isQuillDiscovered) through
-// loose local shapes -- SandboxNamespace stays an open record until every
-// module writing into it is ported (see sandboxGlobal.ts).
+// (ITEMS, TIERS, MARGINALIA, getTileBag, isAvailable, isQuillDiscovered)
+// through loose local shapes -- SandboxNamespace stays an open record until
+// every module writing into it is ported (see sandboxGlobal.ts).
 import '../sandboxGlobal';
 import type { RngStream } from '../rng';
 import type { Tile } from '../tiles';
@@ -15,18 +15,18 @@ interface Priced {
 }
 
 export interface PackKind {
-  kind: 'tile' | 'ink' | 'etude';
+  kind: 'tile' | 'mark' | 'etude';
   name: string;
   hint: string;
 }
 
 export type Card =
   | { kind: 'item'; id: string; price: number; sold: boolean }
-  | { kind: 'ink'; id: string; price: number; sold: boolean }
+  | { kind: 'mark'; id: string; price: number; sold: boolean }
   | { kind: 'etude'; id: string; price: number; sold: boolean };
 
 export interface Pack {
-  kind: 'tile' | 'ink' | 'etude';
+  kind: 'tile' | 'mark' | 'etude';
   price: number;
   opened: boolean;
   free?: boolean;
@@ -35,11 +35,11 @@ export interface Pack {
 export type PackChoice =
   | { kind: 'tile'; tile: Tile }
   | { kind: 'etude'; id: string }
-  | { kind: 'ink'; id: string };
+  | { kind: 'mark'; id: string };
 
 interface RunLike {
   tune: Record<string, number>;
-  gold: number;
+  ink: number;
   items: string[];
   deck: Tile[];
   consumables: { kind: string; id: string }[];
@@ -56,7 +56,11 @@ export const PACK_KINDS: PackKind[] = [
     name: 'Tile pack',
     hint: 'Three sorts from the foundry — keep one; it joins your tiles for the run',
   },
-  { kind: 'ink', name: 'Ink pack', hint: 'Three inks — keep one' },
+  {
+    kind: 'mark',
+    name: 'Marginalia pack',
+    hint: 'Three marginalia — keep one',
+  },
   {
     kind: 'etude',
     name: 'Étude pack',
@@ -123,8 +127,8 @@ export function createShop(run: RunLike, rng: RngStream) {
   function tiers(): { id: string }[] {
     return (Sandbox.TIERS as { id: string }[]) || [];
   }
-  function inks(): { id: string }[] {
-    return (Sandbox.INKS as { id: string }[]) || [];
+  function marginalia(): { id: string }[] {
+    return (Sandbox.MARGINALIA as { id: string }[]) || [];
   }
 
   function itemPool(taken: string[]): string[] {
@@ -140,10 +144,12 @@ export function createShop(run: RunLike, rng: RngStream) {
     if (!pool.length) pool = tiers();
     return { kind: 'etude', id: pick(rng, pool).id };
   }
-  function rollInk(exclude?: string[]): { kind: 'ink'; id: string } | null {
-    let pool = inks().filter((ink) => !exclude || exclude.indexOf(ink.id) < 0);
-    if (!pool.length) pool = inks();
-    return pool.length ? { kind: 'ink', id: pick(rng, pool).id } : null;
+  function rollMark(exclude?: string[]): { kind: 'mark'; id: string } | null {
+    let pool = marginalia().filter(
+      (mark) => !exclude || exclude.indexOf(mark.id) < 0,
+    );
+    if (!pool.length) pool = marginalia();
+    return pool.length ? { kind: 'mark', id: pick(rng, pool).id } : null;
   }
   // Weighted by rarity: common 70, uncommon 25, rare 5 (Balatro's roll).
   function rollItem(taken: string[]): { kind: 'item'; id: string } | null {
@@ -169,17 +175,17 @@ export function createShop(run: RunLike, rng: RngStream) {
   function rollCard(taken: string[]): Card {
     const r =
       rng.next() *
-      ((tune.CARD_ITEM ?? 0) + (tune.CARD_INK ?? 0) + (tune.CARD_ETUDE ?? 0));
-    let card: { kind: 'item' | 'ink' | 'etude'; id: string } | null = null;
+      ((tune.CARD_ITEM ?? 0) + (tune.CARD_MARK ?? 0) + (tune.CARD_ETUDE ?? 0));
+    let card: { kind: 'item' | 'mark' | 'etude'; id: string } | null = null;
     if (r < (tune.CARD_ITEM ?? 0)) card = rollItem(taken);
-    else if (r < (tune.CARD_ITEM ?? 0) + (tune.CARD_INK ?? 0))
-      card = rollInk() ?? null;
+    else if (r < (tune.CARD_ITEM ?? 0) + (tune.CARD_MARK ?? 0))
+      card = rollMark() ?? null;
     if (!card) card = rollItem(taken) || rollEtude();
     const price =
       card.kind === 'item'
         ? priceOf(itemDefs()[card.id] || {}, rng)
-        : card.kind === 'ink'
-          ? (tune.INK_PRICE ?? 0)
+        : card.kind === 'mark'
+          ? (tune.MARK_PRICE ?? 0)
           : (tune.ETUDE_PRICE ?? 0);
     return { ...card, price, sold: false } as Card;
   }
@@ -194,7 +200,9 @@ export function createShop(run: RunLike, rng: RngStream) {
   }
   function rollPacks() {
     shop.packs = [];
-    const kinds = PACK_KINDS.filter((k) => k.kind !== 'ink' || inks().length);
+    const kinds = PACK_KINDS.filter(
+      (k) => k.kind !== 'mark' || marginalia().length,
+    );
     let left = kinds.slice();
     for (let i = 0; i < (tune.PACK_SLOTS ?? 0); i++) {
       if (!left.length) left = kinds.slice();
@@ -211,12 +219,12 @@ export function createShop(run: RunLike, rng: RngStream) {
     (tune.REROLL_PRICE ?? 0) + (tune.REROLL_STEP ?? 0) * shop.rerolls;
 
   function takeConsumable(c: { kind: string; id: string }) {
-    // An ink is bought or kept regardless of CONSUMABLE_SLOTS -- the UI then
-    // offers a choice between using it on the spot or holding it, the latter
-    // only when a slot is free.
-    const inkDefs = (Sandbox.INK_DEFS as Record<string, unknown>) || {};
-    if (c.kind === 'ink' && inkDefs[c.id])
-      return { ok: true as const, ink: c.id };
+    // A marginalia card is bought or kept regardless of CONSUMABLE_SLOTS --
+    // the UI then offers a choice between using it on the spot or holding
+    // it, the latter only when a slot is free.
+    const markDefs = (Sandbox.MARK_DEFS as Record<string, unknown>) || {};
+    if (c.kind === 'mark' && markDefs[c.id])
+      return { ok: true as const, mark: c.id };
     if (run.consumables.length >= (tune.CONSUMABLE_SLOTS ?? 0)) {
       if (c.kind === 'etude') {
         run.levelTier(c.id);
@@ -234,9 +242,9 @@ export function createShop(run: RunLike, rng: RngStream) {
   shop.buy = (i) => {
     const c = shop.cards[i];
     if (!c || c.sold) return { ok: false, reason: 'Nothing there.' };
-    if (run.gold < c.price) return { ok: false, reason: 'Not enough gold.' };
+    if (run.ink < c.price) return { ok: false, reason: 'Not enough ink.' };
     let used: unknown = null;
-    let ink: string | null = null;
+    let mark: string | null = null;
     if (c.kind === 'item') {
       if (run.items.length >= (tune.ITEM_SLOTS ?? 0))
         return {
@@ -251,11 +259,11 @@ export function createShop(run: RunLike, rng: RngStream) {
       const t = takeConsumable(c);
       if (!t.ok) return t;
       if ('used' in t && t.used) used = (t as { note?: unknown }).note || null;
-      if ('ink' in t && t.ink) ink = t.ink;
+      if ('mark' in t && t.mark) mark = t.mark as string;
     }
-    run.gold -= c.price;
+    run.ink -= c.price;
     c.sold = true;
-    return { ok: true, card: c, used, ink };
+    return { ok: true, card: c, used, mark };
   };
 
   shop.sell = (itemIndex) => {
@@ -263,18 +271,18 @@ export function createShop(run: RunLike, rng: RngStream) {
     if (!id) return { ok: false, reason: 'No item there.' };
     run.items.splice(itemIndex, 1);
     const paid = Math.floor(priceOf(itemDefs()[id] || {}) / 2);
-    run.gold += paid;
+    run.ink += paid;
     return { ok: true, id, paid };
   };
 
   shop.reroll = () => {
     const price = shop.rerollPrice();
-    if (run.gold < price)
+    if (run.ink < price)
       return {
         ok: false,
-        reason: 'Not enough gold to reroll (' + price + ').',
+        reason: 'Not enough ink to reroll (' + price + ').',
       };
-    run.gold -= price;
+    run.ink -= price;
     shop.rerolls += 1;
     rollCards();
     if (shop.coupon) shop.cards.forEach((c) => (c.price = 0));
@@ -286,7 +294,7 @@ export function createShop(run: RunLike, rng: RngStream) {
     if (!p || p.opened) return { ok: false, reason: 'Nothing there.' };
     if (run.pack) return { ok: false, reason: 'Settle the open pack first.' };
     const price = p.free ? 0 : p.price;
-    if (run.gold < price) return { ok: false, reason: 'Not enough gold.' };
+    if (run.ink < price) return { ok: false, reason: 'Not enough ink.' };
     const choices: PackChoice[] = [];
     const n = tune.PACK_CHOICES ?? 0;
     if (p.kind === 'tile') {
@@ -317,12 +325,12 @@ export function createShop(run: RunLike, rng: RngStream) {
     } else {
       const taken: string[] = [];
       for (let c = 0; c < n; c++) {
-        const inkChoice = rollInk(taken);
-        if (inkChoice) taken.push(inkChoice.id);
-        if (inkChoice) choices.push(inkChoice);
+        const markChoice = rollMark(taken);
+        if (markChoice) taken.push(markChoice.id);
+        if (markChoice) choices.push(markChoice);
       }
     }
-    run.gold -= price;
+    run.ink -= price;
     p.opened = true;
     run.pack = { kind: p.kind, choices };
     return { ok: true, pack: run.pack };
@@ -339,7 +347,7 @@ export function createShop(run: RunLike, rng: RngStream) {
     const c = pack.choices[i];
     if (!c) return { ok: false, reason: 'Nothing there.' };
     let used: unknown = null;
-    let ink: string | null = null;
+    let mark: string | null = null;
     if (c.kind === 'tile') {
       if (run.addTile) run.addTile(c.tile);
       else run.deck.push(c.tile);
@@ -347,15 +355,15 @@ export function createShop(run: RunLike, rng: RngStream) {
       const t = takeConsumable(c);
       if (!t.ok) return t;
       if ('used' in t && t.used) used = (t as { note?: unknown }).note || null;
-      if ('ink' in t && t.ink) ink = t.ink;
+      if ('mark' in t && t.mark) mark = t.mark as string;
     }
     run.pack = null;
-    return { ok: true, choice: c, used, ink };
+    return { ok: true, choice: c, used, mark };
   };
 
   rollCards();
   rollPacks();
-  // Favours owed from a skipped enemy (round.js run.skip), spent here.
+  // Favours owed from a skipped enemy (round.ts run.skip), spent here.
   shop.favours = run.favours.splice(0);
   shop.favours.forEach((f) => {
     if (f === 'free_pack' && shop.packs[0]) shop.packs[0].free = true;

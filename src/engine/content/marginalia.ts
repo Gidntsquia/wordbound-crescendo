@@ -1,14 +1,14 @@
-// TS port of src/sandbox/inks.js (READ_SLOWLY_PLAN.md A2/A5 step 3): Balatro's
-// tarot cards -- a consumable that marks one or two tiles of the player's
-// whole deck (a mark lasts the run whether the tile is in the live case or
-// not), turns a letter, destroys a tile, or pays gold. Still attaches to
-// window.Wordbound.Sandbox for the untyped sandbox modules that read it off
-// the global (round.js reads tile.ink at scoring time; shop.js/RoundSandbox
-// call applyInk).
+// TS port of src/sandbox/inks.js (READ_SLOWLY_PLAN.md A2/A5 step 3, renamed
+// per stage B): Balatro's tarot cards -- a consumable that marks one or two
+// tiles of the player's whole deck (a mark lasts the run whether the tile is
+// in the live case or not), turns a letter, destroys a tile, or pays ink.
+// Still attaches to window.Wordbound.Sandbox for the untyped sandbox modules
+// that read it off the global (round.ts reads tile.mark at scoring time;
+// shop.ts/RoundSandbox call applyMark).
 import '../sandboxGlobal';
 import type { Tile } from '../tiles';
 
-export interface Ink {
+export interface Mark {
   id: string;
   name: string;
   targets: number;
@@ -18,12 +18,12 @@ export interface Ink {
 
 interface RunLike {
   tune: Record<string, number>;
-  gold: number;
+  ink: number;
   deck: Tile[];
   round: { state: string; destroyTile(id: string): boolean } | null;
 }
 
-export const INKS: Ink[] = [
+export const MARGINALIA: Mark[] = [
   {
     id: 'gilt',
     name: 'Gilt',
@@ -61,35 +61,35 @@ export const INKS: Ink[] = [
     targets: 2,
     hint: 'Destroy up to 2 tiles for the rest of the run',
   },
-  { id: 'coin', name: 'Coin', targets: 0, hint: 'Double your gold, up to +10' },
+  { id: 'coin', name: 'Coin', targets: 0, hint: 'Double your ink, up to +10' },
 ];
 
-export const INK_DEFS: Record<string, Ink> = {};
-INKS.forEach((ink) => {
-  INK_DEFS[ink.id] = ink;
+export const MARK_DEFS: Record<string, Mark> = {};
+MARGINALIA.forEach((mark) => {
+  MARK_DEFS[mark.id] = mark;
 });
 
 export const VOWELS = ['A', 'E', 'I', 'O', 'U'];
 
-export function inkMark(tile: Tile | null | undefined): Ink | null {
-  return tile && tile.ink ? (INK_DEFS[tile.ink] ?? null) : null;
+export function tileMark(tile: Tile | null | undefined): Mark | null {
+  return tile && tile.mark ? (MARK_DEFS[tile.mark] ?? null) : null;
 }
 
-export function applyInk(
+export function applyMark(
   run: RunLike,
-  inkId: string,
+  markId: string,
   tileIds: string[],
   extra?: { vowel?: string },
 ): { ok: true; note: string } | { ok: false; reason: string } {
-  const ink = INK_DEFS[inkId];
-  if (!ink) return { ok: false, reason: 'No such ink.' };
+  const mark = MARK_DEFS[markId];
+  if (!mark) return { ok: false, reason: 'No such marginalia.' };
   const tune = run.tune;
-  if (ink.id === 'coin') {
-    const gain = Math.min(tune.INK_COIN_CAP ?? 0, run.gold);
-    run.gold += gain;
-    return { ok: true, note: 'Coin: +' + gain + ' gold.' };
+  if (mark.id === 'coin') {
+    const gain = Math.min(tune.MARK_COIN_CAP ?? 0, run.ink);
+    run.ink += gain;
+    return { ok: true, note: 'Coin: +' + gain + ' ink.' };
   }
-  const ids = (tileIds || []).slice(0, ink.targets);
+  const ids = (tileIds || []).slice(0, mark.targets);
   if (!ids.length) return { ok: false, reason: 'Pick a tile first.' };
   const tiles = ids
     .map((id) => run.deck.find((t) => t.id === id))
@@ -98,7 +98,7 @@ export function applyInk(
     return { ok: false, reason: 'Those tiles aren’t in your deck.' };
   const letters = tiles.map((t) => t.letter).join(', ');
 
-  if (ink.id === 'erase') {
+  if (mark.id === 'erase') {
     const round = run.round && run.round.state === 'live' ? run.round : null;
     tiles.forEach((t) => {
       const d = run.deck.indexOf(t);
@@ -107,31 +107,31 @@ export function applyInk(
     });
     return { ok: true, note: 'Erased ' + letters + '.' };
   }
-  if (ink.id === 'vowel') {
+  if (mark.id === 'vowel') {
     const v = String(extra?.vowel || '').toUpperCase();
     if (VOWELS.indexOf(v) < 0) return { ok: false, reason: 'Choose a vowel.' };
     tiles.forEach((t) => {
       t.letter = v;
-      if (t.ink === 'blank') t.ink = null;
+      if (t.mark === 'blank') t.mark = null;
     });
     return { ok: true, note: letters + ' → ' + v + '.' };
   }
-  if (ink.id === 'blank') {
+  if (mark.id === 'blank') {
     tiles.forEach((t) => {
       t.letter = '?';
-      t.ink = 'blank';
+      t.mark = 'blank';
     });
     return { ok: true, note: letters + ' is now a blank.' };
   }
   tiles.forEach((t) => {
-    t.ink = ink.id;
+    t.mark = mark.id;
   });
-  return { ok: true, note: ink.name + ' on ' + letters + '.' };
+  return { ok: true, note: mark.name + ' on ' + letters + '.' };
 }
 
 const Sandbox = window.Wordbound.Sandbox;
-Sandbox.INKS = INKS;
-Sandbox.INK_DEFS = INK_DEFS;
+Sandbox.MARGINALIA = MARGINALIA;
+Sandbox.MARK_DEFS = MARK_DEFS;
 Sandbox.VOWELS = VOWELS;
-Sandbox.inkMark = inkMark;
-Sandbox.applyInk = applyInk;
+Sandbox.tileMark = tileMark;
+Sandbox.applyMark = applyMark;

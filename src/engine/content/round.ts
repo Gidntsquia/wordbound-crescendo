@@ -4,7 +4,7 @@
 // fight. Still attaches to window.Wordbound.Sandbox for RoundSandbox.jsx and
 // for the untyped items.js's read of Sandbox.scoreWordPoints etc. Reads
 // several already-ported tables (Tiles, Lexicon, enemies.ts, items.ts,
-// inks.ts, shop.ts, stolenLetters.ts, quillDiscovery.ts) off the Sandbox
+// marginalia.ts, shop.ts, stolenLetters.ts, quillDiscovery.ts) off the Sandbox
 // global through loose casts, same pattern as shop.ts/items.ts, since
 // SandboxNamespace stays an open record until every writer is ported.
 import '../sandboxGlobal';
@@ -37,34 +37,34 @@ export const ROUND_DEFAULTS: Tune = {
   MULT_6: 5,
   PTS_7: 60,
   MULT_7: 7, // seven or more
-  GOLD_SMALL: 3, // purse for felling a small enemy
-  GOLD_BIG: 4, // a big one
-  GOLD_BOSS: 5, // the boss
-  GOLD_PER_WORD_LEFT: 1, // bonus per unplayed word at the win
-  START_GOLD: 4,
-  INTEREST_PER: 5, // +1 gold per this much held at a round's end
+  INK_SMALL: 3, // purse for felling a small enemy
+  INK_BIG: 4, // a big one
+  INK_BOSS: 5, // the boss
+  INK_PER_WORD_LEFT: 1, // bonus per unplayed word at the win
+  START_INK: 4,
+  INTEREST_PER: 5, // +1 ink per this much held at a round's end
   INTEREST_CAP: 5,
   // The shop (shop.ts).
   ITEM_SLOTS: 5,
   CONSUMABLE_SLOTS: 2,
   CARD_SLOTS: 2,
   CARD_ITEM: 70,
-  CARD_INK: 15,
+  CARD_MARK: 15,
   CARD_ETUDE: 15, // card slot roll, by weight
   PACK_SLOTS: 2,
   PACK_PRICE: 4,
   PACK_CHOICES: 3, // keep one of this many
-  INK_PRICE: 3,
+  MARK_PRICE: 3,
   ETUDE_PRICE: 3,
   REROLL_PRICE: 5,
   REROLL_STEP: 1,
-  // Inks (inks.ts).
-  INK_GILT: 20, // points per gilt tile played
-  INK_BOLD: 2, // mult per bold tile played
-  INK_STEEL: 1.2, // x mult per steel tile left in the case
-  INK_COIN_CAP: 10,
+  // Marginalia (marginalia.ts).
+  MARK_GILT: 20, // points per gilt tile played
+  MARK_BOLD: 2, // mult per bold tile played
+  MARK_STEEL: 1.2, // x mult per steel tile left in the case
+  MARK_COIN_CAP: 10,
   // Skipping a small or big enemy (run.skip) pays a favour (Sandbox.FAVOURS).
-  BOUNTY_GOLD: 8,
+  BOUNTY_INK: 8,
   // Premium slots (DIVERGENCE_PLAN.md): one stick position may carry a
   // bonus for the round, rolled at creation.
   PREMIUM_CHANCE: 0.55, // odds a round has a premium slot at all
@@ -154,7 +154,7 @@ export const FAVOURS: Favour[] = [
     name: 'Coupon',
     hint: 'The next shop’s cards are free (packs still cost)',
   },
-  { id: 'bounty', name: 'Bounty', hint: '+8 gold, now' },
+  { id: 'bounty', name: 'Bounty', hint: '+8 ink, now' },
 ];
 export const FAVOUR_DEFS: Record<string, Favour> = {};
 FAVOURS.forEach((f) => {
@@ -327,17 +327,17 @@ export function scoreWordPoints(
   b.inkNotes = [];
   tilesUsed.forEach((t) => {
     if (t.ink === 'gilt') {
-      b.inkPoints += Number(tune.INK_GILT) || 0;
-      b.inkNotes.push('gilt ' + t.letter + ' +' + tune.INK_GILT);
+      b.inkPoints += Number(tune.MARK_GILT) || 0;
+      b.inkNotes.push('gilt ' + t.letter + ' +' + tune.MARK_GILT);
     } else if (t.ink === 'bold') {
-      b.inkMult += Number(tune.INK_BOLD) || 0;
-      b.inkNotes.push('bold ' + t.letter + ' +' + tune.INK_BOLD + ' mult');
+      b.inkMult += Number(tune.MARK_BOLD) || 0;
+      b.inkNotes.push('bold ' + t.letter + ' +' + tune.MARK_BOLD + ' mult');
     }
   });
   (ctx.heldTiles || []).forEach((t) => {
     if (t.ink === 'steel') {
-      b.holdMult *= Number(tune.INK_STEEL) || 1;
-      b.inkNotes.push('steel ' + t.letter + ' held ×' + tune.INK_STEEL);
+      b.holdMult *= Number(tune.MARK_STEEL) || 1;
+      b.inkNotes.push('steel ' + t.letter + ' held ×' + tune.MARK_STEEL);
     }
   });
   b.holdMult = Math.round(b.holdMult * 1000) / 1000;
@@ -522,9 +522,9 @@ export function scoreSteps(
       label: x.tile.letter,
     };
     if (x.ink === 'gilt')
-      step.pts = (step.pts || 0) + (Number(tune.INK_GILT) || 0);
+      step.pts = (step.pts || 0) + (Number(tune.MARK_GILT) || 0);
     if (x.ink === 'bold')
-      step.mult = (step.mult || 0) + (Number(tune.INK_BOLD) || 0);
+      step.mult = (step.mult || 0) + (Number(tune.MARK_BOLD) || 0);
     push(step);
   });
   if (b.slotKind) {
@@ -573,7 +573,7 @@ export function scoreSteps(
         kind: 'hold',
         tile: t,
         letter: t.letter,
-        ratio: Number(tune.INK_STEEL),
+        ratio: Number(tune.MARK_STEEL),
         label: 'steel ' + t.letter + ' held',
         tone: 'mult',
       });
@@ -608,7 +608,7 @@ export interface Round {
   items: string[];
   tierLevels: Record<string, number>;
   score: number;
-  gold: number;
+  ink: number;
   state: 'live' | 'won' | 'lost';
   plays: {
     word: string;
@@ -673,7 +673,7 @@ export function createRound(opts: CreateRoundOpts): Round {
     ),
     rule,
     usedLetters: {}, // letters played this round (the no_repeats rule)
-    reward: opts.reward != null ? opts.reward : Number(tune.GOLD_SMALL), // flat gold at the win
+    reward: opts.reward != null ? opts.reward : Number(tune.INK_SMALL), // flat ink at the win
     playsLeft: Math.max(
       1,
       Number(tune.PLAYS) +
@@ -690,7 +690,7 @@ export function createRound(opts: CreateRoundOpts): Round {
     items,
     tierLevels,
     score: 0,
-    gold: 0,
+    ink: 0,
     state: 'live',
     plays: [],
     // The bag: the run's pile when there is a run (played and swapped tiles
@@ -733,13 +733,13 @@ export function createRound(opts: CreateRoundOpts): Round {
   function settle() {
     if (round.score >= round.target) {
       round.state = 'won';
-      round.gold =
-        round.reward + Number(tune.GOLD_PER_WORD_LEFT) * round.playsLeft;
+      round.ink =
+        round.reward + Number(tune.INK_PER_WORD_LEFT) * round.playsLeft;
       items.forEach((id) => {
         const itemDefs = Sandbox.ITEM_DEFS as
-          Record<string, { goldAtWin?: (round: Round) => number }> | undefined;
+          Record<string, { inkAtWin?: (round: Round) => number }> | undefined;
         const it = itemDefs?.[id];
-        if (it && it.goldAtWin) round.gold += it.goldAtWin(round);
+        if (it && it.inkAtWin) round.ink += it.inkAtWin(round);
       });
     } else if (round.playsLeft <= 0) {
       round.state = 'lost';
@@ -759,18 +759,16 @@ export function createRound(opts: CreateRoundOpts): Round {
     const form = Lexicon.canFormFromRack(upper, round.rack);
     const tiles: Tile[] = form.possible
       ? form.tilesUsed!
-      : upper
-          .split('')
-          .map(
-            (l) =>
-              ({
-                id: '',
-                letter: l,
-                bonus: null,
-                variant: null,
-                crackedThisFight: false,
-              }) as Tile,
-          );
+      : upper.split('').map(
+          (l) =>
+            ({
+              id: '',
+              letter: l,
+              bonus: null,
+              variant: null,
+              crackedThisFight: false,
+            }) as Tile,
+        );
     return scoreWordPoints(upper, tiles, round.rackSize, {
       tune,
       items,
@@ -942,7 +940,7 @@ export interface RunLike {
   letterChoice: { options: string[]; last: boolean } | null;
   pack: unknown;
   tierLevels: Record<string, number>;
-  gold: number;
+  ink: number;
   felled: string[];
   skipped: string[];
   favours: string[];
@@ -968,13 +966,13 @@ export interface RunLike {
     tileIds?: string[],
     extra?: { vowel?: string },
   ): { ok: boolean; reason?: string; used?: unknown; result?: unknown };
-  useAdhocInk(
+  useAdhocMark(
     id: string,
     tileIds?: string[],
     extra?: { vowel?: string },
   ): { ok: boolean; reason?: string };
-  drawInkHand(): Tile[];
-  saveInk(id: string): { ok: boolean; reason?: string };
+  drawMarkHand(): Tile[];
+  saveMark(id: string): { ok: boolean; reason?: string };
   sellConsumable(i: number): { ok: boolean; reason?: string; paid?: number };
 }
 
@@ -992,8 +990,8 @@ export interface CreateRunOpts {
 // A RUN down the lineup in enemies.ts: movements of small / big / boss, each
 // a round with a higher target. Every round draws a fresh rack from
 // run.deck -- one bag for the whole run, which the shop's tile packs and
-// inks grow and mark. Gold pools across the run and earns INTEREST at every
-// win, and every win short of the last opens the SHOP. Lose a round and the
+// marginalia grow and mark. Ink pools across the run and earns INTEREST at
+// every win, and every win short of the last opens the SHOP. Lose a round and the
 // run is lost; fell the last boss and the run is won.
 export function createRun(opts: CreateRunOpts): RunLike {
   const Sandbox = window.Wordbound.Sandbox;
@@ -1024,7 +1022,7 @@ export function createRun(opts: CreateRunOpts): RunLike {
     letterChoice: null, // { options, last } offered after a boss (stolenLetters.ts)
     pack: null, // an opened pack awaiting run.pick
     tierLevels: {}, // études: { tierId: level }, level 1 when absent
-    gold: Number(tune.START_GOLD),
+    ink: Number(tune.START_INK),
     felled: [], // enemy ids beaten so far
     skipped: [], // enemy ids skipped for a favour
     favours: [], // favour ids owed to the next shop (free_pack, coupon)
@@ -1039,10 +1037,10 @@ export function createRun(opts: CreateRunOpts): RunLike {
     big: Number(tune.BIG_MULT),
     boss: Number(tune.BOSS_MULT),
   };
-  const KIND_GOLD: Record<string, number> = {
-    small: Number(tune.GOLD_SMALL),
-    big: Number(tune.GOLD_BIG),
-    boss: Number(tune.GOLD_BOSS),
+  const KIND_INK: Record<string, number> = {
+    small: Number(tune.INK_SMALL),
+    big: Number(tune.INK_BIG),
+    boss: Number(tune.INK_BOSS),
   };
   run.targetFor = function (movement: number, stage: number): number {
     const e = enemyAt ? enemyAt(movement, stage) : null;
@@ -1058,7 +1056,7 @@ export function createRun(opts: CreateRunOpts): RunLike {
   run.interestPreview = function (): number {
     return Math.min(
       Number(tune.INTEREST_CAP),
-      Math.floor(run.gold / Number(tune.INTEREST_PER)),
+      Math.floor(run.ink / Number(tune.INTEREST_PER)),
     );
   };
   // The bag is the whole deck reshuffled at the start of every fight.
@@ -1105,7 +1103,7 @@ export function createRun(opts: CreateRunOpts): RunLike {
       crescendo: opts.crescendo,
       noPremium: !!(tune.KEY_NO_BOSS_PREMIUM && run.enemy!.kind === 'boss'),
       target: run.targetFor(run.movement, run.stage),
-      reward: KIND_GOLD[run.enemy!.kind],
+      reward: KIND_INK[run.enemy!.kind],
       rule: run.enemy!.rule,
       tierLevels: run.tierLevels,
       onPlay: (res) => {
@@ -1142,7 +1140,7 @@ export function createRun(opts: CreateRunOpts): RunLike {
     if (r.plays.length)
       return { ok: false, reason: 'Too late — a word has been played.' };
     const favour = r.favour;
-    if (favour === 'bounty') run.gold += Number(tune.BOUNTY_GOLD);
+    if (favour === 'bounty') run.ink += Number(tune.BOUNTY_INK);
     else run.favours.push(favour);
     run.skipped.push(run.enemy!.id);
     discardRack();
@@ -1223,10 +1221,10 @@ export function createRun(opts: CreateRunOpts): RunLike {
       run.state = 'lost';
       return run.state;
     }
-    run.gold += r.gold;
+    run.ink += r.ink;
     const interest = run.interestPreview();
-    run.gold += interest;
-    run.lastWin = { reward: r.gold, interest };
+    run.ink += interest;
+    run.lastWin = { reward: r.ink, interest };
     run.felled.push(run.enemy!.id);
     const wasBoss = run.enemy!.kind === 'boss';
     const last =
@@ -1279,8 +1277,8 @@ export function createRun(opts: CreateRunOpts): RunLike {
     return true;
   };
 
-  // Use a held consumable. An étude needs nothing else; an ink takes the
-  // ids of the tiles it is applied to (inks.ts, Phase 4).
+  // Use a held consumable. An étude needs nothing else; a marginalia card
+  // takes the ids of the tiles it is applied to (marginalia.ts, Phase 4).
   run.useConsumable = function (
     i: number,
     tileIds?: string[],
@@ -1293,7 +1291,7 @@ export function createRun(opts: CreateRunOpts): RunLike {
       run.consumables.splice(i, 1);
       return { ok: true, used: c };
     }
-    const applyInk = Sandbox.applyInk as
+    const applyMark = Sandbox.applyMark as
       | ((
           run: RunLike,
           id: string,
@@ -1301,8 +1299,8 @@ export function createRun(opts: CreateRunOpts): RunLike {
           extra?: { vowel?: string },
         ) => { ok: boolean; reason?: string; note?: string })
       | undefined;
-    if (c.kind === 'ink' && applyInk) {
-      const res = applyInk(run, c.id, tileIds || [], extra);
+    if (c.kind === 'mark' && applyMark) {
+      const res = applyMark(run, c.id, tileIds || [], extra);
       if (!res.ok) return res;
       run.consumables.splice(i, 1);
       return { ok: true, used: c, result: res };
@@ -1310,15 +1308,15 @@ export function createRun(opts: CreateRunOpts): RunLike {
     return { ok: false, reason: 'That cannot be used yet.' };
   };
 
-  // Play an ink bought straight out of the shop while every consumable slot
-  // was full (shop.ts takeConsumable) -- it was never stored, so there is
-  // nothing to splice out of run.consumables afterward.
-  run.useAdhocInk = function (
+  // Play a marginalia card bought straight out of the shop while every
+  // consumable slot was full (shop.ts takeConsumable) -- it was never
+  // stored, so there is nothing to splice out of run.consumables afterward.
+  run.useAdhocMark = function (
     id: string,
     tileIds?: string[],
     extra?: { vowel?: string },
   ) {
-    const applyInk = Sandbox.applyInk as
+    const applyMark = Sandbox.applyMark as
       | ((
           run: RunLike,
           id: string,
@@ -1326,14 +1324,15 @@ export function createRun(opts: CreateRunOpts): RunLike {
           extra?: { vowel?: string },
         ) => { ok: boolean; reason?: string; note?: string })
       | undefined;
-    if (!applyInk) return { ok: false, reason: 'That cannot be used yet.' };
-    return applyInk(run, id, tileIds || [], extra);
+    if (!applyMark) return { ok: false, reason: 'That cannot be used yet.' };
+    return applyMark(run, id, tileIds || [], extra);
   };
 
-  // A fresh hand drawn to use an ink on the spot, right after buying or
-  // keeping it -- before either of run.useAdhocInk or run.saveInk decides
+  // A fresh hand drawn to use a marginalia card on the spot, right after
+  // buying or keeping it -- before either of run.useAdhocMark or
+  // run.saveMark decides
   // what happens to it.
-  run.drawInkHand = function (): Tile[] {
+  run.drawMarkHand = function (): Tile[] {
     const Tiles = window.Wordbound.Tiles;
     return Tiles.shuffleIntoDrawPile(run.deck, opts.rng).slice(
       0,
@@ -1342,14 +1341,14 @@ export function createRun(opts: CreateRunOpts): RunLike {
   };
 
   // Hold an ink just bought or kept in run.consumables instead of using it
-  // now -- the other half of the choice offered alongside run.useAdhocInk.
-  run.saveInk = function (id: string) {
+  // now -- the other half of the choice offered alongside run.useAdhocMark.
+  run.saveMark = function (id: string) {
     if (run.consumables.length >= Number(tune.CONSUMABLE_SLOTS))
       return {
         ok: false,
-        reason: 'No room for another ink — use or sell one first.',
+        reason: 'No room for another marginalia card — use or sell one first.',
       };
-    run.consumables.push({ kind: 'ink', id });
+    run.consumables.push({ kind: 'mark', id });
     return { ok: true };
   };
 
@@ -1358,9 +1357,9 @@ export function createRun(opts: CreateRunOpts): RunLike {
     if (!c) return { ok: false, reason: 'Nothing there.' };
     run.consumables.splice(i, 1);
     const paid = Math.floor(
-      Number(c.kind === 'ink' ? tune.INK_PRICE : tune.ETUDE_PRICE) / 2,
+      Number(c.kind === 'mark' ? tune.MARK_PRICE : tune.ETUDE_PRICE) / 2,
     );
-    run.gold += paid;
+    run.ink += paid;
     return { ok: true, paid };
   };
 
