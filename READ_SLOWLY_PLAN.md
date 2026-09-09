@@ -37,22 +37,45 @@ a scoped headless-Playwright exception, unblocking the rest of A3.
 true`) driving `vite preview` — start a run, tap-play several words,
   attempt a swap, click Continue/advance repeatedly — zero console errors
   or page exceptions across the run.
-  Still direct calls, deliberately: `useAdhocMark`, `saveMark`,
-  `drawMarkHand` — these live inside `buyCard`/`pickCard`/
-  `commitSelecting`/`useInk`/`applyInk`, a tightly nested shop/pack/
-  mark-selecting state machine (`selecting`/`inking` local state) already
-  wrapped by the `act` UI helper. Higher transcription risk than the rest
-  for lower payoff (no raw `fight.current` pokes to untangle), and this
-  pass's smoke test didn't reach a mark card to exercise it live — left
-  for a follow-up pass rather than converted on faith.
-- **A4** (component split): unchanged this pass — `RoundSandbox.jsx` is
-  still ~2460 lines (HeldRow, Shop, EndScreen, GearMeta, TuningPanel,
-  RunStrip, TitleScreen already extracted). The remaining blocks
-  (pack-pick, callouts, the board/rack/stick/drag wrapper) are JSX-only
-  extractions now that their mutations go through typed dispatch, but
-  reshuffling ~1000 lines of drag/animation-coupled JSX on top of this
-  pass's changes, then re-verifying, was judged out of scope for one
-  sitting — do it as its own smoke-tested pass.
+  Update (2026-09-08/09, pass 3): the remaining five call sites --
+  `buyCard`, `pickCard`, `commitSelecting` (covers `saveMark`/
+  `useAdhocMark`), `useInk`, `applyInk` (covers `drawMarkHand`/
+  `useAdhocMark`/`useConsumable`) -- are now also routed through dispatched
+  `FightAction`s (`fight/buyCard`, `fight/pickCard`,
+  `fight/commitSelecting`, `fight/useInk`, `fight/applyInk`), each
+  converted wholesale rather than call-by-call (their mark-card-detour vs.
+  plain-buy/pick branches share one `act`-shaped result path, so splitting
+  a function half-dispatched would be worse than moving the whole thing).
+  `act` itself stays a local UI helper (still passed to `HeldRow`/`Shop`
+  as a prop) since it never touches `fight.current`; the reducer inlines
+  its say/sfx/refresh-on-result logic as a shared `actResult` function.
+  All ten original run/round mutation call sites are now dispatch-routed;
+  `fight.current`/`round.ts`/`items.ts` etc. are still the same mutable
+  objects underneath (A3's "wrapping" conversion, not an immutable
+  rewrite -- see the file-header note in `src/app/store.ts`).
+  Verified: `bun run typecheck`/`lint`/`build` clean, bundle grep for the
+  five new action-type strings, and an extended headless Playwright smoke
+  test (chromium, `headless: true`, `vite preview`) that starts a run,
+  auto-plays words via the word helper's "Best play", reaches the shop,
+  buys a marginalia pack, picks a mark card from it (exercising
+  `pickCard`'s mark-detour → `fight/pickCard`), and commits it via "Buy &
+  apply" (`commitSelecting` → `fight/commitSelecting` →
+  `run.useAdhocMark`) -- zero console errors or page exceptions. That
+  particular run's mark happened to be 0-target (no tile to tap), so the
+  smoke test didn't get to also assert a tile visibly gained an
+  `is-mark-*` class; it does assert the purse/selecting state transitions
+  correctly and nothing throws. A future pass could bias the RNG/seed to
+  land on a tile-targeting mark for that extra assertion, but the dispatch
+  path itself (buy → pick → select → commit → useAdhocMark) is exercised
+  end to end.
+- **A4** (component split): not touched by pass 3 (time/scope, not
+  because it's blocked -- all ten run/round mutations now go through typed
+  dispatch, so the remaining extraction is a pure JSX code-move same as
+  the prior HeldRow/Shop/etc. passes). `RoundSandbox.jsx` is 2,333 lines.
+  The remaining blocks (pack-pick, callout/toast rendering, the board/
+  rack/stick/drag wrapper -- drag internals via `createDragReorder` stay
+  untouched, only the JSX around them moves) are the next pass, each its
+  own smoke-tested commit.
 - **E4** (phone perf pass): still needs an actual phone playing the actual
   build; headless Playwright can't stand in for this one.
 

@@ -891,112 +891,52 @@ export default function RoundSandbox() {
   const [selecting, setSelecting] = useState(null);
   const buyCard = useCallback(
     (i) => {
-      const run = fight.current?.run;
-      const shop = run?.shop;
-      const c = shop?.cards[i];
-      if (!c) return;
-      if (c.kind === 'mark') {
-        const ink = SB.MARK_DEFS[c.id];
-        setWord('');
-        setSelecting({
-          from: 'shop',
-          index: i,
-          price: c.price,
-          name: cardName(SB, c),
-          ink,
-          hand: run.drawMarkHand(),
-          ids: [],
-          vowel: null,
-        });
-        return;
-      }
-      const res = shop.buy(i);
-      if (!res || !res.ok) {
-        act(null, res);
-        return;
-      }
-      const label = res.used
-        ? 'Bought ' + cardName(SB, c) + ' and used it — ' + res.used
-        : 'Bought ' + cardName(SB, c) + ' for ' + c.price + '.';
-      act(label, res, res.used ? 'shimmer' : 'coin');
+      dispatchFight({
+        type: 'fight/buyCard',
+        fight,
+        index: i,
+        SB,
+        cardName,
+        setWord,
+        setSelecting,
+        say,
+        sfx,
+        refresh,
+      });
     },
-    [act, SB],
+    [SB, say, sfx, refresh],
   );
   const pickCard = useCallback(
     (i) => {
-      const run = fight.current?.run;
-      const c = run?.pack?.choices[i];
-      if (!c) return;
-      if (c.kind === 'mark') {
-        const ink = SB.MARK_DEFS[c.id];
-        setWord('');
-        setSelecting({
-          from: 'pack',
-          index: i,
-          name: cardName(SB, c),
-          ink,
-          hand: run.drawMarkHand(),
-          ids: [],
-          vowel: null,
-        });
-        return;
-      }
-      const res = run.pick(i);
-      if (!res || !res.ok) {
-        act(null, res);
-        return;
-      }
-      const label = res.used
-        ? 'Kept ' + cardName(SB, c) + ' and used it — ' + res.used
-        : 'Kept ' +
-          (c.kind === 'tile'
-            ? 'the ' + c.tile.letter
-            : 'the ' + cardName(SB, c)) +
-          '.';
-      act(label, res, 'tick');
+      dispatchFight({
+        type: 'fight/pickCard',
+        fight,
+        index: i,
+        SB,
+        cardName,
+        setWord,
+        setSelecting,
+        say,
+        sfx,
+        refresh,
+      });
     },
-    [act, SB],
+    [SB, say, sfx, refresh],
   );
   const commitSelecting = useCallback(
     (apply) => {
-      const run = fight.current?.run;
-      if (!run || !selecting) return;
-      const purchase =
-        selecting.from === 'shop'
-          ? run.shop.buy(selecting.index)
-          : run.pick(selecting.index);
-      if (!purchase || !purchase.ok) {
-        act(null, purchase);
-        return;
-      }
-      const verb = selecting.from === 'shop' ? 'Bought' : 'Kept';
-      if (!apply) {
-        const res = run.saveMark(purchase.mark);
-        if (
-          act(
-            res.ok ? verb + ' ' + selecting.name + ' — saved for later.' : null,
-            res,
-            'tick',
-          )
-        )
-          setSelecting(null);
-        return;
-      }
-      const res = run.useAdhocMark(purchase.mark, selecting.ids, {
-        vowel: selecting.vowel,
+      dispatchFight({
+        type: 'fight/commitSelecting',
+        fight,
+        selecting,
+        apply,
+        setSelecting,
+        say,
+        sfx,
+        refresh,
       });
-      if (
-        act(
-          res.ok
-            ? verb + ' ' + selecting.name + ' and used it — ' + res.note
-            : null,
-          res,
-          'shimmer',
-        )
-      )
-        setSelecting(null);
     },
-    [selecting, act],
+    [selecting, say, sfx, refresh],
   );
   const cancelSelecting = useCallback(() => setSelecting(null), []);
   const toggleSelectTile = (id, vowel) => {
@@ -1013,36 +953,31 @@ export default function RoundSandbox() {
   };
   const useInk = useCallback(
     (i) => {
-      const r = fight.current?.run;
-      if (!r) return;
-      const c = r.consumables[i];
-      if (!c || c.kind !== 'mark') return;
-      const ink = SB.MARK_DEFS[c.id];
-      if (ink.targets === 0) {
-        const res = r.useConsumable(i, []);
-        act(res.ok ? res.result.note : null, res, 'shimmer');
-        return;
-      }
-      setWord('');
-      setInking({ index: i, ink, ids: [], vowel: null });
+      dispatchFight({
+        type: 'fight/useInk',
+        fight,
+        index: i,
+        SB,
+        setWord,
+        setInking,
+        say,
+        sfx,
+        refresh,
+      });
     },
-    [act, SB],
+    [SB, say, sfx, refresh],
   );
   const applyInk = useCallback(() => {
-    const r = fight.current?.run;
-    if (!r || !inking) return;
-    const res = inking.adhocId
-      ? r.useAdhocMark(inking.adhocId, inking.ids, { vowel: inking.vowel })
-      : r.useConsumable(inking.index, inking.ids, { vowel: inking.vowel });
-    const label = inking.adhocId
-      ? res.ok
-        ? res.note
-        : null
-      : res.ok
-        ? res.result.note
-        : null;
-    if (act(label, res, 'shimmer')) setInking(null);
-  }, [inking, act]);
+    dispatchFight({
+      type: 'fight/applyInk',
+      fight,
+      inking,
+      setInking,
+      say,
+      sfx,
+      refresh,
+    });
+  }, [inking, say, sfx, refresh]);
   const toggleInkTile = (id, vowel) => {
     setInking((k) => {
       if (!k) return k;
