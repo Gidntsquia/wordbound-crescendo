@@ -44,6 +44,35 @@ suggest running a `test:*` command — there isn't one. If the pace slows down a
 verification becomes worth its cost again, that's a deliberate future decision,
 not something to reintroduce piecemeal mid-task.
 
+## Coding rules (READ_SLOWLY_PLAN.md A6)
+
+- `src/engine/` (and `src/engine/content/`) never imports React, DOM,
+  `window`, or timers — pure TS only, so it stays testable headless even
+  though there is no test suite right now.
+- Content tables (`ITEMS`, `INKS`, `RULES`, `KEYS`, `MOVEMENTS`, `TIERS`,
+  `ROUND_DEFAULTS`, etc.) are data plus small hook functions
+  (`score(ctx, acc)`, `barsLetter`, `goldAtWin`); no game content lives in
+  UI components.
+- One component per file, under ~200 lines; a component that grows past
+  that gets a child extracted. (`RoundSandbox.jsx` predates this rule and
+  is the one exception until READ_SLOWLY_PLAN.md A4 splits it.)
+- Styling: **shadcn/ui** on Tailwind v4. Components live in
+  `src/ui/primitives/`, copied in by `shadcn` and owned by the repo — use
+  its Button, Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress,
+  Toggle, Slider, Sonner rather than hand-rolling new chrome. Game pieces
+  (Tile, Stick, Cascade) stay bespoke, styled with Tailwind utilities plus
+  the parts of `sandbox.css` that own the FLIP/pop rules — `transform` on
+  `.sb-tile` stays forbidden; the cascade's pops stay on `.sb-tile-pop`.
+  Theme tokens (paper, ink, gilt, marginalia) belong in the Tailwind
+  `@theme` block in `src/styles/globals.css` so shadcn primitives pick up
+  the look.
+- All persisted `localStorage` keys (`wbc.best/key/keyUnlocked/letters/
+quills/seen/sfx`) should eventually go through one `persistence.ts` with
+  a versioned schema and a `migrate()`, per READ_SLOWLY_PLAN.md A2 — not
+  yet done; new keys should still be added to CLAUDE.md when introduced.
+- No `any` outside `tools/` (plain Node scripts, not part of the typed
+  engine). `bun run typecheck` / `lint` / `format:check` must stay clean.
+
 ## Map
 
 The former React app that lived at `index.html` (`src/main.jsx`, `src/App.jsx`,
