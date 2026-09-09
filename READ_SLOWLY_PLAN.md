@@ -228,10 +228,17 @@ but NOT verified live in the browser: forcing a win to reach the shop
 screen needs the immutable engine's own target check, not a
 facade-getter override, and that wasn't done this pass — flagged for a
 follow-up live shop check. All ported to typed `.tsx`. Still open:
-`GearPanel` not yet extracted (currently inline in `SetupPanel`);
-`Callout.tsx` on Sonner not yet done (ties into A6); `RoundSandbox.jsx`
-itself still well over 200 lines and not yet renamed to `FightScreen.tsx`
-or deleted — that's the final step of this item.
+`GearPanel` not extracted as a physical wrapper — tried this pass, reverted:
+the gear button (`<header>`), the setup/starting-quills div, and
+`TuningPanel` are three non-adjacent siblings in `RoundSandbox.jsx`'s
+render tree today, each in normal document flow at a real vertical
+position (`.sb-gear-panel` has `margin-top`, not absolute positioning), so
+wrapping them in one component would reorder them in the page and change
+what the reader sees when the gear is open — not a mechanical extraction.
+Left for the A6 pass, where the gear becomes a Sheet overlay and DOM order
+stops mattering. `Callout.tsx` on Sonner not yet done (also ties into A6);
+`RoundSandbox.jsx` itself still well over 200 lines and not yet renamed to
+`FightScreen.tsx` or deleted — that's the final step of this item.
 
 **A6 — shadcn + Tailwind actually used.** All twelve primitives (Button,
 Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
