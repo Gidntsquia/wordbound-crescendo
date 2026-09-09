@@ -392,9 +392,28 @@ surfaced: `Progress` unconditionally appended its own default
 `Track`+`Indicator` after any `children` passed to it, so composing with
 the separately-exported subcomponents (as their existence implies you
 should be able to) silently duplicated the track; now only renders the
-default when no children are given. Still
-open: Tooltip/Popover/Tabs/Badge/Toggle/Card/Dialog remain
-unused anywhere in the app, and `sandbox.css` still hasn't shrunk — it's
+default when no children are given.
+SFX/Word helper on Toggle — DONE: `SetupPanel`'s two `<input
+type="checkbox">` toggles replaced with the shadcn `Toggle`
+(`pressed`/`onPressedChange`); `.sb-toggle` CSS updated for a
+`[data-pressed]` button instead of a checkbox+label. Verified: typecheck/
+lint/format/build clean; live Playwright pass confirms the SFX toggle's
+`aria-pressed` flips true→false on click and the fight/gear flow is
+unaffected.
+Tuning panel on Tabs — DONE: `TuningPanel`'s single flat 40-constant grid
+(behind one `<details>`) regrouped into seven `Tabs` (Round, Tiers, Shop,
+Marginalia, Ink & gold, Premium slot, Character), each rendering the same
+`<input type="number">` fields as before; an "Other" tab is synthesized
+for any `ROUND_DEFAULTS` key not in an explicit group, so a future
+tunable can't silently disappear from the panel. Chosen over the
+higher-risk tile/scoreboard/shop chrome specifically because this panel
+is never touched mid-drag/tap (unlike Rack/Stick), so it carries none of
+the "half-migrated mid-screen" risk flagged below. Verified: typecheck/
+lint/format/build clean; live Playwright pass confirms all seven tab
+labels render and clicking "Shop" swaps the grid to the Shop group's
+fields with zero console errors.
+Still open: Tooltip/Popover/Badge/Card/Dialog remain unused anywhere in
+the app, and `sandbox.css` still hasn't shrunk — it's
 the FLIP/pop rules plus every other hand-rolled `.sb-*` class the app
 still runs on (`transform` on `.sb-tile` stays forbidden). Converting the
 rest of the chrome (scoreboard, shop cards, tile buttons) to shadcn base

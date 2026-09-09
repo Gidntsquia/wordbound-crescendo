@@ -4,6 +4,7 @@
 // props in, no fight.current/round mutation of its own.
 import GearMeta from './GearMeta';
 import { Slider } from '../primitives/slider';
+import { Toggle } from '../primitives/toggle';
 import type { RunFacade, RoundFacade } from '../../engine/state/facade';
 
 interface TileBag {
@@ -95,25 +96,22 @@ export default function SetupPanel({
           onValueChange={(v) => setVolume(Array.isArray(v) ? v[0]! : v)}
         />
       </label>
-      <label className="sb-toggle" title="Tile, swap, shop and ink sounds">
-        <input
-          type="checkbox"
-          checked={sfxOn}
-          onChange={(e) => setSfxOn(e.target.checked)}
-        />
+      <Toggle
+        className="sb-toggle"
+        title="Tile, swap, shop and ink sounds"
+        pressed={sfxOn}
+        onPressedChange={setSfxOn}
+      >
         SFX
-      </label>
-      <label
+      </Toggle>
+      <Toggle
         className="sb-toggle"
         title="Word suggestions, Best play, and Play settling for the best word in the letters"
+        pressed={helper}
+        onPressedChange={setHelper}
       >
-        <input
-          type="checkbox"
-          checked={helper}
-          onChange={(e) => setHelper(e.target.checked)}
-        />
         Word helper
-      </label>
+      </Toggle>
       <button type="button" className="sb-go" onClick={() => start()}>
         {phase === 'idle' ? 'Start with this seed' : 'Restart with this seed'}
       </button>

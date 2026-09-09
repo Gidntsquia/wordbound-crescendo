@@ -1805,10 +1805,17 @@ button:disabled {
   align-items: center;
   gap: 7px;
   cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--leaf);
+  color: inherit;
+  font: inherit;
+  padding: 4px 10px;
+  border-radius: 3px;
 }
-.sb-setup .sb-toggle input {
-  margin: 0;
-  accent-color: var(--brass);
+.sb-setup .sb-toggle[data-pressed] {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: var(--ink);
 }
 .sb-outcome .sb-go {
   margin-left: 10px;
