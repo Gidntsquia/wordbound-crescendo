@@ -79,8 +79,8 @@ The former React app that lived at `index.html` (`src/main.jsx`, `src/App.jsx`,
 screens under `src/components/`), `js/core/`, `wordbound.html` + `css/`, and
 most of `js/wordbound/*.js` (duel/combat/music+pieces/tiles/lexicon/floor/
 game/monsters/characters/items/intents/traits/stolenLetters/bossEntrances/
-shakespeareGuide/shopkeepers/achievements/events) were deleted 2026-09-07
-(NEXT_LEVEL_PLAN.md stage 5). `index.html` now loads the ROUND SANDBOX
+shakespeareGuide/shopkeepers/achievements/events) were deleted 2026-09-07.
+`index.html` now loads the ROUND SANDBOX
 directly — the sandbox is the app. Only two things survive from that tree:
 `js/wordbound/wordlist.js` (still imported by `src/sandbox/main.tsx`) and
 `js/wordbound/pieces/` (11 sequenced-piece note-data files) — `pieces/` is
@@ -98,9 +98,7 @@ orphaned dead weight, nothing references it; nothing loads `music.js` either
   `rng.ts`, `lexicon.ts`, `tiles.ts`, `sandboxGlobal.ts`, and everything
   listed under ROUND SANDBOX below except `RoundSandbox.jsx` itself.
 - `index.html` + `src/sandbox/` — ROUND SANDBOX, the whole app (the public
-  link points at it). It is a BALATRO-SHAPED RUN, built 2026-09-06/07 to
-  DEMO_PLAN.md (BALATRO_NOTES.md is the term-for-term mapping;
-  NIGHT_REPORT.md is what shipped and what needs Jaxon's feel judgement).
+  link points at it). It is a BALATRO-SHAPED RUN, built 2026-09-06/07.
   `src/sandbox/main.tsx` loads the engine modules onto `window.Wordbound.*`
   in a fixed order, then mounts `RoundSandbox.jsx`:
   - `src/engine/content/enemies.ts` — `Sandbox.MOVEMENTS`: three movements of
@@ -209,17 +207,10 @@ orphaned dead weight, nothing references it; nothing loads `music.js` either
     real end-to-end even without art. Swapping in real PNGs later is a
     manifest + CSS `background-image` change, not a caller change.
 - `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`, `fetch-wiktionary.js` (`npm run fetch:words`: pulls Wiktionary's English lemmas into the GENERATED WIKT_EXTRA block of `js/wordbound/wordlist.js`, 4+ letter lowercase titles only; cache in `.cache/wiktionary/`).
-- `DIVERGENCE_PLAN.md` — the 2026-09-07 plan for leaving Balatro's shape:
-  crescendo-effect contract, second-axis quills, stolen letters meta,
-  premium slots on the stick.
-- `NEXT_LEVEL_PLAN.md` — the 2026-09-07 plan for after the divergence
-  work: feel pass, the music attacks (strike/parry), chords, run choices
-  and keys, meta past letters, identity/polish.
 - `READ_SLOWLY_PLAN.md` — the 2026-09-08 plan for the next big step: React +
   TypeScript rebuild and code audit, the "slow down and read" theme, fights
   as situations resolved by reading, playable letter-tile characters, 2D
-  sprites. Implement from this in a fresh session.
+  sprites. Implement from this in a fresh session. (Earlier plan docs —
+  BALATRO_NOTES, COMBAT_REDESIGN, DEMO_PLAN(_2), DIVERGENCE_PLAN,
+  NEXT_LEVEL_PLAN, NIGHT_REPORT — were implemented and removed 2026-09-09.)
 - `THEME.md` — world/style bible (pre-dates READ_SLOWLY_PLAN.md; stage B rewrites it). `ROADMAP.md` — north star + known gaps.
-  `COMBAT_REDESIGN.md` — the 2026-09-05 plan: Balatro-with-Scrabble rounds
-  (4 words, 3 changeouts, beat a point target, gold, shop) replacing the tug
-  of war.
