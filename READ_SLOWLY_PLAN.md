@@ -13,6 +13,43 @@ Each stage ends with a deploy (`npm run deploy`) so Jaxon can play it on the
 phone. Nothing here changes the music rule: bosses keep their recordings,
 audio stays synthesized elsewhere.
 
+## Status (2026-09-08 implementation pass)
+
+Done and deployed: A1/A2/A5/A6, all of B, C, D, and E1–E3 (all ~20 art
+sheets have real art — a handful of verified-license CC0 pieces, the rest
+original hand-authored SVG; single-pose only so far, the pose-driven
+plumbing works but doesn't swap art per pose yet).
+
+Blocked, not abandoned:
+
+- **A3** (reducer store): `forceRender` is deleted and six UI-only state
+  slices are reducer-backed (`src/app/store.ts`). Of the run/round mutation
+  call sites in `RoundSandbox.jsx`, only the tuning panel's `setConst` is
+  routed through a dispatched action — it was the one simple, unbranching,
+  closure-free case. The other nine (`playWord`, `changeout`, `next`,
+  `skip`, `leaveShop`, `pickLetter`, `moveTile` ×2, `useAdhocMark`,
+  `saveMark`, `drawMarkHand`) sit inside `useCallback`s with real branching
+  and cross-closure state (`say`, `startStage`, `markSeen`, `warm`,
+  `unlockNextKey`). Converting them by hand risks a transcription mistake
+  that only playing the game would catch — there's no test suite (see
+  CLAUDE.md's Tests section) and no browser automation available this
+  session (a headless-Playwright verification attempt was explicitly
+  denied by this session's permission classifier, not held back by
+  caution alone).
+- **A4** (component split): `RoundSandbox.jsx` is down from 3408 to 2460
+  lines — HeldRow, Shop, EndScreen, GearMeta, TuningPanel, RunStrip,
+  TitleScreen extracted to `src/ui/`. What's left (pack-pick, callouts, the
+  board/rack/stick/drag wrapper) is entangled with the same run/round core
+  above and hits the same wall.
+- **E4** (phone perf pass): needs an actual phone playing the actual build;
+  nothing to do here without that.
+
+To finish these three: either play a candidate build yourself before it
+ships (the safest option — no tooling gap involved), or grant this session
+a scoped browser-automation exception (headless only, never opens a
+visible window) so a future pass can drive the game programmatically and
+verify behavior before deploying. Everything else in this plan is done.
+
 ---
 
 ## 0. What exists today (audit findings)
