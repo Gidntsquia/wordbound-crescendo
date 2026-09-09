@@ -487,6 +487,9 @@ export default function RoundSandbox() {
   // tiles (from `tiles`), the case shows `rackBefore` with hollows, the
   // header shows `scoreBase` until the total lands. Any tap skips ahead.
   const [scoring, setScoring] = useState(null);
+  // C3: the situation's resolution[] plays as a short beat after a win,
+  // before the shop button appears; any tap skips it.
+  const [wonResolved, setWonResolved] = useState(false);
   // The soundtrack's crescendo window, polled while a crescendo quill is held
   // (audioPiece.js `crescendo()`): { phase: 'idle' | 'soon' | 'live', secs }.
   const [cres, setCres] = useState({ phase: 'idle' });
@@ -850,6 +853,18 @@ export default function RoundSandbox() {
   const nextStage = useCallback(() => {
     dispatchFight({ type: 'fight/nextStage', fight, phase });
   }, [phase]);
+
+  // C3: the resolution[] beat runs once per win, then reveals the shop
+  // button; a tap (skipWonResolution) ends it early.
+  useEffect(() => {
+    if (phase !== 'won') {
+      setWonResolved(false);
+      return;
+    }
+    const id = setTimeout(() => setWonResolved(true), 2500);
+    return () => clearTimeout(id);
+  }, [phase]);
+  const skipWonResolution = useCallback(() => setWonResolved(true), []);
 
   // Take a letter offered after a boss, then resume into the shop or the win screen.
   const pickLetter = useCallback(
@@ -1519,7 +1534,14 @@ export default function RoundSandbox() {
               />
             )}
           {phase === 'won' && (
-            <WonBanner round={round} run={run} nextStage={nextStage} />
+            <WonBanner
+              round={round}
+              run={run}
+              nextStage={nextStage}
+              situation={SB.situationFor(round.situation)}
+              resolved={wonResolved}
+              skip={skipWonResolution}
+            />
           )}
           {phase === 'letter' && run.letterChoice && (
             <LetterChoice

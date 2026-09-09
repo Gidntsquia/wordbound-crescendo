@@ -796,6 +796,7 @@ button:disabled {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   font-family: var(--display);
@@ -807,6 +808,15 @@ button:disabled {
 
 .sb-win {
   color: var(--leaf);
+}
+.sb-outcome-resolution {
+  flex-basis: 100%;
+  font-family: var(--ui);
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: center;
+  margin: 0 0 14px;
 }
 .sb-lose {
   color: var(--brass-hot);
