@@ -88,38 +88,43 @@ orphaned dead weight, nothing references it; nothing loads `music.js` either
 (it too is gone) since the sandbox plays RECORDINGS, not sequenced pieces.
 
 - `src/engine/rng.ts` — seeded RNG (TS port of the old `js/core/rng.js` +
-  `namespace.js`, READ_SLOWLY_PLAN.md A2); still attaches to
-  `window.Game.RNG` for untyped consumers.
+  `namespace.js`, READ_SLOWLY_PLAN.md A2).
 - `src/engine/` + `src/engine/content/` — the framework-agnostic engine,
   being ported file-by-file from plain JS to typed `.ts` (READ_SLOWLY_PLAN.md
-  A2). Each ported module still attaches its exports onto
-  `window.Wordbound.*` / `window.Wordbound.Sandbox.*` for not-yet-ported
-  consumers, so the two trees interop during the migration. Ported so far:
-  `rng.ts`, `lexicon.ts`, `tiles.ts`, `sandboxGlobal.ts`, and everything
+  A2). `window.Wordbound.Sandbox`/`window.Game.RNG` are gone (A2 remainder,
+  "no globals") — every module is a plain ES import; only
+  `window.Wordbound.Lexicon`/`Tiles`/`WORD_SET`/`WORDLIST`/`Items`/
+  `StolenLetters` remain, `js/wordbound/wordlist.js`'s legacy plumbing, a
+  separate global out of that item's scope. Ported so far: `rng.ts`,
+  `lexicon.ts`, `tiles.ts`, `sandboxGlobal.ts` (now just the
+  `SandboxNamespace` type `app/store.ts` still needs), and everything
   listed under ROUND SANDBOX below except `RoundSandbox.jsx` itself.
 - `index.html` + `src/sandbox/` — ROUND SANDBOX, the whole app (the public
   link points at it). It is a BALATRO-SHAPED RUN, built 2026-09-06/07.
-  `src/sandbox/main.tsx` loads the engine modules onto `window.Wordbound.*`
-  in a fixed order, then mounts `RoundSandbox.jsx`:
-  - `src/engine/content/enemies.ts` — `Sandbox.MOVEMENTS`: three movements of
+  `src/sandbox/main.tsx` is mount only beyond loading `rng.ts`/`lexicon.ts`/
+  `tiles.ts`/`wordlist.js` (the legacy-global loads above); every other
+  content module is reached transitively via `RoundSandbox.jsx`'s real
+  imports, which then mounts `RoundSandbox.jsx`:
+  - `src/engine/content/enemies.ts` — `MOVEMENTS`: three movements of
     three enemies (small / big / boss), each its own recording;
-    `Sandbox.RULES` are the boss TEMPO MARKINGS (four_knocks: 4-letter words
+    `RULES` are the boss TEMPO MARKINGS (four_knocks: 4-letter words
     ×2 mult; presto: 3 words, target ×0.8; no_repeats: a letter played this
     round is barred; sotto_voce: 5+ letters ×0.5 mult, 3–4 letters ×1.5).
   - `src/engine/content/round.ts` — `ROUND_DEFAULTS` (every tunable; the
     tuning panel mirrors it), `TIERS` (word-length tiers
     SHORT/THREE/FOUR/FIVE/SIX/SEVEN, each a base points × mult, levelled by
-    ÉTUDES), `scoreWordPoints` (points = tier + letters + inks + items; mult
-    = tier + inks + items, items fire LEFT TO RIGHT), `createRound` (PLAYS
-    words, CHANGEOUTS swaps, a single tile always playable), `createRun`
-    (walks the lineup; targets MOVEMENT_BASE_n × 1 / BIG_MULT / BOSS_MULT;
-    gold with INTEREST; one `run.deck` for the whole run, reshuffled into a
-    fresh `run.pile` (bag + DISCARD PILE, refilled only when the bag runs
-    dry) at every fight; `run.shop` after every won fight short of the last;
-    `run.skip()` a small/big enemy for a favour; `run.bestPlay`). Its header
-    carries the Phase 0 calibration table. Also exports `chordPoints` (plain
-    base points for Harmony, imported by `items.ts`).
-  - `src/engine/content/items.ts` — `Sandbox.ITEMS`, seventeen jokers (on
+    ÉTUDES), `scoreWordPoints` (points = tier + letters + marginalia +
+    items; mult = tier + marginalia + items, items fire LEFT TO RIGHT),
+    `PACK_KINDS`/`priceOf` (shop-pack display copy). The mutable
+    `createRound`/`createRun` this file used to also host (PLAYS words,
+    CHANGEOUTS swaps, walks the lineup, gold with INTEREST, a shop after
+    every won fight, a small/big enemy skip for a favour) are gone —
+    superseded by `state/round.ts`'s/`state/run.ts`'s pure, immutable
+    transitions (`facade.ts` wires them into the mutable-shaped API the UI
+    still expects; READ_SLOWLY_PLAN.md A3/A2). Its header carries the
+    Phase 0 calibration table. Also exports `chordPoints` (plain base
+    points for Harmony, imported by `items.ts`).
+  - `src/engine/content/items.ts` — `ITEMS`, seventeen jokers (on
     screen: QUILLS; the code keeps "item") with `score(ctx, acc)` hooks,
     rarity and price; `run.moveItem` reorders them. `climax` is the first
     CRESCENDO EFFECT (`crescendo: true`; fires when `ctx.crescendo`, which
@@ -129,21 +134,21 @@ orphaned dead weight, nothing references it; nothing loads `music.js` either
     `chordPoints` from `round.ts` directly (safe despite round.ts importing
     an `ItemNote` type back from items.ts — that import is type-only and
     erased at compile time, so there is no runtime cycle).
-  - `src/engine/content/shop.ts` — `Sandbox.createShop(run, rng)`: two card
-    slots (item / ink / étude by weight), two packs (tile / ink / étude, keep
-    one of three), reroll, sell for half; consumables live in
-    `run.consumables`.
-  - `src/engine/content/inks.ts` — `Sandbox.INKS` (tarots): gilt, bold,
-    steel, blank, vowel shift, erase, coin; `applyInk` marks tiles in the
-    case (`tile.ink`).
+  - Shop card/pack rolling lives in `state/run.ts`'s pure `rollShop`/
+    `rollCardsAndPacks` (two card slots item/étude by weight, two packs
+    tile/mark/étude keep-one-of-three, reroll, sell for half); the old
+    mutable `content/shop.ts` this used to be is gone (A2 no-globals).
+  - Word-mark tarots (formerly "inks") are `src/engine/content/
+marginalia.ts`'s `MARK_DEFS`: gilt, bold, steel, blank, vowel shift,
+    erase, coin; `applyMark` marks tiles in the case (`tile.mark`).
   - `src/engine/content/tileBags.ts` — the three bags (weak/normal/strong, 26
     tiles each) the run's deck starts from; NOT Tiles.createStarterDeck().
-  - `src/engine/content/stolenLetters.ts` — the stolen-letters meta: which
+  - `src/engine/meta/stolenLetters.ts` — the stolen-letters meta: which
     letters are locked out of every bag/pack until a boss is felled and one
     is won back (localStorage `wbc.letters`); also wires
     `window.Wordbound.StolenLetters.isStolen` so `tiles.ts`'s
     letter-frequency pool actually filters stolen letters.
-  - `src/engine/content/quillDiscovery.ts` — which quills are hidden from the
+  - `src/engine/meta/quillDiscovery.ts` — which quills are hidden from the
     shop/packs until a boss is felled or Movement III is reached
     (localStorage `wbc.quills`).
   - `src/engine/content/wordFinder.ts` — the WORD HELPER (anagram map), off
@@ -167,13 +172,13 @@ orphaned dead weight, nothing references it; nothing loads `music.js` either
     the `.sb-tile-pop` wrapper. The stick is also the swap selection. UI
     words: "swap" for changeout, "skip for a bonus" for a favour; "case"
     and "stick" never appear on screen.
-  - `src/engine/content/sfx.ts` — `Sandbox.createSfx(ctx, dest)`: synthesized input sounds
+  - `src/audio/sfx.ts` — `createSfx(ctx, dest)`: synthesized input sounds
     (tick climbing the stick, shuffle, thud, coin, shimmer) and the
     cascade's hits (lock, letter, item, rule, hit, resolve, riffle);
     `SFX_DEFAULTS` is the table.
-  - `src/engine/content/audioPiece.ts` (also owns THE CRESCENDO WINDOW:
+  - `src/audio/recordingPlayer.ts` (also owns THE CRESCENDO WINDOW:
     `seq.crescendo()` → idle / soon / live from the big surges,
-    `Sandbox.CRESCENDO` holds the 0.4 s-before / 1.0 s-after / 5 s-countdown
+    `CRESCENDO` holds the 0.4 s-before / 1.0 s-after / 5 s-countdown
     numbers; the quill card in RoundSandbox polls it) +
     `src/engine/content/recordings.ts` (generated import index) +
     `src/recordings/*.json` ×9 — the nine RECORDINGS under public/audio/,

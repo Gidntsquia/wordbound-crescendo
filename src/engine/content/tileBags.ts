@@ -4,7 +4,7 @@
 // (still in git history) for the measured strength table behind the counts.
 import type { Tile } from '../tiles';
 import { createTile } from '../tiles';
-import { isAvailable } from './stolenLetters';
+import { isAvailable } from '../meta/stolenLetters';
 
 export interface TileBag {
   id: string;

@@ -30,12 +30,12 @@ import {
   isAvailable,
   rollLetterChoice,
   winLetter,
-} from '../content/stolenLetters';
+} from '../meta/stolenLetters';
 import {
   isQuillDiscovered,
   rollQuillDiscovery,
   discoverQuill,
-} from '../content/quillDiscovery';
+} from '../meta/quillDiscovery';
 import { createTile } from '../tiles';
 import * as R from './round';
 import type { RoundState, PlayEffects } from './round';

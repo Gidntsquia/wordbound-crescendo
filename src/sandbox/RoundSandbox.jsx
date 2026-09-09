@@ -22,7 +22,7 @@ import {
   unlockedCharacters,
   unlockNext,
 } from '../engine/content/characters';
-import { discoveredQuills } from '../engine/content/quillDiscovery';
+import { discoveredQuills } from '../engine/meta/quillDiscovery';
 import { RECORDINGS } from '../engine/content/recordings';
 import {
   ROUND_DEFAULTS,
@@ -36,7 +36,7 @@ import {
 import { ITEMS, ITEM_DEFS } from '../engine/content/items';
 import { MARK_DEFS, VOWELS } from '../engine/content/marginalia';
 import { TILE_BAGS, createBagDeck } from '../engine/content/tileBags';
-import { availableLetters, isAvailable } from '../engine/content/stolenLetters';
+import { availableLetters, isAvailable } from '../engine/meta/stolenLetters';
 import {
   bestFromRack,
   findWords,
@@ -47,8 +47,8 @@ import {
   CRESCENDO,
   createAudioPiece,
   prefetchAudio,
-} from '../engine/content/audioPiece';
-import { createSfx } from '../engine/content/sfx';
+} from '../audio/recordingPlayer';
+import { createSfx } from '../audio/sfx';
 import { situationFor, ladderIndex } from '../engine/content/situations';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';

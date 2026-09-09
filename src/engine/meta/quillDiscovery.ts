@@ -5,7 +5,7 @@
 // as wbc.quills. A lost run never loses a discovered quill -- this module
 // only ever adds.
 import type { RngStream } from '../rng';
-import { ITEMS, ITEM_DEFS } from './items';
+import { ITEMS, ITEM_DEFS } from '../content/items';
 
 const STORE_KEY = 'wbc.quills';
 

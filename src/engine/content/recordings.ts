@@ -6,7 +6,7 @@
 // manifest order. Edit the manifest, not this file. RECORDINGS exposes them
 // by name (e.g. RECORDINGS.recordedFurElise) for RoundSandbox.jsx/
 // audioPiece.ts, which look pieces up dynamically by enemy.recorded.
-import type { RecordedPiece } from './audioPiece';
+import type { RecordedPiece } from '../../audio/recordingPlayer';
 
 import recordedFurElise from '../../recordings/recordedFurElise.json';
 import recordedMoonlight from '../../recordings/recordedMoonlight.json';

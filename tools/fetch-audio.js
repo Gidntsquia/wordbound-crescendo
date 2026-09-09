@@ -81,24 +81,24 @@ function writeIndex() {
   const imports = manifest.recordings
     .map((e) => `import ${e.module} from '../../recordings/${e.module}.json';`)
     .join('\n');
-  const assigns = manifest.recordings
-    .map((e) => `Sandbox.${e.module} = ${e.module} as RecordedPiece;`)
+  const entries = manifest.recordings
+    .map((e) => `  ${e.module}: ${e.module} as RecordedPiece,`)
     .join('\n');
   const out = `// src/engine/content/recordings.ts -- GENERATED (import list only) by
 // tools/fetch-audio.js from tools/audio-manifest.json. The per-piece JSON
 // under src/recordings/ holds the licensing metadata (title/composer/
 // performer/audio) and the analyzed envelope (durationSec/peak/loudness/
 // dynamics, from tools/analyze-audio-piece.js). One import per recording, in
-// manifest order. Edit the manifest, not this file. Still attaches each
-// piece to window.Wordbound.Sandbox for RoundSandbox.jsx/audioPiece.ts,
-// which read pieces off the global by name (e.g. Sandbox.recordedFurElise).
-import '../sandboxGlobal';
-import type { RecordedPiece } from './audioPiece';
+// manifest order. Edit the manifest, not this file. RECORDINGS exposes them
+// by name (e.g. RECORDINGS.recordedFurElise) for RoundSandbox.jsx/
+// audio/recordingPlayer.ts, which look pieces up dynamically by enemy.recorded.
+import type { RecordedPiece } from '../../audio/recordingPlayer';
 
 ${imports}
 
-const Sandbox = window.Wordbound.Sandbox;
-${assigns}
+export const RECORDINGS: Record<string, RecordedPiece> = {
+${entries}
+};
 `;
   fs.writeFileSync(path.join(ROOT, 'src/engine/content/recordings.ts'), out);
 }
