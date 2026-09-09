@@ -7,7 +7,7 @@
 // touches the score. The tile play (case + composing stick + FLIP slide) is
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
-import { createDragReorder } from './dragReorder.js';
+import { createDragReorder } from '../engine/dragReorder';
 import {
   useCallback,
   useEffect,
