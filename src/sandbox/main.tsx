@@ -33,7 +33,7 @@ import '../engine/content/tileBags';
 import '../engine/content/stolenLetters';
 // The quill-discovery meta: which quills are hidden from the shop/packs
 // until a boss is felled or Movement III is reached (localStorage wbc.quills).
-import './quillDiscovery.js';
+import '../engine/content/quillDiscovery';
 // The player that fronts a RECORDING (the logged exception to the
 // synthesized-only rule) and the nine recordings themselves -- recordings.js
 // is generated from tools/audio-manifest.json by `npm run fetch:audio`.
