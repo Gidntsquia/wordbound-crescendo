@@ -86,30 +86,56 @@ format:check` clean.
   `tools/parity-run.ts`, which drives a full run — every fight, shop, pack,
   letter choice — through both engines under the same seed and decisions
   and diffs every observable field; all 15 tested seeds pass (`9d5652b`,
-  `55d49aa`). **Not yet wired into `store.ts` or the UI** — see Open below.
+  `55d49aa`). While auditing the pure engine's API surface for full
+  coverage before wiring it in, found and fixed two real bugs the harness's
+  incomplete coverage had missed (`changeout`'s result was missing the
+  `returned` field the UI reads; `playWord`'s success result was missing
+  `messages`, which the UI unconditionally `.forEach`s) and one missing
+  feature (item `onPlayed` hooks -- refrain's per-run counter, sustain's
+  `extendCrescendo` -- never ran at all; `playWord` now returns them as
+  `PlayEffects` for the caller to apply, per the file's own doc comment)
+  (`cde2d15`, `befe9ec`).
+- **A3 (store/UI wiring)** — `src/engine/state/facade.ts`: rather than
+  rewriting every direct call site across `store.ts`/`RoundSandbox.jsx`/
+  `Shop.jsx`/`HeldRow.jsx`/`RunStrip.jsx` to a data-only discriminated
+  action union (a large UI rewrite with no test suite and only browser
+  verification available, touching ~30+ call sites, several of which bypass
+  `store.ts` entirely and mutate `run`/`shop` objects directly from child
+  components), built a facade exposing the exact same mutable `RunLike`/
+  `Round` API (`content/round.ts`) as getters over a closured box holding
+  the live `RunState` + `RngState`; every method calls the pure engine and
+  reassigns the box. `RoundSandbox.jsx`'s one `SB.createRun(...)` call site
+  now builds the facade instead (`createRunFacadeFromOpts`, seeded via
+  `rng.fromSeed` instead of `window.Game.RNG.create`); every other call
+  site — `store.ts`'s reducer included — is unchanged, since the facade's
+  stable identity matches how `fight.current.run`/`.round` were already
+  cached per fight. Verified in a real browser (Playwright/chromium): a
+  full fight played by tapping real board tiles through the scoring
+  cascade, win → shop → reroll → open pack → pick → Continue → next fight,
+  ink/interest carryover, a boss's letter choice, changeout, moveTile —
+  zero console/page errors (`8ff70e8`). The model is genuinely immutable
+  now; the old mutable `content/round.ts`/`content/shop.ts` stay in place
+  underneath nothing (only the facade calls the pure engine) and can be
+  deleted once nothing else references them (see Open below).
 
 ### Open (in build order)
 
-**A3 (remainder) — wire the pure engine into the store.** The pure
-`RunState`/`RoundState` engine layer landed (see Done above) but
-`src/app/store.ts` still holds a reducer whose `FightAction` cases mutate
-the same `fight.current` run/round objects from the OLD `content/round.ts`/
-`content/shop.ts` engine in place, and `dispatch({type:'refresh'})` still
-replaces `forceRender`. Remaining work:
-
-- Rewrite `store.ts` as a data-only discriminated `Action` union that
-  dispatches into `state/round.ts`/`state/run.ts`'s pure transitions
-  instead of the old mutable engine. Today's actions carry `say`, `sfx`,
-  `startStage`, `markSeen`, `SB`, etc. as payload fields; those move out to
-  effects run by the UI after dispatch.
-- Crescendo phase passed in as `ctx.crescendo` at dispatch time (already
-  the shape `state/round.ts`'s `playWord` takes, keep it).
-- The eight `any`s in `store.ts` (`run`, `round`, `SB`) go away as a
-  consequence.
-- Once wired, delete `content/round.ts`'s/`content/shop.ts`'s mutable
-  `createRound`/`createRun`/`createShop` (superseded) and
-  `tools/parity-new.ts`/`tools/parity-run.ts` (their job is done) or keep
-  them only as long as the old engine still exists to diff against.
+**A3 (remainder) — store.ts as a data-only action union.** The facade
+(see Done above) makes the model pure but does not change `store.ts`'s own
+shape: its `FightAction` cases still call methods on the run/round facade
+object (`r.playWord(...)`, `f.run.next()`, etc.) and still carry closures
+(`say`, `sfx`, `startStage`, `markSeen`, `SB`, ...) as action payload
+fields, and its eight `any`s (`run`, `round`, `SB` in `FightRef`) are still
+there. The plan's literal spec — a data-only discriminated `Action` union
+dispatching into `state/round.ts`/`state/run.ts`'s pure transitions
+directly, with `say`/`sfx`/etc. run as effects by the UI after dispatch —
+is a further, separate rewrite of `store.ts` itself; not attempted this
+pass for the same no-test-suite/live-app reason the facade exists. Once
+`store.ts` (and `Shop.jsx`/`HeldRow.jsx`/`RunStrip.jsx`, which call the
+facade directly) no longer need the mutable-shaped API, delete
+`content/round.ts`'s/`content/shop.ts`'s mutable `createRound`/`createRun`/
+`createShop` (superseded, now unused) and `tools/parity-run.ts` (its job is
+done) or keep them only as long as useful to diff against.
 
 **A2 (remainder) — no globals.** Every engine module still attaches to
 `window.Wordbound.*` via `sandboxGlobal.ts`, `main.tsx` still imports them
