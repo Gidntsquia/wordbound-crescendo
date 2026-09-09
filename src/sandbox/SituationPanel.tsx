@@ -13,9 +13,11 @@ import type { Situation } from '../engine/content/situations';
 export default function SituationPanel({
   situation,
   ladderIndex,
+  hit,
 }: {
   situation: Situation | null | undefined;
   ladderIndex: number;
+  hit?: number;
 }) {
   if (!situation) return null;
   const step = situation.ladder[Math.max(0, ladderIndex)];
@@ -31,7 +33,9 @@ export default function SituationPanel({
       <Sprite
         sheet={situation.antagonist}
         pose={step.antagonistPose}
-        className="sb-situation-antagonist"
+        className={
+          'sb-situation-antagonist' + (hit ? ' is-antagonist-hit-' + hit : '')
+        }
       />
     </div>
   );

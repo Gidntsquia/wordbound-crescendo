@@ -566,15 +566,42 @@ chapter backdrops as a far/near parallax pair with slow drift. The
 backdrops need a dark-theme recolour or a proper scrim; the 32 %-opacity
 wash that was reverted is not the design.
 
-**E3 — animation hooks.** None are driven by state yet. Spec: ladder step
-→ person/antagonist pose crossfade (200 ms, panel already crossfades on
-caption change); word played → wordsmith `write`; cascade `total hit` →
-antagonist shake (the existing `board-shake` keyframes are for the board,
-not the antagonist); `clear` → antagonist `gone`; boss crescendo `soon` →
-backdrop pulse, `live` → antagonist `crescendo` pose;
-`prefers-reduced-motion` stops loops and drifts but poses still swap
-(today's rule flattens every animation to 0.01 ms, which also kills the
-pose crossfade).
+**E3 — animation hooks.** Ladder step → person/antagonist pose crossfade
+— already DONE, discovered this session rather than newly built:
+`SituationPanel.tsx` is rendered live from `ScoreLine.tsx` with
+`ladderIndex` computed off the _current_ score every render (not just
+pre-fight from `EnemyIntroCard.tsx`), and `Sprite.tsx`'s `key={pose}`
+remounts on every pose change, which is what fires the
+`sb-sprite-crossfade` 200 ms animation — so as score climbs the ladder
+mid-fight, the person/antagonist poses already swap and crossfade with
+no further wiring needed.
+Cascade `total hit` → antagonist shake — DONE this session:
+`SituationPanel` takes a new `hit?: number` prop; `ScoreLine.tsx` passes
+`scoring?.hit` through (its local `ScoringState` type gained the field);
+new `.sb-situation-antagonist.is-antagonist-hit-1/2/3` CSS layers a
+`board-shake-N` keyframe (the same tiered keyframes `.sb-board` already
+uses) onto the antagonist sprite, alongside its own crossfade animation.
+Verified: typecheck/lint/format/build clean; live Playwright pass —
+played a word during a real fight and confirmed
+`is-antagonist-hit-3` appears on the antagonist sprite during the
+cascade, zero console errors.
+Still open, not attempted: word played → wordsmith `write` and boss
+crescendo `soon`/`live` → backdrop pulse/antagonist `crescendo` pose
+both need sheets E2 hasn't wired yet (`wordsmith`, the per-fight
+antagonist backdrops) — pursuing the animation hook before the sheet
+exists would have nothing to animate; `clear` → antagonist `gone` is
+already reachable via the ladder's `at: 1` step (every situation's final
+ladder step sets `antagonistPose: 'gone'`), so there may be nothing left
+to wire there once "clear" is confirmed to mean "round won", not
+pursued further this session to avoid guessing at an event that isn't
+named anywhere in the codebase. `prefers-reduced-motion`'s blanket
+`animation-duration: 0.01ms` rule was left alone: today it only affects
+the crossfade (which still ends in the right pose, just without the
+fade) since no sheet has a real `steps()` frame-loop animation yet
+(every sheet is still `status: "placeholder"`, per E1) — fixing the
+iteration-count-1 loop-freezing failure mode the plan calls out has
+nothing to fix against yet and risks guessing at a shape E1's real
+frame data hasn't defined.
 
 **E4 (remainder) — perf pass after E1–E3 land.** Visible sheet count
 under ~10, sheets ≤ 1024², lazy-load next chapter's sheets during the

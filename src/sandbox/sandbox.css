@@ -3127,6 +3127,23 @@ button.sb-card:disabled {
   height: 44px;
   border-radius: 8px;
 }
+/* READ_SLOWLY_PLAN.md stage E3: cascade "total hit" -> antagonist shake,
+   tiered the same way as .sb-board.is-hit-1..3. */
+.sb-situation-antagonist.is-antagonist-hit-1 {
+  animation:
+    sb-sprite-crossfade 200ms ease-out,
+    board-shake-1 280ms ease-out;
+}
+.sb-situation-antagonist.is-antagonist-hit-2 {
+  animation:
+    sb-sprite-crossfade 200ms ease-out,
+    board-shake-2 320ms ease-out;
+}
+.sb-situation-antagonist.is-antagonist-hit-3 {
+  animation:
+    sb-sprite-crossfade 200ms ease-out,
+    board-shake-3 380ms ease-out;
+}
 /* READ_SLOWLY_PLAN.md stage E: Sprite.jsx placeholder + crossfade. Real PNG
    sheets swap in as a background-image + steps() animation on this same
    class later; the crossfade-on-pose-change wiring stays the same. */

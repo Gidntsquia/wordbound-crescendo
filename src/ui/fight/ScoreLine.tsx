@@ -25,6 +25,7 @@ interface ScoringState {
   total?: number | null;
   litItem?: string | null;
   floats: Float[];
+  hit?: number;
 }
 
 export default function ScoreLine({
@@ -121,6 +122,7 @@ export default function ScoreLine({
               )
             : 0
         }
+        hit={scoring?.hit}
       />
       {round.rule && (
         <div
