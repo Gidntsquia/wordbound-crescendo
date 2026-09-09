@@ -218,14 +218,30 @@ Tiles/WORD_SET/WORDLIST/Items/StolenLetters` stay — that's
   → tapped into "ZO" → played → scored 21 (base 11 + the tile's own
   `charBonusPts`) → tile visibly back in its slot afterward, rack
   reshuffled around it → confirmed via `window.__round.pile.discardPile`
-  that the Z tile is NOT in the discard pile). **Deferred, left for a
-  follow-up:** `useDragReorder`'s "third row that only accepts its own
-  tile back" — the character slot is tap-only, not draggable, today;
-  deck-view separation in `PilesDrawer.tsx` — since the tile is never in
-  `pile.drawPile`/`discardPile` there is nothing to separate out, but the
-  spec's intent (a persistent, always-visible line for it in deck view)
-  isn't rendered there either; blank `?` disallowed for characters is
-  moot today (no roster entry has a blank letter) and unguarded.
+  that the Z tile is NOT in the discard pile). Drag support — DONE:
+  `useDragReorder.ts`'s `rows()` adds a `character` row (the
+  `.sb-character-slot` element, only present when a `characterTile`
+  exists) alongside `rack`/`stick`; `Rack.tsx` spreads
+  `drag.bind('character', 0, characterTile.id)` onto the tile's button
+  the same way rack tiles do. `onDrop` special-cases it: a drop _onto_
+  `character` from anywhere else bounces (`refresh()`, no state change)
+  unless the dragged id is the character tile's own — "only accepts its
+  own tile back", per spec; dragging _out_ of `character` onto `stick`
+  stages its letter at the drop index the same way a rack tile does;
+  dragging it out onto `rack` or back onto `character` itself bounces.
+  `flipAll` also captures the character tile's rect so it FLIPs alongside
+  rack tiles during a drag. Verified: typecheck/lint/format/build clean;
+  live Playwright pass — dragging the character tile into the stick
+  stages it (word updates), dragging it back out returns it to the slot
+  (word loses the letter, slot re-shows the tile), and dragging an
+  ordinary rack tile onto the character slot bounces (slot still shows
+  the character tile, nothing staged) — zero console errors in all three.
+  **Still deferred:** deck-view separation in `PilesDrawer.tsx` — since
+  the tile is never in `pile.drawPile`/`discardPile` there is nothing to
+  separate out, but the spec's intent (a persistent, always-visible line
+  for it in deck view) isn't rendered there either; blank `?` disallowed
+  for characters is moot today (no roster entry has a blank letter) and
+  unguarded.
 
 - **A4 — component split.** DONE. `RoundSandbox.jsx` (1,898 lines) has
   had `SetupPanel`, `StartingQuills`, `EnemyIntroCard`, `ScoreLine`,
@@ -538,12 +554,11 @@ phase-effect/`showResolution` patterns already used elsewhere in the file.
 mention the crescendo") is not implemented — `SITUATIONS` entries have one
 static `opening[]` regardless of enemy kind.
 
-**D1 (remainder) — drag support and deck-view line for the character
-tile.** See Done above for what landed. Still open: `useDragReorder`
-treating the character slot as a third row that only accepts its own tile
-back (today it's tap-only); a persistent line for it in `PilesDrawer.tsx`'s
-deck view (today it's simply absent there, since it's never in a pile).
-D4: revisit `MOVEMENT_BASE_n` once every player has a letter.
+**D1 (remainder) — deck-view line for the character tile.** See Done
+above for what landed (the tile mechanic itself, and its drag support).
+Still open: a persistent line for it in `PilesDrawer.tsx`'s deck view
+(today it's simply absent there, since it's never in a pile). D4: revisit
+`MOVEMENT_BASE_n` once every player has a letter.
 
 **E1 (remainder) — poses.** Every sheet has one static image; `Sprite`
 keys SVG lookup by sheet id only, so the `pose` prop changes a `data-`

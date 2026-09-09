@@ -45,13 +45,22 @@ export function useDragReorder({
       r.rack.forEach((t) => {
         if (t.id !== id) captureFlipFrom(t.id);
       });
+      const charTile = fight.current?.run?.characterTile;
+      if (charTile && charTile.id !== id) captureFlipFrom(charTile.id);
     };
     setDrag(
       createDragReorder({
-        rows: () => ({
-          rack: playRef.current!.querySelector('.sb-rack') as HTMLElement,
-          stick: playRef.current!.querySelector('.sb-stick') as HTMLElement,
-        }),
+        rows: () => {
+          const rows: Record<string, HTMLElement> = {
+            rack: playRef.current!.querySelector('.sb-rack') as HTMLElement,
+            stick: playRef.current!.querySelector('.sb-stick') as HTMLElement,
+          };
+          const charSlot = playRef.current!.querySelector(
+            '.sb-character-slot',
+          ) as HTMLElement | null;
+          if (charSlot) rows.character = charSlot;
+          return rows;
+        },
         onPreview: (p) => {
           flipAll(p.id);
           setPreview(p);
@@ -68,6 +77,25 @@ export function useDragReorder({
           if (p.id) pendingFlipFromRef.current[p.id] = ghostRect;
           sfx('tick', p.to, 0);
           const cur = wordRef.current;
+          const charTile = fight.current?.run?.characterTile;
+          // The character slot (READ_SLOWLY_PLAN.md D1) only ever accepts its
+          // own tile back -- any other tile dropped onto it bounces (settles
+          // where it started, same as a cancelled drag).
+          if (p.toRow === 'character' && p.id !== charTile?.id) {
+            refresh();
+            return;
+          }
+          if (p.fromRow === 'character') {
+            if (!charTile) return;
+            if (p.toRow === 'stick') {
+              const ch = charTile.letter;
+              setWord(cur.slice(0, p.to) + ch + cur.slice(p.to));
+              return;
+            }
+            // Dropped on the case, or back on its own slot: nothing moves.
+            refresh();
+            return;
+          }
           if (p.fromRow === 'rack') {
             const tile = r.rack[p.fromIndex];
             if (!tile) return;

@@ -74,6 +74,7 @@ export default function Rack({
               }
               data-flip-tile-id={characterTile.id}
               title="Your character's own tile — always here, returns after every word."
+              {...(drag ? drag.bind('character', 0, characterTile.id) : {})}
               onClick={() =>
                 round.isBarred(characterTile)
                   ? (sfx('thud'),
