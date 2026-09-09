@@ -2599,8 +2599,8 @@ button.sb-card:disabled {
   font-size: 20px;
   padding: 0;
 }
-.sb:not(.is-gear-open) .sb-gear-panel {
-  display: none;
+.sb-gear-sheet {
+  overflow-y: auto;
 }
 .sb-gear-panel {
   border: 1px dashed var(--rule);

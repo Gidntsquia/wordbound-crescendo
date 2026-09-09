@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -13,6 +14,14 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
+  resolve: {
+    // Mirrors tsconfig.json's "@/*" -> "./src/*" path so shadcn-generated
+    // primitives (which import via "@/ui/...") resolve at runtime too, not
+    // just under tsc.
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   build: {
     outDir: 'dist/app',
   },

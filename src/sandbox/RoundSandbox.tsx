@@ -58,6 +58,12 @@ import { useCrescendo } from '../ui/hooks/useCrescendo';
 import { useDragReorder } from '../ui/hooks/useDragReorder';
 import { useSfx } from '../ui/hooks/useSfx';
 import { Toaster } from '../ui/primitives/sonner';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../ui/primitives/sheet';
 import LetterChoice from '../ui/fight/LetterChoice';
 import SetupPanel from '../ui/chrome/SetupPanel';
 import StartingQuills from '../ui/chrome/StartingQuills';
@@ -1367,12 +1373,7 @@ export default function RoundSandbox() {
 
   return (
     <div
-      className={
-        'sb is-phase-' +
-        phase +
-        (gearOpen ? ' is-gear-open' : '') +
-        (phase === 'idle' ? ' is-title' : '')
-      }
+      className={'sb is-phase-' + phase + (phase === 'idle' ? ' is-title' : '')}
       onPointerDownCapture={scoring ? skipCascade : undefined}
     >
       <Toaster position="top-center" />
@@ -1387,6 +1388,45 @@ export default function RoundSandbox() {
           ⚙
         </button>
       </header>
+
+      <Sheet
+        open={gearOpen}
+        onOpenChange={(open) => dispatchGear({ type: 'gear/set', open })}
+      >
+        <SheetContent side="right" className="sb-gear-sheet">
+          <SheetHeader>
+            <SheetTitle>Setup and tuning</SheetTitle>
+          </SheetHeader>
+          <div className="sb-gear-panel">
+            <SetupPanel
+              SB={SB}
+              seed={seed}
+              setSeed={setSeed}
+              bagId={bagId}
+              setBagId={setBagId}
+              keyUnlocked={keyUnlocked}
+              discovered={discovered}
+              volume={volume}
+              setVolume={setVolume}
+              sfxOn={sfxOn}
+              setSfxOn={setSfxOn}
+              helper={helper}
+              setHelper={setHelper}
+              phase={phase}
+              start={start}
+              round={round}
+              run={run}
+            />
+            <StartingQuills
+              SB={SB}
+              itemIds={itemIds}
+              setItemIds={setItemIds}
+              run={run}
+            />
+            <TuningPanel SB={SB} tune={tune} setConst={setConst} />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {phase === 'idle' && (
         <TitleScreen
@@ -1406,34 +1446,6 @@ export default function RoundSandbox() {
       )}
 
       <RunStrip run={run} phase={phase} />
-
-      <div className="sb-gear-panel">
-        <SetupPanel
-          SB={SB}
-          seed={seed}
-          setSeed={setSeed}
-          bagId={bagId}
-          setBagId={setBagId}
-          keyUnlocked={keyUnlocked}
-          discovered={discovered}
-          volume={volume}
-          setVolume={setVolume}
-          sfxOn={sfxOn}
-          setSfxOn={setSfxOn}
-          helper={helper}
-          setHelper={setHelper}
-          phase={phase}
-          start={start}
-          round={round}
-          run={run}
-        />
-        <StartingQuills
-          SB={SB}
-          itemIds={itemIds}
-          setItemIds={setItemIds}
-          run={run}
-        />
-      </div>
 
       {round && (
         <section
@@ -1574,8 +1586,6 @@ export default function RoundSandbox() {
             playWord={playWord}
           />
         )}
-
-      <TuningPanel SB={SB} tune={tune} setConst={setConst} />
     </div>
   );
 }
