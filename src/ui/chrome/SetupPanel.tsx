@@ -3,6 +3,7 @@
 // counts. Extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure
 // props in, no fight.current/round mutation of its own.
 import GearMeta from './GearMeta';
+import { Slider } from '../primitives/slider';
 import type { RunFacade, RoundFacade } from '../../engine/state/facade';
 
 interface TileBag {
@@ -84,15 +85,14 @@ export default function SetupPanel({
         </div>
       </div>
       <GearMeta SB={SB} keyUnlocked={keyUnlocked} discovered={discovered} />
-      <label>
+      <label className="sb-volume">
         Volume
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.05"
+        <Slider
+          min={0}
+          max={1}
+          step={0.05}
           value={volume}
-          onChange={(e) => setVolume(Number(e.target.value))}
+          onValueChange={(v) => setVolume(Array.isArray(v) ? v[0]! : v)}
         />
       </label>
       <label className="sb-toggle" title="Tile, swap, shop and ink sounds">

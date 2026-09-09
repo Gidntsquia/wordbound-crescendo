@@ -11,9 +11,13 @@ function Slider({
 }: SliderPrimitive.Root.Props) {
   const _values = Array.isArray(value)
     ? value
-    : Array.isArray(defaultValue)
-      ? defaultValue
-      : [min, max];
+    : value != null
+      ? [value]
+      : Array.isArray(defaultValue)
+        ? defaultValue
+        : defaultValue != null
+          ? [defaultValue]
+          : [min];
 
   return (
     <SliderPrimitive.Root
