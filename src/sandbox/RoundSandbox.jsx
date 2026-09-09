@@ -8,6 +8,7 @@
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
 import { createDragReorder } from '../engine/dragReorder';
+import { createRunFacadeFromOpts, fromSeed } from '../engine/state/facade';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';
 import TitleScreen from '../ui/meta/TitleScreen.jsx';
@@ -332,12 +333,15 @@ export default function RoundSandbox() {
     on: readSfxOn(),
   }));
   const sfxOn = sfxState.on;
-  const setSfxOn = useCallback((next) => {
-    dispatchSfx({
-      type: 'sfx/set',
-      on: typeof next === 'function' ? next(sfxOn) : next,
-    });
-  }, [sfxOn]);
+  const setSfxOn = useCallback(
+    (next) => {
+      dispatchSfx({
+        type: 'sfx/set',
+        on: typeof next === 'function' ? next(sfxOn) : next,
+      });
+    },
+    [sfxOn],
+  );
   sfxOnRef.current = sfxOn;
   useEffect(() => {
     writeSfxOn(sfxOn);
@@ -668,7 +672,7 @@ export default function RoundSandbox() {
     (seedOverride) => {
       const useSeed = typeof seedOverride === 'string' ? seedOverride : seed;
       if (useSeed !== seed) setSeed(useSeed);
-      const rng = window.Game.RNG.create(useSeed);
+      const rngState = fromSeed(useSeed);
 
       let ctx = fight.current?.ctx;
       let gain = fight.current?.gain;
@@ -698,20 +702,22 @@ export default function RoundSandbox() {
       }
 
       const characterDef = SB.CHARACTER_DEFS[characterId];
-      const run = SB.createRun({
-        rng,
-        deck: SB.createBagDeck(bagId),
-        tune,
-        items: characterDef
-          ? [...itemIds, characterDef.passive.id]
-          : [...itemIds],
-        crescendo: crescendoNow,
-        key,
-        extendCrescendo: (extraSec) => {
-          const s = fight.current?.seq;
-          if (s && s.extendCrescendo) s.extendCrescendo(extraSec);
+      const run = createRunFacadeFromOpts(
+        {
+          deck: SB.createBagDeck(bagId),
+          tune,
+          items: characterDef
+            ? [...itemIds, characterDef.passive.id]
+            : [...itemIds],
+          crescendo: crescendoNow,
+          key,
+          extendCrescendo: (extraSec) => {
+            const s = fight.current?.seq;
+            if (s && s.extendCrescendo) s.extendCrescendo(extraSec);
+          },
         },
-      });
+        rngState,
+      );
       run.character = characterId;
       fight.current = {
         ...(fight.current || {}),
@@ -829,7 +835,13 @@ export default function RoundSandbox() {
 
   // Leave the shop and go on to the next enemy.
   const leaveShop = useCallback(() => {
-    dispatchFight({ type: 'fight/leaveShop', fight, phase, markSeen, startStage });
+    dispatchFight({
+      type: 'fight/leaveShop',
+      fight,
+      phase,
+      markSeen,
+      startStage,
+    });
   }, [phase, startStage, markSeen]);
 
   // Walk past a small or big enemy for its favour.
@@ -1324,7 +1336,13 @@ export default function RoundSandbox() {
           const tile = r.rack[p.fromIndex];
           if (!tile) return;
           if (p.toRow === 'rack') {
-            dispatchFight({ type: 'fight/moveTile', fight, fromIndex: p.fromIndex, to: p.to, refresh });
+            dispatchFight({
+              type: 'fight/moveTile',
+              fight,
+              fromIndex: p.fromIndex,
+              to: p.to,
+              refresh,
+            });
             return;
           }
           // Case -> stick: stage the letter at the finger's slot.
@@ -1345,7 +1363,13 @@ export default function RoundSandbox() {
         if (p.id) {
           const i = r.rack.findIndex((t) => t.id === p.id);
           if (i >= 0) {
-            dispatchFight({ type: 'fight/moveTile', fromIndex: i, to: p.to, fight, refresh });
+            dispatchFight({
+              type: 'fight/moveTile',
+              fromIndex: i,
+              to: p.to,
+              fight,
+              refresh,
+            });
           } else {
             refresh();
           }
@@ -1754,29 +1778,29 @@ export default function RoundSandbox() {
           )}
           {phase !== 'shop' &&
             round.plays.length > (scoring && !scoring.cleared ? 1 : 0) && (
-            <ol className="sb-plays">
-              {(scoring && !scoring.cleared
-                ? round.plays.slice(0, -1)
-                : round.plays
-              ).map((p, i) => (
-                <li key={i}>
-                  <span className="sb-plays-word">
-                    {i === round.plays.length - 1 && p.tiles
-                      ? p.tiles.map((t, j) => (
-                          <i key={t.id} data-flip-tile-id={t.id}>
-                            {p.word[j]}
-                          </i>
-                        ))
-                      : p.word}
-                  </span>
-                  <span className="sb-plays-how">
-                    {describeBreakdown(p.breakdown)}
-                  </span>
-                  <b className="sb-figure">{p.breakdown.total}</b>
-                </li>
-              ))}
-            </ol>
-          )}
+              <ol className="sb-plays">
+                {(scoring && !scoring.cleared
+                  ? round.plays.slice(0, -1)
+                  : round.plays
+                ).map((p, i) => (
+                  <li key={i}>
+                    <span className="sb-plays-word">
+                      {i === round.plays.length - 1 && p.tiles
+                        ? p.tiles.map((t, j) => (
+                            <i key={t.id} data-flip-tile-id={t.id}>
+                              {p.word[j]}
+                            </i>
+                          ))
+                        : p.word}
+                    </span>
+                    <span className="sb-plays-how">
+                      {describeBreakdown(p.breakdown)}
+                    </span>
+                    <b className="sb-figure">{p.breakdown.total}</b>
+                  </li>
+                ))}
+              </ol>
+            )}
           {phase === 'won' && (
             <div className="sb-outcome sb-win">
               Won — {round.ink} ink ({round.reward} +{' '}
