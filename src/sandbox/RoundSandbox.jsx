@@ -1570,7 +1570,6 @@ export default function RoundSandbox() {
             rackShown={rackShown}
             drag={drag}
             letters={letters}
-            word={word}
             setWord={setWord}
             play={play}
             changeout={changeout}
