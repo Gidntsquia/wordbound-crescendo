@@ -5,9 +5,11 @@ import type { Tile } from '../../engine/tiles';
 export default function PilesDrawer({
   drawPile,
   discardPile,
+  characterTile,
 }: {
   drawPile: readonly unknown[];
   discardPile: readonly Tile[];
+  characterTile?: Tile | null;
 }) {
   return (
     <details className="sb-piles" aria-label="The bag and the discard pile">
@@ -19,6 +21,17 @@ export default function PilesDrawer({
           <b>{discardPile.length}</b> discarded
         </span>
       </summary>
+      {characterTile && (
+        <p
+          className="sb-hint"
+          title="Your character's letter is never drawn or discarded -- it stays in its own slot."
+        >
+          <span className="sb-pile-tile is-character">
+            {characterTile.letter}
+          </span>{' '}
+          is your own — never in the bag or the discard pile.
+        </p>
+      )}
       <div className="sb-pile-tiles">
         {discardPile.length === 0 && (
           <span className="sb-hint">Nothing discarded yet.</span>

@@ -1208,6 +1208,11 @@ button:disabled {
   color: var(--ink);
   opacity: 0.75;
 }
+.sb-pile-tile.is-character {
+  background: var(--gilt, var(--brass-hot));
+  border-color: var(--gilt, var(--brass-hot));
+  opacity: 1;
+}
 
 .sb-input input.is-unformable {
   border-color: var(--brass);

@@ -236,12 +236,20 @@ Tiles/WORD_SET/WORDLIST/Items/StolenLetters` stay — that's
   (word loses the letter, slot re-shows the tile), and dragging an
   ordinary rack tile onto the character slot bounces (slot still shows
   the character tile, nothing staged) — zero console errors in all three.
-  **Still deferred:** deck-view separation in `PilesDrawer.tsx` — since
-  the tile is never in `pile.drawPile`/`discardPile` there is nothing to
-  separate out, but the spec's intent (a persistent, always-visible line
-  for it in deck view) isn't rendered there either; blank `?` disallowed
+  Deck-view line — DONE: `PilesDrawer.tsx` takes a `characterTile` prop
+  (passed from `PlayBoard.tsx`, which already had it) and renders a
+  persistent `sb-hint` line above the discard-pile chips — the tile's
+  letter in a gilt `.sb-pile-tile.is-character` chip plus "is your own —
+  never in the bag or the discard pile" — so the deck view names it
+  explicitly instead of it simply being absent from the list. Verified:
+  typecheck/lint/format/build clean; live Playwright pass — opened the
+  deck-view disclosure mid-fight, confirmed the line reads `Z is your own
+— never in the bag or the discard pile.` with the gilt chip, and that
+  the existing "0 discarded"/"Nothing discarded yet." listing still
+  renders correctly beneath it — zero console errors. Blank `?` disallowed
   for characters is moot today (no roster entry has a blank letter) and
-  unguarded.
+  unguarded — not pursued, since nothing in the roster can trigger it.
+  D1 is fully closed.
 
 - **A4 — component split.** DONE. `RoundSandbox.jsx` (1,898 lines) has
   had `SetupPanel`, `StartingQuills`, `EnemyIntroCard`, `ScoreLine`,
@@ -554,11 +562,8 @@ phase-effect/`showResolution` patterns already used elsewhere in the file.
 mention the crescendo") is not implemented — `SITUATIONS` entries have one
 static `opening[]` regardless of enemy kind.
 
-**D1 (remainder) — deck-view line for the character tile.** See Done
-above for what landed (the tile mechanic itself, and its drag support).
-Still open: a persistent line for it in `PilesDrawer.tsx`'s deck view
-(today it's simply absent there, since it's never in a pile). D4: revisit
-`MOVEMENT_BASE_n` once every player has a letter.
+**D4 (open follow-up)** — revisit `MOVEMENT_BASE_n` once every player has
+a letter.
 
 **E1 (remainder) — poses.** Every sheet has one static image; `Sprite`
 keys SVG lookup by sheet id only, so the `pose` prop changes a `data-`

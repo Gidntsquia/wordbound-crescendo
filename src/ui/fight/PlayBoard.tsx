@@ -224,6 +224,7 @@ const PlayBoard = forwardRef<
       <PilesDrawer
         drawPile={round.pile.drawPile}
         discardPile={round.pile.discardPile}
+        characterTile={characterTile}
       />
       {helper && (
         <SuggestionsDrawer
