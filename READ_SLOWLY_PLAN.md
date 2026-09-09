@@ -210,14 +210,23 @@ lived inside a function literally named `use*` (the lint rules are
 hook-aware, not just file-aware). Verified: typecheck/lint/format clean;
 live Playwright pass confirms tile-tap (crescendo path) and pointer-drag
 rack-to-stick (drag-reorder path) both still work with zero console
-errors. `useSfx` is NOT extracted — the audio-context lifecycle
-(visibility/resume, rebuild-after-`closed`, warm-ahead, stage-start
-music) is tightly coupled to the mutable `fight` ref and has mobile
-background/resume failure modes nothing automated here can exercise;
-extracting it risks a regression only a phone check would catch, so it's
-left open pending that check. `src/app/App.tsx`'s phase router and the
-rest of the `ui/` feature split remain open too, tied to A4's remaining
-`RoundSandbox.jsx` reduction below.
+errors. `useSfx(fight)` is now also extracted (`f1c9d76`): the sfx-on
+toggle (persisted via `app/store.ts`) plus the `sfx(name, ...args)`
+dispatcher used throughout the file. Same lint-driven restructure
+pattern — `sfxOnRef.current = sfxOn` moved from a synchronous
+during-render write into the existing sfxOn-change effect. Verified:
+typecheck/lint/format clean; live Playwright pass confirms the gear
+panel's sfx checkbox toggles on/off and a tile-tap (which fires
+`sfx('tick', ...)`) still works, zero console errors. This closes A2's
+`useSfx` item as scoped — the toggle + dispatcher, not the underlying
+audio-context/recording lifecycle (ctx/gain/seq creation, visibility-
+resume, rebuild-after-`closed`, warm-ahead, stage-start music), which
+stays tightly coupled to the mutable `fight` ref in `RoundSandbox.jsx`.
+That lifecycle has real mobile background/resume failure modes nothing
+automated here can exercise, so pulling it into its own hook still needs
+a phone check first — left open, not attempted. `src/app/App.tsx`'s
+phase router and the rest of the `ui/` feature split remain open too,
+tied to A4's remaining `RoundSandbox.jsx` reduction below.
 
 `main.tsx` is mount only now beyond four unavoidable legacy-global loads
 (`rng.ts`/`lexicon.ts`/`tiles.ts`/`wordlist.js` — nothing ES-imports them
