@@ -268,7 +268,19 @@ position (`.sb-gear-panel` has `margin-top`, not absolute positioning), so
 wrapping them in one component would reorder them in the page and change
 what the reader sees when the gear is open — not a mechanical extraction.
 Left for the A6 pass, where the gear becomes a Sheet overlay and DOM order
-stops mattering. `Callout.tsx` on Sonner not yet done (also ties into A6);
+stops mattering. `Callout.tsx` on Sonner — DONE (`ba2f69f`), per Jaxon's
+explicit call (asked because converting to real floating Sonner toasts,
+rather than a bespoke-inline-div dedup, is a genuine UX change, not a
+mechanical move): `src/ui/chrome/Callout.tsx`'s `useCallout(show, message)`
+fires a Sonner `toast()` the moment `show` flips true, latched so it never
+repeats even if `show` flickers before the `seen` id is marked (matters for
+the stick hint). All five call sites (rack, stick, swap, shop, character)
+converted; `<Toaster position="top-center" />` mounted once at
+`RoundSandbox`'s render root; the now-dead `.sb-callout`/`.sb-callout-inline`
+CSS and `callout-in` keyframes removed. Verified: typecheck/lint/format
+clean; live Playwright pass confirms all four fight-flow toasts (character,
+rack, stick, — swap/shop not separately re-verified this pass, same code
+path) fire with the exact expected text and zero console errors.
 `RoundSandbox.jsx` itself still well over 200 lines and not yet renamed to
 `FightScreen.tsx` or deleted — that's the final step of this item.
 
