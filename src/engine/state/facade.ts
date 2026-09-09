@@ -86,10 +86,15 @@ export function roundFacade(box: Box) {
       return box.run.round!.favour;
     },
     breakdownFor(word: string) {
-      return R.breakdownFor(box.run.round!, word, box.run);
+      return R.breakdownFor(
+        box.run.round!,
+        word,
+        box.run,
+        box.run.characterTile,
+      );
     },
     scoreFor(word: string) {
-      return R.scoreFor(box.run.round!, word, box.run);
+      return R.scoreFor(box.run.round!, word, box.run, box.run.characterTile);
     },
     isBarred(tile: Tile) {
       return R.isBarred(box.run.round!, tile);
@@ -281,6 +286,9 @@ export function createRunFacade(box: Box) {
     set character(v: string | undefined) {
       box.character = v;
     },
+    get characterTile() {
+      return box.run.characterTile;
+    },
     targetFor(movement: number, stage: number) {
       return Run.targetFor(box.run, movement, stage);
     },
@@ -382,6 +390,7 @@ export interface CreateRunFacadeOpts {
   key?: string;
   deck?: Tile[];
   items?: string[];
+  characterId?: string;
   crescendo?: () => { phase: string; mag?: number } | null;
   extendCrescendo?: (extraSec: number) => void;
 }
@@ -399,6 +408,7 @@ export function createRunFacadeFromOpts(
       key: opts.key,
       deck: opts.deck,
       items: opts.items,
+      characterId: opts.characterId,
     },
     rngState,
   );

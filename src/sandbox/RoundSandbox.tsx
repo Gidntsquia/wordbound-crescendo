@@ -473,8 +473,8 @@ export default function RoundSandbox() {
   const keyUnlocked = keyUnlockedState.index;
   const [key, setKey] = useState(() => readKeyChoice(readKeyUnlocked(), SB));
   // READ_SLOWLY_PLAN.md stage D: the chosen playable letter character. Its
-  // passive is threaded into createRun's `items` list; the always-playable
-  // extra-tile mechanic itself is not yet wired (see characters.ts's header).
+  // passive is threaded into createRun's `items` list, and its permanent
+  // tile (D1) is threaded into createRunFacadeFromOpts's `characterId`.
   const [characterId, setCharacterId] = useState(
     () => unlockedCharacters()[0] || 'zed',
   );
@@ -813,6 +813,7 @@ export default function RoundSandbox() {
             : [...itemIds],
           crescendo: crescendoNow,
           key,
+          characterId: characterDef ? characterId : undefined,
           extendCrescendo: (extraSec: number) => {
             const s = fight.current?.seq;
             if (s && s.extendCrescendo) s.extendCrescendo(extraSec);
@@ -993,15 +994,18 @@ export default function RoundSandbox() {
   const rackLetters = round ? round.rack.map((t) => t.letter).join('') : '';
   const letters = word.toUpperCase().replace(/[^A-Z?]/g, '');
 
-  // Which rack tile stands in each position of the stick.
+  // Which rack tile (or the permanent character tile, READ_SLOWLY_PLAN.md
+  // D1) stands in each position of the stick.
+  const characterTile = run ? run.characterTile : null;
   const slots: (Tile | null)[] = (() => {
     if (!round || !letters) return [];
+    const pool: Tile[] = characterTile
+      ? round.rack.concat([characterTile])
+      : (round.rack as Tile[]);
     const out: (Tile | null)[] = new Array(letters.length).fill(null);
     const used = new Set<string>();
     for (let i = 0; i < letters.length; i++) {
-      const t = round.rack.find(
-        (x) => !used.has(x.id) && x.letter === letters[i],
-      );
+      const t = pool.find((x) => !used.has(x.id) && x.letter === letters[i]);
       if (t) {
         out[i] = t;
         used.add(t.id);
@@ -1009,7 +1013,7 @@ export default function RoundSandbox() {
     }
     for (let i = 0; i < letters.length; i++) {
       if (out[i]) continue;
-      const t = round.rack.find((x) => !used.has(x.id) && x.letter === '?');
+      const t = pool.find((x) => !used.has(x.id) && x.letter === '?');
       if (t) {
         out[i] = t;
         used.add(t.id);
@@ -1168,6 +1172,12 @@ export default function RoundSandbox() {
           sfx('shimmer', step.slotKind);
           show();
           await wait(CASCADE.ITEM_MS);
+        } else if (step.kind === 'character') {
+          st.litTile = step.tile?.id ?? null;
+          float(step.tile?.id, '+' + step.pts, 'pts');
+          sfx('shimmer', 'character');
+          show();
+          await wait(CASCADE.ITEM_MS);
         } else {
           // a steel tile held, or the tile's own x-mult
           if (step.tile) st.litTile = step.tile.id;
@@ -1265,7 +1275,7 @@ export default function RoundSandbox() {
   const stageTile = (tile: Tile) => {
     captureFlipFrom(tile.id);
     sfx('tick', letters.length, 1);
-    markSeen('rack');
+    markSeen(tile.origin === 'character' ? 'character' : 'rack');
     setWord(letters + (tile.letter === '?' ? '?' : tile.letter));
   };
   const unstageAt = (i: number) => {
@@ -1584,6 +1594,8 @@ export default function RoundSandbox() {
             indexing={indexing}
             suggestions={suggestions}
             playWord={playWord}
+            characterTile={characterTile}
+            characterPicked={!!characterTile && pickedIds.has(characterTile.id)}
           />
         )}
     </div>

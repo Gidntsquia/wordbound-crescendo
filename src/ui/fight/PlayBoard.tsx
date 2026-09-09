@@ -105,6 +105,8 @@ const PlayBoard = forwardRef<
     indexing: boolean;
     suggestions: Suggestion[];
     playWord: (word: string) => void;
+    characterTile?: Tile | null;
+    characterPicked?: boolean;
   }
 >(function PlayBoard(
   {
@@ -140,12 +142,18 @@ const PlayBoard = forwardRef<
     indexing,
     suggestions,
     playWord,
+    characterTile,
+    characterPicked,
   },
   playRef,
 ) {
   useCallout(
     live && !seen.has('rack') && round.plays.length === 0,
     'Tap letters to spell a word',
+  );
+  useCallout(
+    live && !!characterTile && !seen.has('character'),
+    'Your letter — tap it into any word. It scores extra and comes back after.',
   );
   return (
     <section className="sb-play" ref={playRef as React.Ref<HTMLElement>}>
@@ -162,6 +170,8 @@ const PlayBoard = forwardRef<
         say={say}
         sfx={sfx}
         letterValues={W.Lexicon.LETTER_VALUES}
+        characterTile={characterTile}
+        characterPicked={characterPicked}
       />
 
       {inking && (

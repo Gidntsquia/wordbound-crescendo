@@ -70,6 +70,10 @@ export const ROUND_DEFAULTS: Tune = {
   PREMIUM_DL: 2, // x letter points on the tile in the slot
   PREMIUM_TL: 3,
   PREMIUM_DW: 2, // x mult, whole word
+  // READ_SLOWLY_PLAN.md D1: the permanent character tile's own bonus when
+  // played, on top of whatever else the word earns.
+  CHAR_LETTER_MULT: 2, // x its own letter value
+  CHAR_MULT: 1, // x the whole word's mult
 };
 
 export interface PremiumKind {
@@ -263,7 +267,15 @@ export function chordPoints(word: string, tune: Tune): number {
 
 export interface Step {
   kind:
-    'tier' | 'letter' | 'hold' | 'slot' | 'item' | 'rule' | 'chord' | 'tilex';
+    | 'tier'
+    | 'letter'
+    | 'hold'
+    | 'slot'
+    | 'item'
+    | 'rule'
+    | 'chord'
+    | 'tilex'
+    | 'character';
   name?: string;
   level?: number;
   tile?: Tile;
@@ -302,6 +314,9 @@ export interface Breakdown {
   slotMultRatio: number;
   slotKind: string | null;
   slotTile: Tile | null;
+  charBonusPts: number;
+  charMultRatio: number;
+  charTile: Tile | null;
   itemNotes: ItemNote[];
   chordWord: string | null;
   crescendo: boolean;
@@ -324,6 +339,10 @@ interface ScoreCtx {
   round: unknown;
   preview?: boolean;
   crescendo?: { phase: string; mag?: number } | null;
+  // READ_SLOWLY_PLAN.md D1: the permanent character tile, if it's among
+  // tilesUsed this play -- undefined/null for a run with no character (or
+  // a play that didn't use it).
+  characterTile?: Tile | null;
 }
 
 // POINTS x MULT for a word made of these tiles. `breakdown` keeps
@@ -400,6 +419,20 @@ export function scoreWordPoints(
     b.slotKind = kind;
     b.slotTile = slotTile;
   }
+  // The permanent character tile (READ_SLOWLY_PLAN.md D1): its own letter
+  // scores at CHAR_LETTER_MULT instead of 1x, and the whole word's mult
+  // gets an extra x CHAR_MULT, whenever it's among the tiles played.
+  b.charBonusPts = 0;
+  b.charMultRatio = 1;
+  b.charTile = null;
+  const charTile = ctx.characterTile;
+  if (charTile && tilesUsed.some((t) => t.id === charTile.id)) {
+    const letterVal = Lexicon.LETTER_VALUES[charTile.letter] || 0;
+    const charLetterMult = Number(tune.CHAR_LETTER_MULT) || 1;
+    b.charBonusPts = Math.round(letterVal * (charLetterMult - 1));
+    b.charMultRatio = Number(tune.CHAR_MULT) || 1;
+    b.charTile = charTile;
+  }
   // Items fire left to right on the running points and mult.
   const acc: {
     points: number;
@@ -412,8 +445,9 @@ export function scoreWordPoints(
       b.bonusFlat +
       b.variantFlat +
       b.inkPoints +
-      b.slotPoints,
-    mult: (b.tierMult + b.inkMult) * b.slotMultRatio,
+      b.slotPoints +
+      b.charBonusPts,
+    mult: (b.tierMult + b.inkMult) * b.slotMultRatio * b.charMultRatio,
   };
   const before = { points: acc.points, mult: acc.mult };
   const round = ctx.round as
@@ -577,6 +611,18 @@ export function scoreSteps(
       ratio: b.slotMultRatio,
       label: slotLabel,
       tone: b.slotKind === 'dw' ? 'mult' : 'pts',
+    });
+  }
+  if (b.charTile) {
+    push({
+      kind: 'character',
+      tile: b.charTile,
+      letter: b.charTile.letter,
+      pts: b.charBonusPts,
+      mult: 0,
+      ratio: b.charMultRatio,
+      label: 'character tile',
+      tone: 'pts',
     });
   }
   (b.itemNotes || []).forEach((n) => {

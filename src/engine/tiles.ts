@@ -34,6 +34,12 @@ export interface Tile {
   // Set by marginalia.ts's applyMark (gilt/bold/steel/blank); persists on
   // the tile for the rest of the run, whether it's in the live case or not.
   mark?: string | null;
+  // READ_SLOWLY_PLAN.md D1: where this tile came from. Undefined means
+  // 'bag' (the overwhelming majority of tiles, created before this field
+  // existed) -- only the one permanent character tile (state/run.ts's
+  // RunState.characterTile) is tagged 'character'; nothing currently tags
+  // 'pack' since pack-rolled tiles behave identically to bag tiles.
+  origin?: 'bag' | 'pack' | 'character';
 }
 
 export interface PileState {

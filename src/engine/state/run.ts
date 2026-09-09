@@ -24,6 +24,7 @@ import {
   type Tune,
 } from '../content/round';
 import { ITEMS, ITEM_DEFS } from '../content/items';
+import { CHARACTERS } from '../content/characters';
 import { MARGINALIA, MARK_DEFS } from '../content/marginalia';
 import { getTileBag } from '../content/tileBags';
 import {
@@ -128,6 +129,11 @@ export interface RunState {
   readonly movementIIIQuillDone?: boolean;
   readonly movementIIIQuillFound?: string | null;
   readonly quillFound?: string | null;
+  // READ_SLOWLY_PLAN.md D1: the chosen character's permanent tile, playable
+  // in every word, that lives in its own slot for the whole run -- never
+  // part of the deck/pile/rack. Null for no character (or one with no
+  // roster entry).
+  readonly characterTile: Tile | null;
 }
 
 export interface CreateRunStateOpts {
@@ -135,6 +141,7 @@ export interface CreateRunStateOpts {
   key?: string;
   deck?: Tile[];
   items?: string[];
+  characterId?: string;
 }
 
 function kindMult(tune: Tune): Record<string, number> {
@@ -234,6 +241,12 @@ export function createRunState(
     Object.assign({}, ROUND_DEFAULTS, opts.tune || {}),
     opts.key,
   );
+  const character = opts.characterId
+    ? CHARACTERS.find((c) => c.id === opts.characterId)
+    : undefined;
+  const characterTile: Tile | null = character
+    ? { ...createTile(character.letter), origin: 'character' }
+    : null;
   const run: RunState = {
     key: opts.key || 'c_major',
     tune,
@@ -259,6 +272,7 @@ export function createRunState(
     wordsPlayed: 0,
     lastWin: null,
     state: 'live',
+    characterTile,
   };
   return begin(run, rngState);
 }
@@ -1107,6 +1121,7 @@ export function playWord(
   const [outcome, s] = R.playWord(run.round, word, rngState, {
     run,
     crescendo,
+    characterTile: run.characterTile,
   });
   let next = applyPlayEffects(
     { ...run, round: outcome.state },

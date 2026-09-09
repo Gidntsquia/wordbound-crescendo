@@ -182,6 +182,51 @@ Tiles/WORD_SET/WORDLIST/Items/StolenLetters` stay — that's
   session's browser pass — flagged here in case a future regression
   traces back to one of them.
 
+- **D1 — the character tile itself.** The permanent character tile is a
+  real `Tile` (`origin: 'character'`) on `RunState.characterTile`, created
+  in `state/run.ts`'s `createRunState` from the chosen character's
+  `letter` (`content/characters.ts`), NOT part of `round.rack`/pile/
+  discard/packs, so "never drawn", "never discarded", and "packs never
+  duplicate it" fall out for free. `Lexicon.canFormFromRack`'s search pool
+  is `round.rack` plus the character tile (both in `state/round.ts`'s
+  `playWord` and `breakdownFor`/`scoreFor`), so it's usable in any word
+  alongside the rack, at most once per word (it's a single extra tile in
+  the pool); after scoring, `playWord`'s discard-pile concat explicitly
+  excludes it by id, so it returns to its own slot instead. Scoring:
+  `CHAR_LETTER_MULT` (2) / `CHAR_MULT` (1) added to `ROUND_DEFAULTS`;
+  `scoreWordPoints` adds a `charBonusPts`/`charMultRatio` computed off the
+  character tile's own letter value when played, folded into `points`/
+  `mult`; `scoreSteps` emits a `'character'` `ScoreStep` the cascade
+  narrates (`RoundSandbox.tsx`'s `runCascade` has a `'character'` branch).
+  Rule interactions need no extra code: `no_repeats` reads
+  `round.usedLetters` (populated from `tilesUsed`, character tile
+  included) and `sotto_voce` reads `ctx.word.length` (the character
+  tile's letter is part of the typed word), both already correct.
+  `facade.ts` exposes `run.characterTile` and threads `characterId`
+  through `CreateRunFacadeOpts`/`createRunFacadeFromOpts` into
+  `Run.createRunState`. UI: `Rack.tsx` renders the tile in its own
+  `.sb-character-slot` beside the case (a hollow `is-slot` placeholder
+  once staged, same as a rack tile), tappable via the same `stageTile`;
+  `RoundSandbox.tsx`'s `slots` computation searches `round.rack` plus
+  `characterTile`, so staging/unstaging/barred-highlighting all work
+  unmodified; a first-use callout ("Your letter — tap it into any word...")
+  fires via `PlayBoard.tsx`'s `useCallout` gated on `seen.has('character')`,
+  marked seen by `stageTile` when the tapped tile's `origin` is
+  `'character'`. Verified: `bun run typecheck`/`lint`/`format`/`build`
+  clean; live Playwright smoke test (title → default character Zed →
+  fight → tile renders "Z" at its correct letter value 10 in its own slot
+  → tapped into "ZO" → played → scored 21 (base 11 + the tile's own
+  `charBonusPts`) → tile visibly back in its slot afterward, rack
+  reshuffled around it → confirmed via `window.__round.pile.discardPile`
+  that the Z tile is NOT in the discard pile). **Deferred, left for a
+  follow-up:** `useDragReorder`'s "third row that only accepts its own
+  tile back" — the character slot is tap-only, not draggable, today;
+  deck-view separation in `PilesDrawer.tsx` — since the tile is never in
+  `pile.drawPile`/`discardPile` there is nothing to separate out, but the
+  spec's intent (a persistent, always-visible line for it in deck view)
+  isn't rendered there either; blank `?` disallowed for characters is
+  moot today (no roster entry has a blank letter) and unguarded.
+
 ### Open (in build order)
 
 **A2 (remainder) — target layout.** `src/app/persistence.ts` now owns
@@ -393,25 +438,12 @@ phase-effect/`showResolution` patterns already used elsewhere in the file.
 mention the crescendo") is not implemented — `SITUATIONS` entries have one
 static `opening[]` regardless of enemy kind.
 
-**D1 — the character tile itself.** Not wired at all (see the header note
-in `characters.ts`; `RoundSandbox.jsx:366`). Today a chosen character only
-adds its passive as a hidden item. Spec:
-
-- `CharacterTileState = { tile: Tile }` on `RunState`; `Tile.origin:
-'bag' | 'pack' | 'character'`.
-- Its own slot beside the rack; playable at most once per word; never
-  drawn, never discarded, returns to the slot after scoring; changeouts
-  cannot discard it; tile packs never duplicate it; deck view shows it
-  separately.
-- Scoring: `CHAR_LETTER_MULT` / `CHAR_MULT` in `ROUND_DEFAULTS` (start 2 /
-  1 per D4), reported as a `character` `ScoreStep` the cascade narrates.
-  Neither tunable exists yet.
-- Rule interactions: `no_repeats` bars it, `sotto_voce` counts its length,
-  blank `?` disallowed. Marginalia apply via the normal path and persist
-  for the run.
-- `useDragReorder` treats the slot as a third row that only accepts its
-  own tile back. First-use callout.
-- D4: revisit `MOVEMENT_BASE_n` once every player has a letter.
+**D1 (remainder) — drag support and deck-view line for the character
+tile.** See Done above for what landed. Still open: `useDragReorder`
+treating the character slot as a third row that only accepts its own tile
+back (today it's tap-only); a persistent line for it in `PilesDrawer.tsx`'s
+deck view (today it's simply absent there, since it's never in a pile).
+D4: revisit `MOVEMENT_BASE_n` once every player has a letter.
 
 **E1 (remainder) — poses.** Every sheet has one static image; `Sprite`
 keys SVG lookup by sheet id only, so the `pose` prop changes a `data-`

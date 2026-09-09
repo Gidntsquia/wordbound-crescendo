@@ -218,10 +218,14 @@ export function breakdownFor(
   round: RoundState,
   word: string,
   run?: unknown,
+  characterTile?: Tile | null,
 ): Breakdown {
   const upper = String(word).toUpperCase();
   const Lexicon = window.Wordbound.Lexicon;
-  const form = Lexicon.canFormFromRack(upper, round.rack as Tile[]);
+  const searchPool = characterTile
+    ? (round.rack as Tile[]).concat([characterTile])
+    : (round.rack as Tile[]);
+  const form = Lexicon.canFormFromRack(upper, searchPool);
   const tiles: Tile[] = form.possible
     ? form.tilesUsed!
     : upper.split('').map(
@@ -243,6 +247,7 @@ export function breakdownFor(
     round: round as never,
     preview: true,
     crescendo: null,
+    characterTile,
   });
 }
 
@@ -250,8 +255,9 @@ export function scoreFor(
   round: RoundState,
   word: string,
   run?: unknown,
+  characterTile?: Tile | null,
 ): number {
-  return breakdownFor(round, word, run).total;
+  return breakdownFor(round, word, run, characterTile).total;
 }
 
 // What an item's onPlayed hook (content/items.ts, e.g. refrain's counter,
@@ -288,6 +294,7 @@ export function playWord(
   ctx: {
     run?: unknown;
     crescendo?: { phase: string; mag?: number } | null;
+    characterTile?: Tile | null;
   } = {},
 ): [PlayOutcome, RngState] {
   if (round.state !== 'live')
@@ -312,7 +319,11 @@ export function playWord(
       rngState,
     ];
   const Lexicon = window.Wordbound.Lexicon;
-  const form = Lexicon.canFormFromRack(upper, round.rack as Tile[]);
+  const characterTile = ctx.characterTile ?? null;
+  const searchPool = characterTile
+    ? (round.rack as Tile[]).concat([characterTile])
+    : (round.rack as Tile[]);
+  const form = Lexicon.canFormFromRack(upper, searchPool);
   if (!form.possible)
     return [
       {
@@ -347,10 +358,20 @@ export function playWord(
     run: (ctx.run as never) || null,
     round: round as never,
     crescendo: ctx.crescendo,
+    characterTile,
   });
 
+  // The character tile (READ_SLOWLY_PLAN.md D1) is never part of round.rack
+  // and must never be drawn/discarded -- it returns to its own slot after
+  // every play, so it's excluded here even though it's in tilesUsed.
   const rackAfterRemove = round.rack.filter((t) => tilesUsed.indexOf(t) < 0);
-  const discardPile = round.pile.discardPile.concat(tilesUsed, rackAfterRemove);
+  const tilesToDiscard = characterTile
+    ? tilesUsed.filter((t) => t.id !== characterTile.id)
+    : tilesUsed;
+  const discardPile = round.pile.discardPile.concat(
+    tilesToDiscard,
+    rackAfterRemove,
+  );
   const need = round.rackSize;
   const [newRack, pileAfterDraw, s2] = pureDraw(
     { drawPile: round.pile.drawPile, discardPile },

@@ -37,6 +37,8 @@ export default function Rack({
   say,
   sfx,
   letterValues,
+  characterTile,
+  characterPicked,
 }: {
   rackShown: RackEntry[];
   live: boolean;
@@ -50,53 +52,92 @@ export default function Rack({
   say: (m: string) => void;
   sfx: (name: string, ...a: unknown[]) => void;
   letterValues: Record<string, number>;
+  characterTile?: Tile | null;
+  characterPicked?: boolean;
 }) {
   return (
-    <div className="sb-rack">
-      {rackShown.map(({ t, i, picked, hollow }) =>
-        picked ? (
-          <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
-        ) : (
-          <button
-            key={t.id}
-            type="button"
-            disabled={!live}
-            className={
-              'sb-tile' +
-              (hollow ? ' is-dragging' : '') +
-              (t.mark ? ' is-mark-' + t.mark : '') +
-              (inking && inking.ids.includes(t.id) ? ' is-inking' : '') +
-              (round.isBarred(t) ? ' is-barred' : '') +
-              (scoring && scoring.litTile === t.id ? ' is-lit' : '')
-            }
-            data-flip-tile-id={t.id}
-            title={
-              t.mark
-                ? SB.MARK_DEFS[t.mark]!.name +
-                  ' — ' +
-                  SB.MARK_DEFS[t.mark]!.hint
-                : undefined
-            }
-            {...(inking || !drag ? {} : drag.bind('rack', i, t.id))}
-            onClick={() =>
-              inking
-                ? toggleInkTile(t.id)
-                : round.isBarred(t)
+    <div className="sb-rack-row">
+      {characterTile && (
+        <div className="sb-character-slot">
+          {characterPicked ? (
+            <span className="sb-tile is-slot" aria-hidden="true" />
+          ) : (
+            <button
+              type="button"
+              disabled={!live}
+              className={
+                'sb-tile is-character' +
+                (round.isBarred(characterTile) ? ' is-barred' : '') +
+                (scoring && scoring.litTile === characterTile.id
+                  ? ' is-lit'
+                  : '')
+              }
+              data-flip-tile-id={characterTile.id}
+              title="Your character's own tile — always here, returns after every word."
+              onClick={() =>
+                round.isBarred(characterTile)
                   ? (sfx('thud'),
                     say(
-                      t.letter +
+                      characterTile.letter +
                         ' has been played this round — ' +
                         round.rule!.name +
                         '.',
                     ))
-                  : stageTile(t)
-            }
-          >
-            {t.letter === '?' ? '␣' : t.letter}
-            <sub>{letterValues[t.letter] || 0}</sub>
-          </button>
-        ),
+                  : stageTile(characterTile)
+              }
+            >
+              {characterTile.letter}
+              <sub>{letterValues[characterTile.letter] || 0}</sub>
+            </button>
+          )}
+        </div>
       )}
+      <div className="sb-rack">
+        {rackShown.map(({ t, i, picked, hollow }) =>
+          picked ? (
+            <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
+          ) : (
+            <button
+              key={t.id}
+              type="button"
+              disabled={!live}
+              className={
+                'sb-tile' +
+                (hollow ? ' is-dragging' : '') +
+                (t.mark ? ' is-mark-' + t.mark : '') +
+                (inking && inking.ids.includes(t.id) ? ' is-inking' : '') +
+                (round.isBarred(t) ? ' is-barred' : '') +
+                (scoring && scoring.litTile === t.id ? ' is-lit' : '')
+              }
+              data-flip-tile-id={t.id}
+              title={
+                t.mark
+                  ? SB.MARK_DEFS[t.mark]!.name +
+                    ' — ' +
+                    SB.MARK_DEFS[t.mark]!.hint
+                  : undefined
+              }
+              {...(inking || !drag ? {} : drag.bind('rack', i, t.id))}
+              onClick={() =>
+                inking
+                  ? toggleInkTile(t.id)
+                  : round.isBarred(t)
+                    ? (sfx('thud'),
+                      say(
+                        t.letter +
+                          ' has been played this round — ' +
+                          round.rule!.name +
+                          '.',
+                      ))
+                    : stageTile(t)
+              }
+            >
+              {t.letter === '?' ? '␣' : t.letter}
+              <sub>{letterValues[t.letter] || 0}</sub>
+            </button>
+          ),
+        )}
+      </div>
     </div>
   );
 }

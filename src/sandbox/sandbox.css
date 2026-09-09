@@ -895,11 +895,30 @@ button:disabled {
   margin-bottom: 22px;
 }
 
+.sb-rack-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.sb-character-slot {
+  flex: 0 0 auto;
+  padding-right: 12px;
+  border-right: 1px solid var(--leaf);
+  margin-right: 2px;
+}
+
+.sb-tile.is-character {
+  background: var(--gilt, var(--brass-hot));
+  border-color: var(--gilt, var(--brass-hot));
+}
+
 .sb-rack {
   display: flex;
   gap: 7px;
   flex-wrap: wrap;
   margin-bottom: 14px;
+  flex: 1 1 auto;
 }
 
 /* A rack tile is a piece of foundry type: paper face, ink letter, point size

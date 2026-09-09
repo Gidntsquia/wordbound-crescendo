@@ -4,14 +4,11 @@
 // list) rather than new plumbing. Unlock progress persists in localStorage
 // as wbc.characters, mirroring stolenLetters.ts's pattern.
 //
-// NOT YET WIRED (READ_SLOWLY_PLAN.md D1's core mechanic): the permanent
-// character tile that sits in its own slot, is playable in every word, and
-// returns after scoring instead of being drawn/discarded. That needs a
-// third slot in round.ts's rack/stick/playWord/changeout plumbing, which
-// this pass deliberately did not touch (see the header note in round.ts's
-// CreateRunOpts for where `characterId` is threaded through). Right now a
-// chosen character only registers its passive as a normal hidden item --
-// the extra always-playable tile itself is a follow-up.
+// D1's permanent character tile (its own slot, playable in every word,
+// returns after scoring instead of being drawn/discarded) is wired in
+// state/run.ts's RunState.characterTile / state/round.ts's playWord and
+// breakdownFor/scoreFor / facade.ts's characterId threading -- this file
+// only owns the roster and passives.
 import { ITEM_DEFS } from './items';
 import type { Item, ItemCtx, ItemAcc } from './items';
 
