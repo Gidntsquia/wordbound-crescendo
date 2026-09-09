@@ -213,15 +213,19 @@ left for that pass rather than done twice; renaming surviving `inks`-era
 names (`applyInk`, `useInk`, `is-mark-*` is fine — already the current
 names, nothing left to rename there).
 
-**A4 — component split.** `RoundSandbox.jsx` is 1,898 lines; `PlayBoard.jsx`
-is 464, `Shop.jsx` 316, `HeldRow.jsx` 218; `sandbox.css` is 3,217 lines
-and nothing uses a Tailwind utility class yet (zero hits). Spec is one
-component per file under ~200 lines, in the `ui/` tree of A2: `Rack`,
-`Stick`, `Tile`, `ScoreLine`, `Cascade`, `EnemyPanel`, `CardSlot`,
-`PackPick`, `QuillRow`, `QuillCard`, `GearPanel`, `Callout`. The "callouts
-are only three lines, left inline" note from an earlier pass does not close
-the item: `Callout.tsx` on Sonner is the spec. `RoundSandbox.jsx` ends as
-`FightScreen.tsx` or is deleted.
+**A4 — component split.** In progress. `RoundSandbox.jsx` (1,898 lines) has
+had `SetupPanel`, `StartingQuills`, `EnemyIntroCard`, `ScoreLine`,
+`PlaysList`, `WonBanner`, `LetterChoice` extracted (`22f4d25`), shrinking it
+to ~1,600 lines; `PlayBoard.jsx` (464 lines) has been fully split into
+`Rack`, `InkingPicker`, `Stick`, `InputRow`, `PilesDrawer`,
+`SuggestionsDrawer` plus a composing `PlayBoard.tsx` (`2379665`), all typed
+`.tsx`, verified by typecheck/lint/format and a Playwright smoke pass on
+tile stage/unstage/swap/play. Still open: `Shop.jsx` (316 lines) and
+`HeldRow.jsx` (218 lines) untouched — `CardSlot`, `PackPick`, `QuillRow`,
+`QuillCard`, `GearPanel` not yet extracted; `Callout.tsx` on Sonner not yet
+done (ties into A6); `RoundSandbox.jsx` itself still well over 200 lines and
+not yet renamed to `FightScreen.tsx` or deleted — that's the final step of
+this item.
 
 **A6 — shadcn + Tailwind actually used.** All twelve primitives (Button,
 Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
