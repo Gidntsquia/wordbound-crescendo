@@ -13,7 +13,11 @@
         "reading",
         "win-idle"
       ],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/people.jsx). Single static pose (no per-pose variant art yet -- ladder pose prop is wired but doesn't change the art this pass)."
     },
     {
       "id": "bench_sitter",
@@ -27,7 +31,11 @@
         "reading",
         "win-idle"
       ],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/people.jsx). Single static pose (no per-pose variant art yet -- ladder pose prop is wired but doesn't change the art this pass)."
     },
     {
       "id": "waiting_room_sitter",
@@ -41,76 +49,120 @@
         "reading",
         "win-idle"
       ],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/people.jsx). Single static pose (no per-pose variant art yet -- ladder pose prop is wired but doesn't change the art this pass)."
     },
     {
       "id": "phone_glow",
       "kind": "antagonist",
       "chapter": 1,
       "poses": ["idle", "weakening", "gone"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "clock",
       "kind": "antagonist",
       "chapter": 1,
       "poses": ["idle", "weakening", "gone"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "knocking_door",
       "kind": "antagonist",
       "chapter": 1,
       "poses": ["idle", "weakening", "gone", "crescendo"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "empty_bench",
       "kind": "antagonist",
       "chapter": 2,
       "poses": ["idle", "weakening", "gone"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "loudspeaker",
       "kind": "antagonist",
       "chapter": 2,
       "poses": ["idle", "weakening", "gone"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "parade",
       "kind": "antagonist",
       "chapter": 2,
       "poses": ["idle", "weakening", "gone", "crescendo"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "blank_wall",
       "kind": "antagonist",
       "chapter": 3,
       "poses": ["idle", "weakening", "gone"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "podium",
       "kind": "antagonist",
       "chapter": 3,
       "poses": ["idle", "weakening", "gone"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "the_night",
       "kind": "antagonist",
       "chapter": 3,
       "poses": ["idle", "weakening", "gone", "crescendo"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/antagonists.jsx). Single static pose."
     },
     {
       "id": "wordsmith",
       "kind": "player",
       "poses": ["idle", "write", "flourish"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/people.jsx). Single static pose (no per-pose variant art yet -- ladder pose prop is wired but doesn't change the art this pass)."
     },
     {
       "id": "tile_face",
@@ -206,21 +258,33 @@
       "kind": "backdrop",
       "chapter": 1,
       "poses": ["far", "near"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/backdrops.jsx). Single static composition (no separate far/near parallax layers yet)."
     },
     {
       "id": "backdrop_chapter_2",
       "kind": "backdrop",
       "chapter": 2,
       "poses": ["far", "near"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/backdrops.jsx). Single static composition (no separate far/near parallax layers yet)."
     },
     {
       "id": "backdrop_chapter_3",
       "kind": "backdrop",
       "chapter": 3,
       "poses": ["far", "near"],
-      "status": "placeholder"
+      "status": "sourced",
+      "format": "svg",
+      "licence": "original",
+      "author": "repo",
+      "note": "Hand-authored SVG (src/art/svg/backdrops.jsx). Single static composition (no separate far/near parallax layers yet)."
     }
   ]
 }
