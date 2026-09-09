@@ -8,6 +8,7 @@
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
 import { createDragReorder } from '../engine/dragReorder';
+import * as copy from '../ui/copy';
 import {
   useCallback,
   useEffect,
@@ -73,19 +74,19 @@ const TUNE_LABELS = {
   PACK_PRICE: 'Pack price',
   PACK_CHOICES: 'Pack · choices shown',
   MARK_PRICE: 'Marginalia price',
-  ETUDE_PRICE: 'Étude price',
+  ETUDE_PRICE: 'Reread price',
   REROLL_PRICE: 'Reroll price',
   REROLL_STEP: 'Reroll price step',
   MARK_GILT: 'Gilt · points per tile',
   MARK_BOLD: 'Bold · mult per tile',
   MARK_STEEL: 'Steel · × mult held',
   MARK_COIN_CAP: 'Coin · ink cap',
-  BOUNTY_GOLD: 'Skip bonus · gold',
+  BOUNTY_INK: 'Skip bonus · ink',
   INK_SMALL: 'Ink, small enemy',
   INK_BIG: 'Ink, big enemy',
   INK_BOSS: 'Ink, boss',
   INK_PER_WORD_LEFT: 'Ink per word left',
-  START_GOLD: 'Starting gold',
+  START_INK: 'Starting ink',
   INTEREST_PER: 'Interest: 1 gold per',
   INTEREST_CAP: 'Interest cap',
   PREMIUM_CHANCE: 'Premium slot · odds per round',
@@ -216,7 +217,7 @@ function HeldRow({
     <div className="sb-held">
       <div className="sb-held-row" aria-label="Quills">
         <span className="sb-eyebrow">
-          Quills · {run.items.length}/{tune.ITEM_SLOTS}
+          Bookmarks · {run.items.length}/{tune.ITEM_SLOTS}
         </span>
         {run.items.map((id, i) => {
           const d = SB.ITEM_DEFS[id];
@@ -285,7 +286,7 @@ function HeldRow({
               {run.items.length > 1 && (
                 <span
                   className="sb-card-order"
-                  title="Quills fire left to right"
+                  title="Bookmarks fire left to right"
                 >
                   <button
                     type="button"
@@ -913,7 +914,7 @@ function EndScreen({
   return (
     <div className={'sb-end ' + (won ? 'sb-win' : 'sb-lose')}>
       <h2 className="sb-end-title">
-        {won ? 'The last boss falls.' : 'Lost to ' + run.enemy.name + '.'}
+        {won ? copy.LAST_PAGE_TURNS : copy.lostTheRoom(run.enemy.name)}
       </h2>
       <p className="sb-end-sub">
         {won
@@ -1360,22 +1361,21 @@ export default function RoundSandbox() {
       setSuggestions([]);
       setPhase('live');
       say(
-        'Movement ' +
-          SB.MOVEMENTS[run.movement].numeral +
+        copy.chapterLabel(SB.MOVEMENTS[run.movement].numeral) +
           ' · ' +
           SB.KIND_LABEL[def.kind] +
           ' — ' +
           def.name +
           ' takes up ' +
           piece.title +
-          '. Target ' +
-          round.target +
+          '. ' +
+          copy.targetHint(round.target) +
           '.',
       );
       if (def.flavour) say(def.glyph + ' "' + def.flavour + '"');
       if (run.movementIIIQuillFound) {
         say(
-          'Movement III: you discover ' +
+          'Chapter 3: you discover ' +
             SB.ITEM_DEFS[run.movementIIIQuillFound].name +
             '.',
         );
@@ -2299,9 +2299,8 @@ export default function RoundSandbox() {
         <div className="sb-wordmark">
           <span className="sb-eyebrow">
             {phase === 'idle'
-              ? 'Words against music'
-              : 'Movement ' +
-                SB.MOVEMENTS[run.movement].numeral +
+              ? copy.TITLE_EYEBROW
+              : copy.chapterLabel(SB.MOVEMENTS[run.movement].numeral) +
                 ' · ' +
                 SB.KIND_LABEL[run.enemy.kind] +
                 (run.key && run.key !== 'c_major'
@@ -2463,8 +2462,8 @@ export default function RoundSandbox() {
               ))}
             </div>
           </div>
-          <div className="sb-key-tune" role="group" aria-label="Keys">
-            <span className="sb-bags-head">Keys</span>
+          <div className="sb-key-tune" role="group" aria-label="Editions">
+            <span className="sb-bags-head">Editions</span>
             <ul className="sb-key-list">
               {SB.KEYS.map((k) => (
                 <li
@@ -2493,7 +2492,7 @@ export default function RoundSandbox() {
                     title={
                       SB.isAvailable(l)
                         ? l
-                        : l + ' — stolen; win it back by felling a boss'
+                        : l + ' — lost; win it back by felling a boss'
                     }
                   >
                     {l}
@@ -2509,7 +2508,7 @@ export default function RoundSandbox() {
               aria-label="Quills discovered"
             >
               <span className="sb-bags-head">
-                Quills · {discovered.size}/{SB.ITEMS.length}
+                Bookmarks · {discovered.size}/{SB.ITEMS.length}
               </span>
               <div className="sb-alphabet-row sb-quill-row">
                 {SB.ITEMS.map((it) => (
@@ -2522,7 +2521,7 @@ export default function RoundSandbox() {
                       discovered.has(it.id)
                         ? it.name
                         : it.name +
-                          ' — undiscovered; felling a boss or reaching Movement III may reveal it'
+                          ' — undiscovered; felling a boss or reaching Chapter 3 may reveal it'
                     }
                   >
                     {discovered.has(it.id) ? it.name[0] : '?'}
@@ -2634,7 +2633,7 @@ export default function RoundSandbox() {
               {round.rule ? (
                 <div className="sb-rule is-pulse">
                   <span className="sb-eyebrow">
-                    Tempo marking · {round.rule.name}
+                    Reading condition · {round.rule.name}
                   </span>
                   <b className="sb-rule-plain">{round.rule.plain}</b>
                   <q>{round.rule.text}</q>
@@ -2658,7 +2657,7 @@ export default function RoundSandbox() {
                     }
                     onClick={skipFight}
                   >
-                    Skip for <b>{SB.FAVOUR_DEFS[round.favour].name}</b>
+                    Walk past for <b>{SB.FAVOUR_DEFS[round.favour].name}</b>
                   </button>
                 )}
               </div>
@@ -2738,7 +2737,7 @@ export default function RoundSandbox() {
                         </i>
                       ))}
                   <span className="sb-eyebrow">
-                    Tempo marking · {round.rule.name}
+                    Reading condition · {round.rule.name}
                   </span>
                   <b className="sb-rule-plain">{round.rule.plain}</b>
                   <q>{round.rule.text}</q>
