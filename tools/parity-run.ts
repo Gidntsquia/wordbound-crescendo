@@ -160,7 +160,10 @@ async function main() {
       let word = best.length ? best[0].word : r.rack[0].letter;
       let oldRes = asOld(() => r.playWord(word));
       let outcome = asNew(() => {
-        const [o, s3] = roundState.playWord(newRun.round!, word, s);
+        const [o, s3] = roundState.playWord(newRun.round!, word, s, {
+          run: newRun,
+          crescendo: null,
+        });
         s = s3;
         return o;
       });
@@ -170,12 +173,18 @@ async function main() {
         word = free.letter === '?' ? 'A' : free.letter;
         oldRes = asOld(() => r.playWord(word));
         outcome = asNew(() => {
-          const [o, s4] = roundState.playWord(newRun.round!, word, s);
+          const [o, s4] = roundState.playWord(newRun.round!, word, s, {
+            run: newRun,
+            crescendo: null,
+          });
           s = s4;
           return o;
         });
       }
-      newRun = { ...newRun, round: outcome.state };
+      newRun = runState.applyPlayEffects(
+        { ...newRun, round: outcome.state },
+        outcome.result.effects,
+      );
       check(`play "${word}" ok`, oldRes.ok, outcome.result.ok);
       check(
         `play "${word}" total`,

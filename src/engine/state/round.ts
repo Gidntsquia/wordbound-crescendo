@@ -210,11 +210,68 @@ export function isPlayable(word: string): boolean {
     : window.Wordbound.Lexicon.isValidWord(upper);
 }
 
+// The pure twin of Round.breakdownFor: a read-only scoring preview (word
+// helper suggestions, the composing stick's live total) that never mutates
+// the rack -- if the word can't actually be formed from it, it scores the
+// letters typed as if each were its own bare tile (same fallback as the
+// mutable version), so the UI can show a total for a word not yet playable.
+export function breakdownFor(
+  round: RoundState,
+  word: string,
+  run?: unknown,
+): Breakdown {
+  const upper = String(word).toUpperCase();
+  const Lexicon = window.Wordbound.Lexicon;
+  const form = Lexicon.canFormFromRack(upper, round.rack as Tile[]);
+  const tiles: Tile[] = form.possible
+    ? form.tilesUsed!
+    : upper.split('').map(
+        (l) =>
+          ({
+            id: '',
+            letter: l,
+            bonus: null,
+            variant: null,
+            crackedThisFight: false,
+          }) as unknown as Tile,
+      );
+  return scoreWordPoints(upper, tiles, round.rackSize, {
+    tune: round.tune,
+    items: round.items as string[],
+    tierLevels: round.tierLevels as Record<string, number>,
+    heldTiles: held(round, tiles),
+    run: (run as never) || null,
+    round: round as never,
+    preview: true,
+    crescendo: null,
+  });
+}
+
+export function scoreFor(
+  round: RoundState,
+  word: string,
+  run?: unknown,
+): number {
+  return breakdownFor(round, word, run).total;
+}
+
+// What an item's onPlayed hook (content/items.ts, e.g. refrain's counter,
+// sustain's extendCrescendo) would have done to the run -- collected here
+// instead of mutated during scoring, since RoundState can't touch RunState.
+// The caller (state/run.ts, or the facade wrapping it) applies this to
+// RunState after the play.
+export interface PlayEffects {
+  itemState?: Record<string, number>;
+  extendCrescendo?: number;
+}
+
 export interface PlayResult {
   ok: boolean;
   reason?: string;
   word?: string;
   breakdown?: Breakdown;
+  messages?: string[];
+  effects?: PlayEffects;
 }
 
 export interface PlayOutcome {
@@ -347,13 +404,56 @@ export function playWord(
     state,
     ink,
   };
-  return [{ state: next, result: { ok: true, word: upper, breakdown } }, s2];
+
+  let effects: PlayEffects | undefined;
+  if (ctx.run) {
+    const shimRun = {
+      itemState: {
+        ...(ctx.run as { itemState?: Record<string, number> }).itemState,
+      },
+      extendCrescendo: (extraSec: number) => {
+        effects = effects || {};
+        effects.extendCrescendo = (effects.extendCrescendo || 0) + extraSec;
+      },
+    };
+    const itemDefs = window.Wordbound.Sandbox.ITEM_DEFS as
+      | Record<
+          string,
+          {
+            onPlayed?: (run: typeof shimRun, breakdown: Breakdown) => void;
+          }
+        >
+      | undefined;
+    round.items.forEach((id) => {
+      const it = itemDefs?.[id];
+      if (it && it.onPlayed) it.onPlayed(shimRun, breakdown);
+    });
+    if (
+      Object.keys(shimRun.itemState).some(
+        (k) =>
+          shimRun.itemState[k] !==
+          (ctx.run as { itemState?: Record<string, number> }).itemState?.[k],
+      )
+    ) {
+      effects = effects || {};
+      effects.itemState = shimRun.itemState;
+    }
+  }
+
+  return [
+    {
+      state: next,
+      result: { ok: true, word: upper, breakdown, messages: [], effects },
+    },
+    s2,
+  ];
 }
 
 export interface ChangeoutResult {
   ok: boolean;
   reason?: string;
   drawn?: Tile[];
+  returned?: Tile[];
 }
 
 export function changeout(
@@ -405,7 +505,7 @@ export function changeout(
     pile,
     changeoutsLeft: round.changeoutsLeft - 1,
   };
-  return [{ state: next, result: { ok: true, drawn } }, s2];
+  return [{ state: next, result: { ok: true, drawn, returned: back } }, s2];
 }
 
 export function destroyTile(

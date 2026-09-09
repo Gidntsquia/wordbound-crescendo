@@ -23,7 +23,7 @@ import {
   type Tune,
 } from '../content/round';
 import * as R from './round';
-import type { RoundState } from './round';
+import type { RoundState, PlayEffects } from './round';
 
 export interface Card {
   kind: 'item' | 'mark' | 'etude';
@@ -871,4 +871,260 @@ export function pick_(run: RunState, i: number | null): [RunState, ShopResult] {
     { ...run, deck, consumables, pack: null },
     { ok: true, choice: c, used, mark },
   ];
+}
+
+// The pure twin of createRun's run.moveItem: reorder the held items (they
+// fire left to right).
+export function moveItem(
+  run: RunState,
+  from: number,
+  to: number,
+): [RunState, boolean] {
+  const items = run.items as string[];
+  if (
+    from === to ||
+    from < 0 ||
+    to < 0 ||
+    from >= items.length ||
+    to >= items.length
+  )
+    return [run, false];
+  const next = items.slice();
+  const [id] = next.splice(from, 1);
+  next.splice(to, 0, id!);
+  return [{ ...run, items: next }, true];
+}
+
+// The pure twin of createRun's run.levelTier: raise one length tier a level
+// for the rest of the run.
+export function levelTier(run: RunState, tierId: string): [RunState, boolean] {
+  if (!TIER_DEFS[tierId]) return [run, false];
+  const tierLevels = { ...run.tierLevels } as Record<string, number>;
+  tierLevels[tierId] = (tierLevels[tierId] || 1) + 1;
+  return [{ ...run, tierLevels }, true];
+}
+
+// The pure twin of createRun's run.saveMark: hold a marginalia card in
+// run.consumables instead of using it now.
+export function saveMark(run: RunState, id: string): [RunState, ShopResult] {
+  const consumables = run.consumables as Consumable[];
+  if (consumables.length >= Number(run.tune.CONSUMABLE_SLOTS))
+    return [
+      run,
+      {
+        ok: false,
+        reason: 'No room for another marginalia card — use or sell one first.',
+      },
+    ];
+  return [
+    { ...run, consumables: consumables.concat([{ kind: 'mark', id }]) },
+    { ok: true },
+  ];
+}
+
+// The pure twin of createRun's run.sellConsumable.
+export function sellConsumable(
+  run: RunState,
+  i: number,
+): [RunState, ShopResult] {
+  const consumables = run.consumables as Consumable[];
+  const c = consumables[i];
+  if (!c) return [run, { ok: false, reason: 'Nothing there.' }];
+  const paid = Math.floor(
+    Number(c.kind === 'mark' ? run.tune.MARK_PRICE : run.tune.ETUDE_PRICE) / 2,
+  );
+  return [
+    {
+      ...run,
+      consumables: consumables.filter((_, idx) => idx !== i),
+      ink: run.ink + paid,
+    },
+    { ok: true, paid },
+  ];
+}
+
+// The pure twin of createRun's run.drawMarkHand: a fresh hand drawn to use a
+// marginalia card on the spot, right after buying or keeping it. Doesn't
+// touch run.deck/round -- it's just a preview shuffle, same as the mutable
+// version (which also throws the shuffled draw pile away afterward).
+export function drawMarkHand(
+  run: RunState,
+  rngState: RngState,
+): [Tile[], RngState] {
+  const [shuffled, s] = rng.shuffle(rngState, run.deck as Tile[]);
+  return [
+    shuffled.slice(0, Math.min(Number(run.tune.RACK_SIZE), run.deck.length)),
+    s,
+  ];
+}
+
+interface MarkResult extends ShopResult {
+  note?: string;
+}
+
+// The pure twin of marginalia.ts's applyMark: marks/turns/blanks/erases
+// tiles in run.deck (the erase path also removes the tile from the live
+// round's rack via state/round.ts's pure destroyTile, which may need to
+// draw a refill -- hence the threaded RngState) or pays out the coin mark.
+export function applyMark(
+  run: RunState,
+  markId: string,
+  tileIds: string[],
+  extra: { vowel?: string } | undefined,
+  rngState: RngState,
+): [RunState, MarkResult, RngState] {
+  const markDefs =
+    (window.Wordbound.Sandbox.MARK_DEFS as
+      | Record<
+          string,
+          { id: string; targets: number; needsVowel?: boolean; name: string }
+        >
+      | undefined) || {};
+  const mark = markDefs[markId];
+  if (!mark)
+    return [run, { ok: false, reason: 'No such marginalia.' }, rngState];
+  if (mark.id === 'coin') {
+    const gain = Math.min(Number(run.tune.MARK_COIN_CAP) || 0, run.ink);
+    return [
+      { ...run, ink: run.ink + gain },
+      { ok: true, note: 'Coin: +' + gain + ' ink.' },
+      rngState,
+    ];
+  }
+  const ids = (tileIds || []).slice(0, mark.targets);
+  if (!ids.length)
+    return [run, { ok: false, reason: 'Pick a tile first.' }, rngState];
+  const deck = run.deck as Tile[];
+  const tiles = ids
+    .map((id) => deck.find((t) => t.id === id))
+    .filter((t): t is Tile => Boolean(t));
+  if (tiles.length !== ids.length)
+    return [
+      run,
+      { ok: false, reason: 'Those tiles aren’t in your deck.' },
+      rngState,
+    ];
+  const letters = tiles.map((t) => t.letter).join(', ');
+  const tileIdSet = new Set(tiles.map((t) => t.id));
+
+  if (mark.id === 'erase') {
+    const nextDeck = deck.filter((t) => !tileIdSet.has(t.id));
+    let round = run.round;
+    let s = rngState;
+    if (round && round.state === 'live') {
+      tiles.forEach((t) => {
+        const [nextRound, , s2] = R.destroyTile(round!, t.id, s);
+        round = nextRound;
+        s = s2;
+      });
+    }
+    return [
+      { ...run, deck: nextDeck, round },
+      { ok: true, note: 'Erased ' + letters + '.' },
+      s,
+    ];
+  }
+  if (mark.id === 'vowel') {
+    const v = String(extra?.vowel || '').toUpperCase();
+    const VOWELS = ['A', 'E', 'I', 'O', 'U'];
+    if (VOWELS.indexOf(v) < 0)
+      return [run, { ok: false, reason: 'Choose a vowel.' }, rngState];
+    const nextDeck = deck.map((t) =>
+      tileIdSet.has(t.id)
+        ? {
+            ...t,
+            letter: v as Tile['letter'],
+            mark: t.mark === 'blank' ? null : t.mark,
+          }
+        : t,
+    );
+    return [
+      { ...run, deck: nextDeck },
+      { ok: true, note: letters + ' → ' + v + '.' },
+      rngState,
+    ];
+  }
+  if (mark.id === 'blank') {
+    const nextDeck = deck.map((t) =>
+      tileIdSet.has(t.id)
+        ? { ...t, letter: '?' as Tile['letter'], mark: 'blank' }
+        : t,
+    );
+    return [
+      { ...run, deck: nextDeck },
+      { ok: true, note: letters + ' is now a blank.' },
+      rngState,
+    ];
+  }
+  const nextDeck = deck.map((t) =>
+    tileIdSet.has(t.id) ? { ...t, mark: mark.id } : t,
+  );
+  return [
+    { ...run, deck: nextDeck },
+    { ok: true, note: mark.name + ' on ' + letters + '.' },
+    rngState,
+  ];
+}
+
+// The pure twin of createRun's run.useConsumable: an étude needs nothing
+// else; a marginalia card takes the ids of the tiles it is applied to.
+export function useConsumable(
+  run: RunState,
+  i: number,
+  tileIds: string[] | undefined,
+  extra: { vowel?: string } | undefined,
+  rngState: RngState,
+): [RunState, MarkResult & { used?: Consumable }, RngState] {
+  const consumables = run.consumables as Consumable[];
+  const c = consumables[i];
+  if (!c) return [run, { ok: false, reason: 'Nothing there.' }, rngState];
+  if (c.kind === 'etude') {
+    const [next] = levelTier(run, c.id);
+    return [
+      { ...next, consumables: consumables.filter((_, idx) => idx !== i) },
+      { ok: true, used: c },
+      rngState,
+    ];
+  }
+  if (c.kind === 'mark') {
+    const [next, res, s] = applyMark(run, c.id, tileIds || [], extra, rngState);
+    if (!res.ok) return [run, res, s];
+    return [
+      {
+        ...next,
+        consumables: (next.consumables as Consumable[]).filter(
+          (_, idx) => idx !== i,
+        ),
+      },
+      { ...res, ok: true, used: c },
+      s,
+    ];
+  }
+  return [run, { ok: false, reason: 'That cannot be used yet.' }, rngState];
+}
+
+// The pure twin of createRun's run.useAdhocMark: play a marginalia card
+// bought straight out of the shop while every consumable slot was full --
+// it was never stored, so there is nothing to remove from run.consumables
+// afterward.
+export function useAdhocMark(
+  run: RunState,
+  id: string,
+  tileIds: string[] | undefined,
+  extra: { vowel?: string } | undefined,
+  rngState: RngState,
+): [RunState, MarkResult, RngState] {
+  return applyMark(run, id, tileIds || [], extra, rngState);
+}
+
+// Folds R.playWord's PlayEffects (an item's onPlayed hook, e.g. refrain's
+// counter) into RunState. extendCrescendo is a UI-timing side effect, not
+// state -- the caller applies it via its own extendCrescendo callback and
+// does not need it threaded back through RunState.
+export function applyPlayEffects(
+  run: RunState,
+  effects: PlayEffects | undefined,
+): RunState {
+  if (!effects?.itemState) return run;
+  return { ...run, itemState: effects.itemState };
 }
