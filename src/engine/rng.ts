@@ -101,6 +101,101 @@ export function create(seed: number | string): RngStream {
   };
 }
 
+// --- Pure functional RNG for immutable state (READ_SLOWLY_PLAN.md A3) ---
+// A RngState is just a seed; next() returns [value, nextState] instead of
+// mutating anything. Same mulberry32 stream as RngStream.create above, so a
+// pure-state replay and a mutable-stream replay of the same seed produce the
+// same sequence of draws.
+export interface RngState {
+  readonly seed: number;
+}
+
+export function fromSeed(seed: number | string): RngState {
+  return {
+    seed:
+      typeof seed === 'number' ? seed >>> 0 : hashStringToSeed(String(seed)),
+  };
+}
+
+export function next(state: RngState): [number, RngState] {
+  let a = state.seed | 0;
+  a = (a + 0x6d2b79f5) | 0;
+  let t = Math.imul(a ^ (a >>> 15), 1 | a);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  const value = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  return [value, { seed: a >>> 0 }];
+}
+
+export function randInt(
+  state: RngState,
+  min: number,
+  max: number,
+): [number, RngState] {
+  const [v, s] = next(state);
+  return [Math.floor(v * (max - min + 1)) + min, s];
+}
+
+export function randFloat(
+  state: RngState,
+  min: number,
+  max: number,
+): [number, RngState] {
+  const [v, s] = next(state);
+  return [v * (max - min) + min, s];
+}
+
+export function choice<T>(
+  state: RngState,
+  arr: readonly T[],
+): [T | undefined, RngState] {
+  if (arr.length === 0) return [undefined, state];
+  const [v, s] = next(state);
+  return [arr[Math.floor(v * arr.length)], s];
+}
+
+export function weightedChoice<T>(
+  state: RngState,
+  items: readonly T[],
+  weightFn?: (item: T) => number,
+): [T | undefined, RngState] {
+  if (items.length === 0) return [undefined, state];
+  const wf = weightFn || ((it: T) => (it as { weight?: number })?.weight || 1);
+  const total = items.reduce((sum, it) => sum + wf(it), 0);
+  const [v, s] = next(state);
+  if (total <= 0) return [items[Math.floor(v * items.length)], s];
+  let r = v * total;
+  for (const it of items) {
+    r -= wf(it);
+    if (r <= 0) return [it, s];
+  }
+  return [items[items.length - 1], s];
+}
+
+export function shuffle<T>(
+  state: RngState,
+  arr: readonly T[],
+): [T[], RngState] {
+  const a = arr.slice();
+  let s = state;
+  for (let i = a.length - 1; i > 0; i--) {
+    const [v, s2] = next(s);
+    s = s2;
+    const j = Math.floor(v * (i + 1));
+    const tmp = a[i]!;
+    a[i] = a[j]!;
+    a[j] = tmp;
+  }
+  return [a, s];
+}
+
+export function chance(
+  state: RngState,
+  probability: number,
+): [boolean, RngState] {
+  const [v, s] = next(state);
+  return [v < probability, s];
+}
+
 declare global {
   interface Window {
     Game: {
