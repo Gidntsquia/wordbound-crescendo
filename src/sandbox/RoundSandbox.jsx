@@ -61,6 +61,7 @@ import PlaysList from '../ui/fight/PlaysList';
 import WonBanner from '../ui/fight/WonBanner';
 import { useCrescendo } from '../ui/hooks/useCrescendo';
 import { useDragReorder } from '../ui/hooks/useDragReorder';
+import { useSfx } from '../ui/hooks/useSfx';
 import LetterChoice from '../ui/fight/LetterChoice';
 import SetupPanel from '../ui/chrome/SetupPanel';
 import StartingQuills from '../ui/chrome/StartingQuills';
@@ -69,9 +70,6 @@ import RunStrip from '../ui/chrome/RunStrip';
 import { describeBreakdown } from '../ui/fight/cardCopy';
 import PlayBoard from '../ui/fight/PlayBoard';
 import {
-  sfxReducer,
-  readSfxOn,
-  writeSfxOn,
   gearReducer,
   seenReducer,
   readSeen,
@@ -375,10 +373,9 @@ export default function RoundSandbox() {
     effects.forEach(applyFightEffect);
     refresh();
   }
-  // Mirrors of the volume/sfx-on state for the zero-dep resume effect below,
-  // which needs the LATEST value without re-subscribing on every change.
+  // Mirror of the volume state for the zero-dep resume effect below, which
+  // needs the LATEST value without re-subscribing on every change.
   const volumeRef = useRef(0.4);
-  const sfxOnRef = useRef(true);
   // idle | live | won (round, run continues) | shop (between fights) | lost | run-won
   const [phase, setPhase] = useState('idle');
   const [log, setLog] = useState([]);
@@ -390,32 +387,7 @@ export default function RoundSandbox() {
   const [volume, setVolume] = useState(0.4);
   volumeRef.current = volume;
   // Input sounds (sfx.js), on by default, remembered in wbc.sfx.
-  // READ_SLOWLY_PLAN.md A3: the first reducer-backed slice (see
-  // src/app/store.ts) -- a small, self-contained piece of UI state, not the
-  // run/round core the plan's A3 section describes.
-  const [sfxState, dispatchSfx] = useReducer(sfxReducer, undefined, () => ({
-    on: readSfxOn(),
-  }));
-  const sfxOn = sfxState.on;
-  const setSfxOn = useCallback(
-    (next) => {
-      dispatchSfx({
-        type: 'sfx/set',
-        on: typeof next === 'function' ? next(sfxOn) : next,
-      });
-    },
-    [sfxOn],
-  );
-  sfxOnRef.current = sfxOn;
-  useEffect(() => {
-    writeSfxOn(sfxOn);
-    if (fight.current?.sfx) fight.current.sfx.setEnabled(sfxOn);
-  }, [sfxOn]);
-  // The sound for an input event, if a run has opened the audio device.
-  const sfx = useCallback((name, ...a) => {
-    const s = fight.current?.sfx;
-    if (s && s[name]) s[name](...a);
-  }, []);
+  const { sfxOn, setSfxOn, sfxOnRef, sfx } = useSfx(fight);
   const [tune, setTune] = useState(() => ({ ...SB.ROUND_DEFAULTS }));
   const [discovered, setDiscovered] = useState(
     () => new Set(discoveredQuills ? discoveredQuills() : []),
