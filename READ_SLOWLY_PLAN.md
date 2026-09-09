@@ -74,31 +74,42 @@ format:check` clean.
   misalignment, silent audio after backgrounding, phone spacing fixed
   (`4d7a4f1`, `1ba0bf0`, `077845f`). Chapter backdrops were wired then
   reverted as scuffed (see Open, E2).
+- **A3 (engine layer)** — `src/engine/state/round.ts` and
+  `src/engine/state/run.ts`: immutable `RoundState`/`RunState` and pure
+  transitions (`playWord`, `changeout`, `buyCard`, `pick_`, `openPack`,
+  `reroll`, `leaveShop`, `pickLetter`, `next`, `skip`) mirroring
+  `content/round.ts`'s `createRound`/`createRun` and `content/shop.ts`'s
+  `createShop`, each returning new state plus a threaded `RngState`
+  (`rng.ts`'s pure `next`/`randInt`/`shuffle`/... alongside the old
+  `RngStream`, which stays for `tools/` and not-yet-ported legacy hooks via
+  `rng.toStream`). Verified against the old engine with
+  `tools/parity-run.ts`, which drives a full run — every fight, shop, pack,
+  letter choice — through both engines under the same seed and decisions
+  and diffs every observable field; all 15 tested seeds pass (`9d5652b`,
+  `55d49aa`). **Not yet wired into `store.ts` or the UI** — see Open below.
 
 ### Open (in build order)
 
-**A3 — state model.** What exists is a wrapper: `src/app/store.ts` holds a
-reducer whose `FightAction` cases mutate the same `fight.current` run/round
-objects in place, and `dispatch({type:'refresh'})` replaces `forceRender`.
-The spec asks for the real thing:
+**A3 (remainder) — wire the pure engine into the store.** The pure
+`RunState`/`RoundState` engine layer landed (see Done above) but
+`src/app/store.ts` still holds a reducer whose `FightAction` cases mutate
+the same `fight.current` run/round objects from the OLD `content/round.ts`/
+`content/shop.ts` engine in place, and `dispatch({type:'refresh'})` still
+replaces `forceRender`. Remaining work:
 
-- Immutable `RunState` / `RoundState` types and pure transitions
-  (`playWord(state, word) → {state, result}`, `changeout`, `buyCard`,
-  `advance`, `skipEnemy`) that return new state. Kill in-place mutation in
-  `round.ts` / `shop.ts` / `items.ts` hooks (`onPlayed` returns state).
-- RNG state (`seed` + counter) inside `RunState`; `rng.ts` gains
-  `next(rngState): [value, rngState]`. The mutable `RngStream` stays only
-  for `tools/`.
-- One store with a discriminated `Action` union whose payloads are data,
-  not closures. Today's actions carry `say`, `sfx`, `startStage`,
-  `markSeen`, `SB`, etc. as payload fields; those move out to effects run
-  by the UI after dispatch.
+- Rewrite `store.ts` as a data-only discriminated `Action` union that
+  dispatches into `state/round.ts`/`state/run.ts`'s pure transitions
+  instead of the old mutable engine. Today's actions carry `say`, `sfx`,
+  `startStage`, `markSeen`, `SB`, etc. as payload fields; those move out to
+  effects run by the UI after dispatch.
 - Crescendo phase passed in as `ctx.crescendo` at dispatch time (already
-  the shape, keep it).
+  the shape `state/round.ts`'s `playWord` takes, keep it).
 - The eight `any`s in `store.ts` (`run`, `round`, `SB`) go away as a
   consequence.
-- Parity check: play one seed before and after and compare words, targets,
-  shop contents, scores.
+- Once wired, delete `content/round.ts`'s/`content/shop.ts`'s mutable
+  `createRound`/`createRun`/`createShop` (superseded) and
+  `tools/parity-new.ts`/`tools/parity-run.ts` (their job is done) or keep
+  them only as long as the old engine still exists to diff against.
 
 **A2 (remainder) — no globals.** Every engine module still attaches to
 `window.Wordbound.*` via `sandboxGlobal.ts`, `main.tsx` still imports them
