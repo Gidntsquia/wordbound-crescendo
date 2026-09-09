@@ -415,7 +415,6 @@ export default function RoundSandbox() {
     dispatchSeen({ type: 'seen/mark', id });
   }, []);
   const [indexing, setIndexing] = useState(false);
-  const inputRef = useRef(null);
   // THE SCORING CASCADE (Phase 4): while a word scores, phase is 'scoring'
   // and this narrates breakdown.steps -- the stick still shows the played
   // tiles (from `tiles`), the case shows `rackBefore` with hollows, the
@@ -661,7 +660,6 @@ export default function RoundSandbox() {
         refreshDiscovered();
       }
       if (def.rule) setTimeout(() => markSeen('boss'), 6000);
-      setTimeout(() => inputRef.current?.focus(), 0);
     },
     [say, W, SB, warmAhead, markSeen, refreshDiscovered],
   );
@@ -1192,7 +1190,6 @@ export default function RoundSandbox() {
       if (r.state === 'live') setPhase('live');
       else finish(r);
       refresh();
-      setTimeout(() => inputRef.current?.focus(), 0);
     },
     [sfx, finish, refresh],
   );
@@ -1445,21 +1442,6 @@ export default function RoundSandbox() {
       onPointerDownCapture={scoring ? skipCascade : undefined}
     >
       <header className="sb-head">
-        <div className="sb-wordmark">
-          <span className="sb-eyebrow">
-            {phase === 'idle'
-              ? copy.TITLE_EYEBROW
-              : copy.chapterLabel(SB.MOVEMENTS[run.movement].numeral) +
-                ' · ' +
-                SB.KIND_LABEL[run.enemy.kind] +
-                (run.key && run.key !== 'c_major'
-                  ? ' · ' + SB.KEY_DEFS[run.key].name
-                  : '')}
-          </span>
-          <h1>
-            Wordbound<span className="sb-amp">·</span>Crescendo
-          </h1>
-        </div>
         <button
           type="button"
           className="sb-gear"
@@ -1906,22 +1888,10 @@ export default function RoundSandbox() {
             indexing={indexing}
             suggestions={suggestions}
             playWord={playWord}
-            inputRef={inputRef}
           />
         )}
 
       <TuningPanel SB={SB} tune={tune} setConst={setConst} />
-
-      {log.length > 0 && (
-        <details className="sb-log">
-          <summary>Log · {log[0]}</summary>
-          <div className="sb-log-lines">
-            {log.map((line, i) => (
-              <div key={log.length - i}>{line}</div>
-            ))}
-          </div>
-        </details>
-      )}
     </div>
   );
 }

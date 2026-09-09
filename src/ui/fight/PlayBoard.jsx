@@ -50,7 +50,6 @@ const PlayBoard = forwardRef(function PlayBoard(
     indexing,
     suggestions,
     playWord,
-    inputRef,
   },
   playRef,
 ) {
@@ -348,19 +347,6 @@ const PlayBoard = forwardRef(function PlayBoard(
           </div>
         )}
       <div className="sb-input">
-        <input
-          ref={inputRef}
-          value={word}
-          disabled={!live}
-          readOnly
-          inputMode="none"
-          className={formable ? '' : 'is-unformable'}
-          placeholder="Tap tiles"
-          onFocus={(e) => e.target.blur()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') play();
-          }}
-        />
         <button
           type="button"
           className="sb-go"
