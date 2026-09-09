@@ -19,7 +19,7 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
 
 ## Commands
 
-- `npm run dev` / `build` / `preview` — Vite; build outputs to `dist/app`
+- `npm run dev` / `build` / `preview` — Vite (moving to `bun run`, READ_SLOWLY_PLAN.md A1); build outputs to `dist/app`
   (relative `base: './'`).
 - `npm run dev:sandbox` — the bare-bones ROUND SANDBOX (see below): one round, no run.
 - Deploy (LIVE DEPLOY rule): `npm run deploy` (tools/deploy.sh) does all of

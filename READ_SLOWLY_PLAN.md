@@ -70,13 +70,43 @@ components fed by an immutable store. Do this as a port with behaviour
 parity, verified by playing the same seed before and after and getting the
 same words, targets, shop contents and scores.
 
-### A1. Toolchain
-- Add `tailwindcss` + `@tailwindcss/vite`, then `shadcn` init (see A6).
-- Add `typescript`, `@types/react`, `@types/react-dom`, `tsconfig.json`
-  (`strict: true`, `noUncheckedIndexedAccess: true`, `jsx: react-jsx`,
-  `moduleResolution: bundler`). Vite already handles TS.
-- Add ESLint flat config with `typescript-eslint` recommended + react-hooks.
-  No Prettier debate: adopt Prettier defaults, one `npm run lint` script.
+### A1. Toolchain (settled 2026-09-08)
+Stack: **Bun** (runtime + package manager + script runner), **Vite**,
+**TypeScript**, **Tailwind CSS v4**, **shadcn/ui**, **Prettier**, **ESLint**,
+**Husky** + **lint-staged**, **dotenv**.
+
+- **Bun**: delete `package-lock.json`, commit `bun.lock`. All scripts run
+  via `bun run <script>`; `tools/*.js` run under `bun` directly (they are
+  plain Node-compatible scripts, no changes expected; `ffmpeg` and
+  Playwright are unaffected). `tools/deploy.sh` and `build-site.js` switch
+  their `npm run` calls to `bun run`. CLAUDE.md Commands section is
+  rewritten to `bun run dev / build / deploy`.
+- **TypeScript**: `typescript`, `@types/react`, `@types/react-dom`,
+  `tsconfig.json` (`strict: true`, `noUncheckedIndexedAccess: true`,
+  `jsx: react-jsx`, `moduleResolution: bundler`, path alias `@/* -> src/*`
+  because shadcn expects it). `bun run typecheck` = `tsc --noEmit`.
+- **Tailwind v4** via `@tailwindcss/vite`; one `src/styles/globals.css`
+  with `@import "tailwindcss"` and the `@theme` tokens (paper, ink, gilt,
+  marginalia colours). No `tailwind.config.js` (v4 is CSS-first).
+- **shadcn/ui**: `bunx shadcn@latest init` (style: new-york, base colour:
+  neutral, CSS variables on). Components land in `src/ui/primitives/`
+  (set `aliases.ui` in `components.json`). See A6 for which ones.
+- **Prettier** with `prettier-plugin-tailwindcss` (sorts class lists).
+  Config: default options plus `singleQuote: true`. `bun run format`.
+- **ESLint** flat config: `typescript-eslint` recommended,
+  `eslint-plugin-react-hooks`, `eslint-config-prettier` last. `bun run lint`.
+- **Husky + lint-staged**: `bunx husky init`; `.husky/pre-commit` runs
+  `bunx lint-staged`. lint-staged: `*.{ts,tsx}` → `eslint --fix` then
+  `prettier --write`; `*.{css,md,json}` → `prettier --write`. Exclude
+  `src/engine/wordlist.ts` and `src/recordings/*.json` (generated, large).
+  A `pre-push` hook runs `bun run typecheck` so a red build never reaches
+  `main`.
+- **dotenv**: Vite already reads `.env*`; `dotenv` is for `tools/`
+  scripts (`import 'dotenv/config'` at the top of `fetch-audio.js`,
+  `fetch-wiktionary.js`, `deploy.sh` via `bun --env-file`). `.env.example`
+  committed with the keys used; `.env` gitignored. First uses:
+  `VITE_BASE_URL` (deploy target), `AUDIO_CACHE_DIR`,
+  `WIKT_CACHE_DIR`, an optional `DEPLOY_REMOTE`.
 - Rename entry to `src/main.tsx`. Keep `index.html` as the only entry.
 - Keep the no-test rule from CLAUDE.md. Parity is checked by seed replay
   in the browser, not by a suite.
@@ -156,8 +186,10 @@ interface RunState { seed: string; rng: RngState; movement: number; stage: numbe
 ```
 
 ### A5. Migration order (each step deploys and plays)
-1. Toolchain + rename `main.jsx` → `main.tsx`; everything else still `.js`
-   with `allowJs`. Deploy.
+1. Toolchain: Bun lockfile, TS, Tailwind + shadcn init, Prettier, ESLint,
+   Husky/lint-staged, dotenv + `.env.example`; rename `main.jsx` →
+   `main.tsx`; everything else still `.js` with `allowJs`. Existing
+   `sandbox.css` keeps working beside Tailwind until step 4. Deploy.
 2. Port `js/core` + `tiles/lexicon/wordlist` to `src/engine/` as ES modules
    with types. Keep the window namespace shim for one step so the UI still
    works. Deploy.
@@ -169,14 +201,15 @@ interface RunState { seed: string; rng: RngState; movement: number; stage: numbe
 5. Move `recorded*.js` envelopes to `src/recordings/*.json`; update
    `tools/fetch-audio.js` and `analyze-audio-piece.js` to write JSON.
    Rewrite CLAUDE.md's Map to match the new tree. Deploy.
-6. Lint clean, `tsc --noEmit` clean, no `any` outside `tools/`.
+6. `bun run lint`, `bun run typecheck`, `bun run format --check` clean; no
+   `any` outside `tools/`; pre-commit hook proven by a deliberate bad commit.
 
 ### A6. Coding rules to write into CLAUDE.md
 - `src/engine/` never imports React, DOM, `window`, or timers.
 - Content tables are data plus small hooks; no content in components.
 - One component per file, under ~200 lines; a component that grows past
   that gets a child extracted.
-- Styling: **shadcn/ui** on Tailwind v4 (`npx shadcn@latest init`; components
+- Styling: **shadcn/ui** on Tailwind v4 (installed in A1; components
   copied into `src/ui/primitives/` and owned by the repo). Use its Button,
   Card, Dialog, Sheet (gear panel), Tooltip, Popover, Tabs, Badge, Progress,
   Toggle, Slider (volume, tuning), Sonner (callouts). Game pieces (Tile,
@@ -447,6 +480,7 @@ before any art exists, so the pacing can be felt early.
 1. Keep all nine recordings for now; small/big enemies keep theirs.
 2. Gold → **ink**. The old tarot-style "ink" → **marginalia**.
 3. Character tile is playable **once per word**, not once per round.
-4. UI built on **shadcn/ui** (Radix + Tailwind), not hand-rolled CSS.
+4. Toolchain: Bun, Vite, Tailwind, shadcn/ui, Prettier, Husky, lint-staged,
+   dotenv (A1). UI on shadcn primitives, not hand-rolled CSS.
 5. Situations deduplicated: one phone enemy per chapter at most.
 Still open: art source for E1 (draw, CC0 placeholders, or generated).
