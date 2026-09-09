@@ -1,6 +1,9 @@
 // ROUND SANDBOX -- a RUN of three Balatro-with-Scrabble rounds (see
 // COMBAT_REDESIGN.md): two normal enemies, then a boss, each with a higher
-// point target. Gold pools across the run.
+// point target. Gold pools across the run. Renamed from RoundSandbox.tsx
+// (READ_SLOWLY_PLAN.md A4's final step) -- still the whole app (title,
+// fight, shop, end screen), not narrowed to just the fight phase; further
+// splitting by phase is a separate, not-yet-scoped follow-up.
 //
 // Each round: a point target, four words, three changeouts. The classical piece is a
 // SOUNDTRACK here and nothing more: it starts with the round, loops, and never

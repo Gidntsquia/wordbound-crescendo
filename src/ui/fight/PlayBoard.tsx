@@ -20,7 +20,7 @@ import type { RoundFacade } from '../../engine/state/facade';
 import type {
   Inking as RealInking,
   ScoringState as RealScoringState,
-} from '../../sandbox/RoundSandbox';
+} from '../../sandbox/FightScreen';
 
 interface RackEntry {
   t: Tile;

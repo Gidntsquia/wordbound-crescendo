@@ -1,4 +1,4 @@
-// ROUND SANDBOX entry (see src/sandbox/RoundSandbox.jsx).
+// ROUND SANDBOX entry (see src/sandbox/FightScreen.tsx).
 //
 // Bare-bones second Vite entry: ONE round wrapped in a small RUN, no map, no
 // menus beyond the title screen. It loads only the engine modules a round
@@ -21,7 +21,7 @@ import './sandbox.css';
 // they still need loading here explicitly. Every *other* content module
 // (enemies, situations, items, characters, round, marginalia, wordFinder,
 // tileBags, stolenLetters, quillDiscovery, audioPiece, sfx, recordings) is
-// now reached transitively via RoundSandbox.jsx's real ES imports, so this
+// now reached transitively via FightScreen.tsx's real ES imports, so this
 // file is otherwise mount only (READ_SLOWLY_PLAN.md A2 remainder).
 import '../engine/rng';
 import '../../js/wordbound/wordlist.js';
@@ -29,10 +29,10 @@ import '../engine/lexicon';
 import '../engine/tiles';
 
 import { migrate } from '../app/persistence';
-import RoundSandbox from './RoundSandbox.jsx';
+import FightScreen from './FightScreen';
 
 migrate();
-createRoot(document.getElementById('sandbox-root')!).render(<RoundSandbox />);
+createRoot(document.getElementById('sandbox-root')!).render(<FightScreen />);
 
 // Offline audio cache (public/sw.js, stage 5): registers after load so it
 // never competes with the first paint or the first piece's own fetch.

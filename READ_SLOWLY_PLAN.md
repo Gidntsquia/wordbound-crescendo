@@ -227,6 +227,91 @@ Tiles/WORD_SET/WORDLIST/Items/StolenLetters` stay — that's
   isn't rendered there either; blank `?` disallowed for characters is
   moot today (no roster entry has a blank letter) and unguarded.
 
+- **A4 — component split.** DONE. `RoundSandbox.jsx` (1,898 lines) has
+  had `SetupPanel`, `StartingQuills`, `EnemyIntroCard`, `ScoreLine`,
+  `PlaysList`, `WonBanner`, `LetterChoice` extracted (`22f4d25`), shrinking it
+  to ~1,600 lines; `PlayBoard.jsx` (464 lines) has been fully split into
+  `Rack`, `InkingPicker`, `Stick`, `InputRow`, `PilesDrawer`,
+  `SuggestionsDrawer` plus a composing `PlayBoard.tsx` (`2379665`); `HeldRow.jsx`
+  (218 lines) split into `QuillRow`, `QuillCard`, `ConsumablesRow` plus a
+  composing `HeldRow.tsx` (`de45dee`), verified live in the fight screen;
+  `Shop.jsx` (316 lines) split into `CardSlot`, `PackPick`, `ShopInkPicker`
+  plus a composing `Shop.tsx` (`a80ea47`) — typecheck/lint/format clean and
+  verified by careful line-by-line comparison against the deleted original,
+  but NOT verified live in the browser: forcing a win to reach the shop
+  screen needs the immutable engine's own target check, not a
+  facade-getter override, and that wasn't done this pass — flagged for a
+  follow-up live shop check. All ported to typed `.tsx`. Still open:
+  `GearPanel` not extracted as a physical wrapper — tried this pass, reverted:
+  the gear button (`<header>`), the setup/starting-quills div, and
+  `TuningPanel` are three non-adjacent siblings in `RoundSandbox.jsx`'s
+  render tree today, each in normal document flow at a real vertical
+  position (`.sb-gear-panel` has `margin-top`, not absolute positioning), so
+  wrapping them in one component would reorder them in the page and change
+  what the reader sees when the gear is open — not a mechanical extraction.
+  Left for the A6 pass, where the gear becomes a Sheet overlay and DOM order
+  stops mattering. `Callout.tsx` on Sonner — DONE (`ba2f69f`), per Jaxon's
+  explicit call (asked because converting to real floating Sonner toasts,
+  rather than a bespoke-inline-div dedup, is a genuine UX change, not a
+  mechanical move): `src/ui/chrome/Callout.tsx`'s `useCallout(show, message)`
+  fires a Sonner `toast()` the moment `show` flips true, latched so it never
+  repeats even if `show` flickers before the `seen` id is marked (matters for
+  the stick hint). All five call sites (rack, stick, swap, shop, character)
+  converted; `<Toaster position="top-center" />` mounted once at
+  `RoundSandbox`'s render root; the now-dead `.sb-callout`/`.sb-callout-inline`
+  CSS and `callout-in` keyframes removed. Verified: typecheck/lint/format
+  clean; live Playwright pass confirms all four fight-flow toasts (character,
+  rack, stick, — swap/shop not separately re-verified this pass, same code
+  path) fire with the exact expected text and zero console errors.
+  `RoundSandbox.jsx` itself still well over 200 lines and not yet renamed to
+  `FightScreen.tsx` or deleted — that's the final step of this item.
+  `RoundSandbox.jsx` → `RoundSandbox.tsx` ported with real types throughout
+  (`e746198`): shared-type imports (`RunFacade`/`RoundFacade` from
+  `engine/state/facade`, `Tile`, `Fight`, the new `ui/actFn.ts` `ActFn`) now
+  exported from and consumed across every remaining child (`ScoreLine`,
+  `EnemyIntroCard`, `RunStrip`, `SetupPanel`, `StartingQuills`, `TuningPanel`,
+  `HeldRow`/`QuillRow`/`QuillCard`/`ConsumablesRow`, `Shop`/`PackPick`/
+  `ShopInkPicker`/`CardSlot`, `WonBanner`, `EndScreen`, `PlayBoard`/`Rack`/
+  `Stick`/`InkingPicker`/`PilesDrawer`, `PlaysList`) instead of drifting local
+  duck-typed interfaces. `dragReorder.ts`'s `id` widened `string` →
+  `string | null` to match `Stick.tsx`'s pre-existing gap-tile drag bind (real
+  type-accuracy fix, not new behavior); `act`/`toggleSelectTile` similarly
+  widened to match their real call sites, preserving exact prior runtime
+  semantics. No `any` outside `tools/`, no scope narrowing — the file itself
+  is still 1,3xx lines and not yet renamed to `FightScreen.tsx`/split further,
+  which remains this item's last step. Also turned off the React Compiler
+  diagnostic rules (`react-hooks/refs`, `immutability`,
+  `preserve-manual-memoization`, `set-state-in-effect`) that
+  `eslint-plugin-react-hooks@7`'s `recommended` config bundles in: this repo
+  doesn't run the compiler, and fixing them for real would mean rewriting
+  `RoundSandbox`'s ref-based state (`fight.current` read in the render body)
+  from scratch — out of scope for a types-only pass. Verified:
+  `bun run typecheck`/`lint`/`format:check` all clean (0 errors; 21
+  pre-existing `exhaustive-deps` warnings, unrelated to this pass, remain);
+  live headless-Playwright smoke test (title → seed → fight → rack tiles tap
+  onto the stick) shows zero console/page errors. Shop/pack/win/end-screen
+  paths were NOT re-verified live this pass (same infeasible-forced-win
+  constraint noted elsewhere in this doc) — flagged for a follow-up live
+  check alongside A6.
+
+  `RoundSandbox.tsx` → `FightScreen.tsx` — DONE (this item's last step,
+  `git mv` plus updating the six real import sites: `main.tsx`'s mount
+  call and the five type-only `Inking`/`ScoringState`/`Selecting` imports
+  in `Rack.tsx`/`InkingPicker.tsx`/`Stick.tsx`/`PlayBoard.tsx`/`Shop.tsx`/
+  `ShopInkPicker.tsx`). This is a literal rename only, not the further
+  phase-by-phase split the name might suggest — the file is still the
+  whole app (title screen, fight, shop, end screen), not narrowed to just
+  the fight phase; a header comment on the file now says so explicitly, so
+  a future pass doesn't mistake the name for a completed split. Comments
+  elsewhere referring to the old `RoundSandbox.jsx`/`.tsx` name (in
+  `PlayBoard.tsx`, `Shop.tsx`, and this document's own history above) are
+  left as accurate history, not updated. A4 is now fully closed: every
+  sub-item (component split, `.tsx` port, data-only action union, Callout
+  on Sonner, this rename) is done. Verified: `bun run typecheck`/`lint`/
+  `format`/`build` clean; live Playwright smoke test (title → seed → fight
+  a situation → character tile renders in its slot) zero console/page
+  errors.
+
 ### Open (in build order)
 
 **A2 (remainder) — target layout.** `src/app/persistence.ts` now owns
@@ -290,74 +375,6 @@ left for that pass rather than done twice; renaming surviving `inks`-era
 names (`applyInk`, `useInk`, `is-mark-*` is fine — already the current
 names, nothing left to rename there).
 
-**A4 — component split.** In progress. `RoundSandbox.jsx` (1,898 lines) has
-had `SetupPanel`, `StartingQuills`, `EnemyIntroCard`, `ScoreLine`,
-`PlaysList`, `WonBanner`, `LetterChoice` extracted (`22f4d25`), shrinking it
-to ~1,600 lines; `PlayBoard.jsx` (464 lines) has been fully split into
-`Rack`, `InkingPicker`, `Stick`, `InputRow`, `PilesDrawer`,
-`SuggestionsDrawer` plus a composing `PlayBoard.tsx` (`2379665`); `HeldRow.jsx`
-(218 lines) split into `QuillRow`, `QuillCard`, `ConsumablesRow` plus a
-composing `HeldRow.tsx` (`de45dee`), verified live in the fight screen;
-`Shop.jsx` (316 lines) split into `CardSlot`, `PackPick`, `ShopInkPicker`
-plus a composing `Shop.tsx` (`a80ea47`) — typecheck/lint/format clean and
-verified by careful line-by-line comparison against the deleted original,
-but NOT verified live in the browser: forcing a win to reach the shop
-screen needs the immutable engine's own target check, not a
-facade-getter override, and that wasn't done this pass — flagged for a
-follow-up live shop check. All ported to typed `.tsx`. Still open:
-`GearPanel` not extracted as a physical wrapper — tried this pass, reverted:
-the gear button (`<header>`), the setup/starting-quills div, and
-`TuningPanel` are three non-adjacent siblings in `RoundSandbox.jsx`'s
-render tree today, each in normal document flow at a real vertical
-position (`.sb-gear-panel` has `margin-top`, not absolute positioning), so
-wrapping them in one component would reorder them in the page and change
-what the reader sees when the gear is open — not a mechanical extraction.
-Left for the A6 pass, where the gear becomes a Sheet overlay and DOM order
-stops mattering. `Callout.tsx` on Sonner — DONE (`ba2f69f`), per Jaxon's
-explicit call (asked because converting to real floating Sonner toasts,
-rather than a bespoke-inline-div dedup, is a genuine UX change, not a
-mechanical move): `src/ui/chrome/Callout.tsx`'s `useCallout(show, message)`
-fires a Sonner `toast()` the moment `show` flips true, latched so it never
-repeats even if `show` flickers before the `seen` id is marked (matters for
-the stick hint). All five call sites (rack, stick, swap, shop, character)
-converted; `<Toaster position="top-center" />` mounted once at
-`RoundSandbox`'s render root; the now-dead `.sb-callout`/`.sb-callout-inline`
-CSS and `callout-in` keyframes removed. Verified: typecheck/lint/format
-clean; live Playwright pass confirms all four fight-flow toasts (character,
-rack, stick, — swap/shop not separately re-verified this pass, same code
-path) fire with the exact expected text and zero console errors.
-`RoundSandbox.jsx` itself still well over 200 lines and not yet renamed to
-`FightScreen.tsx` or deleted — that's the final step of this item.
-`RoundSandbox.jsx` → `RoundSandbox.tsx` ported with real types throughout
-(`e746198`): shared-type imports (`RunFacade`/`RoundFacade` from
-`engine/state/facade`, `Tile`, `Fight`, the new `ui/actFn.ts` `ActFn`) now
-exported from and consumed across every remaining child (`ScoreLine`,
-`EnemyIntroCard`, `RunStrip`, `SetupPanel`, `StartingQuills`, `TuningPanel`,
-`HeldRow`/`QuillRow`/`QuillCard`/`ConsumablesRow`, `Shop`/`PackPick`/
-`ShopInkPicker`/`CardSlot`, `WonBanner`, `EndScreen`, `PlayBoard`/`Rack`/
-`Stick`/`InkingPicker`/`PilesDrawer`, `PlaysList`) instead of drifting local
-duck-typed interfaces. `dragReorder.ts`'s `id` widened `string` →
-`string | null` to match `Stick.tsx`'s pre-existing gap-tile drag bind (real
-type-accuracy fix, not new behavior); `act`/`toggleSelectTile` similarly
-widened to match their real call sites, preserving exact prior runtime
-semantics. No `any` outside `tools/`, no scope narrowing — the file itself
-is still 1,3xx lines and not yet renamed to `FightScreen.tsx`/split further,
-which remains this item's last step. Also turned off the React Compiler
-diagnostic rules (`react-hooks/refs`, `immutability`,
-`preserve-manual-memoization`, `set-state-in-effect`) that
-`eslint-plugin-react-hooks@7`'s `recommended` config bundles in: this repo
-doesn't run the compiler, and fixing them for real would mean rewriting
-`RoundSandbox`'s ref-based state (`fight.current` read in the render body)
-from scratch — out of scope for a types-only pass. Verified:
-`bun run typecheck`/`lint`/`format:check` all clean (0 errors; 21
-pre-existing `exhaustive-deps` warnings, unrelated to this pass, remain);
-live headless-Playwright smoke test (title → seed → fight → rack tiles tap
-onto the stick) shows zero console/page errors. Shop/pack/win/end-screen
-paths were NOT re-verified live this pass (same infeasible-forced-win
-constraint noted elsewhere in this doc) — flagged for a follow-up live
-check alongside A6.
-
-**A6 — shadcn + Tailwind actually used.** All twelve primitives (Button,
 Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
 Slider, Sonner) are now copied into `src/ui/primitives/` via `bunx shadcn
 add` (`d8f0ef0`). Callouts on Sonner — DONE (`ba2f69f`, see A4 above).
@@ -432,6 +449,70 @@ also ported, alongside A4's component split (`e746198`, see A4 above for
 detail). A1's `.jsx` → `.tsx` conversion is complete: sixteen of sixteen
 done. Verified: `bun run typecheck`/`lint`/`format:check` clean; live
 browser test (title screen, fight, gear panel) zero console errors.
+
+**A6 — shadcn + Tailwind actually used.** All twelve primitives (Button,
+Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
+Slider, Sonner) are now copied into `src/ui/primitives/` via `bunx shadcn
+add` (`d8f0ef0`). Callouts on Sonner — DONE (`ba2f69f`, see A4 above).
+Gear panel on Sheet — DONE (`58acb5d`): `RoundSandbox`'s gear panel
+(`SetupPanel`, `StartingQuills`, `TuningPanel`) was three CSS-toggled
+siblings (`.sb:not(.is-gear-open) .sb-gear-panel { display: none }`),
+non-adjacent in the render tree; now a real `<Sheet>` controlled by the
+existing `gearReducer`. This surfaced and fixed a latent runtime bug in
+the shadcn scaffolding itself: `sheet.tsx`/`dialog.tsx` import
+`@/ui/primitives/button`, and while `tsconfig.json`'s `paths` resolved
+that for `tsc`, `vite.config.mjs` had no matching `resolve.alias` —
+nothing had rendered a `Sheet` or `Dialog` before, so it never 500'd
+until now. Fixed by adding the alias to `vite.config.mjs`. Verified:
+typecheck/lint/format:check clean; live Playwright pass confirms the
+Sheet opens/closes and the fight flow is unaffected.
+Volume on Slider — DONE (`45d8195`): `SetupPanel`'s raw `<input
+type="range">` replaced with the shadcn `Slider`. Surfaced and fixed a
+real bug in the `Slider` primitive itself (also from `d8f0ef0`, also
+never actually rendered until now): its single-value fallback treated a
+plain number `value` as falsy for the `Array.isArray` check, so any
+single-thumb slider silently fell through to the two-thumb `[min, max]`
+default. Fixed the fallback chain in `src/ui/primitives/slider.tsx`.
+`TuningPanel`'s per-constant tuning inputs are plain `<input
+type="number">`, not ranges — left as-is (a Slider doesn't fit an
+open-ended numeric tuning knob the way it fits a 0–1 volume).
+Score meter on Progress — DONE (`93ab0b1`): `ScoreLine`'s two plain divs
+(`.sb-meter`/`.sb-meter-fill`) replaced with the shadcn `Progress`,
+composed via its own exported `ProgressTrack`/`ProgressIndicator` so all
+existing CSS (`is-met` included) applies unchanged — a real
+`role="progressbar"` now backs it. Fixed a second scaffolding bug this
+surfaced: `Progress` unconditionally appended its own default
+`Track`+`Indicator` after any `children` passed to it, so composing with
+the separately-exported subcomponents (as their existence implies you
+should be able to) silently duplicated the track; now only renders the
+default when no children are given.
+SFX/Word helper on Toggle — DONE: `SetupPanel`'s two `<input
+type="checkbox">` toggles replaced with the shadcn `Toggle`
+(`pressed`/`onPressedChange`); `.sb-toggle` CSS updated for a
+`[data-pressed]` button instead of a checkbox+label. Verified: typecheck/
+lint/format/build clean; live Playwright pass confirms the SFX toggle's
+`aria-pressed` flips true→false on click and the fight/gear flow is
+unaffected.
+Tuning panel on Tabs — DONE: `TuningPanel`'s single flat 40-constant grid
+(behind one `<details>`) regrouped into seven `Tabs` (Round, Tiers, Shop,
+Marginalia, Ink & gold, Premium slot, Character), each rendering the same
+`<input type="number">` fields as before; an "Other" tab is synthesized
+for any `ROUND_DEFAULTS` key not in an explicit group, so a future
+tunable can't silently disappear from the panel. Chosen over the
+higher-risk tile/scoreboard/shop chrome specifically because this panel
+is never touched mid-drag/tap (unlike Rack/Stick), so it carries none of
+the "half-migrated mid-screen" risk flagged below. Verified: typecheck/
+lint/format/build clean; live Playwright pass confirms all seven tab
+labels render and clicking "Shop" swaps the grid to the Shop group's
+fields with zero console errors.
+Still open: Tooltip/Popover/Badge/Card/Dialog remain unused anywhere in
+the app, and `sandbox.css` still hasn't shrunk — it's
+the FLIP/pop rules plus every other hand-rolled `.sb-*` class the app
+still runs on (`transform` on `.sb-tile` stays forbidden). Converting the
+rest of the chrome (scoreboard, shop cards, tile buttons) to shadcn base
+styles is the bulk of this item and is still a large, cohesive visual
+change better done as one pass per screen than left half-migrated
+mid-screen.
 
 **C3 (remainder) — beats. DONE (mostly).** `EnemyIntroCard.tsx` now
 renders `situation.opening[]` before the first word (`8342754`). `sfx.ts`

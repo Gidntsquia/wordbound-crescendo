@@ -3,7 +3,7 @@
 // diverts taps to toggleInkTile instead.
 import type { Tile } from '../../engine/tiles';
 import type { RoundFacade } from '../../engine/state/facade';
-import type { Inking as RealInking } from '../../sandbox/RoundSandbox';
+import type { Inking as RealInking } from '../../sandbox/FightScreen';
 
 interface RackEntry {
   t: Tile;
