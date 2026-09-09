@@ -223,25 +223,31 @@ are only three lines, left inline" note from an earlier pass does not close
 the item: `Callout.tsx` on Sonner is the spec. `RoundSandbox.jsx` ends as
 `FightScreen.tsx` or is deleted.
 
-**A6 — shadcn + Tailwind actually used.** Only `button.tsx` was generated
-and nothing imports it. Spec: Button, Card, Dialog, Sheet (gear panel),
-Tooltip, Popover, Tabs, Badge, Progress, Toggle, Slider (volume, tuning),
-Sonner (callouts) copied into `src/ui/primitives/` and used for all chrome.
-`sandbox.css` shrinks to a small `game.css` holding only the FLIP/pop rules
-(`transform` on `.sb-tile` still forbidden) and is otherwise deleted.
-Theme tokens already sit in the `@theme` block; the components must consume
-them.
+**A6 — shadcn + Tailwind actually used.** All twelve primitives (Button,
+Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
+Slider, Sonner) are now copied into `src/ui/primitives/` via `bunx shadcn
+add` (`d8f0ef0`), but none is wired into a component yet — this is
+scaffolding, not the item. Still open: actually use them for all chrome
+(gear panel on Sheet, callouts on Sonner, volume/tuning on Slider, etc.);
+`sandbox.css` shrinks to a small `game.css` holding only the FLIP/pop
+rules (`transform` on `.sb-tile` still forbidden) and is otherwise
+deleted. Theme tokens already sit in the `@theme` block; the components
+must consume them. This is a large, cohesive visual change better done in
+one pass across the whole app (alongside A4's split) than piecemeal —
+mixing old bespoke classNames with new shadcn base styles screen-by-screen
+would leave a visibly inconsistent intermediate look.
 
 **A1 (remainder) — `.jsx` → `.tsx`.** `Sprite.tsx`, the four `svg/*.tsx`
-files, `CharacterSelect.tsx`, and `SituationPanel.tsx` are ported (real
-prop types throughout — `Sprite`/`Disc`/`Tile`/`Backdrop`,
-`Character[]`/`Situation | null | undefined`, `811df5d`/`4722c2c`) —
-seven of the original sixteen. Nine remain: `RoundSandbox` and everything
-under `src/ui/` (`HeldRow`, `Shop`, `PlayBoard`, `RunStrip`, `GearMeta`,
-`TuningPanel`, `EndScreen`, `TitleScreen`). Spec is TypeScript throughout;
-the `allowJs` step was transitional. These nine take real `SB`-shaped
-prop types and are better done alongside A4's component split than
-converted in place first and re-typed again after.
+files, `CharacterSelect.tsx`, `SituationPanel.tsx` (`811df5d`/`4722c2c`),
+and now `TitleScreen.tsx`, `EndScreen.tsx`, `RunStrip.tsx`, `GearMeta.tsx`,
+`TuningPanel.tsx` (`d69e76f`) are ported — real prop types throughout
+(`Sprite`/`Disc`/`Tile`/`Backdrop`, `Character[]`, `Situation | null |
+undefined`, `RunLike`, `BestState`, `Key[]`). Twelve of sixteen done.
+Four remain: `RoundSandbox`, `HeldRow`, `Shop`, `PlayBoard` — these take
+real `SB`-shaped prop types and are better done alongside A4's component
+split (below) than converted in place first and re-typed again after.
+Verified: `bun run typecheck`/`lint`/`format:check` clean; live browser
+test (title screen, fight, gear panel) zero console errors.
 
 **C3 (remainder) — beats.** `Situation.opening[]` and `resolution[]` are
 authored in `situations.ts` and rendered nowhere. Spec: opening lines
