@@ -192,52 +192,59 @@ export function draw(
   return drawn;
 }
 
+// The window.Wordbound namespace is assembled across many ported and
+// still-untyped modules; WordboundNamespace is augmented (not redeclared)
+// wherever another piece of it is ported, so member declarations merge
+// instead of colliding (see sandboxGlobal.ts for the same pattern on
+// window.Wordbound.Sandbox specifically).
 declare global {
-  interface Window {
-    Wordbound: {
-      Tiles: {
-        BONUS_TYPES: typeof BONUS_TYPES;
-        VARIANTS: typeof VARIANTS;
-        createTile: typeof createTile;
-        createStarterDeck: typeof createStarterDeck;
-        rollRewardOptions: typeof rollRewardOptions;
-        rollVariantTile: typeof rollVariantTile;
-        describeBonus: typeof describeBonus;
-        describeVariant: typeof describeVariant;
-        shuffleIntoDrawPile: typeof shuffleIntoDrawPile;
-        draw: typeof draw;
-      };
-      Lexicon: {
-        LETTER_VALUES: Record<string, number>;
-        LETTER_POOL: Record<string, number>;
-        isValidWord(word: string): boolean;
-        canFormFromRack(
-          word: string,
-          rack: Tile[],
-        ): { possible: boolean; tilesUsed: Tile[] | null };
-        removeTiles(rack: Tile[], tilesUsed: Tile[]): void;
-        scoreWord(
-          word: string,
-          tilesUsed: Tile[],
-          rackCapacity?: number,
-        ): {
-          base: number;
-          lengthBonus: number;
-          bingoBonus: number;
-          bonusFlat: number;
-          bonusMult: number;
-          variantFlat: number;
-          total: number;
-        };
-        hasPlayableWord(rack: Tile[]): boolean;
-        hasPlayableInvertedWord(rack: Tile[]): boolean;
-      };
-      WORD_SET: Set<string>;
-      WORDLIST: string[];
-      StolenLetters?: { isStolen(letter: string): boolean };
-      Items?: { FLIP_MAP: Record<string, string> };
-      [key: string]: unknown;
+  interface WordboundNamespace {
+    Tiles: {
+      BONUS_TYPES: typeof BONUS_TYPES;
+      VARIANTS: typeof VARIANTS;
+      createTile: typeof createTile;
+      createStarterDeck: typeof createStarterDeck;
+      rollRewardOptions: typeof rollRewardOptions;
+      rollVariantTile: typeof rollVariantTile;
+      describeBonus: typeof describeBonus;
+      describeVariant: typeof describeVariant;
+      shuffleIntoDrawPile: typeof shuffleIntoDrawPile;
+      draw: typeof draw;
     };
+    Lexicon: {
+      LETTER_VALUES: Record<string, number>;
+      LETTER_POOL: Record<string, number>;
+      isValidWord(word: string): boolean;
+      canFormFromRack(
+        word: string,
+        rack: Tile[],
+      ): { possible: boolean; tilesUsed: Tile[] | null };
+      removeTiles(rack: Tile[], tilesUsed: Tile[]): void;
+      scoreWord(
+        word: string,
+        tilesUsed: Tile[],
+        rackCapacity?: number,
+      ): {
+        base: number;
+        lengthBonus: number;
+        bingoBonus: number;
+        bonusFlat: number;
+        bonusMult: number;
+        variantFlat: number;
+        total: number;
+      };
+      hasPlayableWord(rack: Tile[]): boolean;
+      hasPlayableInvertedWord(rack: Tile[]): boolean;
+    };
+    WORD_SET: Set<string>;
+    WORDLIST: string[];
+    StolenLetters?: { isStolen(letter: string): boolean };
+    Items?: { FLIP_MAP: Record<string, string> };
+    [key: string]: unknown;
+  }
+
+  interface Window {
+    Wordbound: WordboundNamespace;
   }
 }
 

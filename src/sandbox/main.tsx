@@ -20,7 +20,7 @@ import '../../js/wordbound/wordlist.js';
 import '../engine/lexicon';
 import '../engine/tiles';
 
-import './enemies.js';
+import '../engine/content/enemies';
 import './items.js';
 import './round.js';
 import './shop.js';
