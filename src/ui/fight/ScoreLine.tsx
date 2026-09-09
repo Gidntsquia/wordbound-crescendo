@@ -1,0 +1,154 @@
+// The live scoreline (score/meter/target/words/swaps), enemy/piece line,
+// situation caption, and reading condition card. Extracted from
+// RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in; scoring/seen
+// are read-only here.
+import SituationPanel from '../../sandbox/SituationPanel';
+import type { Situation } from '../../engine/content/situations';
+
+interface Fight {
+  def: { glyph: string; name: string };
+  piece: { title: string; composer?: string };
+}
+
+interface Rule {
+  id: string;
+  name: string;
+  plain: string;
+  text: string;
+}
+
+interface RoundLike {
+  situation: unknown;
+  target: number;
+  playsLeft: number;
+  changeoutsLeft: number;
+  rule?: Rule | null;
+}
+
+interface Float {
+  key: string;
+  on: string;
+  tone: string;
+  text: string;
+}
+
+interface ScoringState {
+  total?: number | null;
+  litItem?: string | null;
+  floats: Float[];
+}
+
+export default function ScoreLine({
+  f,
+  round,
+  SB,
+  scoring,
+  scoreShown,
+  pct,
+  seen,
+  live,
+}: {
+  f: Fight;
+  round: RoundLike;
+  SB: {
+    situationFor?: (situation: unknown) => Situation | null | undefined;
+    ladderIndex?: (
+      situation: Situation | null | undefined,
+      score: number,
+      target: number,
+    ) => number;
+  };
+  scoring: ScoringState | null;
+  scoreShown: number;
+  pct: number;
+  seen: ReadonlySet<string>;
+  live: boolean;
+}) {
+  return (
+    <>
+      <div className="sb-scoreline" aria-label="Score against the target">
+        <span
+          className={
+            'sb-dyn-mark' + (scoring && scoring.total != null ? ' is-hit' : '')
+          }
+        >
+          {scoreShown}
+        </span>
+        <div className="sb-meter" aria-label="Progress to target">
+          <div
+            className={
+              'sb-meter-fill' + (scoreShown >= round.target ? ' is-met' : '')
+            }
+            style={{ width: pct + '%' }}
+          />
+        </div>
+        <span className="sb-target">
+          <small>target</small>
+          {round.target}
+        </span>
+        <span className="sb-counters">
+          <span>
+            <b>{round.playsLeft}</b> word{round.playsLeft === 1 ? '' : 's'}
+          </span>
+          <span
+            className={
+              seen.has('swap') || !live || round.changeoutsLeft <= 0
+                ? ''
+                : 'sb-callout-anchor'
+            }
+          >
+            <b>{round.changeoutsLeft}</b> swap
+            {round.changeoutsLeft === 1 ? '' : 's'}
+          </span>
+        </span>
+      </div>
+      <div className="sb-enemy-line">
+        <span className="sb-enemy">
+          {f.def.glyph} {f.def.name}
+        </span>
+        <span className="sb-piece">
+          {f.piece.title}
+          {f.piece.composer ? ' · ' + f.piece.composer : ''}
+        </span>
+      </div>
+      <SituationPanel
+        situation={SB.situationFor && SB.situationFor(round.situation)}
+        ladderIndex={
+          SB.ladderIndex
+            ? SB.ladderIndex(
+                SB.situationFor!(round.situation),
+                scoreShown,
+                round.target,
+              )
+            : 0
+        }
+      />
+      {round.rule && (
+        <div
+          className={
+            'sb-rule' +
+            (scoring && scoring.litItem === round.rule.id ? ' is-flash' : '') +
+            (!seen.has('boss') ? ' is-pulse' : '')
+          }
+        >
+          {scoring &&
+            scoring.floats
+              .filter((x) => x.on === round.rule!.id)
+              .map((x) => (
+                <i
+                  key={x.key}
+                  className={'sb-float sb-float-card is-' + x.tone}
+                >
+                  {x.text}
+                </i>
+              ))}
+          <span className="sb-eyebrow">
+            Reading condition · {round.rule.name}
+          </span>
+          <b className="sb-rule-plain">{round.rule.plain}</b>
+          <q>{round.rule.text}</q>
+        </div>
+      )}
+    </>
+  );
+}

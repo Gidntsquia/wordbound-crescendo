@@ -56,7 +56,13 @@ import TitleScreen from '../ui/meta/TitleScreen';
 import HeldRow from '../ui/fight/HeldRow';
 import Shop from '../ui/shop/Shop';
 import EndScreen from '../ui/meta/EndScreen';
-import GearMeta from '../ui/chrome/GearMeta';
+import EnemyIntroCard from '../ui/fight/EnemyIntroCard';
+import ScoreLine from '../ui/fight/ScoreLine';
+import PlaysList from '../ui/fight/PlaysList';
+import WonBanner from '../ui/fight/WonBanner';
+import LetterChoice from '../ui/fight/LetterChoice';
+import SetupPanel from '../ui/chrome/SetupPanel';
+import StartingQuills from '../ui/chrome/StartingQuills';
 import TuningPanel from '../ui/chrome/TuningPanel';
 import RunStrip from '../ui/chrome/RunStrip';
 import { describeBreakdown } from '../ui/fight/cardCopy';
@@ -1428,109 +1434,31 @@ export default function RoundSandbox() {
       <RunStrip run={run} phase={phase} />
 
       <div className="sb-gear-panel">
-        <section className="sb-setup">
-          <label>
-            Seed
-            <input
-              value={seed}
-              onChange={(e) => setSeed(e.target.value)}
-              style={{ width: 110 }}
-            />
-          </label>
-          <div className="sb-bags" role="group" aria-label="Tile bag">
-            <span className="sb-bags-head">Tile bag</span>
-            <div className="sb-bag-row">
-              {SB.TILE_BAGS.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  title={b.blurb}
-                  className={'sb-bag' + (b.id === bagId ? ' is-on' : '')}
-                  onClick={() => setBagId(b.id)}
-                >
-                  {b.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <GearMeta SB={SB} keyUnlocked={keyUnlocked} discovered={discovered} />
-          <label>
-            Volume
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
-            />
-          </label>
-          <label className="sb-toggle" title="Tile, swap, shop and ink sounds">
-            <input
-              type="checkbox"
-              checked={sfxOn}
-              onChange={(e) => setSfxOn(e.target.checked)}
-            />
-            SFX
-          </label>
-          <label
-            className="sb-toggle"
-            title="Word suggestions, Best play, and Play settling for the best word in the letters"
-          >
-            <input
-              type="checkbox"
-              checked={helper}
-              onChange={(e) => setHelper(e.target.checked)}
-            />
-            Word helper
-          </label>
-          <button type="button" className="sb-go" onClick={() => start()}>
-            {phase === 'idle'
-              ? 'Start with this seed'
-              : 'Restart with this seed'}
-          </button>
-          {round && (
-            <span className="sb-hint">
-              <b>{round.pile.drawPile.length}</b> in the bag,{' '}
-              <b>{round.pile.discardPile.length}</b> discarded, of{' '}
-              {run.deck.length}
-            </span>
-          )}
-        </section>
-
-        <section className="sb-items" role="group" aria-label="Starting quills">
-          <span className="sb-eyebrow">Starting quills · read at start</span>
-          {SB.ITEMS.map((d) => {
-            const id = d.id;
-            return (
-              <label
-                key={id}
-                className={'sb-item' + (itemIds.has(id) ? ' is-on' : '')}
-                title={d.hint}
-              >
-                <input
-                  type="checkbox"
-                  checked={itemIds.has(id)}
-                  onChange={(e) =>
-                    setItemIds((prev) => {
-                      const next = new Set(prev);
-                      if (e.target.checked) next.add(id);
-                      else next.delete(id);
-                      return next;
-                    })
-                  }
-                />
-                {d.name}
-                <em>{d.hint}</em>
-              </label>
-            );
-          })}
-          {run &&
-            [...itemIds].sort().join() !==
-              run.startItems.slice().sort().join() && (
-              <em className="sb-bag-note">on restart</em>
-            )}
-        </section>
+        <SetupPanel
+          SB={SB}
+          seed={seed}
+          setSeed={setSeed}
+          bagId={bagId}
+          setBagId={setBagId}
+          keyUnlocked={keyUnlocked}
+          discovered={discovered}
+          volume={volume}
+          setVolume={setVolume}
+          sfxOn={sfxOn}
+          setSfxOn={setSfxOn}
+          helper={helper}
+          setHelper={setHelper}
+          phase={phase}
+          start={start}
+          round={round}
+          run={run}
+        />
+        <StartingQuills
+          SB={SB}
+          itemIds={itemIds}
+          setItemIds={setItemIds}
+          run={run}
+        />
       </div>
 
       {round && (
@@ -1541,157 +1469,24 @@ export default function RoundSandbox() {
           }
         >
           {showIntro ? (
-            <div className="sb-intro">
-              <div className="sb-enemy-line">
-                <span className="sb-enemy">
-                  {f.def.glyph} {f.def.name}
-                </span>
-                <span className="sb-piece">
-                  {f.piece.title}
-                  {f.piece.composer ? ' · ' + f.piece.composer : ''}
-                </span>
-              </div>
-              <SituationPanel
-                situation={SB.situationFor && SB.situationFor(round.situation)}
-                ladderIndex={
-                  SB.ladderIndex
-                    ? SB.ladderIndex(
-                        SB.situationFor(round.situation),
-                        0,
-                        round.target,
-                      )
-                    : 0
-                }
-              />
-              {f.def.flavour && (
-                <q className="sb-intro-flavour">{f.def.flavour}</q>
-              )}
-              {round.rule ? (
-                <div className="sb-rule is-pulse">
-                  <span className="sb-eyebrow">
-                    Reading condition · {round.rule.name}
-                  </span>
-                  <b className="sb-rule-plain">{round.rule.plain}</b>
-                  <q>{round.rule.text}</q>
-                </div>
-              ) : (
-                <span className="sb-hint">Target {round.target}</span>
-              )}
-              <div className="sb-intro-row">
-                <button type="button" className="sb-go" onClick={enterFight}>
-                  Fight {f.def.name}
-                </button>
-                {round.favour && (
-                  <button
-                    type="button"
-                    className="sb-skip-btn"
-                    title={
-                      SB.FAVOUR_DEFS[round.favour].name +
-                      ': ' +
-                      SB.FAVOUR_DEFS[round.favour].hint +
-                      '. No shop after a skip.'
-                    }
-                    onClick={skipFight}
-                  >
-                    Walk past for <b>{SB.FAVOUR_DEFS[round.favour].name}</b>
-                  </button>
-                )}
-              </div>
-            </div>
+            <EnemyIntroCard
+              f={f}
+              round={round}
+              SB={SB}
+              enterFight={enterFight}
+              skipFight={skipFight}
+            />
           ) : phase === 'shop' ? null : (
-            <>
-              <div
-                className="sb-scoreline"
-                aria-label="Score against the target"
-              >
-                <span
-                  className={
-                    'sb-dyn-mark' +
-                    (scoring && scoring.total != null ? ' is-hit' : '')
-                  }
-                >
-                  {scoreShown}
-                </span>
-                <div className="sb-meter" aria-label="Progress to target">
-                  <div
-                    className={
-                      'sb-meter-fill' +
-                      (scoreShown >= round.target ? ' is-met' : '')
-                    }
-                    style={{ width: pct + '%' }}
-                  />
-                </div>
-                <span className="sb-target">
-                  <small>target</small>
-                  {round.target}
-                </span>
-                <span className="sb-counters">
-                  <span>
-                    <b>{round.playsLeft}</b> word
-                    {round.playsLeft === 1 ? '' : 's'}
-                  </span>
-                  <span
-                    className={
-                      seen.has('swap') || !live || round.changeoutsLeft <= 0
-                        ? ''
-                        : 'sb-callout-anchor'
-                    }
-                  >
-                    <b>{round.changeoutsLeft}</b> swap
-                    {round.changeoutsLeft === 1 ? '' : 's'}
-                  </span>
-                </span>
-              </div>
-              <div className="sb-enemy-line">
-                <span className="sb-enemy">
-                  {f.def.glyph} {f.def.name}
-                </span>
-                <span className="sb-piece">
-                  {f.piece.title}
-                  {f.piece.composer ? ' · ' + f.piece.composer : ''}
-                </span>
-              </div>
-              <SituationPanel
-                situation={SB.situationFor && SB.situationFor(round.situation)}
-                ladderIndex={
-                  SB.ladderIndex
-                    ? SB.ladderIndex(
-                        SB.situationFor(round.situation),
-                        scoreShown,
-                        round.target,
-                      )
-                    : 0
-                }
-              />
-              {round.rule && (
-                <div
-                  className={
-                    'sb-rule' +
-                    (scoring && scoring.litItem === round.rule.id
-                      ? ' is-flash'
-                      : '') +
-                    (!seen.has('boss') ? ' is-pulse' : '')
-                  }
-                >
-                  {scoring &&
-                    scoring.floats
-                      .filter((x) => x.on === round.rule.id)
-                      .map((x) => (
-                        <i
-                          key={x.key}
-                          className={'sb-float sb-float-card is-' + x.tone}
-                        >
-                          {x.text}
-                        </i>
-                      ))}
-                  <span className="sb-eyebrow">
-                    Reading condition · {round.rule.name}
-                  </span>
-                  <b className="sb-rule-plain">{round.rule.plain}</b>
-                  <q>{round.rule.text}</q>
-                </div>
-              )}
-            </>
+            <ScoreLine
+              f={f}
+              round={round}
+              SB={SB}
+              scoring={scoring}
+              scoreShown={scoreShown}
+              pct={pct}
+              seen={seen}
+              live={live}
+            />
           )}
           {phase !== 'shop' && (
             <HeldRow
@@ -1709,68 +1504,21 @@ export default function RoundSandbox() {
           )}
           {phase !== 'shop' &&
             round.plays.length > (scoring && !scoring.cleared ? 1 : 0) && (
-              <ol className="sb-plays">
-                {(scoring && !scoring.cleared
-                  ? round.plays.slice(0, -1)
-                  : round.plays
-                ).map((p, i) => (
-                  <li key={i}>
-                    <span className="sb-plays-word">
-                      {i === round.plays.length - 1 && p.tiles
-                        ? p.tiles.map((t, j) => (
-                            <i key={t.id} data-flip-tile-id={t.id}>
-                              {p.word[j]}
-                            </i>
-                          ))
-                        : p.word}
-                    </span>
-                    <span className="sb-plays-how">
-                      {describeBreakdown(p.breakdown)}
-                    </span>
-                    <b className="sb-figure">{p.breakdown.total}</b>
-                  </li>
-                ))}
-              </ol>
+              <PlaysList
+                plays={round.plays}
+                scoring={scoring}
+                describe={describeBreakdown}
+              />
             )}
           {phase === 'won' && (
-            <div className="sb-outcome sb-win">
-              Won — {round.ink} ink ({round.reward} +{' '}
-              {round.tune.INK_PER_WORD_LEFT} × {round.playsLeft} word
-              {round.playsLeft === 1 ? '' : 's'} left)
-              {run.interestPreview() > 0 && (
-                <> + {run.interestPreview()} interest</>
-              )}
-              .{' '}
-              <button type="button" className="sb-go" onClick={nextStage}>
-                {run.movement >= run.movements.length - 1 &&
-                run.enemy.kind === 'boss'
-                  ? 'Finish the run'
-                  : 'To the shop'}
-              </button>
-            </div>
+            <WonBanner round={round} run={run} nextStage={nextStage} />
           )}
           {phase === 'letter' && run.letterChoice && (
-            <div className="sb-outcome sb-letter-choice">
-              <span className="sb-eyebrow">
-                The boss falls — choose a letter to win back
-              </span>
-              <div className="sb-letter-row">
-                {run.letterChoice.options.map((l) => (
-                  <button
-                    key={l}
-                    type="button"
-                    className="sb-tile sb-letter-pick"
-                    onClick={() => pickLetter(l)}
-                  >
-                    {l}
-                    <sub>{W.Lexicon.LETTER_VALUES[l] || 0}</sub>
-                  </button>
-                ))}
-              </div>
-              <p className="sb-hint">
-                It joins every future run’s bag, win or lose this one.
-              </p>
-            </div>
+            <LetterChoice
+              options={run.letterChoice.options}
+              letterValues={W.Lexicon.LETTER_VALUES}
+              pickLetter={pickLetter}
+            />
           )}
           {phase === 'shop' && run.shop && (
             <Shop
