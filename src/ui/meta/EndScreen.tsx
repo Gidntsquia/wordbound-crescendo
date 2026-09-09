@@ -4,6 +4,12 @@
 // pre-A6 bespoke classNames -- the shadcn/Tailwind chrome pass is a
 // separate, larger visual change tracked under A6.
 import * as copy from '../copy';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '../primitives/tooltip';
 import type { RunFacade } from '../../engine/state/facade';
 import type { SituationId } from '../../engine/content/situations';
 import type { Enemy } from '../../engine/content/enemies';
@@ -83,15 +89,23 @@ export default function EndScreen({
         <div>
           <span className="sb-eyebrow">Felled</span>
           <div className="sb-end-felled">
-            {felled.map((e) => (
-              <span
-                key={e.id}
-                className={'sb-pip sb-pip-' + e.kind + ' is-done'}
-                title={e.name}
-              >
-                {e.kind === 'boss' ? '♩' : '·'}
-              </span>
-            ))}
+            <TooltipProvider>
+              {felled.map((e) => (
+                <Tooltip key={e.id}>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className={'sb-pip sb-pip-' + e.kind + ' is-done'}
+                      />
+                    }
+                  >
+                    {e.kind === 'boss' ? '♩' : '·'}
+                  </TooltipTrigger>
+                  <TooltipContent>{e.name}</TooltipContent>
+                </Tooltip>
+              ))}
+            </TooltipProvider>
+
             {run.skipped.length > 0 && (
               <em className="sb-hint">{run.skipped.length} skipped</em>
             )}

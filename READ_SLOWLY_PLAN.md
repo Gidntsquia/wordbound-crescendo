@@ -399,69 +399,6 @@ left for that pass rather than done twice; renaming surviving `inks`-era
 names (`applyInk`, `useInk`, `is-mark-*` is fine — already the current
 names, nothing left to rename there).
 
-Card, Dialog, Sheet, Tooltip, Popover, Tabs, Badge, Progress, Toggle,
-Slider, Sonner) are now copied into `src/ui/primitives/` via `bunx shadcn
-add` (`d8f0ef0`). Callouts on Sonner — DONE (`ba2f69f`, see A4 above).
-Gear panel on Sheet — DONE (`58acb5d`): `RoundSandbox`'s gear panel
-(`SetupPanel`, `StartingQuills`, `TuningPanel`) was three CSS-toggled
-siblings (`.sb:not(.is-gear-open) .sb-gear-panel { display: none }`),
-non-adjacent in the render tree; now a real `<Sheet>` controlled by the
-existing `gearReducer`. This surfaced and fixed a latent runtime bug in
-the shadcn scaffolding itself: `sheet.tsx`/`dialog.tsx` import
-`@/ui/primitives/button`, and while `tsconfig.json`'s `paths` resolved
-that for `tsc`, `vite.config.mjs` had no matching `resolve.alias` —
-nothing had rendered a `Sheet` or `Dialog` before, so it never 500'd
-until now. Fixed by adding the alias to `vite.config.mjs`. Verified:
-typecheck/lint/format:check clean; live Playwright pass confirms the
-Sheet opens/closes and the fight flow is unaffected.
-Volume on Slider — DONE (`45d8195`): `SetupPanel`'s raw `<input
-type="range">` replaced with the shadcn `Slider`. Surfaced and fixed a
-real bug in the `Slider` primitive itself (also from `d8f0ef0`, also
-never actually rendered until now): its single-value fallback treated a
-plain number `value` as falsy for the `Array.isArray` check, so any
-single-thumb slider silently fell through to the two-thumb `[min, max]`
-default. Fixed the fallback chain in `src/ui/primitives/slider.tsx`.
-`TuningPanel`'s per-constant tuning inputs are plain `<input
-type="number">`, not ranges — left as-is (a Slider doesn't fit an
-open-ended numeric tuning knob the way it fits a 0–1 volume).
-Score meter on Progress — DONE (`93ab0b1`): `ScoreLine`'s two plain divs
-(`.sb-meter`/`.sb-meter-fill`) replaced with the shadcn `Progress`,
-composed via its own exported `ProgressTrack`/`ProgressIndicator` so all
-existing CSS (`is-met` included) applies unchanged — a real
-`role="progressbar"` now backs it. Fixed a second scaffolding bug this
-surfaced: `Progress` unconditionally appended its own default
-`Track`+`Indicator` after any `children` passed to it, so composing with
-the separately-exported subcomponents (as their existence implies you
-should be able to) silently duplicated the track; now only renders the
-default when no children are given.
-SFX/Word helper on Toggle — DONE: `SetupPanel`'s two `<input
-type="checkbox">` toggles replaced with the shadcn `Toggle`
-(`pressed`/`onPressedChange`); `.sb-toggle` CSS updated for a
-`[data-pressed]` button instead of a checkbox+label. Verified: typecheck/
-lint/format/build clean; live Playwright pass confirms the SFX toggle's
-`aria-pressed` flips true→false on click and the fight/gear flow is
-unaffected.
-Tuning panel on Tabs — DONE: `TuningPanel`'s single flat 40-constant grid
-(behind one `<details>`) regrouped into seven `Tabs` (Round, Tiers, Shop,
-Marginalia, Ink & gold, Premium slot, Character), each rendering the same
-`<input type="number">` fields as before; an "Other" tab is synthesized
-for any `ROUND_DEFAULTS` key not in an explicit group, so a future
-tunable can't silently disappear from the panel. Chosen over the
-higher-risk tile/scoreboard/shop chrome specifically because this panel
-is never touched mid-drag/tap (unlike Rack/Stick), so it carries none of
-the "half-migrated mid-screen" risk flagged below. Verified: typecheck/
-lint/format/build clean; live Playwright pass confirms all seven tab
-labels render and clicking "Shop" swaps the grid to the Shop group's
-fields with zero console errors.
-Still open: Tooltip/Popover/Badge/Card/Dialog remain unused anywhere in
-the app, and `sandbox.css` still hasn't shrunk — it's
-the FLIP/pop rules plus every other hand-rolled `.sb-*` class the app
-still runs on (`transform` on `.sb-tile` stays forbidden). Converting the
-rest of the chrome (scoreboard, shop cards, tile buttons) to shadcn base
-styles is the bulk of this item and is still a large, cohesive visual
-change better done as one pass per screen than left half-migrated
-mid-screen.
-
 **A1 (remainder) — `.jsx` → `.tsx`.** `Sprite.tsx`, the four `svg/*.tsx`
 files, `CharacterSelect.tsx`, `SituationPanel.tsx` (`811df5d`/`4722c2c`),
 and now `TitleScreen.tsx`, `EndScreen.tsx`, `RunStrip.tsx`, `GearMeta.tsx`,
@@ -529,7 +466,29 @@ the "half-migrated mid-screen" risk flagged below. Verified: typecheck/
 lint/format/build clean; live Playwright pass confirms all seven tab
 labels render and clicking "Shop" swaps the grid to the Shop group's
 fields with zero console errors.
-Still open: Tooltip/Popover/Badge/Card/Dialog remain unused anywhere in
+Felled-enemy pips on Tooltip — DONE: `EndScreen.tsx`'s felled-enemy pips
+(`sb-end-felled`) replaced their plain `title={e.name}` with a real
+`Tooltip`/`TooltipTrigger`/`TooltipContent` (`TooltipTrigger`'s `render`
+prop keeps the existing `sb-pip` span/className unchanged, so the visual
+pip is identical, just with a real hover popup instead of a native
+title). Chosen over Rack/Stick/shop-card tooltips specifically because
+the end screen is static (no drag/tap-mid-interaction risk) — the same
+reasoning already used to pick the Tuning panel for Tabs over the
+riskier chrome. Verified: typecheck/lint/format/build clean. Live
+end-screen verification (hovering a pip, reading the popup) was
+infeasible within budget this session — reaching `phase === 'lost'` or
+`'run-won'` needs either an actual scripted win/loss (the small 4-play
+budget makes losing/winning via automated word-play unreliable to script
+exactly, confirmed by five attempted `Best play` + `Play` cycles that
+neither won nor lost the fight) or a dispatch hook the app doesn't
+expose (only `window.__round`/`__run` are debug globals, no phase
+setter) — same limitation already hit and accepted for C3's page-SFX/
+resolution-beat wiring. Verified instead by code review: `TooltipTrigger`'s
+`render` prop is the same pattern already proven live in `sheet.tsx`'s
+close button and `dialog.tsx`'s `Close render={<Button .../>}`, and the
+component only replaces a `title` attribute with a portal-rendered popup
+— it does not change any layout, state, or interaction path.
+Still open: Popover/Badge/Card/Dialog remain unused anywhere in
 the app, and `sandbox.css` still hasn't shrunk — it's
 the FLIP/pop rules plus every other hand-rolled `.sb-*` class the app
 still runs on (`transform` on `.sb-tile` stays forbidden). Converting the
