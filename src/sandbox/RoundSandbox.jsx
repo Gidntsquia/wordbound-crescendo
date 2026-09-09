@@ -10,7 +10,6 @@
 import { createDragReorder } from '../engine/dragReorder';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';
-import Sprite from '../art/Sprite.jsx';
 import TitleScreen from '../ui/meta/TitleScreen.jsx';
 import HeldRow from '../ui/fight/HeldRow';
 import Shop from '../ui/shop/Shop';
@@ -1604,11 +1603,6 @@ export default function RoundSandbox() {
             (scoring && scoring.hit ? ' is-hit-' + scoring.hit : '')
           }
         >
-          <Sprite
-            sheet={'backdrop_chapter_' + (run.movement + 1)}
-            pose="far"
-            className="sb-backdrop"
-          />
           {showIntro ? (
             <div className="sb-intro">
               <div className="sb-enemy-line">

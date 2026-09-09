@@ -179,6 +179,35 @@ full play+score loop plus a screenshot check of the intro screen
 confirming the backdrop and both situation sprites are visually present,
 zero console errors. Deployed.
 
+Update (2026-09-09, backdrop reverted + spacing pass): the chapter-backdrop
+wiring above looked "scuffed" on Jaxon's phone, not atmospheric — the SVGs
+are flat pale-parchment/warm-tan compositions (see `backdrops.jsx`'s own
+header comment: "flat, unobtrusive two-tone") laid under this app's dark
+theme with no scrim tuned for it, so at 32% opacity over the dark `.sb-board`
+it read as a muddy gray wash with faint diagonal lines, not art. Made worse
+because `.sb-board` is `flex: 1 1 auto` on the phone breakpoint (fills
+remaining column height so the title-screen scroll region works) — the
+backdrop's `position: absolute; inset: 0` filled that whole stretched box,
+turning the ordinary blank space below a short intro card into a visibly
+gray dead rectangle. Rather than force a light-on-dark palette fix this
+pass, backed the backdrop out entirely (`<Sprite sheet="backdrop_...">`
+call and `.sb-backdrop`/`.sb-board` CSS removed) — a plain panel over a
+scuffed one. `backdrop_chapter_1/2/3` are back to unwired ("sourced" but
+not rendered anywhere); revisiting needs either a recolored/dark-mode SVG
+variant or a much lower opacity + solid scrim, not attempted here. The
+44px situation-sprite sizing from the previous update stays — not
+implicated in the complaint.
+
+Also tightened phone spacing beyond the earlier `.sb-rope`/`.sb-piles`
+pass: the ≤620px block now trims the outer `.sb` container padding
+(28px/24px → 14px), `.sb-play`'s (the tile-input row) desktop
+22px top/bottom padding + 22px margin down to 10px/10px, and
+`.sb-rack`/`.sb-stick-wrap` bottom margins from 14px to 8px.
+Verified: `bun run typecheck`/`lint`/`build` clean, headless Playwright
+smoke test at a 390×844 viewport with a screenshot check of the intro
+panel (no gray wash, tighter header/play-row spacing), zero console
+errors. Deployed.
+
 ---
 
 ## 0. What exists today (audit findings)
