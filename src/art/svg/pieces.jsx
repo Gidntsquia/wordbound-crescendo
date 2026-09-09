@@ -88,7 +88,16 @@ export function BookmarkCardFrame() {
 export function PackWrapper() {
   return (
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
-      <rect x="6" y="10" width="52" height="44" rx="3" fill="#e8dcc0" stroke="#8a7a52" strokeWidth="2" />
+      <rect
+        x="6"
+        y="10"
+        width="52"
+        height="44"
+        rx="3"
+        fill="#e8dcc0"
+        stroke="#8a7a52"
+        strokeWidth="2"
+      />
       <line x1="32" y1="10" x2="32" y2="54" stroke="#8a7a52" strokeWidth="2" />
       <line x1="6" y1="32" x2="58" y2="32" stroke="#8a7a52" strokeWidth="2" />
       <circle cx="32" cy="32" r="6" fill="#7a2b2b" />

@@ -5,7 +5,6 @@
 // Still attaches to window.Wordbound.Sandbox for the untyped sandbox modules
 // that read it off the global (round.ts reads tile.mark at scoring time;
 // shop.ts/RoundSandbox call applyMark).
-import '../sandboxGlobal';
 import type { Tile } from '../tiles';
 
 export interface Mark {
@@ -128,10 +127,3 @@ export function applyMark(
   });
   return { ok: true, note: mark.name + ' on ' + letters + '.' };
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.MARGINALIA = MARGINALIA;
-Sandbox.MARK_DEFS = MARK_DEFS;
-Sandbox.VOWELS = VOWELS;
-Sandbox.tileMark = tileMark;
-Sandbox.applyMark = applyMark;

@@ -3,10 +3,9 @@
 // under src/recordings/ holds the licensing metadata (title/composer/
 // performer/audio) and the analyzed envelope (durationSec/peak/loudness/
 // dynamics, from tools/analyze-audio-piece.js). One import per recording, in
-// manifest order. Edit the manifest, not this file. Still attaches each
-// piece to window.Wordbound.Sandbox for RoundSandbox.jsx/audioPiece.ts,
-// which read pieces off the global by name (e.g. Sandbox.recordedFurElise).
-import '../sandboxGlobal';
+// manifest order. Edit the manifest, not this file. RECORDINGS exposes them
+// by name (e.g. RECORDINGS.recordedFurElise) for RoundSandbox.jsx/
+// audioPiece.ts, which look pieces up dynamically by enemy.recorded.
 import type { RecordedPiece } from './audioPiece';
 
 import recordedFurElise from '../../recordings/recordedFurElise.json';
@@ -19,13 +18,14 @@ import recordedGymnopedie from '../../recordings/recordedGymnopedie.json';
 import recordedNachtmusik from '../../recordings/recordedNachtmusik.json';
 import recordedBaldMountain from '../../recordings/recordedBaldMountain.json';
 
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.recordedFurElise = recordedFurElise as RecordedPiece;
-Sandbox.recordedMoonlight = recordedMoonlight as RecordedPiece;
-Sandbox.recordedSymphony5 = recordedSymphony5 as RecordedPiece;
-Sandbox.recordedGoldbergAria = recordedGoldbergAria as RecordedPiece;
-Sandbox.recordedMountainKing = recordedMountainKing as RecordedPiece;
-Sandbox.recordedWilliamTell = recordedWilliamTell as RecordedPiece;
-Sandbox.recordedGymnopedie = recordedGymnopedie as RecordedPiece;
-Sandbox.recordedNachtmusik = recordedNachtmusik as RecordedPiece;
-Sandbox.recordedBaldMountain = recordedBaldMountain as RecordedPiece;
+export const RECORDINGS: Record<string, RecordedPiece> = {
+  recordedFurElise: recordedFurElise as RecordedPiece,
+  recordedMoonlight: recordedMoonlight as RecordedPiece,
+  recordedSymphony5: recordedSymphony5 as RecordedPiece,
+  recordedGoldbergAria: recordedGoldbergAria as RecordedPiece,
+  recordedMountainKing: recordedMountainKing as RecordedPiece,
+  recordedWilliamTell: recordedWilliamTell as RecordedPiece,
+  recordedGymnopedie: recordedGymnopedie as RecordedPiece,
+  recordedNachtmusik: recordedNachtmusik as RecordedPiece,
+  recordedBaldMountain: recordedBaldMountain as RecordedPiece,
+};

@@ -25,11 +25,14 @@ export default function EndScreen({
       <h2 className="sb-end-title">
         {won ? copy.LAST_PAGE_TURNS : copy.lostTheRoom(run.enemy.name)}
       </h2>
-      {!won && run.round && SB.situationFor && SB.situationFor(run.round.situation) && (
-        <p className="sb-end-failure">
-          {SB.situationFor(run.round.situation).failure}
-        </p>
-      )}
+      {!won &&
+        run.round &&
+        SB.situationFor &&
+        SB.situationFor(run.round.situation) && (
+          <p className="sb-end-failure">
+            {SB.situationFor(run.round.situation).failure}
+          </p>
+        )}
       <p className="sb-end-sub">
         {won
           ? 'All ' +

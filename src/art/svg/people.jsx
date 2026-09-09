@@ -11,7 +11,14 @@
 function Disc({ children }) {
   return (
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
-      <circle cx="32" cy="32" r="30" fill="#f3ead9" stroke="#c9a227" strokeWidth="2" />
+      <circle
+        cx="32"
+        cy="32"
+        r="30"
+        fill="#f3ead9"
+        stroke="#c9a227"
+        strokeWidth="2"
+      />
       {children}
     </svg>
   );
@@ -25,7 +32,15 @@ export function Commuter() {
         d="M32 16 a7 7 0 1 0 0.01 0 Z M20 50 Q20 34 32 32 Q44 34 44 50 Z"
         fill="#2a2318"
       />
-      <rect x="26" y="36" width="9" height="13" rx="1.5" fill="#1b1712" transform="rotate(18 26 36)" />
+      <rect
+        x="26"
+        y="36"
+        width="9"
+        height="13"
+        rx="1.5"
+        fill="#1b1712"
+        transform="rotate(18 26 36)"
+      />
     </Disc>
   );
 }
@@ -41,7 +56,10 @@ export function BenchSitter() {
         strokeLinecap="round"
       />
       <circle cx="30" cy="20" r="6" fill="#2a2318" />
-      <path d="M20 44 Q20 30 30 28 Q40 30 41 42 Q34 46 20 44 Z" fill="#2a2318" />
+      <path
+        d="M20 44 Q20 30 30 28 Q40 30 41 42 Q34 46 20 44 Z"
+        fill="#2a2318"
+      />
     </Disc>
   );
 }

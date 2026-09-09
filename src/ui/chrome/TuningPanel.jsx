@@ -72,10 +72,10 @@ export default function TuningPanel({ SB, tune, setConst }) {
           ))}
         </div>
         <p className="sb-tune-note">
-          Targets, words, swaps and rack size take effect on the next round;
-          the tier figures apply to the next word; the gold figures are read
-          at the win. Nothing is saved — copy the numbers you want to keep
-          into src/sandbox/round.js.
+          Targets, words, swaps and rack size take effect on the next round; the
+          tier figures apply to the next word; the gold figures are read at the
+          win. Nothing is saved — copy the numbers you want to keep into
+          src/sandbox/round.js.
         </p>
       </details>
     </div>

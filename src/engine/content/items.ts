@@ -6,7 +6,6 @@
 // without a cycle -- round.ts only needs items.ts's types, imported type-only).
 // Harmony's chord lookup imports findWords/chordPoints directly now that
 // both are ported.
-import '../sandboxGlobal';
 import type { Tile } from '../tiles';
 import { findWords } from './wordFinder';
 import { chordPoints } from './round';
@@ -562,11 +561,3 @@ export function describeDelta(
   note.kind = note.ratio !== 1 || note.dMult ? 'mult' : 'pts';
   return note;
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.isMusicWord = isMusicWord;
-Sandbox.isBardWord = isBardWord;
-Sandbox.ITEMS = ITEMS;
-Sandbox.ITEM_DEFS = ITEM_DEFS;
-Sandbox.applyItems = applyItems;
-Sandbox.describeDelta = describeDelta;

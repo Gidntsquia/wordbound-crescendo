@@ -12,7 +12,6 @@
 // CreateRunOpts for where `characterId` is threaded through). Right now a
 // chosen character only registers its passive as a normal hidden item --
 // the extra always-playable tile itself is a follow-up.
-import '../sandboxGlobal';
 import { ITEM_DEFS } from './items';
 import type { Item, ItemCtx, ItemAcc } from './items';
 
@@ -202,10 +201,3 @@ export function unlockNext(characterId: string | null | undefined): void {
     // localStorage unavailable (private mode, etc) -- unlock just doesn't persist.
   }
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.CHARACTERS = CHARACTERS;
-Sandbox.CHARACTER_DEFS = CHARACTER_DEFS;
-Sandbox.unlockedCharacters = unlockedCharacters;
-Sandbox.isCharacterUnlocked = isCharacterUnlocked;
-Sandbox.unlockNext = unlockNext;

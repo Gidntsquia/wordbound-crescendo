@@ -6,7 +6,13 @@
 
 function Backdrop({ top, bottom, children }) {
   return (
-    <svg viewBox="0 0 200 100" width="100%" height="100%" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <svg
+      viewBox="0 0 200 100"
+      width="100%"
+      height="100%"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden="true"
+    >
       <rect width="200" height="100" fill={top} />
       <rect y="70" width="200" height="30" fill={bottom} />
       {children}
@@ -19,7 +25,16 @@ export function BackdropChapter1() {
   return (
     <Backdrop top="#e8dcc0" bottom="#c9bc94">
       {[10, 40, 70, 100, 130, 160, 190].map((x) => (
-        <line key={x} x1={x} y1="0" x2={x - 20} y2="70" stroke="#8a7a52" strokeWidth="1" opacity="0.35" />
+        <line
+          key={x}
+          x1={x}
+          y1="0"
+          x2={x - 20}
+          y2="70"
+          stroke="#8a7a52"
+          strokeWidth="1"
+          opacity="0.35"
+        />
       ))}
       <rect y="66" width="200" height="4" fill="#8a7a52" opacity="0.6" />
     </Backdrop>
@@ -30,8 +45,22 @@ export function BackdropChapter1() {
 export function BackdropChapter2() {
   return (
     <Backdrop top="#efe6d2" bottom="#cdbf99">
-      <path d="M20 70 V40 Q40 20 60 40 V70" fill="none" stroke="#8a7a52" strokeWidth="3" opacity="0.5" />
-      <line x1="150" y1="70" x2="150" y2="28" stroke="#4a3320" strokeWidth="2" opacity="0.6" />
+      <path
+        d="M20 70 V40 Q40 20 60 40 V70"
+        fill="none"
+        stroke="#8a7a52"
+        strokeWidth="3"
+        opacity="0.5"
+      />
+      <line
+        x1="150"
+        y1="70"
+        x2="150"
+        y2="28"
+        stroke="#4a3320"
+        strokeWidth="2"
+        opacity="0.6"
+      />
       <circle cx="150" cy="24" r="5" fill="#c9a227" opacity="0.6" />
     </Backdrop>
   );

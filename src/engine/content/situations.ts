@@ -5,7 +5,6 @@
 // person toward the book. `person`/`antagonist`/pose ids are placeholders
 // until stage E's sprite sheets exist -- they are plain strings used only
 // as lookup keys, not rendered as art yet.
-import '../sandboxGlobal';
 
 export type SituationId = string;
 export type SpriteId = string;
@@ -196,8 +195,3 @@ export function ladderIndex(
   }
   return idx;
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.SITUATIONS = SITUATIONS;
-Sandbox.situationFor = situationFor;
-Sandbox.ladderIndex = ladderIndex;

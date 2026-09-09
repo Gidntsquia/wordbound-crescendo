@@ -1,6 +1,11 @@
 // Held bookmarks (quills) + consumables row -- extracted unchanged from
 // RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4, mechanical extraction).
-import { consumableBlurb, consumableName, cresBadge, itemBlurb } from './cardCopy';
+import {
+  consumableBlurb,
+  consumableName,
+  cresBadge,
+  itemBlurb,
+} from './cardCopy';
 
 export default function HeldRow({
   run,

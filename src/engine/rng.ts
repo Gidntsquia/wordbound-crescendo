@@ -257,20 +257,3 @@ export function toStream(state: RngState): {
   };
   return { stream, get: () => s };
 }
-
-declare global {
-  interface Window {
-    Game: {
-      RNG: {
-        hashStringToSeed: typeof hashStringToSeed;
-        randomSeed: typeof randomSeed;
-        create: typeof create;
-      };
-    };
-  }
-}
-
-window.Game = window.Game || { RNG: {} as Window['Game']['RNG'] };
-window.Game.RNG.hashStringToSeed = hashStringToSeed;
-window.Game.RNG.randomSeed = randomSeed;
-window.Game.RNG.create = create;

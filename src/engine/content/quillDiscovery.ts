@@ -3,12 +3,9 @@
 // crescendo and second-axis quill (and Harmony) starts hidden and is not
 // offered in the shop or a pack until discovered. Persisted in localStorage
 // as wbc.quills. A lost run never loses a discovered quill -- this module
-// only ever adds. Still attaches to window.Wordbound.Sandbox for the untyped
-// sandbox modules (shop.js/round.js/RoundSandbox) that read it off the
-// global.
-import '../sandboxGlobal';
+// only ever adds.
 import type { RngStream } from '../rng';
-import type { Item } from './items';
+import { ITEMS, ITEM_DEFS } from './items';
 
 const STORE_KEY = 'wbc.quills';
 
@@ -48,15 +45,11 @@ export function hiddenQuillIds(): string[] {
   discoveredQuills().forEach((id) => {
     known[id] = true;
   });
-  const Sandbox = window.Wordbound.Sandbox;
-  const items = (Sandbox.ITEMS as Item[] | undefined) || [];
-  return items.map((it) => it.id).filter((id) => !known[id]);
+  return ITEMS.map((it) => it.id).filter((id) => !known[id]);
 }
 
 export function discoverQuill(id: string): boolean {
-  const Sandbox = window.Wordbound.Sandbox;
-  const itemDefs = Sandbox.ITEM_DEFS as Record<string, Item> | undefined;
-  if (!itemDefs || !itemDefs[id]) return false;
+  if (!ITEM_DEFS[id]) return false;
   const known = discoveredQuills();
   if (known.indexOf(id) >= 0) return false;
   known.push(id);
@@ -73,11 +66,3 @@ export function rollQuillDiscovery(rng: RngStream): string | null {
   if (!hidden.length) return null;
   return hidden[rng.randInt(0, hidden.length - 1)]!;
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.STARTING_QUILLS = STARTING_QUILLS;
-Sandbox.discoveredQuills = discoveredQuills;
-Sandbox.isQuillDiscovered = isQuillDiscovered;
-Sandbox.hiddenQuillIds = hiddenQuillIds;
-Sandbox.discoverQuill = discoverQuill;
-Sandbox.rollQuillDiscovery = rollQuillDiscovery;

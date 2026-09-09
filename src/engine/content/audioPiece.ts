@@ -5,7 +5,6 @@
 // on purpose -- js/wordbound/music.js stays synthesized-only. Still attaches
 // to window.Wordbound.Sandbox for the untyped sandbox modules
 // (round.js/RoundSandbox.jsx) that read it off the global.
-import '../sandboxGlobal';
 
 export interface Keyframe {
   sec: number;
@@ -401,9 +400,3 @@ export function createAudioPiece(
 
   return api;
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.TELEGRAPH_LEAD_SEC = TELEGRAPH_LEAD_SEC;
-Sandbox.CRESCENDO = CRESCENDO;
-Sandbox.prefetchAudio = prefetchAudio;
-Sandbox.createAudioPiece = createAudioPiece;

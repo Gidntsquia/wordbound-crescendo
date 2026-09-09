@@ -5,7 +5,6 @@
 // of the session. Still attaches to window.Wordbound.Sandbox for the untyped
 // sandbox modules (items.ts's Harmony/round.js/RoundSandbox) that read it off
 // the global.
-import '../sandboxGlobal';
 
 export interface WordScore {
   word: string;
@@ -172,9 +171,3 @@ export function bestFromRack(
   out.sort((x, y) => y.score - x.score || x.word.localeCompare(y.word));
   return out.slice(0, max);
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.isWordMakerReady = isWordMakerReady;
-Sandbox.warmWordMaker = warmWordMaker;
-Sandbox.findWords = findWords;
-Sandbox.bestFromRack = bestFromRack;

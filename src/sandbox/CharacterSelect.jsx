@@ -1,7 +1,12 @@
 // READ_SLOWLY_PLAN.md stage D3: title-screen row of the six letter
 // characters. Presentational only (props in, JSX out, no internal state),
 // same pattern as SituationPanel.jsx.
-export default function CharacterSelect({ characters, unlocked, chosen, onChoose }) {
+export default function CharacterSelect({
+  characters,
+  unlocked,
+  chosen,
+  onChoose,
+}) {
   return (
     <div className="sb-characters" role="group" aria-label="Character">
       {characters.map((c) => {

@@ -25,7 +25,6 @@ import '../engine/content/situations';
 import '../engine/content/items';
 import '../engine/content/characters';
 import '../engine/content/round';
-import '../engine/content/shop';
 import '../engine/content/marginalia';
 import '../engine/content/wordFinder';
 // Which letters a fight draws from -- three bags, weak/normal/strong.

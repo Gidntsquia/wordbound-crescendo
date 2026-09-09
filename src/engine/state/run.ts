@@ -13,15 +13,30 @@
 import type { Tile } from '../tiles';
 import type { RngState } from '../rng';
 import * as rng from '../rng';
-import { MOVEMENTS, enemyAt, type Enemy } from '../content/enemies';
+import { MOVEMENTS, enemyAt, RULES, type Enemy } from '../content/enemies';
 import {
   FAVOURS,
   ROUND_DEFAULTS,
+  TIERS,
   TIER_DEFS,
   applyKey,
   type Breakdown,
   type Tune,
 } from '../content/round';
+import { ITEMS, ITEM_DEFS } from '../content/items';
+import { MARGINALIA, MARK_DEFS } from '../content/marginalia';
+import { getTileBag } from '../content/tileBags';
+import {
+  isAvailable,
+  rollLetterChoice,
+  winLetter,
+} from '../content/stolenLetters';
+import {
+  isQuillDiscovered,
+  rollQuillDiscovery,
+  discoverQuill,
+} from '../content/quillDiscovery';
+import { createTile } from '../tiles';
 import * as R from './round';
 import type { RoundState, PlayEffects } from './round';
 
@@ -166,17 +181,10 @@ function begin(run: RunState, rngState: RngState): [RunState, RngState] {
   let movementIIIQuillFound = run.movementIIIQuillFound ?? null;
   if (run.movement >= 2 && !movementIIIQuillDone) {
     movementIIIQuillDone = true;
-    const rollQuillDiscovery = window.Wordbound.Sandbox.rollQuillDiscovery as
-      ((rng: import('../rng').RngStream) => string | null) | undefined;
-    const discoverQuill = window.Wordbound.Sandbox.discoverQuill as
-      ((id: string) => boolean) | undefined;
-    if (rollQuillDiscovery) {
-      const bridge = rng.toStream(s);
-      const found = rollQuillDiscovery(bridge.stream);
-      s = bridge.get();
-      if (found && discoverQuill && discoverQuill(found))
-        movementIIIQuillFound = found;
-    }
+    const bridge = rng.toStream(s);
+    const found = rollQuillDiscovery(bridge.stream);
+    s = bridge.get();
+    if (found && discoverQuill(found)) movementIIIQuillFound = found;
   }
   const enemy = enemyAt(run.movement, run.stage);
   const [shuffledDeck, s2] = rng.shuffle(s, run.deck);
@@ -192,9 +200,7 @@ function begin(run: RunState, rngState: RngState): [RunState, RngState] {
       noPremium: !!(run.tune.KEY_NO_BOSS_PREMIUM && enemy!.kind === 'boss'),
       target: targetFor(run, run.movement, run.stage),
       reward: kindInk(run.tune)[enemy!.kind],
-      rule: enemy!.rule
-        ? (window.Wordbound.Sandbox.RULES as never)[enemy!.rule]
-        : null,
+      rule: enemy!.rule ? (RULES as never)[enemy!.rule] : null,
       situation: enemy!.situation,
     },
     s,
@@ -345,14 +351,8 @@ function finishWin(
     enemy,
     round: run.round ? discardRack(run.round) : run.round,
   };
-  const createShop = window.Wordbound.Sandbox.createShop as
-    ((run: unknown, rng: import('../rng').RngStream) => unknown) | undefined;
   let s = rngState;
-  let shop: ShopState | null = null;
-  if (createShop) {
-    shop = rollShop(afterAdvance);
-  }
-  if (!shop) return begin(afterAdvance, s);
+  const shop: ShopState = rollShop(afterAdvance);
   // Favours owed from a skipped enemy are spent entering the shop.
   let coupon = false;
   const packs = shop.packs.slice();
@@ -378,26 +378,19 @@ function finishWin(
 }
 
 function itemIds(): string[] {
-  return ((window.Wordbound.Sandbox.ITEMS as { id: string }[]) || []).map(
-    (it) => it.id,
-  );
+  return ITEMS.map((it) => it.id);
 }
 function itemDefs(): Record<
   string,
   { id: string; rarity?: string; price?: number }
 > {
-  return (
-    (window.Wordbound.Sandbox.ITEM_DEFS as Record<
-      string,
-      { id: string; rarity?: string; price?: number }
-    >) || {}
-  );
+  return ITEM_DEFS;
 }
 function tiers(): { id: string }[] {
-  return (window.Wordbound.Sandbox.TIERS as { id: string }[]) || [];
+  return TIERS;
 }
 function marginalia(): { id: string }[] {
-  return (window.Wordbound.Sandbox.MARGINALIA as { id: string }[]) || [];
+  return MARGINALIA;
 }
 function pick<T>(s: RngState, arr: T[]): [T, RngState] {
   const [i, s2] = rng.randInt(s, 0, arr.length - 1);
@@ -428,10 +421,8 @@ function rollItem(
   s: RngState,
   taken: string[],
 ): [{ kind: 'item'; id: string } | null, RngState] {
-  const isQuillDiscovered = window.Wordbound.Sandbox.isQuillDiscovered as
-    ((id: string) => boolean) | undefined;
   const pool = itemIds().filter((id) => {
-    if (isQuillDiscovered && !isQuillDiscovered(id)) return false;
+    if (!isQuillDiscovered(id)) return false;
     return (run.items as string[]).indexOf(id) < 0 && taken.indexOf(id) < 0;
   });
   if (!pool.length) return [null, s];
@@ -574,16 +565,10 @@ export function next(run: RunState, rngState: RngState): [RunState, RngState] {
 
   let quillFound: string | null = null;
   if (wasBoss) {
-    const rollQuillDiscovery = window.Wordbound.Sandbox.rollQuillDiscovery as
-      ((rng: import('../rng').RngStream) => string | null) | undefined;
-    const discoverQuill = window.Wordbound.Sandbox.discoverQuill as
-      ((id: string) => boolean) | undefined;
-    if (rollQuillDiscovery) {
-      const bridge = rng.toStream(s);
-      const found = rollQuillDiscovery(bridge.stream);
-      s = bridge.get();
-      if (found && discoverQuill && discoverQuill(found)) quillFound = found;
-    }
+    const bridge = rng.toStream(s);
+    const found = rollQuillDiscovery(bridge.stream);
+    s = bridge.get();
+    if (found && discoverQuill(found)) quillFound = found;
   }
 
   const afterSettle: RunState = {
@@ -596,19 +581,11 @@ export function next(run: RunState, rngState: RngState): [RunState, RngState] {
   };
 
   if (wasBoss) {
-    const rollLetterChoice = window.Wordbound.Sandbox.rollLetterChoice as
-      | ((rng: import('../rng').RngStream, count?: number) => string[] | null)
-      | undefined;
-    if (rollLetterChoice) {
-      const bridge = rng.toStream(s);
-      const choices = rollLetterChoice(bridge.stream, 3);
-      s = bridge.get();
-      if (choices && choices.length) {
-        return [
-          { ...afterSettle, letterChoice: { options: choices, last } },
-          s,
-        ];
-      }
+    const bridge = rng.toStream(s);
+    const choices = rollLetterChoice(bridge.stream, 3);
+    s = bridge.get();
+    if (choices && choices.length) {
+      return [{ ...afterSettle, letterChoice: { options: choices, last } }, s];
     }
   }
   return finishWin(afterSettle, last, s);
@@ -622,9 +599,7 @@ export function pickLetter(
   if (!run.letterChoice) return [run, false, rngState];
   if (run.letterChoice.options.indexOf(letter) < 0)
     return [run, false, rngState];
-  const winLetter = window.Wordbound.Sandbox.winLetter as
-    ((letter: string) => boolean) | undefined;
-  if (winLetter) winLetter(letter);
+  winLetter(letter);
   const last = run.letterChoice.last;
   const [next, s] = finishWin({ ...run, letterChoice: null }, last, rngState);
   return [next, true, s];
@@ -668,8 +643,7 @@ export function buyCard(run: RunState, i: number): [RunState, ShopResult] {
       ];
     items = items.concat([c.id]);
   } else {
-    const markDefs =
-      (window.Wordbound.Sandbox.MARK_DEFS as Record<string, unknown>) || {};
+    const markDefs = MARK_DEFS as Record<string, unknown>;
     if (c.kind === 'mark' && markDefs[c.id]) {
       mark = c.id;
     } else if (consumables.length >= (Number(run.tune.CONSUMABLE_SLOTS) || 0)) {
@@ -783,22 +757,16 @@ export function openPack(
   const choices: PackChoice[] = [];
   const n = Number(run.tune.PACK_CHOICES) || 0;
   if (p.kind === 'tile') {
-    const Tiles = window.Wordbound.Tiles;
-    const getTileBag = window.Wordbound.Sandbox.getTileBag as (id: string) => {
-      counts: Record<string, number>;
-    };
-    const isAvailable = window.Wordbound.Sandbox.isAvailable as
-      ((letter: string) => boolean) | undefined;
     const counts = getTileBag('strong').counts;
     const letters: string[] = [];
     Object.keys(counts).forEach((l) => {
-      if (isAvailable && !isAvailable(l)) return;
+      if (!isAvailable(l)) return;
       for (let k = 0; k < (counts[l] ?? 0); k++) letters.push(l);
     });
     for (let a = 0; a < n; a++) {
       const [letter, s2] = pick(s, letters);
       s = s2;
-      choices.push({ kind: 'tile', tile: Tiles.createTile(letter, null) });
+      choices.push({ kind: 'tile', tile: createTile(letter, null) });
     }
   } else if (p.kind === 'etude') {
     const taken: string[] = [];
@@ -843,8 +811,7 @@ export function pick_(run: RunState, i: number | null): [RunState, ShopResult] {
   if (c.kind === 'tile') {
     deck = deck.concat([c.tile]);
   } else {
-    const markDefs =
-      (window.Wordbound.Sandbox.MARK_DEFS as Record<string, unknown>) || {};
+    const markDefs = MARK_DEFS as Record<string, unknown>;
     if (c.kind === 'mark' && markDefs[c.id]) {
       mark = c.id;
     } else if (consumables.length >= (Number(run.tune.CONSUMABLE_SLOTS) || 0)) {
@@ -973,13 +940,10 @@ export function applyMark(
   extra: { vowel?: string } | undefined,
   rngState: RngState,
 ): [RunState, MarkResult, RngState] {
-  const markDefs =
-    (window.Wordbound.Sandbox.MARK_DEFS as
-      | Record<
-          string,
-          { id: string; targets: number; needsVowel?: boolean; name: string }
-        >
-      | undefined) || {};
+  const markDefs = MARK_DEFS as Record<
+    string,
+    { id: string; targets: number; needsVowel?: boolean; name: string }
+  >;
   const mark = markDefs[markId];
   if (!mark)
     return [run, { ok: false, reason: 'No such marginalia.' }, rngState];

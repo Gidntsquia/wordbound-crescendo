@@ -100,10 +100,7 @@ ${imports}
 const Sandbox = window.Wordbound.Sandbox;
 ${assigns}
 `;
-  fs.writeFileSync(
-    path.join(ROOT, 'src/engine/content/recordings.ts'),
-    out,
-  );
+  fs.writeFileSync(path.join(ROOT, 'src/engine/content/recordings.ts'), out);
 }
 
 (async () => {

@@ -8,7 +8,15 @@
 function Tile({ children }) {
   return (
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
-      <rect x="4" y="4" width="56" height="56" rx="8" fill="#2a2318" opacity="0.06" />
+      <rect
+        x="4"
+        y="4"
+        width="56"
+        height="56"
+        rx="8"
+        fill="#2a2318"
+        opacity="0.06"
+      />
       {children}
     </svg>
   );
@@ -19,7 +27,15 @@ export function PhoneGlow() {
   return (
     <Tile>
       <rect x="22" y="10" width="20" height="44" rx="4" fill="#1b1712" />
-      <rect x="25" y="15" width="14" height="30" rx="1" fill="#f1d976" opacity="0.85" />
+      <rect
+        x="25"
+        y="15"
+        width="14"
+        height="30"
+        rx="1"
+        fill="#f1d976"
+        opacity="0.85"
+      />
     </Tile>
   );
 }
@@ -28,8 +44,20 @@ export function PhoneGlow() {
 export function Clock() {
   return (
     <Tile>
-      <circle cx="32" cy="32" r="22" fill="none" stroke="#1b1712" strokeWidth="3" />
-      <path d="M32 32 L32 18 M32 32 L44 36" stroke="#7a2b2b" strokeWidth="3" strokeLinecap="round" />
+      <circle
+        cx="32"
+        cy="32"
+        r="22"
+        fill="none"
+        stroke="#1b1712"
+        strokeWidth="3"
+      />
+      <path
+        d="M32 32 L32 18 M32 32 L44 36"
+        stroke="#7a2b2b"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
     </Tile>
   );
 }
@@ -41,7 +69,16 @@ export function KnockingDoor() {
       <rect x="20" y="10" width="24" height="44" rx="2" fill="#4a3320" />
       <circle cx="38" cy="34" r="2" fill="#c9a227" />
       {[16, 24, 32].map((y) => (
-        <line key={y} x1="46" y1={y} x2="54" y2={y} stroke="#7a2b2b" strokeWidth="2" strokeLinecap="round" />
+        <line
+          key={y}
+          x1="46"
+          y1={y}
+          x2="54"
+          y2={y}
+          stroke="#7a2b2b"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
       ))}
     </Tile>
   );
@@ -65,7 +102,13 @@ export function Loudspeaker() {
     <Tile>
       <path d="M14 28 L30 22 V42 L14 36 Z" fill="#1b1712" />
       <path d="M30 22 L44 16 V48 L30 42 Z" fill="#1b1712" />
-      <path d="M48 24 Q54 32 48 40" stroke="#7a2b2b" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <path
+        d="M48 24 Q54 32 48 40"
+        stroke="#7a2b2b"
+        strokeWidth="2"
+        fill="none"
+        strokeLinecap="round"
+      />
     </Tile>
   );
 }
@@ -75,7 +118,15 @@ export function Parade() {
   return (
     <Tile>
       {[16, 28, 40].map((x) => (
-        <path key={x} d={`M${x} 46 L${x + 8} 30 L${x + 16} 46`} stroke="#1b1712" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          key={x}
+          d={`M${x} 46 L${x + 8} 30 L${x + 16} 46`}
+          stroke="#1b1712"
+          strokeWidth="3"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       ))}
     </Tile>
   );
@@ -85,7 +136,15 @@ export function Parade() {
 export function BlankWall() {
   return (
     <Tile>
-      <rect x="10" y="10" width="44" height="44" fill="#e8dcc0" stroke="#8a7a52" strokeWidth="2" />
+      <rect
+        x="10"
+        y="10"
+        width="44"
+        height="44"
+        fill="#e8dcc0"
+        stroke="#8a7a52"
+        strokeWidth="2"
+      />
     </Tile>
   );
 }

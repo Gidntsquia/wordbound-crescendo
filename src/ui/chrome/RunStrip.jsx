@@ -53,7 +53,9 @@ export default function RunStrip({ run, phase }) {
         }
       >
         <b>{run.ink}</b> ink
-        {run.interestPreview() > 0 && <em>+{run.interestPreview()} interest</em>}
+        {run.interestPreview() > 0 && (
+          <em>+{run.interestPreview()} interest</em>
+        )}
       </span>
     </nav>
   );

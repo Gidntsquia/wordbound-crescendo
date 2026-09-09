@@ -22,7 +22,9 @@ export default function GearMeta({ SB, keyUnlocked, discovered }) {
             {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((l) => (
               <span
                 key={l}
-                className={'sb-letter' + (SB.isAvailable(l) ? '' : ' is-hollow')}
+                className={
+                  'sb-letter' + (SB.isAvailable(l) ? '' : ' is-hollow')
+                }
                 title={
                   SB.isAvailable(l)
                     ? l
@@ -36,7 +38,11 @@ export default function GearMeta({ SB, keyUnlocked, discovered }) {
         </div>
       )}
       {SB.ITEMS && (
-        <div className="sb-alphabet" role="group" aria-label="Quills discovered">
+        <div
+          className="sb-alphabet"
+          role="group"
+          aria-label="Quills discovered"
+        >
           <span className="sb-bags-head">
             Bookmarks · {discovered.size}/{SB.ITEMS.length}
           </span>

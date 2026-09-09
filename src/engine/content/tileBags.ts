@@ -2,10 +2,9 @@
 // three bags (weak/normal/strong, 26 tiles each) a fight's deck starts from
 // -- NOT Tiles.createStarterDeck(). See the original file's header comment
 // (still in git history) for the measured strength table behind the counts.
-// Still attaches to window.Wordbound.Sandbox for the untyped sandbox modules
-// (round.js/RoundSandbox) that read it off the global.
-import '../sandboxGlobal';
 import type { Tile } from '../tiles';
+import { createTile } from '../tiles';
+import { isAvailable } from './stolenLetters';
 
 export interface TileBag {
   id: string;
@@ -107,22 +106,13 @@ export function getTileBag(id: string | null | undefined): TileBag {
 // differently under the same seed.
 export function createBagDeck(bagId: string | null | undefined): Tile[] {
   const counts = getTileBag(bagId).counts;
-  const Tiles = window.Wordbound.Tiles;
-  const Sandbox = window.Wordbound.Sandbox;
   const deck: Tile[] = [];
   Object.keys(counts)
     .sort()
     .forEach((letter) => {
-      const isAvailable = Sandbox.isAvailable as
-        ((letter: string) => boolean) | undefined;
-      if (isAvailable && !isAvailable(letter)) return;
+      if (!isAvailable(letter)) return;
       for (let i = 0; i < counts[letter]!; i++)
-        deck.push(Tiles.createTile(letter, null));
+        deck.push(createTile(letter, null));
     });
   return deck;
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.TILE_BAGS = TILE_BAGS;
-Sandbox.getTileBag = getTileBag;
-Sandbox.createBagDeck = createBagDeck;

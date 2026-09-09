@@ -2,7 +2,6 @@
 // sounds and the scoring cascade's hits -- a tiny SYNTHESIZED layer (WebAudio
 // oscillators and filtered noise only, no samples). Still attaches to
 // window.Wordbound.Sandbox for RoundSandbox.jsx, which creates and drives it.
-import '../sandboxGlobal';
 
 export const SFX_DEFAULTS = {
   LEVEL: 0.55, // x the music volume; SFX sit a touch under the music
@@ -402,7 +401,3 @@ export function createSfx(
   };
   return api;
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.SFX_DEFAULTS = SFX_DEFAULTS;
-Sandbox.createSfx = createSfx;

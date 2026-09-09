@@ -4,7 +4,6 @@
 // run keeps letters already won. Still attaches to window.Wordbound.Sandbox
 // for the untyped sandbox modules (tileBags.js/round.js/RoundSandbox) that
 // read it off the global.
-import '../sandboxGlobal';
 import type { RngStream } from '../rng';
 
 const VOWELS = 'AEIOU';
@@ -95,16 +94,6 @@ export function filterLetters(letters: string[]): string[] {
   });
   return letters.filter((l) => avail[l]);
 }
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.STOLEN_ORDER = STOLEN_ORDER;
-Sandbox.wonLetters = wonLetters;
-Sandbox.missingLetters = missingLetters;
-Sandbox.isAvailable = isAvailable;
-Sandbox.availableLetters = availableLetters;
-Sandbox.winLetter = winLetter;
-Sandbox.rollLetterChoice = rollLetterChoice;
-Sandbox.filterLetters = filterLetters;
 
 window.Wordbound.StolenLetters = {
   isStolen: (letter: string) => !isAvailable(letter),

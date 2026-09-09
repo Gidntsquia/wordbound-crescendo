@@ -22,6 +22,7 @@ import {
   ROUND_DEFAULTS,
   scoreWordPoints,
 } from '../content/round';
+import { ITEM_DEFS } from '../content/items';
 
 export interface Premium {
   pos: number;
@@ -166,9 +167,7 @@ export function createRoundState(
       Number(tune.PLAYS) +
         (rule && rule.plays ? rule.plays : 0) +
         items.reduce((n, id) => {
-          const itemDefs = window.Wordbound.Sandbox.ITEM_DEFS as
-            Record<string, { plays?: number }> | undefined;
-          const it = itemDefs?.[id];
+          const it = (ITEM_DEFS as Record<string, { plays?: number }>)[id];
           return n + (it && it.plays ? it.plays : 0);
         }, 0),
     ),
@@ -378,14 +377,12 @@ export function playWord(
   if (score >= round.target) {
     state = 'won';
     ink = round.reward + Number(round.tune.INK_PER_WORD_LEFT) * playsLeft;
-    const itemDefs = window.Wordbound.Sandbox.ITEM_DEFS as
-      | Record<
-          string,
-          { inkAtWin?: (round: { changeoutsLeft: number }) => number }
-        >
-      | undefined;
+    const itemDefs = ITEM_DEFS as Record<
+      string,
+      { inkAtWin?: (round: { changeoutsLeft: number }) => number }
+    >;
     round.items.forEach((id) => {
-      const it = itemDefs?.[id];
+      const it = itemDefs[id];
       if (it && it.inkAtWin)
         ink += it.inkAtWin({ changeoutsLeft: round.changeoutsLeft });
     });
@@ -416,16 +413,12 @@ export function playWord(
         effects.extendCrescendo = (effects.extendCrescendo || 0) + extraSec;
       },
     };
-    const itemDefs = window.Wordbound.Sandbox.ITEM_DEFS as
-      | Record<
-          string,
-          {
-            onPlayed?: (run: typeof shimRun, breakdown: Breakdown) => void;
-          }
-        >
-      | undefined;
+    const itemDefs = ITEM_DEFS as Record<
+      string,
+      { onPlayed?: (run: typeof shimRun, breakdown: Breakdown) => void }
+    >;
     round.items.forEach((id) => {
-      const it = itemDefs?.[id];
+      const it = itemDefs[id];
       if (it && it.onPlayed) it.onPlayed(shimRun, breakdown);
     });
     if (

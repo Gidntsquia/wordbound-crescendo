@@ -1,13 +1,10 @@
 // TS port of src/sandbox/enemies.js (READ_SLOWLY_PLAN.md A2/A5 step 3): the
-// lineup (MOVEMENTS) and the boss tempo markings (RULES). Still attaches to
-// window.Wordbound.Sandbox for the untyped sandbox modules that read it off
-// the global (round.js, RoundSandbox.jsx, ...).
+// lineup (MOVEMENTS) and the boss tempo markings (RULES).
 //
 // Names/flavour rewritten to READ_SLOWLY_PLAN.md stage B ("slow down and
 // read"): antagonists are tempos a reader outlasts, not villains. `id`,
 // `kind`, `recorded`, and `rule` are unchanged -- only the on-screen name
 // and flavour text moved.
-import '../sandboxGlobal';
 
 export type EnemyKind = 'small' | 'big' | 'boss';
 
@@ -233,9 +230,3 @@ export const RULES: Record<string, Rule> = {
     },
   },
 };
-
-const Sandbox = window.Wordbound.Sandbox;
-Sandbox.MOVEMENTS = MOVEMENTS;
-Sandbox.KIND_LABEL = KIND_LABEL;
-Sandbox.enemyAt = enemyAt;
-Sandbox.RULES = RULES;

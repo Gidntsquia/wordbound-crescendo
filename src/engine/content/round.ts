@@ -1,17 +1,16 @@
-// TS port of src/sandbox/round.js (READ_SLOWLY_PLAN.md A2/A5 step 3): ONE
-// SCORING ROUND (the Balatro-with-Scrabble model, COMBAT_REDESIGN.md) and
-// createRun, the walk down the lineup (enemies.ts) that wraps a round per
-// fight. Still attaches to window.Wordbound.Sandbox for RoundSandbox.jsx and
-// for the untyped items.js's read of Sandbox.scoreWordPoints etc. Reads
-// several already-ported tables (Tiles, Lexicon, enemies.ts, items.ts,
-// marginalia.ts, shop.ts, stolenLetters.ts, quillDiscovery.ts) off the Sandbox
-// global through loose casts, same pattern as shop.ts/items.ts, since
-// SandboxNamespace stays an open record until every writer is ported.
-import '../sandboxGlobal';
-import type { RngStream } from '../rng';
+// TS port of src/sandbox/round.js (READ_SLOWLY_PLAN.md A2/A5 step 3): word
+// scoring (the Balatro-with-Scrabble model, COMBAT_REDESIGN.md) shared by
+// state/round.ts. The mutable `createRound`/`createRun`/`Round`/`RunLike`
+// this file used to also host are superseded by state/round.ts + state/
+// run.ts's pure engine (facade.ts wires it into the UI); removed
+// (READ_SLOWLY_PLAN.md A2/A3, `<pending>`) once confirmed nothing but
+// tools/parity-*.ts still called them. window.Wordbound.Lexicon stays a
+// global -- that's js/wordbound/wordlist.js's legacy plumbing, out of scope
+// for A2's Sandbox-namespace cleanup.
 import type { Tile } from '../tiles';
-import type { Enemy, Rule } from './enemies';
+import type { Rule } from './enemies';
 import type { ItemNote } from './items';
+import { applyItems, describeDelta } from './items';
 
 export type Tune = Record<string, number | boolean | undefined>;
 
@@ -185,6 +184,44 @@ TIERS.forEach((t) => {
   TIER_DEFS[t.id] = t;
 });
 
+// Shop pack flavour (display-only; state/run.ts keeps its own PACK_KINDS/
+// RARITY_PRICE for the pure pick/price rolls -- this is just the copy the UI
+// reads, same as the old content/shop.ts's PACK_KINDS/priceOf).
+export interface PackKind {
+  kind: 'tile' | 'mark' | 'etude';
+  name: string;
+  hint: string;
+}
+
+export const PACK_KINDS: PackKind[] = [
+  {
+    kind: 'tile',
+    name: 'Tile pack',
+    hint: 'Three sorts from the foundry — keep one; it joins your tiles for the run',
+  },
+  {
+    kind: 'mark',
+    name: 'Marginalia pack',
+    hint: 'Three marginalia — keep one',
+  },
+  {
+    kind: 'etude',
+    name: 'Étude pack',
+    hint: 'Three études — keep one, and level a length',
+  },
+];
+
+const RARITY_PRICE: Record<string, [number, number]> = {
+  common: [3, 5],
+  uncommon: [5, 7],
+  rare: [8, 8],
+};
+
+export function priceOf(def: { price?: number; rarity?: string }): number {
+  if (def.price != null) return def.price;
+  return RARITY_PRICE[def.rarity || 'common']![0];
+}
+
 export function tierFor(word: string): Tier {
   const len = String(word || '').length;
   let out = TIERS[0]!;
@@ -283,8 +320,8 @@ interface ScoreCtx {
   items: string[];
   tierLevels: Record<string, number>;
   heldTiles: Tile[];
-  run: RunLike | null | undefined;
-  round: Round | null;
+  run: unknown;
+  round: unknown;
   preview?: boolean;
   crescendo?: { phase: string; mag?: number } | null;
 }
@@ -299,7 +336,6 @@ export function scoreWordPoints(
   ctx: ScoreCtx,
 ): Breakdown {
   const Lexicon = window.Wordbound.Lexicon;
-  const Sandbox = window.Wordbound.Sandbox;
   const tune = ctx.tune;
   const b = Lexicon.scoreWord(
     word,
@@ -348,7 +384,10 @@ export function scoreWordPoints(
   b.slotMultRatio = 1;
   b.slotKind = null;
   b.slotTile = null;
-  const round0 = ctx.round;
+  const round0 = ctx.round as
+    | { premium: { pos: number; kind: 'dl' | 'tl' | 'dw' } | null }
+    | null
+    | undefined;
   if (round0 && round0.premium && tilesUsed[round0.premium.pos]) {
     const slotTile = tilesUsed[round0.premium.pos]!;
     const slotLetterVal = Lexicon.LETTER_VALUES[slotTile.letter] || 0;
@@ -377,38 +416,40 @@ export function scoreWordPoints(
     mult: (b.tierMult + b.inkMult) * b.slotMultRatio,
   };
   const before = { points: acc.points, mult: acc.mult };
-  const round = ctx.round;
-  const applyItems = Sandbox.applyItems as
-    | ((
-        c: Record<string, unknown>,
-        a: {
-          points: number;
-          mult: number;
-          chord?: { word: string; points: number };
-        },
-      ) => ItemNote[])
+  const round = ctx.round as
+    | {
+        premium: unknown;
+        playsLeft: number;
+        plays: unknown[];
+        rule: Rule | null;
+      }
+    | null
     | undefined;
-  b.itemNotes = applyItems
-    ? applyItems(
-        {
-          word,
-          tiles: tilesUsed,
-          held: ctx.heldTiles || [],
-          items: ctx.items || [],
-          run: ctx.run,
-          round,
-          tune,
-          preview: !!ctx.preview,
-          crescendo: !!(ctx.crescendo && ctx.crescendo.phase === 'live'),
-          crescendoSoon: !!(ctx.crescendo && ctx.crescendo.phase === 'soon'),
-          crescendoMag:
-            ctx.crescendo && ctx.crescendo.mag != null ? ctx.crescendo.mag : 1,
-          isLastPlay: !!round && round.playsLeft === 1,
-          playIndex: round ? round.plays.length : 0,
-        },
-        acc,
-      )
-    : [];
+  b.itemNotes = applyItems(
+    {
+      word,
+      tiles: tilesUsed,
+      held: ctx.heldTiles || [],
+      items: ctx.items || [],
+      run: ctx.run as {
+        itemState: Record<string, number>;
+        extendCrescendo?(sec: number): void;
+      } | null,
+      round: round as {
+        plays: { word: string }[];
+        changeoutsLeft: number;
+      } | null,
+      tune,
+      preview: !!ctx.preview,
+      crescendo: !!(ctx.crescendo && ctx.crescendo.phase === 'live'),
+      crescendoSoon: !!(ctx.crescendo && ctx.crescendo.phase === 'soon'),
+      crescendoMag:
+        ctx.crescendo && ctx.crescendo.mag != null ? ctx.crescendo.mag : 1,
+      isLastPlay: !!round && round.playsLeft === 1,
+      playIndex: round ? round.plays.length : 0,
+    },
+    acc,
+  );
   // Harmony's chord (items.ts sets acc.chord instead of touching acc.points
   // directly, so it lands as its own cascade step after the items).
   b.chordWord = null;
@@ -440,15 +481,7 @@ export function scoreWordPoints(
         note: rn,
         rule: true,
       } as ItemNote & { rule: true };
-      const describeDelta = Sandbox.describeDelta as
-        | ((
-            n: unknown,
-            p0: number,
-            m0: number,
-            acc: { points: number; mult: number },
-          ) => void)
-        | undefined;
-      if (describeDelta) describeDelta(ruleNote, p0, m0, acc);
+      describeDelta(ruleNote, p0, m0, acc);
       b.itemNotes.push(ruleNote);
     }
   }
@@ -580,816 +613,3 @@ export function scoreSteps(
   });
   return steps;
 }
-
-export interface PlayResult {
-  ok: boolean;
-  reason?: string;
-  word?: string;
-  breakdown?: Breakdown;
-  messages?: string[];
-}
-
-export interface ChangeoutResult {
-  ok: boolean;
-  reason?: string;
-  drawn?: Tile[];
-  returned?: Tile[];
-}
-
-export interface Round {
-  tune: Tune;
-  target: number;
-  situation: string | null;
-  rule: Rule | null;
-  usedLetters: Record<string, boolean>;
-  reward: number;
-  playsLeft: number;
-  changeoutsLeft: number;
-  rackSize: number;
-  items: string[];
-  tierLevels: Record<string, number>;
-  score: number;
-  ink: number;
-  state: 'live' | 'won' | 'lost';
-  plays: {
-    word: string;
-    breakdown: Breakdown;
-    messages: string[];
-    tiles: Tile[];
-  }[];
-  pile: { drawPile: Tile[]; discardPile: Tile[] };
-  rack: Tile[];
-  premium: { pos: number; kind: 'dl' | 'tl' | 'dw' } | null;
-  favour?: string | null;
-  breakdownFor(word: string): Breakdown;
-  scoreFor(word: string): number;
-  isBarred(tile: Tile): boolean;
-  barredIn(tiles: Tile[]): string[];
-  isPlayable(word: string): boolean;
-  playWord(raw: string): PlayResult;
-  changeout(tileIds: string[]): ChangeoutResult;
-  destroyTile(tileId: string): boolean;
-  moveTile(from: number, to: number): boolean;
-}
-
-export interface CreateRoundOpts {
-  rng: RngStream;
-  deck: Tile[];
-  tune?: Partial<Tune>;
-  items?: string[];
-  tierLevels?: Record<string, number>;
-  rule?: string;
-  target?: number;
-  reward?: number;
-  situation?: string | null;
-  pile?: { drawPile: Tile[]; discardPile: Tile[] };
-  run?: RunLike;
-  crescendo?: () => { phase: string; mag?: number } | null;
-  noPremium?: boolean;
-  onPlay?: (res: PlayResult) => void;
-}
-
-export function createRound(opts: CreateRoundOpts): Round {
-  const W = window.Wordbound;
-  const Sandbox = W.Sandbox;
-  const Tiles = W.Tiles;
-  const Lexicon = W.Lexicon;
-  const rng = opts.rng;
-  const tune: Tune = Object.assign({}, ROUND_DEFAULTS, opts.tune || {});
-  const items = (opts.items || []).slice();
-  const tierLevels = opts.tierLevels || {};
-  const RULES = Sandbox.RULES as Record<string, Rule> | undefined;
-  const rule = (opts.rule && RULES && RULES[opts.rule]) || null;
-  // The soundtrack's crescendo state right now ({ phase, mag?, ... }) or
-  // null. Supplied by the UI (it owns the audio); absent in a headless
-  // round, so always null there -- crescendo/soon items never fire.
-  function onCrescendo() {
-    return (opts.crescendo && opts.crescendo()) || null;
-  }
-
-  const round: Round = {
-    tune,
-    target: Math.round(
-      (opts.target != null ? opts.target : Number(tune.MOVEMENT_BASE_1)) *
-        (rule && rule.targetMult ? rule.targetMult : 1),
-    ),
-    situation: opts.situation ?? null,
-    rule,
-    usedLetters: {}, // letters played this round (the no_repeats rule)
-    reward: opts.reward != null ? opts.reward : Number(tune.INK_SMALL), // flat ink at the win
-    playsLeft: Math.max(
-      1,
-      Number(tune.PLAYS) +
-        (rule && rule.plays ? rule.plays : 0) +
-        items.reduce((n, id) => {
-          const itemDefs = Sandbox.ITEM_DEFS as
-            Record<string, { plays?: number }> | undefined;
-          const it = itemDefs?.[id];
-          return n + (it && it.plays ? it.plays : 0);
-        }, 0),
-    ),
-    changeoutsLeft: Number(tune.CHANGEOUTS),
-    rackSize: Number(tune.RACK_SIZE),
-    items,
-    tierLevels,
-    score: 0,
-    ink: 0,
-    state: 'live',
-    plays: [],
-    // The bag: the run's pile when there is a run (played and swapped tiles
-    // go to the discard, which only comes back once the bag runs dry), a
-    // fresh shuffle for a lone round.
-    pile: opts.pile || {
-      drawPile: Tiles.shuffleIntoDrawPile(opts.deck, rng),
-      discardPile: [],
-    },
-    rack: [],
-    // The premium slot (DIVERGENCE_PLAN.md): one stick position, rolled
-    // now so it can be drawn empty before any tile lands there. A boss's
-    // tempo marking may fix the position (rule.premiumPos).
-    premium: null,
-  } as unknown as Round;
-
-  (function rollPremium() {
-    if (rule && rule.noPremium) return;
-    if (opts.noPremium) return; // A minor: never on a boss round
-    const chanceHit = rng.chance(Number(tune.PREMIUM_CHANCE));
-    if (!chanceHit) return;
-    const kind = rng.weightedChoice(PREMIUM_KINDS, (k) => k.weight);
-    if (!kind) return;
-    const pos =
-      rule && rule.premiumPos != null
-        ? rule.premiumPos
-        : rng.weightedChoice([0, 1, 2, 3, 4], (p) => [1, 2, 3, 2, 1][p]!);
-    round.premium = { pos: pos!, kind: kind.id };
-  })();
-
-  function draw(count: number): Tile[] {
-    return Tiles.draw(round.pile, count, rng);
-  }
-  round.rack = draw(round.rackSize);
-
-  function refill() {
-    const need = round.rackSize - round.rack.length;
-    if (need > 0) round.rack.push(...draw(need));
-  }
-
-  function settle() {
-    if (round.score >= round.target) {
-      round.state = 'won';
-      round.ink =
-        round.reward + Number(tune.INK_PER_WORD_LEFT) * round.playsLeft;
-      items.forEach((id) => {
-        const itemDefs = Sandbox.ITEM_DEFS as
-          Record<string, { inkAtWin?: (round: Round) => number }> | undefined;
-        const it = itemDefs?.[id];
-        if (it && it.inkAtWin) round.ink += it.inkAtWin(round);
-      });
-    } else if (round.playsLeft <= 0) {
-      round.state = 'lost';
-    }
-  }
-
-  // The tiles that would stay in the case if these were played.
-  function held(tilesUsed: Tile[]): Tile[] {
-    return round.rack.filter((t) => tilesUsed.indexOf(t) < 0);
-  }
-
-  // Rank helper: what would this word score off the CURRENT rack's tiles?
-  // Falls back to plain letter values when the rack cannot form it, so the
-  // word list can still order words it has no tiles for.
-  round.breakdownFor = function (word: string): Breakdown {
-    const upper = String(word).toUpperCase();
-    const form = Lexicon.canFormFromRack(upper, round.rack);
-    const tiles: Tile[] = form.possible
-      ? form.tilesUsed!
-      : upper.split('').map(
-          (l) =>
-            ({
-              id: '',
-              letter: l,
-              bonus: null,
-              variant: null,
-              crackedThisFight: false,
-            }) as Tile,
-        );
-    return scoreWordPoints(upper, tiles, round.rackSize, {
-      tune,
-      items,
-      tierLevels,
-      heldTiles: held(tiles),
-      run: opts.run,
-      round,
-      preview: true,
-      crescendo: onCrescendo(),
-    });
-  };
-  round.scoreFor = function (word: string): number {
-    return round.breakdownFor(word).total;
-  };
-
-  // The rule's word on a tile: may it be played now?
-  round.isBarred = function (tile: Tile): boolean {
-    return !!(
-      round.rule &&
-      round.rule.barsLetter &&
-      round.rule.barsLetter(round, tile.letter)
-    );
-  };
-  round.barredIn = function (tiles: Tile[]): string[] {
-    return tiles.filter(round.isBarred).map((t) => t.letter);
-  };
-
-  // One tile is always a legal play; anything longer must be in the dictionary.
-  round.isPlayable = function (word: string): boolean {
-    const upper = String(word || '').toUpperCase();
-    return upper.length === 1
-      ? /^[A-Z]$/.test(upper)
-      : Lexicon.isValidWord(upper);
-  };
-
-  round.playWord = function (raw: string): PlayResult {
-    if (round.state !== 'live')
-      return { ok: false, reason: 'The round is over.' };
-    const upper = String(raw || '')
-      .trim()
-      .toUpperCase();
-    if (!upper) return { ok: false, reason: 'Nothing to play.' };
-    if (!round.isPlayable(upper))
-      return { ok: false, reason: upper + ' isn’t in the dictionary.' };
-    const form = Lexicon.canFormFromRack(upper, round.rack);
-    if (!form.possible)
-      return { ok: false, reason: upper + ' needs letters you don’t have.' };
-    const barred = round.barredIn(form.tilesUsed!);
-    if (barred.length)
-      return {
-        ok: false,
-        reason:
-          barred.join(', ') +
-          ' has been played this round — ' +
-          round.rule!.name +
-          '.',
-      };
-
-    const breakdown = scoreWordPoints(upper, form.tilesUsed!, round.rackSize, {
-      tune,
-      items,
-      tierLevels,
-      heldTiles: held(form.tilesUsed!),
-      run: opts.run,
-      round,
-      crescendo: onCrescendo(),
-    });
-    if (opts.run) {
-      items.forEach((id) => {
-        const itemDefs = Sandbox.ITEM_DEFS as
-          | Record<
-              string,
-              { onPlayed?: (run: RunLike, breakdown: Breakdown) => void }
-            >
-          | undefined;
-        const it = itemDefs?.[id];
-        if (it && it.onPlayed) it.onPlayed(opts.run!, breakdown);
-      });
-    }
-    const messages: string[] = [];
-    Lexicon.removeTiles(round.rack, form.tilesUsed!);
-    // The whole rack turns over on a play: the tiles just used AND whatever
-    // was left waiting both go to the discard, so the next turn is a fresh draw.
-    round.pile.discardPile.push(...form.tilesUsed!);
-    round.pile.discardPile.push(...round.rack);
-    round.rack = [];
-    refill();
-    form.tilesUsed!.forEach((t) => {
-      round.usedLetters[t.letter] = true;
-    });
-    round.score += breakdown.total;
-    round.playsLeft -= 1;
-    round.plays.push({
-      word: upper,
-      breakdown,
-      messages,
-      tiles: form.tilesUsed!,
-    });
-    settle();
-    const res: PlayResult = { ok: true, word: upper, breakdown, messages };
-    if (opts.onPlay) opts.onPlay(res);
-    return res;
-  };
-
-  // Throw back any number of CHOSEN tiles and draw that many. Costs one
-  // changeout regardless of how many tiles go back; zero tiles costs nothing.
-  round.changeout = function (tileIds: string[]): ChangeoutResult {
-    if (round.state !== 'live')
-      return { ok: false, reason: 'The round is over.' };
-    if (round.changeoutsLeft <= 0)
-      return { ok: false, reason: 'No changeouts left.' };
-    const ids = new Set(tileIds || []);
-    if (!ids.size)
-      return { ok: false, reason: 'Pick the tiles to change out first.' };
-    const back = round.rack.filter((t) => ids.has(t.id));
-    if (!back.length)
-      return { ok: false, reason: 'Those tiles aren’t in the rack.' };
-    round.rack = round.rack.filter((t) => !ids.has(t.id));
-    // Discard AFTER drawing, so a small bag cannot hand the same tiles back.
-    const drawn = draw(back.length);
-    round.rack.push(...drawn);
-    round.pile.discardPile.push(...back);
-    round.changeoutsLeft -= 1;
-    return { ok: true, drawn, returned: back };
-  };
-
-  // An Erase ink: the tile leaves the case for good and the case refills.
-  round.destroyTile = function (tileId: string): boolean {
-    const i = round.rack.findIndex((t) => t.id === tileId);
-    if (i < 0) return false;
-    round.rack.splice(i, 1);
-    refill();
-    return true;
-  };
-
-  // Rearrange the rack by hand: the player's own ordering, nothing scored.
-  round.moveTile = function (from: number, to: number): boolean {
-    if (
-      from === to ||
-      from < 0 ||
-      to < 0 ||
-      from >= round.rack.length ||
-      to >= round.rack.length
-    )
-      return false;
-    const t = round.rack.splice(from, 1)[0]!;
-    round.rack.splice(to, 0, t);
-    return true;
-  };
-
-  return round;
-}
-
-export interface RunLike {
-  key: string;
-  tune: Tune;
-  movements: unknown[];
-  movement: number;
-  stage: number;
-  enemy: Enemy | null;
-  round: Round | null;
-  deck: Tile[];
-  pile: { drawPile: Tile[]; discardPile: Tile[] } | null;
-  items: string[];
-  startItems: string[];
-  consumables: { kind: string; id: string }[];
-  itemState: Record<string, number>;
-  shop: unknown;
-  letterChoice: { options: string[]; last: boolean } | null;
-  pack: unknown;
-  tierLevels: Record<string, number>;
-  ink: number;
-  felled: string[];
-  resolved: string[];
-  skipped: string[];
-  favours: string[];
-  bestPlay: { word: string; breakdown: Breakdown; enemy: string } | null;
-  wordsPlayed: number;
-  lastWin: { reward: number; interest: number } | null;
-  state: 'live' | 'won' | 'lost';
-  movementIIIQuillDone?: boolean;
-  movementIIIQuillFound?: string | null;
-  quillFound?: string | null;
-  targetFor(movement: number, stage: number): number;
-  interestPreview(): number;
-  addTile(tile: Tile): void;
-  extendCrescendo(extraSec: number): void;
-  skip(): { ok: boolean; reason?: string; favour?: string };
-  moveItem(from: number, to: number): boolean;
-  levelTier(tierId: string): boolean;
-  next(): 'live' | 'won' | 'lost';
-  pickLetter(letter: string): boolean;
-  leaveShop(): boolean;
-  useConsumable(
-    i: number,
-    tileIds?: string[],
-    extra?: { vowel?: string },
-  ): { ok: boolean; reason?: string; used?: unknown; result?: unknown };
-  useAdhocMark(
-    id: string,
-    tileIds?: string[],
-    extra?: { vowel?: string },
-  ): { ok: boolean; reason?: string };
-  drawMarkHand(): Tile[];
-  saveMark(id: string): { ok: boolean; reason?: string };
-  sellConsumable(i: number): { ok: boolean; reason?: string; paid?: number };
-}
-
-export interface CreateRunOpts {
-  tune?: Partial<Tune>;
-  key?: string;
-  deck?: Tile[];
-  makeDeck?: () => Tile[];
-  items?: string[];
-  rng: RngStream;
-  crescendo?: () => { phase: string; mag?: number } | null;
-  extendCrescendo?: (extraSec: number) => void;
-}
-
-// A RUN down the lineup in enemies.ts: movements of small / big / boss, each
-// a round with a higher target. Every round draws a fresh rack from
-// run.deck -- one bag for the whole run, which the shop's tile packs and
-// marginalia grow and mark. Ink pools across the run and earns INTEREST at
-// every win, and every win short of the last opens the SHOP. Lose a round and the
-// run is lost; fell the last boss and the run is won.
-export function createRun(opts: CreateRunOpts): RunLike {
-  const Sandbox = window.Wordbound.Sandbox;
-  const tune = applyKey(
-    Object.assign({}, ROUND_DEFAULTS, opts.tune || {}),
-    opts.key,
-  );
-  const MOVEMENTS =
-    (Sandbox.MOVEMENTS as { enemies: Enemy[] }[] | undefined) || [];
-  const enemyAt = Sandbox.enemyAt as
-    ((movement: number, stage: number) => Enemy | null) | undefined;
-
-  const run: RunLike = {
-    key: opts.key || KEYS[0]!.id,
-    tune,
-    movements: MOVEMENTS,
-    movement: 0,
-    stage: 0,
-    enemy: null,
-    round: null,
-    deck: opts.deck || (opts.makeDeck ? opts.makeDeck() : []),
-    pile: null, // { drawPile, discardPile } shared by every round; set below
-    items: (opts.items || []).slice(), // carried into every round from here on
-    startItems: (opts.items || []).slice(), // what the run set out with
-    consumables: [], // inks and études held, CONSUMABLE_SLOTS deep
-    itemState: {}, // scaling items' counters (items.ts), e.g. refrain
-    shop: null, // open between fights (shop.ts)
-    letterChoice: null, // { options, last } offered after a boss (stolenLetters.ts)
-    pack: null, // an opened pack awaiting run.pick
-    tierLevels: {}, // études: { tierId: level }, level 1 when absent
-    ink: Number(tune.START_INK),
-    felled: [], // enemy ids beaten so far
-    resolved: [], // situation ids resolved so far (READ_SLOWLY_PLAN.md C2)
-    skipped: [], // enemy ids skipped for a favour
-    favours: [], // favour ids owed to the next shop (free_pack, coupon)
-    bestPlay: null, // { word, breakdown, enemy } the run's best word
-    wordsPlayed: 0,
-    lastWin: null, // { reward, interest } of the latest win, for the UI
-    state: 'live',
-  } as unknown as RunLike;
-
-  const KIND_MULT: Record<string, number> = {
-    small: 1,
-    big: Number(tune.BIG_MULT),
-    boss: Number(tune.BOSS_MULT),
-  };
-  const KIND_INK: Record<string, number> = {
-    small: Number(tune.INK_SMALL),
-    big: Number(tune.INK_BIG),
-    boss: Number(tune.INK_BOSS),
-  };
-  run.targetFor = function (movement: number, stage: number): number {
-    const e = enemyAt ? enemyAt(movement, stage) : null;
-    const base =
-      Number(tune['MOVEMENT_BASE_' + (movement + 1)]) ||
-      Number(tune.MOVEMENT_BASE_1) * Math.pow(2.5, movement);
-    return Math.round(
-      base *
-        (e ? KIND_MULT[e.kind] || 1 : 1) *
-        (Number(tune.KEY_TARGET_MULT) || 1),
-    );
-  };
-  run.interestPreview = function (): number {
-    return Math.min(
-      Number(tune.INTEREST_CAP),
-      Math.floor(run.ink / Number(tune.INTEREST_PER)),
-    );
-  };
-  // The bag is the whole deck reshuffled at the start of every fight.
-  // Within a fight, played and swapped tiles wait in the discard pile and
-  // only come back once the bag runs dry.
-  function discardRack() {
-    const r = run.round;
-    if (!r) return;
-    r.pile.discardPile.push(...r.rack);
-    r.rack = [];
-  }
-  run.addTile = function (tile: Tile) {
-    run.deck.push(tile);
-  };
-  // Sustain (items.ts): hold the soundtrack's crescendo window open extraSec
-  // longer. Supplied by the UI (it owns the audio); a no-op headless.
-  run.extendCrescendo = opts.extendCrescendo || (() => {});
-
-  function begin() {
-    // Quill discovery: reaching Movement III (index 2) reveals one more,
-    // once per run, on top of whatever a boss has already found.
-    const rollQuillDiscovery = Sandbox.rollQuillDiscovery as
-      ((rng: RngStream) => string | null) | undefined;
-    const discoverQuill = Sandbox.discoverQuill as
-      ((id: string) => boolean) | undefined;
-    if (run.movement >= 2 && !run.movementIIIQuillDone && rollQuillDiscovery) {
-      run.movementIIIQuillDone = true;
-      const found3 = rollQuillDiscovery(opts.rng);
-      if (found3 && discoverQuill && discoverQuill(found3))
-        run.movementIIIQuillFound = found3;
-    }
-    run.enemy = enemyAt ? enemyAt(run.movement, run.stage) : null;
-    run.pile = {
-      drawPile: window.Wordbound.Tiles.shuffleIntoDrawPile(run.deck, opts.rng),
-      discardPile: [],
-    };
-    run.round = createRound({
-      rng: opts.rng,
-      deck: run.deck,
-      pile: run.pile,
-      tune,
-      items: run.items,
-      run,
-      crescendo: opts.crescendo,
-      noPremium: !!(tune.KEY_NO_BOSS_PREMIUM && run.enemy!.kind === 'boss'),
-      target: run.targetFor(run.movement, run.stage),
-      reward: KIND_INK[run.enemy!.kind],
-      rule: run.enemy!.rule,
-      situation: run.enemy!.situation,
-      tierLevels: run.tierLevels,
-      onPlay: (res) => {
-        run.wordsPlayed += 1;
-        if (
-          !run.bestPlay ||
-          res.breakdown!.total > run.bestPlay.breakdown.total
-        ) {
-          run.bestPlay = {
-            word: res.word!,
-            breakdown: res.breakdown!,
-            enemy: run.enemy!.name,
-          };
-        }
-      },
-    });
-    // The favour on offer for walking past this one; bosses cannot be skipped.
-    run.round.favour =
-      run.enemy!.kind === 'boss'
-        ? null
-        : FAVOURS[opts.rng.randInt(0, FAVOURS.length - 1)]!.id;
-  }
-
-  // Skip the current enemy for its favour: only before a word is played,
-  // never a boss. Bounty pays now; the others are owed to the next shop.
-  // No shop opens after a skip.
-  run.skip = function () {
-    const r = run.round;
-    if (run.state !== 'live' || !r || r.state !== 'live' || run.shop)
-      return { ok: false, reason: 'Nothing to skip.' };
-    if (tune.KEY_NO_SKIP)
-      return { ok: false, reason: 'No skipping in B minor.' };
-    if (!r.favour) return { ok: false, reason: 'The boss cannot be skipped.' };
-    if (r.plays.length)
-      return { ok: false, reason: 'Too late — a word has been played.' };
-    const favour = r.favour;
-    if (favour === 'bounty') run.ink += Number(tune.BOUNTY_INK);
-    else run.favours.push(favour);
-    run.skipped.push(run.enemy!.id);
-    discardRack();
-    run.stage += 1;
-    if (
-      run.stage >=
-      (MOVEMENTS[run.movement] as { enemies: Enemy[] }).enemies.length
-    ) {
-      run.stage = 0;
-      run.movement += 1;
-    }
-    begin();
-    return { ok: true, favour };
-  };
-
-  // Reorder the held items: they fire left to right.
-  run.moveItem = function (from: number, to: number): boolean {
-    if (
-      from === to ||
-      from < 0 ||
-      to < 0 ||
-      from >= run.items.length ||
-      to >= run.items.length
-    )
-      return false;
-    const id = run.items.splice(from, 1)[0]!;
-    run.items.splice(to, 0, id);
-    return true;
-  };
-
-  // An étude: raise one length tier a level for the rest of the run.
-  run.levelTier = function (tierId: string): boolean {
-    if (!TIER_DEFS[tierId]) return false;
-    run.tierLevels[tierId] = (run.tierLevels[tierId] || 1) + 1;
-    return true;
-  };
-
-  // Finish settling a win once any letter choice is resolved (or there was
-  // none to offer): open the shop or, for the last boss, end the run.
-  function finishWin(last: boolean): 'live' | 'won' | 'lost' {
-    if (last) {
-      run.state = 'won';
-      return run.state;
-    }
-    discardRack();
-    run.stage += 1;
-    if (
-      run.stage >=
-      (MOVEMENTS[run.movement] as { enemies: Enemy[] }).enemies.length
-    ) {
-      run.stage = 0;
-      run.movement += 1;
-    }
-    run.enemy = enemyAt ? enemyAt(run.movement, run.stage) : null; // the one ahead, for the shop's door
-    const createShop = Sandbox.createShop as
-      ((run: RunLike, rng: RngStream) => unknown) | undefined;
-    run.shop = createShop ? createShop(run, opts.rng) : null;
-    if (!run.shop) begin();
-    return run.state;
-  }
-
-  // Settle the current round into the run: bank the reward, then the
-  // interest on what is held. Felling a boss may pause here with
-  // run.letterChoice open (stolenLetters.ts) -- run.pickLetter resumes. A
-  // win on the way to the last boss opens the shop (run.shop; leave it with
-  // run.leaveShop).
-  run.next = function (): 'live' | 'won' | 'lost' {
-    const r = run.round;
-    if (
-      run.state !== 'live' ||
-      !r ||
-      r.state === 'live' ||
-      run.shop ||
-      run.letterChoice
-    )
-      return run.state;
-    if (r.state === 'lost') {
-      run.state = 'lost';
-      return run.state;
-    }
-    run.ink += r.ink;
-    const interest = run.interestPreview();
-    run.ink += interest;
-    run.lastWin = { reward: r.ink, interest };
-    run.felled.push(run.enemy!.id);
-    if (run.enemy!.situation && !run.resolved.includes(run.enemy!.situation))
-      run.resolved.push(run.enemy!.situation);
-    const wasBoss = run.enemy!.kind === 'boss';
-    const last =
-      run.movement >= MOVEMENTS.length - 1 &&
-      run.stage >=
-        (MOVEMENTS[run.movement] as { enemies: Enemy[] }).enemies.length - 1;
-    // Quill discovery (NEXT_LEVEL_PLAN.md stage 4): felling a boss reveals
-    // one hidden quill alongside the letter choice.
-    run.quillFound = null;
-    const rollQuillDiscovery = Sandbox.rollQuillDiscovery as
-      ((rng: RngStream) => string | null) | undefined;
-    const discoverQuill = Sandbox.discoverQuill as
-      ((id: string) => boolean) | undefined;
-    if (wasBoss && rollQuillDiscovery) {
-      const found = rollQuillDiscovery(opts.rng);
-      if (found && discoverQuill && discoverQuill(found))
-        run.quillFound = found;
-    }
-    const rollLetterChoice = Sandbox.rollLetterChoice as
-      ((rng: RngStream, count?: number) => string[] | null) | undefined;
-    if (wasBoss && rollLetterChoice) {
-      const choices = rollLetterChoice(opts.rng, 3);
-      if (choices && choices.length) {
-        run.letterChoice = { options: choices, last };
-        return run.state;
-      }
-    }
-    return finishWin(last);
-  };
-
-  // Take one of the letters offered by run.letterChoice, persist it
-  // (stolenLetters.ts), and resume the win it interrupted.
-  run.pickLetter = function (letter: string): boolean {
-    if (!run.letterChoice) return false;
-    if (run.letterChoice.options.indexOf(letter) < 0) return false;
-    const winLetter = Sandbox.winLetter as
-      ((letter: string) => boolean) | undefined;
-    if (winLetter) winLetter(letter);
-    const last = run.letterChoice.last;
-    run.letterChoice = null;
-    finishWin(last);
-    return true;
-  };
-
-  // Close the shop and begin the next round.
-  run.leaveShop = function (): boolean {
-    if (!run.shop || run.pack) return false;
-    run.shop = null;
-    begin();
-    return true;
-  };
-
-  // Use a held consumable. An étude needs nothing else; a marginalia card
-  // takes the ids of the tiles it is applied to (marginalia.ts, Phase 4).
-  run.useConsumable = function (
-    i: number,
-    tileIds?: string[],
-    extra?: { vowel?: string },
-  ) {
-    const c = run.consumables[i];
-    if (!c) return { ok: false, reason: 'Nothing there.' };
-    if (c.kind === 'etude') {
-      run.levelTier(c.id);
-      run.consumables.splice(i, 1);
-      return { ok: true, used: c };
-    }
-    const applyMark = Sandbox.applyMark as
-      | ((
-          run: RunLike,
-          id: string,
-          tileIds: string[],
-          extra?: { vowel?: string },
-        ) => { ok: boolean; reason?: string; note?: string })
-      | undefined;
-    if (c.kind === 'mark' && applyMark) {
-      const res = applyMark(run, c.id, tileIds || [], extra);
-      if (!res.ok) return res;
-      run.consumables.splice(i, 1);
-      return { ok: true, used: c, result: res };
-    }
-    return { ok: false, reason: 'That cannot be used yet.' };
-  };
-
-  // Play a marginalia card bought straight out of the shop while every
-  // consumable slot was full (shop.ts takeConsumable) -- it was never
-  // stored, so there is nothing to splice out of run.consumables afterward.
-  run.useAdhocMark = function (
-    id: string,
-    tileIds?: string[],
-    extra?: { vowel?: string },
-  ) {
-    const applyMark = Sandbox.applyMark as
-      | ((
-          run: RunLike,
-          id: string,
-          tileIds: string[],
-          extra?: { vowel?: string },
-        ) => { ok: boolean; reason?: string; note?: string })
-      | undefined;
-    if (!applyMark) return { ok: false, reason: 'That cannot be used yet.' };
-    return applyMark(run, id, tileIds || [], extra);
-  };
-
-  // A fresh hand drawn to use a marginalia card on the spot, right after
-  // buying or keeping it -- before either of run.useAdhocMark or
-  // run.saveMark decides
-  // what happens to it.
-  run.drawMarkHand = function (): Tile[] {
-    const Tiles = window.Wordbound.Tiles;
-    return Tiles.shuffleIntoDrawPile(run.deck, opts.rng).slice(
-      0,
-      Math.min(Number(tune.RACK_SIZE), run.deck.length),
-    );
-  };
-
-  // Hold an ink just bought or kept in run.consumables instead of using it
-  // now -- the other half of the choice offered alongside run.useAdhocMark.
-  run.saveMark = function (id: string) {
-    if (run.consumables.length >= Number(tune.CONSUMABLE_SLOTS))
-      return {
-        ok: false,
-        reason: 'No room for another marginalia card — use or sell one first.',
-      };
-    run.consumables.push({ kind: 'mark', id });
-    return { ok: true };
-  };
-
-  run.sellConsumable = function (i: number) {
-    const c = run.consumables[i];
-    if (!c) return { ok: false, reason: 'Nothing there.' };
-    run.consumables.splice(i, 1);
-    const paid = Math.floor(
-      Number(c.kind === 'mark' ? tune.MARK_PRICE : tune.ETUDE_PRICE) / 2,
-    );
-    run.ink += paid;
-    return { ok: true, paid };
-  };
-
-  begin();
-  return run;
-}
-
-const SandboxOut = window.Wordbound.Sandbox;
-SandboxOut.ROUND_DEFAULTS = ROUND_DEFAULTS;
-SandboxOut.PREMIUM_KINDS = PREMIUM_KINDS;
-SandboxOut.KEYS = KEYS;
-SandboxOut.KEY_DEFS = KEY_DEFS;
-SandboxOut.applyKey = applyKey;
-SandboxOut.FAVOURS = FAVOURS;
-SandboxOut.FAVOUR_DEFS = FAVOUR_DEFS;
-SandboxOut.TIERS = TIERS;
-SandboxOut.TIER_DEFS = TIER_DEFS;
-SandboxOut.tierFor = tierFor;
-SandboxOut.tierStats = tierStats;
-SandboxOut.chordPoints = chordPoints;
-SandboxOut.scoreWordPoints = scoreWordPoints;
-SandboxOut.scoreSteps = scoreSteps;
-SandboxOut.createRound = createRound;
-SandboxOut.createRun = createRun;

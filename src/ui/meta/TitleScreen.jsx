@@ -70,11 +70,14 @@ export default function TitleScreen({
       <p className="sb-hint sb-title-best">
         {best.word ? (
           <>
-            Best: {best.word.word} for {best.word.total} · {best.wins || 0}{' '}
-            win{best.wins === 1 ? '' : 's'} in {best.runs || 0} run
+            Best: {best.word.word} for {best.word.total} · {best.wins || 0} win
+            {best.wins === 1 ? '' : 's'} in {best.runs || 0} run
             {best.runs === 1 ? '' : 's'}
             {best.winsByKey && best.winsByKey[keyId] ? (
-              <> ({best.winsByKey[keyId]} in {SB.KEY_DEFS[keyId].name})</>
+              <>
+                {' '}
+                ({best.winsByKey[keyId]} in {SB.KEY_DEFS[keyId].name})
+              </>
             ) : (
               ''
             )}

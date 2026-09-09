@@ -19,9 +19,7 @@ const SVG_SHEETS = {
   ...BACKDROP_SHEETS,
 };
 
-const SHEETS = Object.fromEntries(
-  ART_MANIFEST.sheets.map((s) => [s.id, s]),
-);
+const SHEETS = Object.fromEntries(ART_MANIFEST.sheets.map((s) => [s.id, s]));
 
 // A stable placeholder hue per sheet id so different sprites read as
 // visually distinct boxes without any art.

@@ -9,6 +9,41 @@
 // Play scores the word standing on it, Change out throws those tiles back.
 import { createDragReorder } from '../engine/dragReorder';
 import { createRunFacadeFromOpts, fromSeed } from '../engine/state/facade';
+import { MOVEMENTS, KIND_LABEL, enemyAt } from '../engine/content/enemies';
+import {
+  CHARACTERS,
+  CHARACTER_DEFS,
+  unlockedCharacters,
+  unlockNext,
+} from '../engine/content/characters';
+import { discoveredQuills } from '../engine/content/quillDiscovery';
+import { RECORDINGS } from '../engine/content/recordings';
+import {
+  ROUND_DEFAULTS,
+  KEYS,
+  KEY_DEFS,
+  FAVOUR_DEFS,
+  TIER_DEFS,
+  PACK_KINDS,
+  priceOf,
+} from '../engine/content/round';
+import { ITEMS, ITEM_DEFS } from '../engine/content/items';
+import { MARK_DEFS, VOWELS } from '../engine/content/marginalia';
+import { TILE_BAGS, createBagDeck } from '../engine/content/tileBags';
+import { availableLetters, isAvailable } from '../engine/content/stolenLetters';
+import {
+  bestFromRack,
+  findWords,
+  isWordMakerReady,
+  warmWordMaker,
+} from '../engine/content/wordFinder';
+import {
+  CRESCENDO,
+  createAudioPiece,
+  prefetchAudio,
+} from '../engine/content/audioPiece';
+import { createSfx } from '../engine/content/sfx';
+import { situationFor, ladderIndex } from '../engine/content/situations';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';
 import TitleScreen from '../ui/meta/TitleScreen.jsx';
@@ -239,10 +274,7 @@ function shareText(run, won, seed) {
       run.ink +
       ' ink' +
       (run.items.length
-        ? ' · ' +
-          run.items
-            .map((id) => window.Wordbound.Sandbox.ITEM_DEFS[id].name)
-            .join(', ')
+        ? ' · ' + run.items.map((id) => ITEM_DEFS[id].name).join(', ')
         : ''),
   );
   lines.push('Seed ' + seed + ' · ' + LIVE_URL);
@@ -289,9 +321,47 @@ function flyScore(total) {
   }, 800);
 }
 
+// The shop/card/gear child components (Shop.jsx, HeldRow.jsx, GearMeta.jsx,
+// TuningPanel.jsx, TitleScreen.jsx) still take an `SB`-shaped bag of tables/
+// helpers as a prop, same as when it came off window.Wordbound.Sandbox
+// (READ_SLOWLY_PLAN.md A2's Sandbox-namespace globals are gone as of this
+// pass) -- built once here from real ES imports instead, so its identity
+// stays stable across renders like the old global did. Splitting these
+// components off SB entirely is READ_SLOWLY_PLAN.md A4's job.
+const SB = {
+  ROUND_DEFAULTS,
+  KEYS,
+  KEY_DEFS,
+  FAVOUR_DEFS,
+  TIER_DEFS,
+  PACK_KINDS,
+  priceOf,
+  ITEMS,
+  ITEM_DEFS,
+  MARK_DEFS,
+  VOWELS,
+  TILE_BAGS,
+  createBagDeck,
+  availableLetters,
+  isAvailable,
+  bestFromRack,
+  findWords,
+  isWordMakerReady,
+  warmWordMaker,
+  CRESCENDO,
+  createAudioPiece,
+  prefetchAudio,
+  createSfx,
+  situationFor,
+  ladderIndex,
+  CHARACTERS,
+  unlockedCharacters,
+  unlockNext,
+  enemyAt,
+};
+
 export default function RoundSandbox() {
   const W = window.Wordbound;
-  const SB = W.Sandbox;
   const fight = useRef(null); // { run, round, seq, ctx, gain, def, piece }
   // The round the player has actually entered -- fight the enemy, or skip
   // it, from the pre-fight card. A fresh round object (a new stage, from
@@ -354,10 +424,10 @@ export default function RoundSandbox() {
   }, []);
   const [tune, setTune] = useState(() => ({ ...SB.ROUND_DEFAULTS }));
   const [discovered, setDiscovered] = useState(
-    () => new Set(SB.discoveredQuills ? SB.discoveredQuills() : []),
+    () => new Set(discoveredQuills ? discoveredQuills() : []),
   );
   const refreshDiscovered = useCallback(
-    () => setDiscovered(new Set(SB.discoveredQuills())),
+    () => setDiscovered(new Set(discoveredQuills())),
     [SB],
   );
   const [keyUnlockedState, dispatchKeyUnlocked] = useReducer(
@@ -371,7 +441,7 @@ export default function RoundSandbox() {
   // passive is threaded into createRun's `items` list; the always-playable
   // extra-tile mechanic itself is not yet wired (see characters.ts's header).
   const [characterId, setCharacterId] = useState(
-    () => SB.unlockedCharacters()[0] || 'zed',
+    () => unlockedCharacters()[0] || 'zed',
   );
   // A win on the highest-unlocked key offers the next one (stage 3).
   const unlockNextKey = useCallback(
@@ -581,8 +651,8 @@ export default function RoundSandbox() {
   // so only the enemy on stage and the one after it are warmed.
   const warm = useCallback(
     (movement, stage) => {
-      const def = SB.enemyAt(movement, stage);
-      const piece = def && SB[def.recorded];
+      const def = enemyAt(movement, stage);
+      const piece = def && RECORDINGS[def.recorded];
       if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
     },
     [SB],
@@ -611,7 +681,7 @@ export default function RoundSandbox() {
         if (f.seq.dispose) f.seq.dispose();
         else f.seq.stop();
       }
-      const piece = SB[def.recorded];
+      const piece = RECORDINGS[def.recorded];
       const seq = SB.createAudioPiece(f.ctx, f.gain, piece);
       seq.on('load-failed', (err) =>
         say(
@@ -642,9 +712,9 @@ export default function RoundSandbox() {
       setSuggestions([]);
       setPhase('live');
       say(
-        copy.chapterLabel(SB.MOVEMENTS[run.movement].numeral) +
+        copy.chapterLabel(MOVEMENTS[run.movement].numeral) +
           ' · ' +
-          SB.KIND_LABEL[def.kind] +
+          KIND_LABEL[def.kind] +
           ' — ' +
           def.name +
           ' takes up ' +
@@ -701,7 +771,7 @@ export default function RoundSandbox() {
         return;
       }
 
-      const characterDef = SB.CHARACTER_DEFS[characterId];
+      const characterDef = CHARACTER_DEFS[characterId];
       const run = createRunFacadeFromOpts(
         {
           deck: SB.createBagDeck(bagId),
