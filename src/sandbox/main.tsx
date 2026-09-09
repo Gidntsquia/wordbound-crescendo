@@ -24,7 +24,7 @@ import '../engine/content/enemies';
 import './items.js';
 import './round.js';
 import './shop.js';
-import './inks.js';
+import '../engine/content/inks';
 import './wordFinder.js';
 // Which letters a fight draws from -- three bags, weak/normal/strong.
 import './tileBags.js';
