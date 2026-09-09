@@ -1,12 +1,15 @@
+import type { ActFn } from '../actFn';
 // The row of held quills (items) -- extracted from HeldRow.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
 import QuillCard from './QuillCard';
+import type { RunFacade } from '../../engine/state/facade';
+import type { CrescendoWindow } from '../../audio/recordingPlayer';
 
 interface Float {
-  key: string;
-  on: string;
-  tone: string;
-  text: string;
+  key: string | number;
+  on: string | number | undefined;
+  tone: string | undefined;
+  text: string | undefined;
 }
 
 interface ItemDef {
@@ -16,10 +19,8 @@ interface ItemDef {
   crescendo?: boolean;
 }
 
-interface Cres {
-  phase: string;
-  secs: number;
-}
+type RunLike = RunFacade;
+type Cres = CrescendoWindow;
 
 export default function QuillRow({
   run,
@@ -33,18 +34,13 @@ export default function QuillRow({
   tip,
   setTip,
 }: {
-  run: {
-    items: string[];
-    tune: { ITEM_SLOTS: number };
-    moveItem: (from: number, to: number) => unknown;
-    shop: { sell: (i: number) => unknown };
-  };
+  run: RunLike;
   SB: {
     ITEM_DEFS: Record<string, ItemDef>;
     CRESCENDO: { countdown: number };
     priceOf: (d: ItemDef) => number;
   };
-  act: (message: string | null, res: unknown, sfx?: string) => void;
+  act: ActFn;
   live: boolean;
   inShop: boolean;
   lit: string | null;

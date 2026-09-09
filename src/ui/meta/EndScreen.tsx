@@ -4,29 +4,11 @@
 // pre-A6 bespoke classNames -- the shadcn/Tailwind chrome pass is a
 // separate, larger visual change tracked under A6.
 import * as copy from '../copy';
+import type { RunFacade } from '../../engine/state/facade';
+import type { SituationId } from '../../engine/content/situations';
+import type { Enemy } from '../../engine/content/enemies';
 
-interface Enemy {
-  id: string;
-  kind: string;
-  name: string;
-}
-
-interface EndRun {
-  felled: string[];
-  movements: { enemies: Enemy[] }[];
-  round: { situation?: unknown; target: number; score: number } | null;
-  resolved?: unknown[] | null;
-  wordsPlayed: number;
-  ink: number;
-  skipped: unknown[];
-  bestPlay?: {
-    word: string;
-    breakdown: { total: number };
-    enemy: string;
-  } | null;
-  items: string[];
-  enemy: { name: string };
-}
+type EndRun = RunFacade;
 
 interface BestState {
   word?: { word: string; total: number };
@@ -49,7 +31,9 @@ export default function EndScreen({
   run: EndRun;
   won: boolean;
   SB: {
-    situationFor?: (situation: unknown) => { failure: string } | undefined;
+    situationFor?: (
+      situation: SituationId | null | undefined,
+    ) => { failure: string } | null;
     ITEM_DEFS: Record<string, { name: string; rarity?: string }>;
   };
   seed: string;
@@ -69,7 +53,9 @@ export default function EndScreen({
   return (
     <div className={'sb-end ' + (won ? 'sb-win' : 'sb-lose')}>
       <h2 className="sb-end-title">
-        {won ? copy.LAST_PAGE_TURNS : copy.lostTheRoom(run.enemy.name)}
+        {won
+          ? copy.LAST_PAGE_TURNS
+          : copy.lostTheRoom(run.enemy?.name ?? 'unknown')}
       </h2>
       {!won &&
         run.round &&

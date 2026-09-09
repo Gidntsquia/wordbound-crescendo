@@ -3,25 +3,11 @@
 // Extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in;
 // enterFight/skipFight stay owned by the parent.
 import SituationPanel from '../../sandbox/SituationPanel';
-import type { Situation } from '../../engine/content/situations';
+import type { Situation, SituationId } from '../../engine/content/situations';
+import type { Fight } from '../../app/store';
+import type { RoundFacade } from '../../engine/state/facade';
 
-interface Fight {
-  def: { glyph: string; name: string; flavour?: string };
-  piece: { title: string; composer?: string };
-}
-
-interface Rule {
-  name: string;
-  plain: string;
-  text: string;
-}
-
-interface RoundLike {
-  situation: unknown;
-  target: number;
-  rule?: Rule | null;
-  favour?: string | null;
-}
+type RoundLike = RoundFacade | null | undefined;
 
 interface FavourDef {
   name: string;
@@ -35,12 +21,14 @@ export default function EnemyIntroCard({
   enterFight,
   skipFight,
 }: {
-  f: Fight;
+  f: Fight | null;
   round: RoundLike;
   SB: {
-    situationFor?: (situation: unknown) => Situation | null | undefined;
+    situationFor?: (
+      situation: SituationId | null | undefined,
+    ) => Situation | null;
     ladderIndex?: (
-      situation: Situation | null | undefined,
+      situation: Situation | null,
       score: number,
       target: number,
     ) => number;
@@ -49,7 +37,9 @@ export default function EnemyIntroCard({
   enterFight: () => void;
   skipFight: () => void;
 }) {
+  if (!round) return null;
   const situation = SB.situationFor && SB.situationFor(round.situation);
+  if (!f || !f.def || !f.piece) return null;
   return (
     <div className="sb-intro">
       <div className="sb-enemy-line">
@@ -67,7 +57,9 @@ export default function EnemyIntroCard({
       <SituationPanel
         situation={situation}
         ladderIndex={
-          SB.ladderIndex ? SB.ladderIndex(situation, 0, round.target) : 0
+          SB.ladderIndex
+            ? SB.ladderIndex(situation ?? null, 0, round.target)
+            : 0
         }
       />
       {f.def.flavour && <q className="sb-intro-flavour">{f.def.flavour}</q>}

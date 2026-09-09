@@ -4,19 +4,17 @@
 // 100ms keeps the seconds readout honest without redrawing when nothing
 // has changed.
 import { useEffect, useState } from 'react';
+import type { Fight } from '../../app/store';
+import type { CrescendoWindow } from '../../audio/recordingPlayer';
 
-export interface CrescendoState {
-  phase: 'idle' | 'soon' | 'live';
-  secs?: number;
-  mag?: number;
-}
+export type CrescendoState = CrescendoWindow;
 
 interface ItemDef {
   crescendo?: boolean;
 }
 
 interface RunLike {
-  items: string[];
+  items: readonly string[];
 }
 
 export function holdsCrescendoItem(
@@ -30,10 +28,7 @@ export function holdsCrescendoItem(
 
 export function useCrescendo(
   phase: string,
-  fight: React.MutableRefObject<{
-    run?: RunLike;
-    seq?: { crescendo?: () => CrescendoState };
-  } | null>,
+  fight: React.RefObject<Fight | null>,
   ITEM_DEFS: Record<string, ItemDef>,
   sfx: (name: string, ...a: unknown[]) => void,
 ): CrescendoState {

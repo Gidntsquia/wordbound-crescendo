@@ -1,17 +1,13 @@
 // The bag/discard-pile details disclosure. Extracted from PlayBoard.jsx
 // (READ_SLOWLY_PLAN.md A4).
-interface Tile {
-  id: string;
-  letter: string;
-  mark?: string;
-}
+import type { Tile } from '../../engine/tiles';
 
 export default function PilesDrawer({
   drawPile,
   discardPile,
 }: {
-  drawPile: unknown[];
-  discardPile: Tile[];
+  drawPile: readonly unknown[];
+  discardPile: readonly Tile[];
 }) {
   return (
     <details className="sb-piles" aria-label="The bag and the discard pile">

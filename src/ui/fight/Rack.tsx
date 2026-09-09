@@ -1,11 +1,9 @@
 // The case (rack) of tiles -- extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md
 // A4). Tap plays a tile onto the stick, drag reorders/moves it; inking mode
 // diverts taps to toggleInkTile instead.
-interface Tile {
-  id: string;
-  letter: string;
-  mark?: string;
-}
+import type { Tile } from '../../engine/tiles';
+import type { RoundFacade } from '../../engine/state/facade';
+import type { Inking as RealInking } from '../../sandbox/RoundSandbox';
 
 interface RackEntry {
   t: Tile;
@@ -14,21 +12,16 @@ interface RackEntry {
   hollow: boolean;
 }
 
-interface Inking {
-  ids: string[];
-}
+type Inking = RealInking;
 
-interface RoundLike {
-  isBarred: (t: Tile) => boolean;
-  rule?: { name: string } | null;
-}
+type RoundLike = RoundFacade;
 
 interface DragBind {
   bind: (
-    row: 'rack' | 'stick',
+    row: string,
     index: number,
     id: string | null,
-  ) => Record<string, unknown>;
+  ) => { onPointerDown: (e: React.PointerEvent<HTMLElement>) => void };
 }
 
 export default function Rack({
@@ -51,7 +44,7 @@ export default function Rack({
   round: RoundLike;
   scoring: { litTile?: string | null } | null;
   SB: { MARK_DEFS: Record<string, { name: string; hint: string }> };
-  drag: DragBind;
+  drag: DragBind | null;
   toggleInkTile: (id: string) => void;
   stageTile: (t: Tile) => void;
   say: (m: string) => void;
@@ -84,7 +77,7 @@ export default function Rack({
                   SB.MARK_DEFS[t.mark]!.hint
                 : undefined
             }
-            {...(inking ? {} : drag.bind('rack', i, t.id))}
+            {...(inking || !drag ? {} : drag.bind('rack', i, t.id))}
             onClick={() =>
               inking
                 ? toggleInkTile(t.id)

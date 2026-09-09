@@ -20,6 +20,9 @@ export interface Surge {
 
 export interface RecordedPiece {
   audio: string;
+  title?: string;
+  composer?: string;
+  performer?: string;
   durationSec?: number;
   loudness?: number;
   peak?: number;

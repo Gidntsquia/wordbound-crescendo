@@ -3,7 +3,19 @@
 // dragged tile slides in from where the finger let go of its ghost.
 // Extracted verbatim from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A2/A4).
 import { useEffect, useRef, useState } from 'react';
-import { createDragReorder } from '../../engine/dragReorder';
+import { createDragReorder, type DragState } from '../../engine/dragReorder';
+import type { Fight, FightAction } from '../../app/store';
+
+interface UseDragReorderArgs {
+  letters: string;
+  setWord: (w: string) => void;
+  fight: React.RefObject<Fight | null>;
+  dispatchFight: (action: FightAction) => void;
+  refresh: () => void;
+  sfx: (name: string, ...a: unknown[]) => void;
+  captureFlipFrom: (tileId: string) => void;
+  pendingFlipFromRef: React.RefObject<Record<string, DOMRect>>;
+}
 
 export function useDragReorder({
   letters,
@@ -14,18 +26,20 @@ export function useDragReorder({
   sfx,
   captureFlipFrom,
   pendingFlipFromRef,
-}) {
+}: UseDragReorderArgs) {
   const wordRef = useRef(letters);
   useEffect(() => {
     wordRef.current = letters;
   });
   // While a drag is on, both rows are drawn in PREVIEW: the hollow tile stands
   // where the drop would put it, in whichever row the finger is over.
-  const [preview, setPreview] = useState(null); // { id, fromRow, fromIndex, toRow, to } | null
-  const playRef = useRef(null);
-  const [drag, setDrag] = useState(null);
+  const [preview, setPreview] = useState<DragState | null>(null);
+  const playRef = useRef<HTMLElement | null>(null);
+  const [drag, setDrag] = useState<ReturnType<typeof createDragReorder> | null>(
+    null,
+  );
   useEffect(() => {
-    const flipAll = (id) => {
+    const flipAll = (id: string | null) => {
       const r = fight.current?.round;
       if (!r) return;
       r.rack.forEach((t) => {
@@ -35,14 +49,14 @@ export function useDragReorder({
     setDrag(
       createDragReorder({
         rows: () => ({
-          rack: playRef.current.querySelector('.sb-rack'),
-          stick: playRef.current.querySelector('.sb-stick'),
+          rack: playRef.current!.querySelector('.sb-rack') as HTMLElement,
+          stick: playRef.current!.querySelector('.sb-stick') as HTMLElement,
         }),
         onPreview: (p) => {
           flipAll(p.id);
           setPreview(p);
         },
-        onSettle: (id, ghostRect) => {
+        onSettle: (id: string | null, ghostRect: DOMRect) => {
           setPreview(null);
           if (id) pendingFlipFromRef.current[id] = ghostRect;
           refresh();
@@ -73,7 +87,7 @@ export function useDragReorder({
           }
           if (p.fromIndex >= cur.length) return;
           const arr = cur.split('');
-          const ch = arr.splice(p.fromIndex, 1)[0];
+          const ch = arr.splice(p.fromIndex, 1)[0] ?? '';
           if (p.toRow === 'stick') {
             arr.splice(p.to, 0, ch);
             setWord(arr.join(''));

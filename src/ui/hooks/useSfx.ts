@@ -8,17 +8,9 @@
 // real phone check first.
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { sfxReducer, readSfxOn, writeSfxOn } from '../../app/store';
+import type { Fight } from '../../app/store';
 
-interface SfxNode {
-  setEnabled(v: boolean): void;
-  [name: string]: unknown;
-}
-
-interface FightRef {
-  sfx?: SfxNode;
-}
-
-export function useSfx(fight: React.MutableRefObject<FightRef | null>) {
+export function useSfx(fight: React.RefObject<Fight | null>) {
   const [sfxState, dispatchSfx] = useReducer(sfxReducer, undefined, () => ({
     on: readSfxOn(),
   }));
@@ -42,7 +34,7 @@ export function useSfx(fight: React.MutableRefObject<FightRef | null>) {
   // The sound for an input event, if a run has opened the audio device.
   const sfx = useCallback(
     (name: string, ...a: unknown[]) => {
-      const s = fight.current?.sfx;
+      const s = fight.current?.sfx as Record<string, unknown> | undefined;
       if (s && typeof s[name] === 'function')
         (s[name] as (...args: unknown[]) => void)(...a);
     },

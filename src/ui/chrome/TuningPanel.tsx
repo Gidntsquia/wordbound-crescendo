@@ -59,9 +59,9 @@ export default function TuningPanel({
   tune,
   setConst,
 }: {
-  SB: { ROUND_DEFAULTS: Record<string, number> };
-  tune: Record<string, number>;
-  setConst: (key: string, value: number) => void;
+  SB: { ROUND_DEFAULTS: Record<string, number | boolean | undefined> };
+  tune: Record<string, number | boolean | undefined>;
+  setConst: (key: string, value: number | boolean | undefined) => void;
 }) {
   return (
     <div className="sb-gear-panel sb-gear-panel-tune">
@@ -74,7 +74,7 @@ export default function TuningPanel({
               <input
                 type="number"
                 step={1}
-                value={tune[key]}
+                value={Number(tune[key])}
                 onChange={(e) => setConst(key, Number(e.target.value))}
               />
             </label>

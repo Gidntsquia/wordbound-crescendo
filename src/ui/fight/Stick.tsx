@@ -3,6 +3,9 @@
 // preview past the end. Extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md
 // A4) verbatim -- no logic changes, only prop-threading.
 import { useCallout } from '../chrome/Callout';
+import type { Tile } from '../../engine/tiles';
+import type { RoundFacade } from '../../engine/state/facade';
+import type { ScoringState as RealScoringState } from '../../sandbox/RoundSandbox';
 
 const PREMIUM_HINT: Record<string, string> = {
   dl: 'Double letter',
@@ -11,43 +14,14 @@ const PREMIUM_HINT: Record<string, string> = {
 };
 const PREMIUM_ICON: Record<string, string> = { dl: 'DL', tl: 'TL', dw: 'DW' };
 
-interface Tile {
-  id: string;
-  letter: string;
-  mark?: string;
-}
-
 interface StickEntry {
   t: Tile | null;
   i: number;
-  ch: string;
+  ch: string | undefined;
   hollow: boolean;
 }
 
-interface Float {
-  key: string;
-  on: string;
-  tone: string;
-  text: string;
-}
-
-interface Tier {
-  name: string;
-  level: number;
-}
-
-interface ScoringState {
-  tier?: Tier | null;
-  pts: number;
-  mult: number;
-  total?: number | null;
-  crossed?: boolean;
-  cleared?: boolean;
-  tiles: Tile[];
-  floats: Float[];
-  litTile?: string | null;
-  litSlot?: string | null;
-}
+type ScoringState = RealScoringState;
 
 interface WorthHow {
   tierName: string;
@@ -56,24 +30,14 @@ interface WorthHow {
   mult: number;
 }
 
-interface Premium {
-  pos: number;
-  kind: string;
-}
-
-interface RoundLike {
-  score: number;
-  target: number;
-  premium?: Premium | null;
-  isBarred: (t: Tile) => boolean;
-}
+type RoundLike = RoundFacade;
 
 interface DragBind {
   bind: (
-    row: 'rack' | 'stick',
+    row: string,
     index: number,
     id: string | null,
-  ) => Record<string, unknown>;
+  ) => { onPointerDown: (e: React.PointerEvent<HTMLElement>) => void };
 }
 
 export default function Stick({
@@ -101,7 +65,7 @@ export default function Stick({
   round: RoundLike;
   formable: boolean;
   stickShown: StickEntry[];
-  drag: DragBind;
+  drag: DragBind | null;
   unstageAt: (i: number) => void;
   letterValues: Record<string, number>;
 }) {
@@ -121,7 +85,9 @@ export default function Stick({
               <em className="sb-tier-name">
                 {scoring.tier
                   ? scoring.tier.name +
-                    (scoring.tier.level > 1 ? ' ' + scoring.tier.level : '')
+                    ((scoring.tier.level ?? 0) > 1
+                      ? ' ' + scoring.tier.level
+                      : '')
                   : ' '}
               </em>
               <b className="sb-figure sb-pts">{scoring.pts}</b>
@@ -236,7 +202,7 @@ export default function Stick({
                     ? PREMIUM_HINT[round.premium!.kind] + ' · '
                     : '') + 'Tap to send home · drag to reorder'
                 }
-                {...drag.bind('stick', i, t.id)}
+                {...(drag ? drag.bind('stick', i, t.id) : {})}
                 onClick={() => unstageAt(i)}
               >
                 {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}
@@ -251,7 +217,7 @@ export default function Stick({
                   'sb-tile is-missing' + (hollow ? ' is-dragging' : '')
                 }
                 title="None of your tiles spells this"
-                {...drag.bind('stick', i, null)}
+                {...(drag ? drag.bind('stick', i, null) : {})}
                 onClick={() => unstageAt(i)}
               >
                 {ch}

@@ -22,7 +22,7 @@ import type React from 'react';
 const SLOP = 6;
 
 export interface DragState {
-  id: string;
+  id: string | null;
   fromRow: string;
   fromIndex: number;
   toRow: string;
@@ -33,11 +33,11 @@ export interface DragReorderOptions {
   rows(): Record<string, HTMLElement>;
   onPreview(state: DragState): void;
   onDrop(state: DragState, ghostRect: DOMRect): void;
-  onSettle(id: string, ghostRect: DOMRect): void;
+  onSettle(id: string | null, ghostRect: DOMRect): void;
 }
 
 interface ActiveDrag {
-  id: string;
+  id: string | null;
   fromRow: string;
   fromIndex: number;
   toRow: string;
@@ -59,7 +59,7 @@ export function createDragReorder(opts: DragReorderOptions) {
     e: React.PointerEvent<HTMLElement>,
     row: string,
     index: number,
-    id: string,
+    id: string | null,
   ) {
     if (e.button !== undefined && e.button !== 0) return;
     if (active) return;
@@ -220,7 +220,7 @@ export function createDragReorder(opts: DragReorderOptions) {
   }
 
   // Props to spread onto each tile button of a draggable row.
-  function bind(row: string, index: number, id: string) {
+  function bind(row: string, index: number, id: string | null) {
     return {
       onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
         begin(e, row, index, id);

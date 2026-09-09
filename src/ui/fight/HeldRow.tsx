@@ -1,16 +1,22 @@
+import type { ActFn } from '../actFn';
 // Held bookmarks (quills) + consumables row -- extracted from
 // RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4), then split further into
 // QuillRow/QuillCard/ConsumablesRow (A4, second pass) and ported to .tsx
 // (A1 remainder).
 import QuillRow from './QuillRow';
 import ConsumablesRow from './ConsumablesRow';
+import type { RunFacade } from '../../engine/state/facade';
+import type { CrescendoWindow } from '../../audio/recordingPlayer';
 
 interface Float {
-  key: string;
-  on: string;
-  tone: string;
-  text: string;
+  key: string | number;
+  on: string | number | undefined;
+  tone: string | undefined;
+  text: string | undefined;
 }
+
+type RunLike = RunFacade | null | undefined;
+type Cres = CrescendoWindow;
 
 interface ItemDef {
   name: string;
@@ -19,22 +25,12 @@ interface ItemDef {
   crescendo?: boolean;
 }
 
-interface Consumable {
-  kind: string;
-  id: string;
-}
-
-interface Cres {
-  phase: string;
-  secs: number;
-}
-
 export default function HeldRow({
   run,
   SB,
   act,
   live,
-  inShop,
+  inShop = false,
   onInk,
   lit,
   floats,
@@ -42,21 +38,7 @@ export default function HeldRow({
   tip,
   setTip,
 }: {
-  run: {
-    items: string[];
-    consumables: Consumable[];
-    tune: {
-      ITEM_SLOTS: number;
-      CONSUMABLE_SLOTS: number;
-      MARK_PRICE: number;
-      ETUDE_PRICE: number;
-    };
-    tierLevels: Record<string, number>;
-    moveItem: (from: number, to: number) => unknown;
-    shop: { sell: (i: number) => unknown };
-    useConsumable: (i: number) => unknown;
-    sellConsumable: (i: number) => unknown;
-  };
+  run: RunLike;
   SB: {
     ITEM_DEFS: Record<string, ItemDef>;
     TIER_DEFS: Record<string, { name: string }>;
@@ -64,16 +46,17 @@ export default function HeldRow({
     CRESCENDO: { countdown: number };
     priceOf: (d: ItemDef) => number;
   };
-  act: (message: string | null, res: unknown, sfx?: string) => void;
+  act: ActFn;
   live: boolean;
-  inShop: boolean;
+  inShop?: boolean;
   onInk?: (i: number) => void;
   lit: string | null;
-  floats: Float[];
+  floats: Float[] | null;
   cres: Cres | null;
   tip: string | null;
   setTip: (updater: (t: string | null) => string | null) => void;
 }) {
+  if (!run) return null;
   return (
     <div className="sb-held">
       <QuillRow
@@ -83,7 +66,7 @@ export default function HeldRow({
         live={live}
         inShop={inShop}
         lit={lit}
-        floats={floats}
+        floats={floats ?? []}
         cres={cres}
         tip={tip}
         setTip={setTip}

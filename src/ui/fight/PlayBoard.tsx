@@ -15,12 +15,12 @@ import InputRow from './InputRow';
 import PilesDrawer from './PilesDrawer';
 import SuggestionsDrawer from './SuggestionsDrawer';
 import { useCallout } from '../chrome/Callout';
-
-interface Tile {
-  id: string;
-  letter: string;
-  mark?: string;
-}
+import type { Tile } from '../../engine/tiles';
+import type { RoundFacade } from '../../engine/state/facade';
+import type {
+  Inking as RealInking,
+  ScoringState as RealScoringState,
+} from '../../sandbox/RoundSandbox';
 
 interface RackEntry {
   t: Tile;
@@ -32,46 +32,15 @@ interface RackEntry {
 interface StickEntry {
   t: Tile | null;
   i: number;
-  ch: string;
+  ch: string | undefined;
   hollow: boolean;
 }
 
-interface Inking {
-  ink: { name: string; hint: string; targets: number; needsVowel?: boolean };
-  ids: string[];
-  vowel: string | null;
-}
+type Inking = RealInking;
 
-interface Premium {
-  pos: number;
-  kind: string;
-}
+type RoundLike = RoundFacade;
 
-interface RoundLike {
-  isBarred: (t: Tile) => boolean;
-  rule?: { name: string } | null;
-  score: number;
-  target: number;
-  premium?: Premium | null;
-  pile: { drawPile: unknown[]; discardPile: Tile[] };
-  tune: { CHANGEOUTS: number };
-  changeoutsLeft: number;
-  plays: unknown[];
-  scoreFor: (word: string) => number;
-}
-
-interface ScoringState {
-  tier?: { name: string; level: number } | null;
-  pts: number;
-  mult: number;
-  total?: number | null;
-  crossed?: boolean;
-  cleared?: boolean;
-  tiles: Tile[];
-  floats: { key: string; on: string; tone: string; text: string }[];
-  litTile?: string | null;
-  litSlot?: string | null;
-}
+type ScoringState = RealScoringState;
 
 interface WorthHow {
   tierName: string;
@@ -82,10 +51,10 @@ interface WorthHow {
 
 interface DragBind {
   bind: (
-    row: 'rack' | 'stick',
+    row: string,
     index: number,
     id: string | null,
-  ) => Record<string, unknown>;
+  ) => { onPointerDown: (e: React.PointerEvent<HTMLElement>) => void };
 }
 
 interface Suggestion {
@@ -100,7 +69,7 @@ const PlayBoard = forwardRef<
     seen: ReadonlySet<string>;
     round: RoundLike;
     inking: Inking | null;
-    setInking: (value: Inking | null | ((k: Inking) => Inking)) => void;
+    setInking: React.Dispatch<React.SetStateAction<Inking | null>>;
     toggleInkTile: (id: string) => void;
     applyInk: () => void;
     SB: {
@@ -113,7 +82,7 @@ const PlayBoard = forwardRef<
       ) => Suggestion[];
     };
     rackShown: RackEntry[];
-    drag: DragBind;
+    drag: DragBind | null;
     letters: string;
     setWord: (w: string) => void;
     play: () => void;
@@ -227,7 +196,7 @@ const PlayBoard = forwardRef<
         changeout={changeout}
         pickedIds={pickedIds}
         changeoutsLeft={round.changeoutsLeft}
-        changeoutsPerFight={round.tune.CHANGEOUTS}
+        changeoutsPerFight={Number(round.tune.CHANGEOUTS)}
         setWord={setWord}
         helper={helper}
         seen={seen}

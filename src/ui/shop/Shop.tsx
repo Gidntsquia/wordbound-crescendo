@@ -1,3 +1,4 @@
+import type { ActFn } from '../actFn';
 // The shop between fights: two cards, two packs, reroll, and the door --
 // extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4), then split
 // further into CardSlot/PackPick/ShopInkPicker (A4, second pass) and
@@ -7,89 +8,18 @@ import CardSlot from './CardSlot';
 import PackPick from './PackPick';
 import ShopInkPicker from './ShopInkPicker';
 import { useCallout } from '../chrome/Callout';
+import type { RunFacade } from '../../engine/state/facade';
+import type { CrescendoWindow } from '../../audio/recordingPlayer';
+import type { Selecting } from '../../sandbox/RoundSandbox';
 
-interface Tile {
-  id: string;
-  letter: string;
-  mark?: string;
-}
-
-interface ShopCard {
-  kind: string;
-  id: string;
-  price: number;
-  sold?: boolean;
-}
-
-interface Pack {
-  kind: string;
-  free?: boolean;
-  opened?: boolean;
-  price: number;
-  choices: { kind: string; tile?: Tile; id?: string }[];
-}
-
-interface Ink {
-  targets: number;
-  needsVowel?: boolean;
-  hint: string;
-}
-
-interface Selecting {
-  name: string;
-  from: string;
-  price: number;
-  ink: Ink;
-  hand: Tile[];
-  ids: string[];
-  vowel: string | null;
-}
+type RunLike = RunFacade;
+type Cres = CrescendoWindow;
 
 interface ItemDef {
   rarity?: string;
   glyph?: string;
   crescendo?: boolean;
   name: string;
-}
-
-interface Consumable {
-  kind: string;
-  id: string;
-}
-
-interface Cres {
-  phase: string;
-  secs: number;
-}
-
-interface RunLike {
-  shop: {
-    coupon?: boolean;
-    cards: ShopCard[];
-    packs: Pack[];
-    rerollPrice: () => number;
-    reroll: () => unknown;
-    openPack: (i: number) => unknown;
-    sell: (i: number) => unknown;
-  };
-  pack: Pack | null;
-  pick: (v: null) => unknown;
-  ink: number;
-  items: string[];
-  consumables: Consumable[];
-  movement: number;
-  stage: number;
-  targetFor: (movement: number, stage: number) => number;
-  tune: {
-    ITEM_SLOTS: number;
-    CONSUMABLE_SLOTS: number;
-    MARK_PRICE: number;
-    ETUDE_PRICE: number;
-  };
-  tierLevels: Record<string, number>;
-  moveItem: (from: number, to: number) => unknown;
-  useConsumable: (i: number) => unknown;
-  sellConsumable: (i: number) => unknown;
 }
 
 export default function Shop({
@@ -113,7 +43,7 @@ export default function Shop({
     enemyAt: (
       movement: number,
       stage: number,
-    ) => { glyph: string; name: string };
+    ) => { glyph: string; name: string } | null;
     PACK_KINDS: { kind: string; name: string; hint: string }[];
     ITEM_DEFS: Record<string, ItemDef>;
     TIER_DEFS: Record<string, { name: string }>;
@@ -123,7 +53,7 @@ export default function Shop({
     CRESCENDO: { countdown: number };
     priceOf: (d: ItemDef) => number;
   };
-  act: (message: string | null, res: unknown, sfx?: string) => void;
+  act: ActFn;
   leave: () => void;
   onInk?: (i: number) => void;
   firstVisit: boolean;
@@ -137,19 +67,22 @@ export default function Shop({
   setTip: (updater: (t: string | null) => string | null) => void;
 }) {
   const shop = run.shop;
-  const next = SB.enemyAt(run.movement, run.stage);
-  const packDef = (kind: string) => SB.PACK_KINDS.find((k) => k.kind === kind)!;
   useCallout(
     firstVisit && !selecting,
     'Quills score every word. Gold carries over.',
   );
+  if (!shop) return null;
+  const next = SB.enemyAt(run.movement, run.stage);
+  const packDef = (kind: string) => SB.PACK_KINDS.find((k) => k.kind === kind)!;
   return (
     <div className="sb-shop">
       <div className="sb-shop-head">
         <span className="sb-eyebrow">
           The shop · between fights
           {shop.coupon ? ' · coupon: cards are free' : ''}
-          {shop.packs.some((p) => p.free && !p.opened) ? ' · a free pack' : ''}
+          {(shop.packs ?? []).some((p) => p.free && !p.opened)
+            ? ' · a free pack'
+            : ''}
         </span>
         <span className="sb-purse">
           <b>{run.ink}</b> ink
@@ -178,7 +111,7 @@ export default function Shop({
       {!selecting && !run.pack && (
         <>
           <div className="sb-shop-row" aria-label="Cards">
-            {shop.cards.map((c, i) => (
+            {(shop.cards ?? []).map((c, i) => (
               <CardSlot
                 key={i}
                 c={c}
@@ -200,7 +133,7 @@ export default function Shop({
             </button>
           </div>
           <div className="sb-shop-row" aria-label="Packs">
-            {shop.packs.map((p, i) => (
+            {(shop.packs ?? []).map((p, i) => (
               <button
                 key={i}
                 type="button"
@@ -244,7 +177,7 @@ export default function Shop({
           <button type="button" className="sb-go sb-shop-leave" onClick={leave}>
             Continue
             <small>
-              next: {next.glyph} {next.name} · target{' '}
+              next: {next?.glyph} {next?.name} · target{' '}
               {run.targetFor(run.movement, run.stage)}
             </small>
           </button>

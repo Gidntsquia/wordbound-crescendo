@@ -1,12 +1,11 @@
+import type { ActFn } from '../actFn';
 // The row of held consumables (étude/mark cards) -- extracted from
 // HeldRow.jsx (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported
 // to .tsx.
 import { consumableBlurb, consumableName } from './cardCopy';
+import type { RunFacade } from '../../engine/state/facade';
 
-interface Consumable {
-  kind: string;
-  id: string;
-}
+type RunLike = RunFacade;
 
 export default function ConsumablesRow({
   run,
@@ -18,22 +17,12 @@ export default function ConsumablesRow({
   tip,
   setTip,
 }: {
-  run: {
-    consumables: Consumable[];
-    tune: {
-      CONSUMABLE_SLOTS: number;
-      MARK_PRICE: number;
-      ETUDE_PRICE: number;
-    };
-    tierLevels: Record<string, number>;
-    useConsumable: (i: number) => unknown;
-    sellConsumable: (i: number) => unknown;
-  };
+  run: RunLike;
   SB: {
     TIER_DEFS: Record<string, { name: string }>;
     MARK_DEFS: Record<string, { targets: number }>;
   };
-  act: (message: string, res: unknown, sfx?: string) => void;
+  act: ActFn;
   live: boolean;
   inShop: boolean;
   onInk?: (i: number) => void;
@@ -108,7 +97,9 @@ export default function ConsumablesRow({
               >
                 sell{' '}
                 {Math.floor(
-                  (c.kind === 'mark' ? tune.MARK_PRICE : tune.ETUDE_PRICE) / 2,
+                  Number(
+                    c.kind === 'mark' ? tune.MARK_PRICE : tune.ETUDE_PRICE,
+                  ) / 2,
                 )}
               </button>
             )}

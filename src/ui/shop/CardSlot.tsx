@@ -25,7 +25,11 @@ export default function CardSlot({
 }: {
   c: ShopCard;
   i: number;
-  run: { ink: number; items: string[]; tune: { ITEM_SLOTS: number } };
+  run: {
+    ink: number;
+    items: readonly string[];
+    tune: Record<string, number | boolean | undefined>;
+  };
   SB: { ITEM_DEFS: Record<string, ItemDef> };
   tip: string | null;
   setTip: (updater: (t: string | null) => string | null) => void;
@@ -34,7 +38,7 @@ export default function CardSlot({
   const disabled =
     c.sold ||
     run.ink < c.price ||
-    (c.kind === 'item' && run.items.length >= run.tune.ITEM_SLOTS);
+    (c.kind === 'item' && run.items.length >= Number(run.tune.ITEM_SLOTS));
   const tipId = 'shop:' + i;
   if (c.kind === 'item' && !c.sold) {
     const d = SB.ITEM_DEFS[c.id]!;

@@ -16,7 +16,7 @@ export default function PlaysList({
   scoring,
   describe,
 }: {
-  plays: Play[];
+  plays: readonly Play[];
   scoring: { cleared?: boolean } | null;
   describe: (breakdown: unknown) => string;
 }) {

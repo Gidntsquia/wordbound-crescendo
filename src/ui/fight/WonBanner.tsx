@@ -5,20 +5,10 @@
 // component just renders resolution[] while `resolved` is false and hides
 // the continue button until then, or immediately on `skip`.
 import type { Situation } from '../../engine/content/situations';
+import type { RunFacade, RoundFacade } from '../../engine/state/facade';
 
-interface RoundLike {
-  ink: number;
-  reward: number;
-  tune: { INK_PER_WORD_LEFT: number };
-  playsLeft: number;
-}
-
-interface RunLike {
-  movement: number;
-  movements: unknown[];
-  enemy: { kind: string };
-  interestPreview: () => number;
-}
+type RoundLike = RoundFacade;
+type RunLike = RunFacade;
 
 export default function WonBanner({
   round,
@@ -53,7 +43,8 @@ export default function WonBanner({
       )}.{' '}
       {!showResolution && (
         <button type="button" className="sb-go" onClick={nextStage}>
-          {run.movement >= run.movements.length - 1 && run.enemy.kind === 'boss'
+          {run.movement >= run.movements.length - 1 &&
+          run.enemy?.kind === 'boss'
             ? 'Finish the run'
             : 'To the shop'}
         </button>

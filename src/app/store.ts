@@ -19,6 +19,26 @@ import { MARK_DEFS } from '../engine/content/marginalia';
 import { FAVOUR_DEFS, TIER_DEFS } from '../engine/content/round';
 import { unlockNext } from '../engine/content/characters';
 import { cardName, describeBreakdown } from '../ui/fight/cardCopy';
+import type { Enemy } from '../engine/content/enemies';
+import type { RecordedPiece, AudioPiece } from '../audio/recordingPlayer';
+import type { Sfx } from '../audio/sfx';
+
+// The mutable "current fight" bag RoundSandbox.jsx has always kept in a
+// ref (fight.current): the facade's run/round plus the audio graph for the
+// enemy on stage. Every field is optional because the object is built up in
+// stages (the audio graph opens before a run exists; a run/round exist
+// before their def/piece are set at stage-start) -- runFightAction below
+// only ever reads a field after the call site that populates it.
+export interface Fight {
+  run?: RunFacade;
+  round?: RoundFacade | null;
+  ctx?: AudioContext;
+  gain?: GainNode;
+  sfx?: Sfx;
+  seq?: AudioPiece | null;
+  def?: Enemy;
+  piece?: RecordedPiece;
+}
 
 export interface SfxState {
   on: boolean;
@@ -87,14 +107,7 @@ export function refreshReducer(state: number, action: RefreshAction): number {
 // every mutation's actual behavior are untouched -- only how the UI reaches
 // the mutation changes. `fight` itself stays a ref; the reducer dereferences
 // action.fight.current same as the direct calls did.
-type FightRef = {
-  current: {
-    run: RunFacade;
-    round: RoundFacade | null;
-    def?: { name: string };
-    seq?: { stop?: () => void };
-  } | null;
-};
+export type FightRef = { current: Fight | null };
 
 // Data-only action union (READ_SLOWLY_PLAN.md A3 remainder): every field is
 // plain data, no closures. runFightAction below mutates the facade exactly
@@ -159,17 +172,17 @@ export type FightEffect =
   | { kind: 'setPhase'; phase: string }
   | { kind: 'setSelecting'; value: unknown }
   | { kind: 'setInking'; value: unknown }
-  | { kind: 'startStage'; run: unknown }
-  | { kind: 'warm'; movement: unknown; stage: unknown }
+  | { kind: 'startStage'; run: RunFacade }
+  | { kind: 'warm'; movement: number; stage: number }
   | { kind: 'refreshDiscovered' }
   | { kind: 'recordRun'; run: RunLike; won: boolean }
-  | { kind: 'unlockNextKey'; run: unknown }
+  | { kind: 'unlockNextKey'; run: RunFacade }
   | {
       kind: 'runCascade';
-      round: unknown;
-      res: unknown;
-      rackBefore: unknown;
-      scoreBefore: unknown;
+      round: RoundFacade;
+      res: ReturnType<RoundFacade['playWord']>;
+      rackBefore: RoundFacade['rack'];
+      scoreBefore: number;
     };
 
 // Shared act()-shaped result handling: say/sfx effects for a result, plus
@@ -698,7 +711,7 @@ interface RunLike {
     breakdown: { total: number };
     enemy: string;
   } | null;
-  enemy: { name: string };
+  enemy: { name: string } | null;
   key?: string | null;
 }
 
@@ -731,7 +744,10 @@ export function recordRun(run: RunLike, won: boolean): BestState {
   const depth = won ? runLength(run) : depthOf(run);
   const deepest = best.deepest as { depth: number } | undefined;
   if (!deepest || depth > deepest.depth) {
-    out.deepest = { depth, name: won ? 'the whole run' : run.enemy.name };
+    out.deepest = {
+      depth,
+      name: won ? 'the whole run' : (run.enemy?.name ?? 'unknown'),
+    };
   }
   out.wins = ((best.wins as number) || 0) + (won ? 1 : 0);
   out.runs = ((best.runs as number) || 0) + 1;

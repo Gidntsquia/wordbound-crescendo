@@ -7,13 +7,9 @@
 // touches the score. The tile play (case + composing stick + FLIP slide) is
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
-import {
-  KEYS as STORAGE_KEYS,
-  readRaw,
-  writeJSON,
-  writeRaw,
-} from '../app/persistence';
+import { KEYS as STORAGE_KEYS, readRaw, writeRaw } from '../app/persistence';
 import { createRunFacadeFromOpts, fromSeed } from '../engine/state/facade';
+import type { RunFacade, RoundFacade } from '../engine/state/facade';
 import { MOVEMENTS, KIND_LABEL, enemyAt } from '../engine/content/enemies';
 import {
   CHARACTERS,
@@ -50,7 +46,6 @@ import {
 import { createSfx } from '../audio/sfx';
 import { situationFor, ladderIndex } from '../engine/content/situations';
 import * as copy from '../ui/copy';
-import SituationPanel from './SituationPanel.jsx';
 import TitleScreen from '../ui/meta/TitleScreen';
 import HeldRow from '../ui/fight/HeldRow';
 import Shop from '../ui/shop/Shop';
@@ -83,6 +78,11 @@ import {
   recordRun,
   runLength,
 } from '../app/store';
+import type { Fight, FightEffect, BestState } from '../app/store';
+import type { Tile } from '../engine/tiles';
+import type { Breakdown, Step } from '../engine/content/round';
+import type { WordScore } from '../engine/content/wordFinder';
+import type { AudioPiece } from '../audio/recordingPlayer';
 import {
   useCallback,
   useEffect,
@@ -92,10 +92,26 @@ import {
   useState,
 } from 'react';
 
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+    __round?: unknown;
+    __run?: unknown;
+  }
+}
+
+function errMessage(err: unknown): string {
+  return err instanceof Error
+    ? err.message
+    : typeof err === 'string'
+      ? err
+      : String(err);
+}
+
 // Plain FLIP: record where the tile was,
 // let React move it, slide it in from the old spot. Nothing else may set
 // `transform` on .sb-tile.
-function flipTileTo(fromRect, toEl) {
+function flipTileTo(fromRect: DOMRect | null, toEl: HTMLElement | null) {
   if (!fromRect || !toEl || typeof toEl.getBoundingClientRect !== 'function')
     return;
   if (
@@ -137,7 +153,7 @@ const CASCADE = {
 // One knob for how big a play FEELS, in [0, 1]: shake, hit volume, chord
 // size, total scale and step timing all read it. A play worth the whole
 // target is 1; a fifth of it is about 0.3.
-function intensity(total, target) {
+function intensity(total: number, target: number) {
   return Math.max(0, Math.min(1, Math.pow(total / Math.max(1, target), 0.7)));
 }
 
@@ -149,13 +165,13 @@ function intensity(total, target) {
 // highest-unlocked one has been won at least once. wbc.keyUnlocked is the
 // index of the highest key on offer (now ../app/store.ts's keyUnlockedReducer,
 // READ_SLOWLY_PLAN.md A3); wbc.key is the player's current pick, still local.
-function readKeyChoice(unlocked, SB) {
+function readKeyChoice(unlocked: number, SB: SandboxTables) {
   const saved = readRaw(STORAGE_KEYS.key);
   if (saved && SB.KEY_DEFS[saved] && SB.KEY_DEFS[saved].index <= unlocked)
     return saved;
-  return SB.KEYS[0].id;
+  return SB.KEYS[0]!.id;
 }
-function writeKeyChoice(id) {
+function writeKeyChoice(id: string) {
   writeRaw(STORAGE_KEYS.key, id);
 }
 function randomSeed() {
@@ -183,7 +199,7 @@ function randomSeed() {
 // see src/app/store.ts's seenReducer/readSeen (READ_SLOWLY_PLAN.md A3).
 const LIVE_URL = 'https://gidntsquia.github.io/wordbound-crescendo/';
 // The Balatro-style text summary friends can paste back.
-function shareText(run, won, seed) {
+function shareText(run: RunFacade, won: boolean, seed: string) {
   const total = runLength(run);
   const lines = ['Wordbound: Crescendo'];
   lines.push(
@@ -194,7 +210,7 @@ function shareText(run, won, seed) {
           ' of ' +
           total +
           ' — lost to ' +
-          run.enemy.name,
+          (run.enemy?.name ?? 'unknown'),
   );
   if (run.bestPlay)
     lines.push(
@@ -209,7 +225,7 @@ function shareText(run, won, seed) {
       run.ink +
       ' ink' +
       (run.items.length
-        ? ' · ' + run.items.map((id) => ITEM_DEFS[id].name).join(', ')
+        ? ' · ' + run.items.map((id) => ITEM_DEFS[id]!.name).join(', ')
         : ''),
   );
   lines.push('Seed ' + seed + ' · ' + LIVE_URL);
@@ -220,7 +236,7 @@ function shareText(run, won, seed) {
 
 // The score flies from the stick to the readout: its own element, never the
 // tile (the FLIP owns .sb-tile's transform).
-function flyScore(total) {
+function flyScore(total: number) {
   if (typeof document === 'undefined') return;
   const from = document.querySelector('.sb-stick');
   const to = document.querySelector('.sb-dyn-mark');
@@ -294,15 +310,61 @@ const SB = {
   unlockNext,
   enemyAt,
 };
+type SandboxTables = typeof SB;
+
+export interface Selecting {
+  from: string;
+  index: number;
+  price?: number;
+  name: string;
+  ink: { targets: number } & Record<string, unknown>;
+  hand?: unknown;
+  ids: string[];
+  vowel: string | null;
+}
+export interface Inking {
+  index?: number;
+  adhocId?: string;
+  ink: { targets: number } & Record<string, unknown>;
+  ids: string[];
+  vowel: string | null;
+}
+
+export interface FloatItem {
+  key: number;
+  on: string | number | undefined;
+  text: string | undefined;
+  tone: string | undefined;
+}
+export interface ScoringState {
+  word: string;
+  tiles: readonly Tile[];
+  steps: Step[];
+  breakdown: Breakdown;
+  rackBefore: readonly Tile[];
+  scoreBase: number;
+  pts: number;
+  mult: number;
+  tier: Step | null;
+  litTile: string | null;
+  litItem: string | null;
+  litSlot: string | null;
+  floats: FloatItem[];
+  total: number | null;
+  hit: number;
+  k: number;
+  crossed: boolean;
+  cleared: boolean;
+}
 
 export default function RoundSandbox() {
   const W = window.Wordbound;
-  const fight = useRef(null); // { run, round, seq, ctx, gain, def, piece }
+  const fight = useRef<Fight | null>(null);
   // The round the player has actually entered -- fight the enemy, or skip
   // it, from the pre-fight card. A fresh round object (a new stage, from
   // start() or after a skip/win) never matches this, so the card reappears
   // automatically with no extra bookkeeping at the call sites.
-  const readyRound = useRef(null);
+  const readyRound = useRef<unknown>(null);
   // A3: replaces the old useState(0) counter + forceRender((n) => n + 1)
   // with a reducer per the plan's "delete forceRender" instruction; still a
   // plain re-render nudge, not a model of fight.current's actual state (see
@@ -316,7 +378,7 @@ export default function RoundSandbox() {
   // Deliberately a plain function, not useReducer: this keeps effect
   // application perfectly synchronous, preserving the exact say/sfx/cascade
   // ordering the feel-sensitive scoring system depends on.
-  function applyFightEffect(effect) {
+  function applyFightEffect(effect: FightEffect) {
     switch (effect.kind) {
       case 'say':
         say(effect.message);
@@ -331,16 +393,16 @@ export default function RoundSandbox() {
         setWord(effect.value);
         return;
       case 'setSuggestions':
-        setSuggestions(effect.value);
+        setSuggestions(effect.value as WordScore[]);
         return;
       case 'setPhase':
         setPhase(effect.phase);
         return;
       case 'setSelecting':
-        setSelecting(effect.value);
+        setSelecting(effect.value as Selecting | null);
         return;
       case 'setInking':
-        setInking(effect.value);
+        setInking(effect.value as Inking | null);
         return;
       case 'startStage':
         startStage(effect.run);
@@ -369,7 +431,7 @@ export default function RoundSandbox() {
         return;
     }
   }
-  function dispatchFight(action) {
+  function dispatchFight(action: Parameters<typeof runFightAction>[0]) {
     const effects = runFightAction(action);
     effects.forEach(applyFightEffect);
     refresh();
@@ -379,7 +441,7 @@ export default function RoundSandbox() {
   const volumeRef = useRef(0.4);
   // idle | live | won (round, run continues) | shop (between fights) | lost | run-won
   const [phase, setPhase] = useState('idle');
-  const [log, setLog] = useState([]);
+  const [, setLog] = useState<string[]>([]);
   const [word, setWord] = useState('');
   const [seed, setSeed] = useState('sandbox');
   // The word-maker helper (suggestions, Best play, fuzzy Play) -- off by default.
@@ -412,10 +474,8 @@ export default function RoundSandbox() {
   );
   // A win on the highest-unlocked key offers the next one (stage 3).
   const unlockNextKey = useCallback(
-    (wonRun) => {
-      const wonIndex = SB.KEY_DEFS[wonRun.key]
-        ? SB.KEY_DEFS[wonRun.key].index
-        : 0;
+    (wonRun: RunFacade) => {
+      const wonIndex = wonRun.key ? (SB.KEY_DEFS[wonRun.key]?.index ?? 0) : 0;
       dispatchKeyUnlocked({
         type: 'keyUnlocked/wonAtIndex',
         wonIndex,
@@ -425,12 +485,12 @@ export default function RoundSandbox() {
     [SB],
   );
   // Sample items, read at Start (a mid-round swap would half-apply).
-  const [itemIds, setItemIds] = useState(() => new Set());
-  const [suggestions, setSuggestions] = useState([]);
+  const [itemIds, setItemIds] = useState<Set<string>>(() => new Set());
+  const [suggestions, setSuggestions] = useState<WordScore[]>([]);
   const [bestState, dispatchBest] = useReducer(bestReducer, {}, readBest);
   const best = bestState;
   const setBest = useCallback(
-    (value) => dispatchBest({ type: 'best/set', value }),
+    (value: BestState) => dispatchBest({ type: 'best/set', value }),
     [],
   );
   // Narrow screens keep the setup bar, starting items and tuning behind a gear.
@@ -438,11 +498,11 @@ export default function RoundSandbox() {
   const gearOpen = gearState.open;
   // Which quill/consumable's tap-tooltip is open (mobile has no hover, so
   // `title` never shows -- tapping the icon toggles this instead).
-  const [tip, setTip] = useState(null);
+  const [tip, setTip] = useState<string | null>(null);
   useEffect(() => {
     if (!tip) return undefined;
-    const close = (e) => {
-      if (!e.target.closest('.sb-card')) setTip(null);
+    const close = (e: Event) => {
+      if (!(e.target as HTMLElement).closest('.sb-card')) setTip(null);
     };
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
@@ -452,7 +512,7 @@ export default function RoundSandbox() {
     ids: readSeen(),
   }));
   const seen = seenState.ids;
-  const markSeen = useCallback((id) => {
+  const markSeen = useCallback((id: string) => {
     dispatchSeen({ type: 'seen/mark', id });
   }, []);
   const [indexing, setIndexing] = useState(false);
@@ -460,7 +520,7 @@ export default function RoundSandbox() {
   // and this narrates breakdown.steps -- the stick still shows the played
   // tiles (from `tiles`), the case shows `rackBefore` with hollows, the
   // header shows `scoreBase` until the total lands. Any tap skips ahead.
-  const [scoring, setScoring] = useState(null);
+  const [scoring, setScoring] = useState<ScoringState | null>(null);
   // C3: the situation's resolution[] plays as a short beat after a win,
   // before the shop button appears; any tap skips it.
   const [wonResolved, setWonResolved] = useState(false);
@@ -475,14 +535,14 @@ export default function RoundSandbox() {
     return s && s.crescendo ? s.crescendo() : null;
   }, []);
   const skipRef = useRef(false);
-  const waitRef = useRef(null);
+  const waitRef = useRef<(() => void) | null>(null);
   const skipCascade = useCallback(() => {
     skipRef.current = true;
     if (waitRef.current) waitRef.current();
   }, []);
 
-  const pendingFlipFromRef = useRef({});
-  function captureFlipFrom(tileId) {
+  const pendingFlipFromRef = useRef<Record<string, DOMRect>>({});
+  function captureFlipFrom(tileId: string) {
     if (typeof document === 'undefined') return;
     const el = document.querySelector('[data-flip-tile-id="' + tileId + '"]');
     if (el && el.getBoundingClientRect)
@@ -496,13 +556,13 @@ export default function RoundSandbox() {
       const fromRect = pending[tileId];
       delete pending[tileId];
       flipTileTo(
-        fromRect,
+        fromRect ?? null,
         document.querySelector('[data-flip-tile-id="' + tileId + '"]'),
       );
     });
   });
 
-  const say = useCallback((line) => {
+  const say = useCallback((line: string) => {
     setLog((prev) => [line, ...prev].slice(0, 60));
   }, []);
   const refresh = useCallback(() => dispatchRefresh({ type: 'refresh' }), []);
@@ -551,21 +611,21 @@ export default function RoundSandbox() {
         const sfxNode = SB.createSfx(ctx, ctx.destination);
         sfxNode.setLevel(volumeRef.current);
         sfxNode.setEnabled(sfxOnRef.current);
-        let seq = null;
+        let seq: AudioPiece | null = null;
         if (f.piece) {
           seq = SB.createAudioPiece(ctx, gain, f.piece);
           seq.on('load-failed', (err) =>
             say(
               'The recording did not load (' +
-                (err && err.message ? err.message : err) +
+                errMessage(err) +
                 ') — Restart to try again.',
             ),
           );
           seq.on('piece-ended', () => {
             const g = fight.current;
             if (!g || g.seq !== seq) return;
-            seq.stop();
-            seq.play();
+            seq!.stop();
+            seq!.play();
           });
           seq.play();
         }
@@ -617,7 +677,7 @@ export default function RoundSandbox() {
   // fight). Nine excerpts are ~25 MB, too much to pull up front on a phone,
   // so only the enemy on stage and the one after it are warmed.
   const warm = useCallback(
-    (movement, stage) => {
+    (movement: number, stage: number) => {
       const def = enemyAt(movement, stage);
       const piece = def && RECORDINGS[def.recorded];
       if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
@@ -625,9 +685,10 @@ export default function RoundSandbox() {
     [SB],
   );
   const warmAhead = useCallback(
-    (run) => {
+    (run: RunFacade) => {
       warm(run.movement, run.stage);
       const m = run.movements[run.movement];
+      if (!m) return;
       if (run.stage + 1 < m.enemies.length) warm(run.movement, run.stage + 1);
       else warm(run.movement + 1, 0);
     },
@@ -640,20 +701,21 @@ export default function RoundSandbox() {
 
   // Start the soundtrack for the run's current enemy.
   const startStage = useCallback(
-    (run) => {
+    (run: RunFacade) => {
       const def = run.enemy;
       const f = fight.current;
-      const hadMusic = !!(f && f.seq);
+      if (!def || !f || !f.ctx || !f.gain) return;
+      const hadMusic = !!f.seq;
       if (hadMusic) {
-        if (f.seq.dispose) f.seq.dispose();
-        else f.seq.stop();
+        if (f.seq!.dispose) f.seq!.dispose();
+        else f.seq!.stop();
       }
-      const piece = RECORDINGS[def.recorded];
+      const piece = RECORDINGS[def.recorded]!;
       const seq = SB.createAudioPiece(f.ctx, f.gain, piece);
       seq.on('load-failed', (err) =>
         say(
           'The recording did not load (' +
-            (err && err.message ? err.message : err) +
+            errMessage(err) +
             ') — Restart to try again.',
         ),
       );
@@ -667,7 +729,7 @@ export default function RoundSandbox() {
       // Take the stage under the previous enemy's last breath, not over it.
       // The first fight of a run starts clean so the opening notes are heard.
       if (hadMusic)
-        seq.whenReady.then(() => {
+        seq.whenReady?.then(() => {
           if (fight.current?.seq === seq) seq.fadeIn(0.4);
         });
       const round = run.round;
@@ -679,7 +741,7 @@ export default function RoundSandbox() {
       setSuggestions([]);
       setPhase('live');
       say(
-        copy.chapterLabel(MOVEMENTS[run.movement].numeral) +
+        copy.chapterLabel(MOVEMENTS[run.movement]!.numeral) +
           ' · ' +
           KIND_LABEL[def.kind] +
           ' — ' +
@@ -687,14 +749,14 @@ export default function RoundSandbox() {
           ' takes up ' +
           piece.title +
           '. ' +
-          copy.targetHint(round.target) +
+          copy.targetHint(round!.target) +
           '.',
       );
       if (def.flavour) say(def.glyph + ' "' + def.flavour + '"');
       if (run.movementIIIQuillFound) {
         say(
           'Chapter 3: you discover ' +
-            SB.ITEM_DEFS[run.movementIIIQuillFound].name +
+            SB.ITEM_DEFS[run.movementIIIQuillFound]!.name +
             '.',
         );
         run.movementIIIQuillFound = null;
@@ -706,35 +768,32 @@ export default function RoundSandbox() {
   );
 
   const start = useCallback(
-    (seedOverride) => {
+    (seedOverride?: string) => {
       const useSeed = typeof seedOverride === 'string' ? seedOverride : seed;
       if (useSeed !== seed) setSeed(useSeed);
       const rngState = fromSeed(useSeed);
 
-      let ctx = fight.current?.ctx;
-      let gain = fight.current?.gain;
-      let sfxNode = fight.current?.sfx;
+      let ctx: AudioContext | undefined = fight.current?.ctx;
+      let gain: GainNode | undefined = fight.current?.gain;
+      let sfxNode: import('../audio/sfx').Sfx | undefined = fight.current?.sfx;
       try {
         if (ctx && ctx.state === 'closed') {
-          ctx = null;
-          gain = null;
-          sfxNode = null;
+          ctx = undefined;
+          gain = undefined;
+          sfxNode = undefined;
         }
         if (!ctx) {
-          ctx = new (window.AudioContext || window.webkitAudioContext)();
+          ctx = new (window.AudioContext || window.webkitAudioContext)!();
           gain = ctx.createGain();
           gain.connect(ctx.destination);
           sfxNode = SB.createSfx(ctx, ctx.destination);
         }
         if (ctx.state !== 'running') ctx.resume().catch(() => {});
-        gain.gain.value = volume;
-        sfxNode.setLevel(volume);
-        sfxNode.setEnabled(sfxOn);
+        gain!.gain.value = volume;
+        sfxNode!.setLevel(volume);
+        sfxNode!.setEnabled(sfxOn);
       } catch (err) {
-        say(
-          'Could not open the audio device: ' +
-            (err && err.message ? err.message : err),
-        );
+        say('Could not open the audio device: ' + errMessage(err));
         return;
       }
 
@@ -748,7 +807,7 @@ export default function RoundSandbox() {
             : [...itemIds],
           crescendo: crescendoNow,
           key,
-          extendCrescendo: (extraSec) => {
+          extendCrescendo: (extraSec: number) => {
             const s = fight.current?.seq;
             if (s && s.extendCrescendo) s.extendCrescendo(extraSec);
           },
@@ -767,7 +826,7 @@ export default function RoundSandbox() {
       if (itemIds.size) {
         say(
           'Carrying ' +
-            [...itemIds].map((id) => SB.ITEM_DEFS[id].name).join(', ') +
+            [...itemIds].map((id) => SB.ITEM_DEFS[id]!.name).join(', ') +
             '.',
         );
       }
@@ -807,7 +866,7 @@ export default function RoundSandbox() {
 
   // Take a letter offered after a boss, then resume into the shop or the win screen.
   const pickLetter = useCallback(
-    (letter) => {
+    (letter: string) => {
       dispatchFight({ type: 'fight/pickLetter', fight, phase, letter });
     },
     [phase],
@@ -848,9 +907,14 @@ export default function RoundSandbox() {
 
   // Every shop action funnels through here so the log and the render agree.
   const act = useCallback(
-    (label, res, sound) => {
-      if (!res || !res.ok) {
-        say(res && res.reason ? res.reason : 'Nothing happened.');
+    (
+      label: string | null,
+      res: { ok?: boolean; reason?: string } | boolean | null | undefined,
+      sound?: string,
+    ) => {
+      const r = typeof res === 'boolean' ? undefined : res;
+      if (!res || !r?.ok) {
+        say(r?.reason ? r.reason : 'Nothing happened.');
         sfx('thud');
         return false;
       }
@@ -864,31 +928,32 @@ export default function RoundSandbox() {
 
   // INKING (mid-round, from a held consumable): unchanged -- `inking` picks
   // tiles for run.useConsumable.
-  const [inking, setInking] = useState(null);
+  const [inking, setInking] = useState<Inking | null>(null);
   // SELECTING (shop/pack): clicking a marginalia card doesn't spend anything
   // yet. It draws a hand right away (run.drawMarkHand -- free, just a
   // preview of the deck to tap) and offers Buy (shop.buy/run.pick, then
   // run.saveMark -- straight to the inventory) or Apply (same purchase, then
   // run.useAdhocMark on the tiles picked here) so the tile choice happens
   // before ink moves.
-  const [selecting, setSelecting] = useState(null);
-  const buyCard = useCallback((i) => {
+  const [selecting, setSelecting] = useState<Selecting | null>(null);
+  const buyCard = useCallback((i: number) => {
     dispatchFight({ type: 'fight/buyCard', fight, index: i });
   }, []);
-  const pickCard = useCallback((i) => {
+  const pickCard = useCallback((i: number) => {
     dispatchFight({ type: 'fight/pickCard', fight, index: i });
   }, []);
   const commitSelecting = useCallback(
-    (apply) => {
+    (apply: boolean) => {
       dispatchFight({ type: 'fight/commitSelecting', fight, selecting, apply });
     },
     [selecting],
   );
   const cancelSelecting = useCallback(() => setSelecting(null), []);
-  const toggleSelectTile = (id, vowel) => {
+  const toggleSelectTile = (id: string | null, vowel?: string) => {
     setSelecting((k) => {
       if (!k) return k;
       if (vowel !== undefined) return { ...k, vowel };
+      if (id === null) return k;
       const ids = k.ids.includes(id)
         ? k.ids.filter((x) => x !== id)
         : k.ids.length >= k.ink.targets
@@ -897,13 +962,13 @@ export default function RoundSandbox() {
       return { ...k, ids };
     });
   };
-  const useInk = useCallback((i) => {
+  const useInk = useCallback((i: number) => {
     dispatchFight({ type: 'fight/useInk', fight, index: i });
   }, []);
   const applyInk = useCallback(() => {
     dispatchFight({ type: 'fight/applyInk', fight, inking });
   }, [inking]);
-  const toggleInkTile = (id, vowel) => {
+  const toggleInkTile = (id: string, vowel?: string) => {
     setInking((k) => {
       if (!k) return k;
       if (vowel !== undefined) return { ...k, vowel };
@@ -923,10 +988,10 @@ export default function RoundSandbox() {
   const letters = word.toUpperCase().replace(/[^A-Z?]/g, '');
 
   // Which rack tile stands in each position of the stick.
-  const slots = (() => {
+  const slots: (Tile | null)[] = (() => {
     if (!round || !letters) return [];
-    const out = new Array(letters.length).fill(null);
-    const used = new Set();
+    const out: (Tile | null)[] = new Array(letters.length).fill(null);
+    const used = new Set<string>();
     for (let i = 0; i < letters.length; i++) {
       const t = round.rack.find(
         (x) => !used.has(x.id) && x.letter === letters[i],
@@ -946,12 +1011,14 @@ export default function RoundSandbox() {
     }
     return out;
   })();
-  const pickedIds = new Set(slots.filter(Boolean).map((t) => t.id));
+  const pickedIds = new Set(
+    slots.filter((t): t is Tile => !!t).map((t) => t.id),
+  );
   const playedIds = new Set(scoring ? scoring.tiles.map((t) => t.id) : []);
   const formable = !letters || pickedIds.size === letters.length;
 
   const finish = useCallback(
-    (r) => {
+    (r: RoundFacade) => {
       const run = fight.current?.run;
       if (r.state === 'won') {
         setPhase('won');
@@ -969,8 +1036,8 @@ export default function RoundSandbox() {
             ' left → ' +
             r.ink +
             ' ink' +
-            (run.interestPreview()
-              ? ' + ' + run.interestPreview() + ' interest'
+            (run!.interestPreview()
+              ? ' + ' + run!.interestPreview() + ' interest'
               : '') +
             '.',
         );
@@ -993,14 +1060,19 @@ export default function RoundSandbox() {
   );
 
   const runCascade = useCallback(
-    async (r, res, rackBefore, scoreBefore) => {
-      const b = res.breakdown;
+    async (
+      r: RoundFacade,
+      res: ReturnType<RoundFacade['playWord']>,
+      rackBefore: RoundFacade['rack'],
+      scoreBefore: number,
+    ) => {
+      const b = res.breakdown!;
       const steps = b.steps || [];
       const k = intensity(b.total, r.target);
       const speed = CASCADE.SMALL_SPEED + (1 - CASCADE.SMALL_SPEED) * k;
       skipRef.current = false;
-      const wait = (ms) =>
-        new Promise((resolve) => {
+      const wait = (ms: number) =>
+        new Promise<void>((resolve) => {
           const id = setTimeout(
             () => {
               waitRef.current = null;
@@ -1014,9 +1086,9 @@ export default function RoundSandbox() {
             resolve();
           };
         });
-      const play = r.plays[r.plays.length - 1];
-      const st = {
-        word: res.word,
+      const play = r.plays[r.plays.length - 1]!;
+      const st: ScoringState = {
+        word: res.word!,
         tiles: play.tiles,
         steps,
         breakdown: b,
@@ -1037,7 +1109,11 @@ export default function RoundSandbox() {
       };
       let n = 0;
       const show = () => setScoring({ ...st });
-      const float = (on, text, tone) => {
+      const float = (
+        on: string | number | undefined,
+        text: string | undefined,
+        tone: string | undefined,
+      ) => {
         st.floats = [...st.floats.slice(-6), { key: n++, on, text, tone }];
       };
       setPhase('scoring');
@@ -1046,8 +1122,8 @@ export default function RoundSandbox() {
       await wait(CASCADE.LOCK_MS);
       const letters = steps.filter((x) => x.kind === 'letter');
       for (const step of steps) {
-        st.pts = step.runPts;
-        st.mult = step.runMult;
+        st.pts = step.runPts ?? 0;
+        st.mult = step.runMult ?? 0;
         st.litTile = null;
         st.litItem = null;
         st.litSlot = null;
@@ -1057,9 +1133,9 @@ export default function RoundSandbox() {
           await wait(CASCADE.TIER_MS);
         } else if (step.kind === 'letter') {
           const i = letters.indexOf(step);
-          st.litTile = step.tile.id;
+          st.litTile = step.tile?.id ?? null;
           float(
-            step.tile.id,
+            step.tile?.id,
             '+' + step.pts + (step.mult ? ' · +' + step.mult + ' mult' : ''),
             step.mult ? 'mult' : 'pts',
           );
@@ -1071,15 +1147,15 @@ export default function RoundSandbox() {
           step.kind === 'rule' ||
           step.kind === 'chord'
         ) {
-          st.litItem = step.id;
+          st.litItem = step.id ?? null;
           float(step.id, step.note, step.tone);
           sfx(step.kind === 'rule' ? 'rule' : 'item', step.tone);
           show();
           await wait(step.kind === 'rule' ? CASCADE.RULE_MS : CASCADE.ITEM_MS);
         } else if (step.kind === 'slot') {
-          st.litSlot = step.tile.id;
+          st.litSlot = step.tile?.id ?? null;
           float(
-            step.tile.id,
+            step.tile?.id,
             step.tone === 'mult' ? '×' + step.ratio : '+' + step.pts,
             step.tone,
           );
@@ -1131,7 +1207,7 @@ export default function RoundSandbox() {
   );
 
   const playWord = useCallback(
-    (raw) => {
+    (raw: string) => {
       dispatchFight({ type: 'fight/playWord', fight, phase, raw });
     },
     [phase],
@@ -1153,7 +1229,7 @@ export default function RoundSandbox() {
     if (helper) {
       const found = SB.findWords(letters, (w) => r.scoreFor(w), 1);
       if (found.length > 0) {
-        playWord(found[0].word);
+        playWord(found[0]!.word);
         return;
       }
       say('Nothing spells out of ' + letters + '.');
@@ -1165,7 +1241,7 @@ export default function RoundSandbox() {
   }, [letters, formable, phase, helper, playWord, say, SB, sfx]);
 
   const changeout = useCallback(() => {
-    const ids = slots.filter(Boolean).map((t) => t.id);
+    const ids = slots.filter((t): t is Tile => !!t).map((t) => t.id);
     dispatchFight({ type: 'fight/changeout', fight, phase, ids });
   }, [slots, phase]);
 
@@ -1180,13 +1256,13 @@ export default function RoundSandbox() {
     );
   }, [helper, letters, indexing, SB]);
 
-  const stageTile = (tile) => {
+  const stageTile = (tile: Tile) => {
     captureFlipFrom(tile.id);
     sfx('tick', letters.length, 1);
     markSeen('rack');
     setWord(letters + (tile.letter === '?' ? '?' : tile.letter));
   };
-  const unstageAt = (i) => {
+  const unstageAt = (i: number) => {
     const t = slots[i];
     if (t) captureFlipFrom(t.id);
     sfx('tick', i, -1);
@@ -1208,19 +1284,19 @@ export default function RoundSandbox() {
     pendingFlipFromRef,
   });
 
-  const setConst = (key, value) => {
+  const setConst = (key: string, value: number | boolean | undefined) => {
     setTune((t) => ({ ...t, [key]: value }));
     dispatchFight({ type: 'fight/setTune', fight, key, value });
   };
 
   // Rows as drawn: the real order, or the drag's preview. Each entry carries
   // `hollow` (the tile being dragged) so the row can paint it as a hole.
-  const moved = (arr, i, to) => {
+  function moved<T>(arr: T[], i: number, to: number): T[] {
     const a = arr.slice();
-    const x = a.splice(i, 1)[0];
+    const x = a.splice(i, 1)[0]!;
     a.splice(to, 0, x);
     return a;
-  };
+  }
   const rackShown = (() => {
     if (!round) return [];
     if (scoring && !scoring.cleared) {
@@ -1241,19 +1317,24 @@ export default function RoundSandbox() {
     const i = arr.findIndex((x) => x.t.id === preview.id);
     if (i < 0) return arr;
     if (preview.toRow === 'rack') {
-      arr[i] = { ...arr[i], picked: false, hollow: true };
+      arr[i] = { ...arr[i]!, picked: false, hollow: true };
       arr = moved(arr, i, preview.to);
     } else {
-      arr[i] = { ...arr[i], picked: true };
+      arr[i] = { ...arr[i]!, picked: true };
     }
     return arr;
   })();
   const stickShown = (() => {
-    let arr = slots.map((t, i) => ({ t, i, ch: letters[i], hollow: false }));
+    const arr: {
+      t: Tile | null;
+      i: number;
+      ch: string | undefined;
+      hollow: boolean;
+    }[] = slots.map((t, i) => ({ t, i, ch: letters[i], hollow: false }));
     if (!preview) return arr;
     if (preview.fromRow === 'stick') {
       if (preview.fromIndex >= arr.length) return arr;
-      const x = { ...arr[preview.fromIndex], hollow: true };
+      const x = { ...arr[preview.fromIndex]!, hollow: true };
       arr.splice(preview.fromIndex, 1);
       if (preview.toRow === 'stick') arr.splice(preview.to, 0, x);
     } else if (preview.toRow === 'stick' && round) {
@@ -1264,22 +1345,22 @@ export default function RoundSandbox() {
     return arr;
   })();
 
-  const live = phase === 'live' && round;
-  const showIntro = phase === 'live' && round && readyRound.current !== round;
+  const live = phase === 'live' && !!round;
+  const showIntro = phase === 'live' && !!round && readyRound.current !== round;
   const enterFight = useCallback(() => {
     readyRound.current = round;
     refresh();
   }, [round, refresh]);
   const barredNow = live
-    ? slots.filter(Boolean).filter((t) => round.isBarred(t))
+    ? slots.filter((t): t is Tile => !!t).filter((t) => round!.isBarred(t))
     : [];
   const spelt = !!(
     live &&
     formable &&
     !barredNow.length &&
-    round.isPlayable(letters)
+    round!.isPlayable(letters)
   );
-  const worthHow = spelt ? round.breakdownFor(letters) : null;
+  const worthHow = spelt ? round!.breakdownFor(letters) : null;
   const worth = worthHow ? worthHow.total : 0;
   const scoreShown = scoring ? scoring.scoreBase : round ? round.score : 0;
   const pct = round ? Math.min(100, (100 * scoreShown) / round.target) : 0;
@@ -1406,23 +1487,23 @@ export default function RoundSandbox() {
           {phase === 'won' && (
             <WonBanner
               round={round}
-              run={run}
+              run={run!}
               nextStage={nextStage}
               situation={SB.situationFor(round.situation)}
               resolved={wonResolved}
               skip={skipWonResolution}
             />
           )}
-          {phase === 'letter' && run.letterChoice && (
+          {phase === 'letter' && run!.letterChoice && (
             <LetterChoice
-              options={run.letterChoice.options}
+              options={run!.letterChoice!.options.slice()}
               letterValues={W.Lexicon.LETTER_VALUES}
               pickLetter={pickLetter}
             />
           )}
-          {phase === 'shop' && run.shop && (
+          {phase === 'shop' && run!.shop && (
             <Shop
-              run={run}
+              run={run!}
               SB={SB}
               act={act}
               leave={leaveShop}
@@ -1440,7 +1521,7 @@ export default function RoundSandbox() {
           )}
           {(phase === 'run-won' || phase === 'lost') && (
             <EndScreen
-              run={run}
+              run={run!}
               won={phase === 'run-won'}
               SB={SB}
               seed={seed}

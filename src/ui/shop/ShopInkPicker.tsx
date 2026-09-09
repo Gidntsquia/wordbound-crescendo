@@ -1,26 +1,12 @@
 // The shop's "buy an ink, apply it on the spot" picker -- extracted from
 // Shop.jsx (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to
 // .tsx.
+import type { Selecting } from '../../sandbox/RoundSandbox';
+
 interface Tile {
   id: string;
   letter: string;
   mark?: string;
-}
-
-interface Ink {
-  targets: number;
-  needsVowel?: boolean;
-  hint: string;
-}
-
-interface Selecting {
-  name: string;
-  from: string;
-  price: number;
-  ink: Ink;
-  hand: Tile[];
-  ids: string[];
-  vowel: string | null;
 }
 
 export default function ShopInkPicker({
@@ -37,11 +23,20 @@ export default function ShopInkPicker({
     VOWELS: string[];
     LETTER_VALUES?: Record<string, number>;
   };
-  run: { consumables: unknown[]; tune: { CONSUMABLE_SLOTS: number } };
+  run: {
+    consumables: readonly unknown[];
+    tune: Record<string, number | boolean | undefined>;
+  };
   toggleSelectTile: (id: string | null, vowel?: string) => void;
   commitSelecting: (apply: boolean) => void;
   cancelSelecting: () => void;
 }) {
+  const ink = selecting.ink as {
+    targets: number;
+    needsVowel?: boolean;
+    hint: string;
+  };
+  const slots = Number(run.tune.CONSUMABLE_SLOTS);
   return (
     <div className="sb-pack-open sb-ink-decide">
       <span className="sb-eyebrow">
@@ -49,18 +44,18 @@ export default function ShopInkPicker({
         {selecting.from === 'shop' ? ' · ' + selecting.price + ' gold' : ''}
       </span>
       <span className="sb-hint">
-        {selecting.ink.targets === 0
-          ? selecting.ink.hint
-          : (selecting.ink.targets === 1
+        {ink.targets === 0
+          ? ink.hint
+          : (ink.targets === 1
               ? 'Tap one of your tiles to apply on the spot, or just buy it — '
               : 'Tap up to ' +
-                selecting.ink.targets +
+                ink.targets +
                 ' of your tiles to apply on the spot, or just buy it — ') +
-            selecting.ink.hint}
+            ink.hint}
       </span>
-      {selecting.ink.targets > 0 && (
+      {ink.targets > 0 && (
         <div className="sb-rack">
-          {selecting.hand.map((t) => (
+          {(selecting.hand as Tile[]).map((t) => (
             <button
               key={t.id}
               type="button"
@@ -88,7 +83,7 @@ export default function ShopInkPicker({
           ))}
         </div>
       )}
-      {selecting.ink.needsVowel && selecting.ids.length > 0 && (
+      {ink.needsVowel && selecting.ids.length > 0 && (
         <span className="sb-vowels">
           {SB.VOWELS.map((v) => (
             <button
@@ -106,18 +101,17 @@ export default function ShopInkPicker({
         <button
           type="button"
           onClick={() => commitSelecting(false)}
-          disabled={run.consumables.length >= run.tune.CONSUMABLE_SLOTS}
+          disabled={run.consumables.length >= slots}
         >
-          Buy ({run.consumables.length}/{run.tune.CONSUMABLE_SLOTS} slots)
+          Buy ({run.consumables.length}/{slots} slots)
         </button>
         <button
           type="button"
           className="sb-go"
           onClick={() => commitSelecting(true)}
           disabled={
-            selecting.ink.targets > 0 &&
-            (!selecting.ids.length ||
-              (selecting.ink.needsVowel && !selecting.vowel))
+            ink.targets > 0 &&
+            (!selecting.ids.length || (!!ink.needsVowel && !selecting.vowel))
           }
         >
           Buy &amp; apply

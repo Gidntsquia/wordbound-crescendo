@@ -3,33 +3,17 @@
 // RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in; scoring/seen
 // are read-only here.
 import SituationPanel from '../../sandbox/SituationPanel';
-import type { Situation } from '../../engine/content/situations';
+import type { Situation, SituationId } from '../../engine/content/situations';
+import type { Fight } from '../../app/store';
+import type { RoundFacade } from '../../engine/state/facade';
 
-interface Fight {
-  def: { glyph: string; name: string };
-  piece: { title: string; composer?: string };
-}
-
-interface Rule {
-  id: string;
-  name: string;
-  plain: string;
-  text: string;
-}
-
-interface RoundLike {
-  situation: unknown;
-  target: number;
-  playsLeft: number;
-  changeoutsLeft: number;
-  rule?: Rule | null;
-}
+type RoundLike = RoundFacade;
 
 interface Float {
-  key: string;
-  on: string;
-  tone: string;
-  text: string;
+  key: string | number;
+  on: string | number | undefined;
+  tone: string | undefined;
+  text: string | undefined;
 }
 
 interface ScoringState {
@@ -48,12 +32,14 @@ export default function ScoreLine({
   seen,
   live,
 }: {
-  f: Fight;
+  f: Fight | null;
   round: RoundLike;
   SB: {
-    situationFor?: (situation: unknown) => Situation | null | undefined;
+    situationFor?: (
+      situation: SituationId | null | undefined,
+    ) => Situation | null;
     ladderIndex?: (
-      situation: Situation | null | undefined,
+      situation: Situation | null,
       score: number,
       target: number,
     ) => number;
@@ -64,6 +50,7 @@ export default function ScoreLine({
   seen: ReadonlySet<string>;
   live: boolean;
 }) {
+  if (!f || !f.def || !f.piece) return null;
   return (
     <>
       <div className="sb-scoreline" aria-label="Score against the target">

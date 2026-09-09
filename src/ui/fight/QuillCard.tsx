@@ -1,12 +1,15 @@
+import type { ActFn } from '../actFn';
 // A single held quill (item) card -- extracted from HeldRow.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
 import { cresBadge, itemBlurb } from './cardCopy';
+import type { RunFacade } from '../../engine/state/facade';
+import type { CrescendoWindow } from '../../audio/recordingPlayer';
 
 interface Float {
-  key: string;
-  on: string;
-  tone: string;
-  text: string;
+  key: string | number;
+  on: string | number | undefined;
+  tone: string | undefined;
+  text: string | undefined;
 }
 
 interface ItemDef {
@@ -16,10 +19,8 @@ interface ItemDef {
   crescendo?: boolean;
 }
 
-interface Cres {
-  phase: string;
-  secs: number;
-}
+type RunLike = RunFacade;
+type Cres = CrescendoWindow;
 
 export default function QuillCard({
   id,
@@ -46,11 +47,8 @@ export default function QuillCard({
   cresArg: Cres | null;
   tip: string | null;
   setTip: (updater: (t: string | null) => string | null) => void;
-  act: (message: string | null, res: unknown, sfx?: string) => void;
-  run: {
-    moveItem: (from: number, to: number) => unknown;
-    shop: { sell: (i: number) => unknown };
-  };
+  act: ActFn;
+  run: RunLike;
   inShop: boolean;
   floats: Float[];
   SB: { CRESCENDO: { countdown: number }; priceOf: (d: ItemDef) => number };
@@ -103,7 +101,8 @@ export default function QuillCard({
                     0,
                     Math.min(
                       1,
-                      (cresArg ? cresArg.secs : 0) / SB.CRESCENDO.countdown,
+                      (cresArg ? (cresArg.secs ?? 0) : 0) /
+                        SB.CRESCENDO.countdown,
                     ),
                   ),
                 } as React.CSSProperties
@@ -146,7 +145,7 @@ export default function QuillCard({
           title="Sell"
           onClick={(e) => {
             e.stopPropagation();
-            act('Sold ' + d.name + '.', run.shop.sell(i), 'coin');
+            act('Sold ' + d.name + '.', run.shop?.sell(i), 'coin');
           }}
         >
           sell {Math.floor(SB.priceOf(d) / 2)}

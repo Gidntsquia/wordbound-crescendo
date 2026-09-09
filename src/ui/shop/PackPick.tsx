@@ -1,20 +1,12 @@
+import type { ActFn } from '../actFn';
 // The "keep one of three" pack-open picker -- extracted from Shop.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
 import { cardBlurb, cardName } from '../fight/cardCopy';
-
-interface Tile {
-  letter: string;
-}
-
-interface PackChoice {
-  kind: string;
-  tile?: Tile;
-  id?: string;
-}
+import type { PackChoice } from '../../engine/state/run';
 
 interface Pack {
   kind: string;
-  choices: PackChoice[];
+  choices: readonly (PackChoice | null)[];
 }
 
 interface PackDef {
@@ -36,48 +28,57 @@ export default function PackPick({
   };
   run: unknown;
   pickCard: (i: number) => void;
-  act: (message: string, res: unknown) => void;
+  act: ActFn;
 }) {
   return (
     <div className="sb-pack-open">
       <span className="sb-eyebrow">{packDef(pack.kind).name} · keep one</span>
       <div className="sb-shop-row">
-        {pack.choices.map((c, i) => (
-          <button
-            key={i}
-            type="button"
-            className={'sb-card sb-card-pick sb-card-' + c.kind}
-            title={
-              c.kind === 'tile'
-                ? 'A ' + c.tile!.letter + ' for your rack'
-                : cardBlurb(SB, c, run)
-            }
-            onClick={() => pickCard(i)}
-          >
-            {c.kind === 'tile' ? (
-              <span className="sb-tile is-set sb-tile-static">
-                {c.tile!.letter}
-                <sub>
-                  {SB.LETTER_VALUES
-                    ? SB.LETTER_VALUES[c.tile!.letter]
-                    : window.Wordbound.Lexicon.LETTER_VALUES[c.tile!.letter]}
-                </sub>
-              </span>
-            ) : (
-              <>
-                <b>{cardName(SB, c)}</b>
-                <em>{cardBlurb(SB, c, run)}</em>
-              </>
-            )}
-          </button>
-        ))}
+        {pack.choices.map((c, i) => {
+          if (!c) return null;
+          return (
+            <button
+              key={i}
+              type="button"
+              className={'sb-card sb-card-pick sb-card-' + c.kind}
+              title={
+                c.kind === 'tile'
+                  ? 'A ' + c.tile.letter + ' for your rack'
+                  : cardBlurb(SB, c, run)
+              }
+              onClick={() => pickCard(i)}
+            >
+              {c.kind === 'tile' ? (
+                <span className="sb-tile is-set sb-tile-static">
+                  {c.tile.letter}
+                  <sub>
+                    {SB.LETTER_VALUES
+                      ? SB.LETTER_VALUES[c.tile.letter]
+                      : window.Wordbound.Lexicon.LETTER_VALUES[c.tile.letter]}
+                  </sub>
+                </span>
+              ) : (
+                <>
+                  <b>{cardName(SB, c)}</b>
+                  <em>{cardBlurb(SB, c, run)}</em>
+                </>
+              )}
+            </button>
+          );
+        })}
         <button
           type="button"
           className="sb-offer-skip"
           onClick={() =>
             act(
               'Kept nothing.',
-              (run as { pick: (v: null) => unknown }).pick(null),
+              (
+                run as {
+                  pick: (
+                    v: null,
+                  ) => { ok?: boolean; reason?: string } | boolean | null;
+                }
+              ).pick(null),
             )
           }
         >

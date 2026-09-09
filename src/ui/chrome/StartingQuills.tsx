@@ -7,9 +7,9 @@ interface ItemDef {
   hint: string;
 }
 
-interface RunLike {
-  startItems: string[];
-}
+import type { RunFacade } from '../../engine/state/facade';
+
+type RunLike = RunFacade | null | undefined;
 
 export default function StartingQuills({
   SB,

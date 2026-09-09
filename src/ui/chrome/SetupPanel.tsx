@@ -3,6 +3,7 @@
 // counts. Extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure
 // props in, no fight.current/round mutation of its own.
 import GearMeta from './GearMeta';
+import type { RunFacade, RoundFacade } from '../../engine/state/facade';
 
 interface TileBag {
   id: string;
@@ -10,13 +11,8 @@ interface TileBag {
   blurb: string;
 }
 
-interface RunLike {
-  deck: unknown[];
-}
-
-interface RoundLike {
-  pile: { drawPile: unknown[]; discardPile: unknown[] };
-}
+type RunLike = RunFacade | null | undefined;
+type RoundLike = RoundFacade | null | undefined;
 
 export default function SetupPanel({
   SB,

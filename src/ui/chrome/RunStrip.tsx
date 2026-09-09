@@ -2,24 +2,9 @@
 // pip strip plus the ink purse readout. Read-only over `run`/`phase`; no
 // fight.current/round mutation, no refresh/dispatch of its own. Ported to
 // .tsx (READ_SLOWLY_PLAN.md A1 remainder).
-interface RunLike {
-  movements: { numeral: string; enemies: Enemy[] }[];
-  movement: number;
-  stage: number;
-  felled: string[];
-  targetFor: (movement: number, stage: number) => number;
-  enemy: { glyph: string; name: string };
-  tune: { INTEREST_PER: number; INTEREST_CAP: number };
-  ink: number;
-  interestPreview: () => number;
-}
+import type { RunFacade } from '../../engine/state/facade';
 
-interface Enemy {
-  id: string;
-  kind: string;
-  glyph: string;
-  name: string;
-}
+type RunLike = RunFacade | null | undefined;
 
 export default function RunStrip({
   run,
@@ -64,7 +49,7 @@ export default function RunStrip({
           })}
         </span>
       ))}
-      {phase === 'shop' && (
+      {phase === 'shop' && run.enemy && (
         <span className="sb-strip-enemy">
           next · {run.enemy.glyph} {run.enemy.name}
         </span>
