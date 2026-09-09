@@ -337,8 +337,18 @@ single-thumb slider silently fell through to the two-thumb `[min, max]`
 default. Fixed the fallback chain in `src/ui/primitives/slider.tsx`.
 `TuningPanel`'s per-constant tuning inputs are plain `<input
 type="number">`, not ranges — left as-is (a Slider doesn't fit an
-open-ended numeric tuning knob the way it fits a 0–1 volume). Still
-open: Tooltip/Popover/Tabs/Badge/Progress/Toggle/Card/Dialog remain
+open-ended numeric tuning knob the way it fits a 0–1 volume).
+Score meter on Progress — DONE (`93ab0b1`): `ScoreLine`'s two plain divs
+(`.sb-meter`/`.sb-meter-fill`) replaced with the shadcn `Progress`,
+composed via its own exported `ProgressTrack`/`ProgressIndicator` so all
+existing CSS (`is-met` included) applies unchanged — a real
+`role="progressbar"` now backs it. Fixed a second scaffolding bug this
+surfaced: `Progress` unconditionally appended its own default
+`Track`+`Indicator` after any `children` passed to it, so composing with
+the separately-exported subcomponents (as their existence implies you
+should be able to) silently duplicated the track; now only renders the
+default when no children are given. Still
+open: Tooltip/Popover/Tabs/Badge/Toggle/Card/Dialog remain
 unused anywhere in the app, and `sandbox.css` still hasn't shrunk — it's
 the FLIP/pop rules plus every other hand-rolled `.sb-*` class the app
 still runs on (`transform` on `.sb-tile` stays forbidden). Converting the
