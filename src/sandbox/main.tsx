@@ -23,6 +23,7 @@ import '../engine/tiles';
 import '../engine/content/enemies';
 import '../engine/content/situations';
 import '../engine/content/items';
+import '../engine/content/characters';
 import '../engine/content/round';
 import '../engine/content/shop';
 import '../engine/content/marginalia';

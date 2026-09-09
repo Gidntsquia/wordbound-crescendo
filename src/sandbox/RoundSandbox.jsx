@@ -10,6 +10,7 @@
 import { createDragReorder } from '../engine/dragReorder';
 import * as copy from '../ui/copy';
 import SituationPanel from './SituationPanel.jsx';
+import CharacterSelect from './CharacterSelect.jsx';
 import {
   useCallback,
   useEffect,
@@ -1108,6 +1109,12 @@ export default function RoundSandbox() {
   );
   const [keyUnlocked, setKeyUnlocked] = useState(() => readKeyUnlocked());
   const [key, setKey] = useState(() => readKeyChoice(readKeyUnlocked(), SB));
+  // READ_SLOWLY_PLAN.md stage D: the chosen playable letter character. Its
+  // passive is threaded into createRun's `items` list; the always-playable
+  // extra-tile mechanic itself is not yet wired (see characters.ts's header).
+  const [characterId, setCharacterId] = useState(
+    () => SB.unlockedCharacters()[0] || 'zed',
+  );
   // A win on the highest-unlocked key offers the next one (stage 3).
   const unlockNextKey = useCallback(
     (wonRun) => {
@@ -1429,11 +1436,14 @@ export default function RoundSandbox() {
         return;
       }
 
+      const characterDef = SB.CHARACTER_DEFS[characterId];
       const run = SB.createRun({
         rng,
         deck: SB.createBagDeck(bagId),
         tune,
-        items: [...itemIds],
+        items: characterDef
+          ? [...itemIds, characterDef.passive.id]
+          : [...itemIds],
         crescendo: crescendoNow,
         key,
         extendCrescendo: (extraSec) => {
@@ -1441,6 +1451,7 @@ export default function RoundSandbox() {
           if (s && s.extendCrescendo) s.extendCrescendo(extraSec);
         },
       });
+      run.character = characterId;
       fight.current = {
         ...(fight.current || {}),
         ctx,
@@ -1524,12 +1535,14 @@ export default function RoundSandbox() {
       say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
       setBest(recordRun(f.run, true));
       unlockNextKey(f.run);
+      SB.unlockNext(f.run.character);
       refresh();
       return;
     }
     if (f.run.letterChoice) {
       setPhase('letter');
       say('The boss falls — choose a letter to win back.');
+      SB.unlockNext(f.run.character);
       refresh();
       return;
     }
@@ -1563,6 +1576,7 @@ export default function RoundSandbox() {
         say('The last boss falls. Run won with ' + f.run.ink + ' ink.');
         setBest(recordRun(f.run, true));
         unlockNextKey(f.run);
+        SB.unlockNext(f.run.character);
         refresh();
         return;
       }
@@ -2358,6 +2372,20 @@ export default function RoundSandbox() {
               ))}
             </div>
           )}
+          {!seen.has('character') && (
+            <div className="sb-callout">
+              Your letter. Play it once a round; it scores extra.
+            </div>
+          )}
+          <CharacterSelect
+            characters={SB.CHARACTERS}
+            unlocked={SB.unlockedCharacters()}
+            chosen={characterId}
+            onChoose={(id) => {
+              setCharacterId(id);
+              markSeen('character');
+            }}
+          />
           <button
             type="button"
             className="sb-go sb-title-play"

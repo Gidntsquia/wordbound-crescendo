@@ -253,6 +253,32 @@ body {
   opacity: 0.35;
 }
 
+.sb-characters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 18px;
+}
+
+.sb-character {
+  width: 34px;
+  height: 34px;
+  border-radius: 2px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sb-character.is-on {
+  color: var(--ink);
+  background: var(--leaf);
+  border-color: var(--leaf);
+}
+
+.sb-character.is-locked {
+  opacity: 0.35;
+}
+
 .sb-key-tune {
   display: flex;
   flex-direction: column;
