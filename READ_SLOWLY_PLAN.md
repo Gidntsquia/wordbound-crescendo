@@ -538,7 +538,7 @@ styles is the bulk of this item and is still a large, cohesive visual
 change better done as one pass per screen than left half-migrated
 mid-screen.
 
-**C3 (remainder) — beats. DONE (mostly).** `EnemyIntroCard.tsx` now
+**C3 (remainder) — beats. DONE.** `EnemyIntroCard.tsx` now
 renders `situation.opening[]` before the first word (`8342754`). `sfx.ts`
 gained a synthesized `page` sound (`PAGE_*` constants, `Sfx.page()`,
 filtered-noise taps), and `RoundSandbox.jsx`'s `runCascade` "total lands"
@@ -558,9 +558,17 @@ the console, and the fight's play budget is too small for a scripted word
 sequence to reach a real target; same limitation hit in the Shop split,
 `a80ea47`) — verified instead by code review against the existing
 phase-effect/`showResolution` patterns already used elsewhere in the file.
-**Open follow-up:** boss-specific opening variation ("bosses' openings
-mention the crescendo") is not implemented — `SITUATIONS` entries have one
-static `opening[]` regardless of enemy kind.
+Boss-specific opening variation — DONE: each `SITUATIONS` entry
+(`situations.ts`) now also has a `bossOpening: string[]` that explicitly
+mentions the crescendo; `EnemyIntroCard.tsx` picks it over the plain
+`opening[]` when `f.def.kind === 'boss'`, falling back to `opening[]` for
+small/big enemies or if a situation ever lacks one. Verified:
+typecheck/lint/format/build clean; live Playwright pass — skipped two
+enemies to reach a boss fight (Fate at the Door), confirmed the intro
+renders "The whole platform is thumbs and glazed eyes now, every screen
+lit at once — the crescendo is building, and it wants this one too."
+instead of the plain small/big opening, zero console errors. C3 is fully
+closed.
 
 **D4 (open follow-up)** — revisit `MOVEMENT_BASE_n` once every player has
 a letter.

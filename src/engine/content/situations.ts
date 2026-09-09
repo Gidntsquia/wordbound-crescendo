@@ -21,6 +21,7 @@ export interface Situation {
   id: SituationId;
   title: string;
   opening: string[];
+  bossOpening: string[];
   person: SpriteId;
   antagonist: SpriteId;
   ladder: LadderStep[];
@@ -37,6 +38,10 @@ export const SITUATIONS: Record<SituationId, Situation> = {
     title: 'A commuter, lit by a screen',
     opening: [
       'Thumb moving. Eyes glazed. The platform announcement goes unheard.',
+    ],
+    bossOpening: [
+      'The whole platform is thumbs and glazed eyes now, every screen lit at once',
+      '— the crescendo is building, and it wants this one too.',
     ],
     person: 'commuter',
     antagonist: 'phone_glow',
@@ -84,6 +89,10 @@ export const SITUATIONS: Record<SituationId, Situation> = {
     opening: [
       'Someone sits with nothing to do, and has forgotten boredom has a cure.',
     ],
+    bossOpening: [
+      'The whole square has gone still and restless at once, every bench full of the same idle wait',
+      '— the crescendo is close, and it is louder here than anywhere else.',
+    ],
     person: 'bench_sitter',
     antagonist: 'empty_bench',
     ladder: [
@@ -130,6 +139,10 @@ export const SITUATIONS: Record<SituationId, Situation> = {
     title: 'A waiting room with no clock',
     opening: [
       'A person stares at a wall, so bored they have forgotten boredom has a cure.',
+    ],
+    bossOpening: [
+      'The waiting room has filled past its chairs, every wall stared at the same way',
+      '— the crescendo is here now, and this is where it means to land.',
     ],
     person: 'waiting_room_sitter',
     antagonist: 'blank_wall',

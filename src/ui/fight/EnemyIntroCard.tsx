@@ -40,6 +40,10 @@ export default function EnemyIntroCard({
   if (!round) return null;
   const situation = SB.situationFor && SB.situationFor(round.situation);
   if (!f || !f.def || !f.piece) return null;
+  const opening =
+    f.def.kind === 'boss' && situation?.bossOpening?.length
+      ? situation.bossOpening
+      : situation?.opening;
   return (
     <div className="sb-intro">
       <div className="sb-enemy-line">
@@ -51,8 +55,8 @@ export default function EnemyIntroCard({
           {f.piece.composer ? ' · ' + f.piece.composer : ''}
         </span>
       </div>
-      {situation?.opening?.length ? (
-        <p className="sb-intro-opening">{situation.opening.join(' ')}</p>
+      {opening?.length ? (
+        <p className="sb-intro-opening">{opening.join(' ')}</p>
       ) : null}
       <SituationPanel
         situation={situation}
