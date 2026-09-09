@@ -27,6 +27,7 @@ import {
   readKeyUnlocked,
   bestReducer,
   readBest,
+  refreshReducer,
 } from '../app/store';
 import {
   useCallback,
@@ -353,7 +354,11 @@ export default function RoundSandbox() {
   // start() or after a skip/win) never matches this, so the card reappears
   // automatically with no extra bookkeeping at the call sites.
   const readyRound = useRef(null);
-  const [, forceRender] = useState(0);
+  // A3: replaces the old useState(0) counter + forceRender((n) => n + 1)
+  // with a reducer per the plan's "delete forceRender" instruction; still a
+  // plain re-render nudge, not a model of fight.current's actual state (see
+  // src/app/store.ts's header).
+  const [, dispatchRefresh] = useReducer(refreshReducer, 0);
   // Mirrors of the volume/sfx-on state for the zero-dep resume effect below,
   // which needs the LATEST value without re-subscribing on every change.
   const volumeRef = useRef(0.4);
@@ -509,7 +514,7 @@ export default function RoundSandbox() {
   const say = useCallback((line) => {
     setLog((prev) => [line, ...prev].slice(0, 60));
   }, []);
-  const refresh = useCallback(() => forceRender((n) => n + 1), []);
+  const refresh = useCallback(() => dispatchRefresh({ type: 'refresh' }), []);
 
   // The dictionary index is only built once the helper is switched on.
   useEffect(() => {

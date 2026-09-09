@@ -48,6 +48,24 @@ export function writeSfxOn(on: boolean): void {
   }
 }
 
+// The refresh counter that stands in for React re-reading fight.current
+// after it's mutated in place. This replaces RoundSandbox.jsx's old
+// `const [, forceRender] = useState(0)` with a reducer, satisfying A3's
+// "delete forceRender" instruction at the seam that's actually safe to
+// touch: the counter itself is trivial UI-only state. It does NOT make
+// fight.current/run/round immutable -- that's still the gated, unconverted
+// core described above. dispatch({type: 'refresh'}) replaces forceRender().
+export type RefreshAction = { type: 'refresh' };
+
+export function refreshReducer(state: number, action: RefreshAction): number {
+  switch (action.type) {
+    case 'refresh':
+      return state + 1;
+    default:
+      return state;
+  }
+}
+
 // Gear panel open/closed -- pure UI state, no persistence, 3 call sites.
 export interface GearState {
   open: boolean;
