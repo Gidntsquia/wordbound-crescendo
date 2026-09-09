@@ -21,6 +21,7 @@ import '../engine/lexicon';
 import '../engine/tiles';
 
 import '../engine/content/enemies';
+import '../engine/content/situations';
 import '../engine/content/items';
 import '../engine/content/round';
 import '../engine/content/shop';

@@ -19,6 +19,7 @@ export interface Enemy {
   kind: EnemyKind;
   flavour: string;
   rule?: string;
+  situation: string;
 }
 
 export interface Movement {
@@ -62,6 +63,7 @@ export const MOVEMENTS: Movement[] = [
     enemies: [
       {
         id: 'bagatelle',
+        situation: 'the_commute',
         name: 'The Doomscroll',
         glyph: '\u{1F4F1}',
         recorded: 'recordedFurElise',
@@ -71,6 +73,7 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'moonlight',
+        situation: 'the_commute',
         name: 'The Deadline',
         glyph: '\u{1F319}',
         recorded: 'recordedMoonlight',
@@ -80,6 +83,7 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'fate',
+        situation: 'the_commute',
         name: 'Fate at the Door',
         glyph: '\u{1F451}',
         recorded: 'recordedSymphony5',
@@ -95,6 +99,7 @@ export const MOVEMENTS: Movement[] = [
     enemies: [
       {
         id: 'aria',
+        situation: 'the_square',
         name: 'The Bored Bench',
         glyph: '\u{1FA91}',
         recorded: 'recordedGoldbergAria',
@@ -104,6 +109,7 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'mountain_king',
+        situation: 'the_square',
         name: 'The Loudspeaker',
         glyph: '\u{1F3D4}️',
         recorded: 'recordedMountainKing',
@@ -114,6 +120,7 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'gallop',
+        situation: 'the_square',
         name: 'The Gallop',
         glyph: '\u{1F40E}',
         recorded: 'recordedWilliamTell',
@@ -130,6 +137,7 @@ export const MOVEMENTS: Movement[] = [
     enemies: [
       {
         id: 'gymnopedie',
+        situation: 'the_tower',
         name: 'The Waiting Room',
         glyph: '\u{1F3E2}',
         recorded: 'recordedGymnopedie',
@@ -139,6 +147,7 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'serenade',
+        situation: 'the_tower',
         name: 'The Chancellor',
         glyph: '\u{1F3DB}️',
         recorded: 'recordedNachtmusik',
@@ -147,6 +156,7 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'bald_mountain',
+        situation: 'the_tower',
         name: 'The Bare Mountain',
         glyph: '\u{1F311}',
         recorded: 'recordedBaldMountain',

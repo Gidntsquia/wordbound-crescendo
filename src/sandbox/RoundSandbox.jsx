@@ -9,6 +9,7 @@
 // Play scores the word standing on it, Change out throws those tiles back.
 import { createDragReorder } from '../engine/dragReorder';
 import * as copy from '../ui/copy';
+import SituationPanel from './SituationPanel.jsx';
 import {
   useCallback,
   useEffect,
@@ -916,6 +917,11 @@ function EndScreen({
       <h2 className="sb-end-title">
         {won ? copy.LAST_PAGE_TURNS : copy.lostTheRoom(run.enemy.name)}
       </h2>
+      {!won && run.round && SB.situationFor && SB.situationFor(run.round.situation) && (
+        <p className="sb-end-failure">
+          {SB.situationFor(run.round.situation).failure}
+        </p>
+      )}
       <p className="sb-end-sub">
         {won
           ? 'All ' +
@@ -924,6 +930,8 @@ function EndScreen({
             run.felled.length +
             ' enemies felled'
           : run.round.target - run.round.score + ' short of the target'}
+        {' · '}
+        {copy.resolvedSummary(run.resolved ? run.resolved.length : 0)}
         {' · '}
         {run.wordsPlayed} word{run.wordsPlayed === 1 ? '' : 's'} played ·{' '}
         <b>{run.ink}</b> ink
@@ -2627,6 +2635,18 @@ export default function RoundSandbox() {
                   {f.piece.composer ? ' · ' + f.piece.composer : ''}
                 </span>
               </div>
+              <SituationPanel
+                situation={SB.situationFor && SB.situationFor(round.situation)}
+                ladderIndex={
+                  SB.ladderIndex
+                    ? SB.ladderIndex(
+                        SB.situationFor(round.situation),
+                        0,
+                        round.target,
+                      )
+                    : 0
+                }
+              />
               {f.def.flavour && (
                 <q className="sb-intro-flavour">{f.def.flavour}</q>
               )}
@@ -2715,6 +2735,18 @@ export default function RoundSandbox() {
                   {f.piece.composer ? ' · ' + f.piece.composer : ''}
                 </span>
               </div>
+              <SituationPanel
+                situation={SB.situationFor && SB.situationFor(round.situation)}
+                ladderIndex={
+                  SB.ladderIndex
+                    ? SB.ladderIndex(
+                        SB.situationFor(round.situation),
+                        scoreShown,
+                        round.target,
+                      )
+                    : 0
+                }
+              />
               {round.rule && (
                 <div
                   className={

@@ -599,6 +599,7 @@ export interface ChangeoutResult {
 export interface Round {
   tune: Tune;
   target: number;
+  situation: string | null;
   rule: Rule | null;
   usedLetters: Record<string, boolean>;
   reward: number;
@@ -640,6 +641,7 @@ export interface CreateRoundOpts {
   rule?: string;
   target?: number;
   reward?: number;
+  situation?: string | null;
   pile?: { drawPile: Tile[]; discardPile: Tile[] };
   run?: RunLike;
   crescendo?: () => { phase: string; mag?: number } | null;
@@ -671,6 +673,7 @@ export function createRound(opts: CreateRoundOpts): Round {
       (opts.target != null ? opts.target : Number(tune.MOVEMENT_BASE_1)) *
         (rule && rule.targetMult ? rule.targetMult : 1),
     ),
+    situation: opts.situation ?? null,
     rule,
     usedLetters: {}, // letters played this round (the no_repeats rule)
     reward: opts.reward != null ? opts.reward : Number(tune.INK_SMALL), // flat ink at the win
@@ -942,6 +945,7 @@ export interface RunLike {
   tierLevels: Record<string, number>;
   ink: number;
   felled: string[];
+  resolved: string[];
   skipped: string[];
   favours: string[];
   bestPlay: { word: string; breakdown: Breakdown; enemy: string } | null;
@@ -1024,6 +1028,7 @@ export function createRun(opts: CreateRunOpts): RunLike {
     tierLevels: {}, // études: { tierId: level }, level 1 when absent
     ink: Number(tune.START_INK),
     felled: [], // enemy ids beaten so far
+    resolved: [], // situation ids resolved so far (READ_SLOWLY_PLAN.md C2)
     skipped: [], // enemy ids skipped for a favour
     favours: [], // favour ids owed to the next shop (free_pack, coupon)
     bestPlay: null, // { word, breakdown, enemy } the run's best word
@@ -1105,6 +1110,7 @@ export function createRun(opts: CreateRunOpts): RunLike {
       target: run.targetFor(run.movement, run.stage),
       reward: KIND_INK[run.enemy!.kind],
       rule: run.enemy!.rule,
+      situation: run.enemy!.situation,
       tierLevels: run.tierLevels,
       onPlay: (res) => {
         run.wordsPlayed += 1;
@@ -1226,6 +1232,8 @@ export function createRun(opts: CreateRunOpts): RunLike {
     run.ink += interest;
     run.lastWin = { reward: r.ink, interest };
     run.felled.push(run.enemy!.id);
+    if (run.enemy!.situation && !run.resolved.includes(run.enemy!.situation))
+      run.resolved.push(run.enemy!.situation);
     const wasBoss = run.enemy!.kind === 'boss';
     const last =
       run.movement >= MOVEMENTS.length - 1 &&

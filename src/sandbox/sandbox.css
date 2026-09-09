@@ -3022,6 +3022,18 @@ button.sb-card:disabled {
 .sb-intro .sb-enemy-line {
   margin: 0;
 }
+.sb-situation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+.sb-situation-caption {
+  font-family: var(--display);
+  font-size: 13px;
+  color: var(--leaf-dim);
+  flex: 1;
+}
 .sb-intro-flavour {
   font-family: var(--display);
   font-style: italic;
