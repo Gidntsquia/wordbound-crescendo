@@ -6,30 +6,48 @@
 // box so the pose-driven wiring (ladder step -> pose prop -> crossfade) is
 // real end-to-end even though the art isn't. Swapping in real PNGs later
 // is a manifest + CSS background-image change here, not a caller change.
+import type { CSSProperties, ReactElement } from 'react';
 import ART_MANIFEST from '../../tools/art-manifest.json';
 import { SVG_SHEETS as PIECES_SHEETS } from './svg/pieces';
 import { PEOPLE_SHEETS } from './svg/people';
 import { ANTAGONIST_SHEETS } from './svg/antagonists';
 import { BACKDROP_SHEETS } from './svg/backdrops';
 
-const SVG_SHEETS = {
+const SVG_SHEETS: Record<string, () => ReactElement> = {
   ...PIECES_SHEETS,
   ...PEOPLE_SHEETS,
   ...ANTAGONIST_SHEETS,
   ...BACKDROP_SHEETS,
 };
 
-const SHEETS = Object.fromEntries(ART_MANIFEST.sheets.map((s) => [s.id, s]));
+interface SheetDef {
+  id: string;
+  format?: string;
+  status?: string;
+  image?: string;
+}
+
+const SHEETS: Record<string, SheetDef> = Object.fromEntries(
+  ART_MANIFEST.sheets.map((s) => [s.id, s]),
+);
 
 // A stable placeholder hue per sheet id so different sprites read as
 // visually distinct boxes without any art.
-function hueFor(id) {
+function hueFor(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
   return h;
 }
 
-export default function Sprite({ sheet, pose, className }) {
+export default function Sprite({
+  sheet,
+  pose,
+  className,
+}: {
+  sheet: string;
+  pose: string;
+  className?: string;
+}) {
   const def = SHEETS[sheet];
   if (!def) return null;
   const hue = hueFor(sheet);
@@ -46,10 +64,12 @@ export default function Sprite({ sheet, pose, className }) {
       data-sheet={sheet}
       data-pose={pose}
       title={sheet + ' · ' + pose}
-      style={{
-        '--sb-sprite-hue': hue,
-        backgroundImage: sourced ? `url(${def.image})` : undefined,
-      }}
+      style={
+        {
+          '--sb-sprite-hue': hue,
+          backgroundImage: sourced ? `url(${def.image})` : undefined,
+        } as CSSProperties
+      }
     >
       {SvgArt ? <SvgArt /> : sourced ? null : sheet.slice(0, 1).toUpperCase()}
     </span>

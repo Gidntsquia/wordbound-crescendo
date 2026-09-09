@@ -4,8 +4,9 @@
 // first-pass placeholder art. Single representative pose per antagonist
 // (their manifest idle/weakening/gone/crescendo poses aren't drawn as
 // separate variants yet, same limitation as src/art/svg/people.jsx).
+import type { ReactNode } from 'react';
 
-function Tile({ children }) {
+function Tile({ children }: { children?: ReactNode }) {
   return (
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
       <rect

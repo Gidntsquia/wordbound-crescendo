@@ -3,8 +3,17 @@
 // two-tone compositions since these sit behind gameplay; one static
 // composition per chapter (the manifest's far/near pose pair isn't drawn
 // as separate parallax layers yet).
+import type { ReactNode } from 'react';
 
-function Backdrop({ top, bottom, children }) {
+function Backdrop({
+  top,
+  bottom,
+  children,
+}: {
+  top: string;
+  bottom: string;
+  children?: ReactNode;
+}) {
   return (
     <svg
       viewBox="0 0 200 100"

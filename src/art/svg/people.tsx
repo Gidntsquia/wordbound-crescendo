@@ -7,8 +7,9 @@
 // tracked in the manifest/ladder wiring but doesn't change the art this
 // pass). Ink silhouette on a paper disc, on-theme with the paper/ink/gilt
 // palette.
+import type { ReactNode } from 'react';
 
-function Disc({ children }) {
+function Disc({ children }: { children?: ReactNode }) {
   return (
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
       <circle
