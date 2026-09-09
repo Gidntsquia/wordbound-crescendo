@@ -1,216 +1,216 @@
 # READ_SLOWLY_PLAN.md — the four big mechanics
 
-Written 2026-09-08 for implementation in a fresh session. Covers, in build
-order: (A) the React + TypeScript rebuild and code audit, (B) the new theme
-("slow down and read"), (C) fights as situations resolved by reading,
-(D) playable letter-tile characters, (E) 2D sprites and animation. The order
-is deliberate: the rebuild gives every later item a typed home; the theme
-renames things the situations and sprites depend on; characters are one
-mechanic on top; art goes last because it only has value once the names,
-enemies and beats are fixed.
+Written 2026-09-08. Status ledger rewritten 2026-09-09 against the actual
+repo (not against earlier session notes, several of which overstated what
+had landed). Covers, in build order: (A) the React + TypeScript rebuild and
+code audit, (B) the new theme ("slow down and read"), (C) fights as
+situations resolved by reading, (D) playable letter-tile characters, (E) 2D
+sprites and animation.
 
-Each stage ends with a deploy (`npm run deploy`) so Jaxon can play it on the
-phone. Nothing here changes the music rule: bosses keep their recordings,
-audio stays synthesized elsewhere.
+## The rule: the WHOLE plan ships
 
-## Status (2026-09-08 implementation pass)
+Jaxon's standing instruction, restated 2026-09-09: **every item in sections
+A–E below is to be implemented, in full, as specified.** Not the easy
+subset. Not "the spirit of it". Specifically:
 
-Done and deployed: A1/A2/A5/A6, all of B, C, D, and E1–E3 (all ~20 art
-sheets have real art — a handful of verified-license CC0 pieces, the rest
-original hand-authored SVG; single-pose only so far, the pose-driven
-plumbing works but doesn't swap art per pose yet).
+- An item is done only when the code matches the spec in its section. A
+  status note that explains why a piece was skipped, deferred, judged "not
+  worth the risk", or replaced with a wrapper is not a completed item; it
+  is an open item with a note attached. Several such notes were written in
+  earlier passes and are now listed under **Open** below.
+- Sessions do not get to narrow scope on their own. If an item is blocked,
+  finish everything else, say exactly what is blocked and why, and leave it
+  in the Open ledger. Only Jaxon strikes an item.
+- Each landed item deploys (`bun run deploy`) so it can be played on the
+  phone. Feel-sensitive items (timing, audio, drag) also get a phone check
+  before they are moved to Done.
+- Keep this ledger truthful. When something lands, move it to Done with the
+  commit hash. When a session discovers a Done item is not actually done,
+  move it back.
 
-Update (2026-09-08, browser-verification pass): Jaxon granted this session
-a scoped headless-Playwright exception, unblocking the rest of A3.
-
-- **A3** (reducer store): `forceRender` is deleted and six UI-only state
-  slices are reducer-backed (`src/app/store.ts`). Of the ten remaining
-  run/round mutation call sites, seven are now routed through dispatched
-  `FightAction`s: `playWord`, `changeout`, `next` (`fight/nextStage`),
-  `skip`, `leaveShop`, `pickLetter`, `moveTile` (both call sites). Each
-  case's body is a verbatim relocation of the original `useCallback`'s
-  logic; the closures it needed (`say`, `sfx`, `startStage`, `markSeen`,
-  `warm`, `unlockNextKey`, `refreshDiscovered`, `setPhase`, `setBest`,
-  `SB`, `recordRun`) are threaded through as action-payload fields so
-  ordering is unchanged. Verified: `bun run typecheck`/`lint`/`build`
-  clean, plus a headless Playwright smoke test (chromium, `headless:
-true`) driving `vite preview` — start a run, tap-play several words,
-  attempt a swap, click Continue/advance repeatedly — zero console errors
-  or page exceptions across the run.
-  Update (2026-09-08/09, pass 3): the remaining five call sites --
-  `buyCard`, `pickCard`, `commitSelecting` (covers `saveMark`/
-  `useAdhocMark`), `useInk`, `applyInk` (covers `drawMarkHand`/
-  `useAdhocMark`/`useConsumable`) -- are now also routed through dispatched
-  `FightAction`s (`fight/buyCard`, `fight/pickCard`,
-  `fight/commitSelecting`, `fight/useInk`, `fight/applyInk`), each
-  converted wholesale rather than call-by-call (their mark-card-detour vs.
-  plain-buy/pick branches share one `act`-shaped result path, so splitting
-  a function half-dispatched would be worse than moving the whole thing).
-  `act` itself stays a local UI helper (still passed to `HeldRow`/`Shop`
-  as a prop) since it never touches `fight.current`; the reducer inlines
-  its say/sfx/refresh-on-result logic as a shared `actResult` function.
-  All ten original run/round mutation call sites are now dispatch-routed;
-  `fight.current`/`round.ts`/`items.ts` etc. are still the same mutable
-  objects underneath (A3's "wrapping" conversion, not an immutable
-  rewrite -- see the file-header note in `src/app/store.ts`).
-  Verified: `bun run typecheck`/`lint`/`build` clean, bundle grep for the
-  five new action-type strings, and an extended headless Playwright smoke
-  test (chromium, `headless: true`, `vite preview`) that starts a run,
-  auto-plays words via the word helper's "Best play", reaches the shop,
-  buys a marginalia pack, picks a mark card from it (exercising
-  `pickCard`'s mark-detour → `fight/pickCard`), and commits it via "Buy &
-  apply" (`commitSelecting` → `fight/commitSelecting` →
-  `run.useAdhocMark`) -- zero console errors or page exceptions. That
-  particular run's mark happened to be 0-target (no tile to tap), so the
-  smoke test didn't get to also assert a tile visibly gained an
-  `is-mark-*` class; it does assert the purse/selecting state transitions
-  correctly and nothing throws. A future pass could bias the RNG/seed to
-  land on a tile-targeting mark for that extra assertion, but the dispatch
-  path itself (buy → pick → select → commit → useAdhocMark) is exercised
-  end to end.
-- **A4** (component split): pass 4 checked the three blocks the plan named
-  as remaining and found less left than expected, plus one block judged
-  not worth the risk:
-  - **Pack-pick** turned out to already be extracted -- it lives inside
-    `src/ui/shop/Shop.jsx` (the `selecting`/`run.pack` branches), moved
-    there in an earlier A4 pass along with the rest of the shop. Nothing
-    to do.
-  - **Callout/toast rendering** is three small one-line conditional
-    `<span className="sb-callout">` elements, each gated on its own
-    `!seen.has(...)` check and interleaved with unrelated markup (rack
-    header, stick header, swap-button row). Pulling them into a shared
-    file would trade three inline lines for a component call plus a prop
-    for each condition -- not a real simplification, so left as-is.
-    Update (2026-09-09, pass 5): the board/rack/stick/drag wrapper was
-    attempted and extracted -- `src/ui/fight/PlayBoard.jsx` (new file,
-    `forwardRef` so `playRef` still resolves to the real `.sb-play` DOM node
-    for `drag.bind`'s `.sb-rack`/`.sb-stick` queries). It's a pure code-move:
-    the ~30 closed-over values (`drag`, `rackShown`/`stickShown`, `inking`/
-    `setInking`/`toggleInkTile`/`applyInk`, `scoring`, `spelt`/`worthHow`/
-    `worth`, `formable`/`barredNow`, `helper`/`suggestions`/`indexing`,
-    `stageTile`/`unstageAt`/`play`/`changeout`/`playWord`, `word`/`setWord`,
-    `pickedIds`/`letters`/`rackLetters`, `SB`/`W`/`sfx`/`say`/`seen`/`round`/
-    `live`/`inputRef`) became explicit props with no logic changes; the two
-    module-level `PREMIUM_HINT`/`PREMIUM_ICON` consts moved into the new file
-    since they were only used inside this block. `dragReorder.ts` itself was
-    not touched. Verified: `bun run typecheck`/`lint`/`build` clean, and a
-    headless Playwright smoke test (chromium, `headless: true`, `vite
-preview`) driving the full loop -- open gear, enable the word helper,
-    start a run, click through the pre-fight intro card, auto-play words via
-    "Best play" + "Play" (score/plays-left updated correctly each time),
-    reach the shop -- zero console errors or page exceptions throughout.
-    `RoundSandbox.jsx`: 2,333 -> 1,920 lines. Not separately re-confirmed:
-    actual drag-gesture feel and scoring-cascade pop/lit timing, same
-    headless-tooling gap as everything else feel-sensitive in this plan --
-    that's still E4's job. Commit `c17fc68`.
-- **E4** (phone perf pass): still needs an actual phone playing the actual
-  build; headless Playwright can't stand in for this one. With A3 and A4
-  now both complete, E4 is the only item left in the entire plan that
-  requires Jaxon's own hands rather than more automated passes.
-
-Not independently re-verified by this pass: audio/animation timing
-(`runCascade`'s `setTimeout`-paced cascade, crescendo-window audio cues) —
-Playwright confirmed no exceptions across a full play loop but can't judge
-whether the _feel_ of timing/audio is right; that still wants a human
-playtest.
-
-Update (2026-09-09, E4 phone-report fixes): Jaxon actually played the
-deployed build and reported five things. Fixed three:
-
-- **Scoring-tile alignment**: during the scoring cascade, `PlayBoard.jsx`
-  was rendering both the frozen `scoring.tiles` snapshot AND the _live_
-  stick (`stickShown` plus the premium-slot preview span) in the same flex
-  row. `setWord('')` clears the real stick as soon as a word is submitted,
-  so by the time the cascade badges (+1/+2/+3) animate, the live block
-  below them is showing the now-empty next stick's placeholder tiles
-  (including a stray premium-slot marker, the floating "TL" box in Jaxon's
-  screenshot) — unrelated to the word just scored, sharing the row, and
-  visibly offset from it. Fix: hide both the live `stickShown` map and the
-  premium-slot-preview block while `scoring && !scoring.cleared`.
-- **Audio going silent after backgrounding**: the existing
-  visibilitychange/focus/pointerdown resume handler in `RoundSandbox.jsx`
-  only listened on the bubble phase; most real taps land on a _disabled_
-  `<button>` (Play mid-round, a tile mid-scoring), and a disabled element's
-  pointerdown never bubbles to `document` in the affected browsers, so the
-  gesture-gated `ctx.resume()` frequently never fired. Switched the
-  pointerdown/touchstart listeners to the capture phase (fires regardless
-  of the target's disabled state) and added `pageshow`. (A first cut also
-  added a 2s `setInterval` watchdog as a backstop; Jaxon asked for it back
-  out as unnecessary resource use, so it's gone — the capture-phase
-  listeners plus `pageshow` are the fix.)
-- **Wasted vertical space on phone**: `.sb-rope` (the gauge/meter box) was
-  124px tall at the ≤920px breakpoint with no further reduction for actual
-  phone widths; added an ≤620px override to 84px, plus a small
-  `.sb-piles` bottom-margin trim.
-
-Update (2026-09-09, "no sprites" root-caused): the code-level claim above
-(E1–E3 art done and deployed) was correct about the art existing, but two
-real bugs made it invisible on Jaxon's phone:
-
-- `SituationPanel.jsx`'s person/antagonist `<Sprite>`s were rendering at
-  the generic 28×28px `.sb-sprite` icon size — small enough on a phone
-  screen to not register as "sprites" at all. Sized up to 44×44px
-  (`.sb-situation-person`/`.sb-situation-antagonist` override).
-- The three `backdrop_chapter_1/2/3` sheets (real hand-authored SVG,
-  `src/art/svg/backdrops.jsx`) were marked `"status": "sourced"` in
-  `tools/art-manifest.json` but **no `<Sprite sheet="backdrop_...">` call
-  existed anywhere** — authored and marked done, never wired in. Added one
-  to `.sb-board` (`RoundSandbox.jsx`), keyed off `run.movement + 1`,
-  absolutely positioned behind the intro/fight content at 32% opacity via
-  a new `.sb-backdrop` class. (First cut of the CSS override lost the
-  cascade to the base `.sb-sprite` rule — same specificity, later in the
-  file — fixed by scoping both this and the situation-sprite overrides
-  under a parent-class selector.)
-
-Other manifest entries still marked `"sourced"` but never referenced by
-any `<Sprite sheet=...>` call, confirmed orphaned, no obvious wiring spot
-found in this pass: `clock`, `knocking_door`, `loudspeaker`, `parade`,
-`podium`, `the_night`, `wordsmith`, `mark_overlay_gilt/bold/steel`,
-`bookmark_card_frame`, `pack_wrapper`. `wordsmith` is presumably meant for
-the stage D playable-letter-character work (still open, not attempted
-here); the mark-overlay/bookmark/pack sheets look like they'd want wiring
-into the ink/shop UI (`Shop.jsx`, ink-application flow) — flagged, not
-done.
-
-Not touched (Jaxon's report item 1, remainder): playable-letter-character
-(stage D) is open art/asset work, out of scope for this pass.
-Verified: `bun run typecheck`/`lint`/`build` clean, headless Playwright
-full play+score loop plus a screenshot check of the intro screen
-confirming the backdrop and both situation sprites are visually present,
-zero console errors. Deployed.
-
-Update (2026-09-09, backdrop reverted + spacing pass): the chapter-backdrop
-wiring above looked "scuffed" on Jaxon's phone, not atmospheric — the SVGs
-are flat pale-parchment/warm-tan compositions (see `backdrops.jsx`'s own
-header comment: "flat, unobtrusive two-tone") laid under this app's dark
-theme with no scrim tuned for it, so at 32% opacity over the dark `.sb-board`
-it read as a muddy gray wash with faint diagonal lines, not art. Made worse
-because `.sb-board` is `flex: 1 1 auto` on the phone breakpoint (fills
-remaining column height so the title-screen scroll region works) — the
-backdrop's `position: absolute; inset: 0` filled that whole stretched box,
-turning the ordinary blank space below a short intro card into a visibly
-gray dead rectangle. Rather than force a light-on-dark palette fix this
-pass, backed the backdrop out entirely (`<Sprite sheet="backdrop_...">`
-call and `.sb-backdrop`/`.sb-board` CSS removed) — a plain panel over a
-scuffed one. `backdrop_chapter_1/2/3` are back to unwired ("sourced" but
-not rendered anywhere); revisiting needs either a recolored/dark-mode SVG
-variant or a much lower opacity + solid scrim, not attempted here. The
-44px situation-sprite sizing from the previous update stays — not
-implicated in the complaint.
-
-Also tightened phone spacing beyond the earlier `.sb-rope`/`.sb-piles`
-pass: the ≤620px block now trims the outer `.sb` container padding
-(28px/24px → 14px), `.sb-play`'s (the tile-input row) desktop
-22px top/bottom padding + 22px margin down to 10px/10px, and
-`.sb-rack`/`.sb-stick-wrap` bottom margins from 14px to 8px.
-Verified: `bun run typecheck`/`lint`/`build` clean, headless Playwright
-smoke test at a 390×844 viewport with a screenshot check of the intro
-panel (no gray wash, tighter header/play-row spacing), zero console
-errors. Deployed.
+Nothing here changes the music rule: bosses keep their recordings, audio
+stays synthesized elsewhere.
 
 ---
 
-## 0. What exists today (audit findings)
+## Status ledger (2026-09-09, verified against the tree)
+
+### Done
+
+- **A1 toolchain** — Bun, Vite, TS strict, Tailwind v4 + `@theme`,
+  shadcn init (`components.json`, `src/ui/primitives/button.tsx`),
+  Prettier + tailwind plugin, ESLint flat, Husky pre-commit (lint-staged)
+  and pre-push (typecheck), `.env.example`. `bun run typecheck / lint /
+format:check` clean.
+- **A2 engine port** — every engine module is typed `.ts` under
+  `src/engine/` and `src/engine/content/`; `recorded*.js` became
+  `src/recordings/*.json` (A5 step 5) with the tools rewritten to emit
+  JSON. `js/wordbound/wordlist.js` is the one remaining plain-JS import
+  (generated data, allowed).
+- **A5 CLAUDE.md rewrite / A6 rules written** — CLAUDE.md Map and Coding
+  rules match the tree.
+- **B1 vocabulary swap** — on-screen strings in `src/ui/copy.ts`
+  (Chapter, Bookmarks, Editions, Rereads, Attention needed, Lost letters,
+  Walk past). Gold → ink (`run.ink`, `INK_*` tunables), inks → marginalia
+  (`marginalia.ts`, `tile.mark`). `BOOK_WORDS` / `SLOW_WORDS` kinds exist
+  in `items.ts`.
+- **B2 enemy lineup** — `enemies.ts` has the nine names and chapter titles
+  as specified, recordings unmoved.
+- **B3 copy pass** — eyebrow, end-screen lines, callouts in `copy.ts`;
+  THEME.md rewritten.
+- **C1 data / C2 engine hooks** — `situations.ts` with three situations
+  and ladders; `ladderIndex` selector; `run.resolved` accumulates and the
+  end screen shows the count.
+- **C3 panel (text captions + pose props)** — `SituationPanel.jsx` renders
+  person / caption / antagonist with pose-keyed crossfade.
+- **C4 lose state** — failure line shown on the end screen.
+- **D2 roster + passives** — `characters.ts`: six characters, passives as
+  hidden quills, unlocks in `wbc.characters`.
+- **D3 select screen** — `CharacterSelect.jsx` on the title screen.
+- **E1 pipeline (manifest + Sprite component)** — `tools/art-manifest.json`
+  (24 sheets, all `sourced`), `src/art/Sprite.jsx`, SVG art under
+  `src/art/svg/`, three CC0 PNGs under `public/art/`.
+- **E4 first phone pass** — Jaxon's 2026-09-09 report: scoring-tile
+  misalignment, silent audio after backgrounding, phone spacing fixed
+  (`4d7a4f1`, `1ba0bf0`, `077845f`). Chapter backdrops were wired then
+  reverted as scuffed (see Open, E2).
+
+### Open (in build order)
+
+**A3 — state model.** What exists is a wrapper: `src/app/store.ts` holds a
+reducer whose `FightAction` cases mutate the same `fight.current` run/round
+objects in place, and `dispatch({type:'refresh'})` replaces `forceRender`.
+The spec asks for the real thing:
+
+- Immutable `RunState` / `RoundState` types and pure transitions
+  (`playWord(state, word) → {state, result}`, `changeout`, `buyCard`,
+  `advance`, `skipEnemy`) that return new state. Kill in-place mutation in
+  `round.ts` / `shop.ts` / `items.ts` hooks (`onPlayed` returns state).
+- RNG state (`seed` + counter) inside `RunState`; `rng.ts` gains
+  `next(rngState): [value, rngState]`. The mutable `RngStream` stays only
+  for `tools/`.
+- One store with a discriminated `Action` union whose payloads are data,
+  not closures. Today's actions carry `say`, `sfx`, `startStage`,
+  `markSeen`, `SB`, etc. as payload fields; those move out to effects run
+  by the UI after dispatch.
+- Crescendo phase passed in as `ctx.crescendo` at dispatch time (already
+  the shape, keep it).
+- The eight `any`s in `store.ts` (`run`, `round`, `SB`) go away as a
+  consequence.
+- Parity check: play one seed before and after and compare words, targets,
+  shop contents, scores.
+
+**A2 (remainder) — no globals.** Every engine module still attaches to
+`window.Wordbound.*` via `sandboxGlobal.ts`, `main.tsx` still imports them
+in a fixed order for side effects, and `RoundSandbox.jsx` / `Shop.jsx` still
+read `SB = window.Wordbound.Sandbox`. Spec: ES module imports only, delete
+`sandboxGlobal.ts` and the shim attachments, and `main.tsx` becomes mount
+only. The `window.Game.RNG` attachment goes too.
+
+**A2 (remainder) — target layout.** Move to the tree in A2 below:
+`src/app/App.tsx` phase router, `src/app/persistence.ts` owning every
+`wbc.*` key (`best/key/keyUnlocked/letters/quills/seen/sfx/characters`,
+plus the tuning-panel key) with a versioned schema and `migrate()`;
+`src/audio/` for `audioPiece` and `sfx`; `src/engine/meta/` for the two
+metas; `src/ui/hooks/` (`useDragReorder`, `useCrescendo`, `useSfx`).
+Rename `inks`-era names that survive (`applyInk`, `useInk`, `is-mark-*` is
+fine).
+
+**A4 — component split.** `RoundSandbox.jsx` is 1,898 lines; `PlayBoard.jsx`
+is 464, `Shop.jsx` 316, `HeldRow.jsx` 218; `sandbox.css` is 3,217 lines
+and nothing uses a Tailwind utility class yet (zero hits). Spec is one
+component per file under ~200 lines, in the `ui/` tree of A2: `Rack`,
+`Stick`, `Tile`, `ScoreLine`, `Cascade`, `EnemyPanel`, `CardSlot`,
+`PackPick`, `QuillRow`, `QuillCard`, `GearPanel`, `Callout`. The "callouts
+are only three lines, left inline" note from an earlier pass does not close
+the item: `Callout.tsx` on Sonner is the spec. `RoundSandbox.jsx` ends as
+`FightScreen.tsx` or is deleted.
+
+**A6 — shadcn + Tailwind actually used.** Only `button.tsx` was generated
+and nothing imports it. Spec: Button, Card, Dialog, Sheet (gear panel),
+Tooltip, Popover, Tabs, Badge, Progress, Toggle, Slider (volume, tuning),
+Sonner (callouts) copied into `src/ui/primitives/` and used for all chrome.
+`sandbox.css` shrinks to a small `game.css` holding only the FLIP/pop rules
+(`transform` on `.sb-tile` still forbidden) and is otherwise deleted.
+Theme tokens already sit in the `@theme` block; the components must consume
+them.
+
+**A5 step 6 — proof.** Pre-commit hook proven by a deliberate bad commit;
+`any` count zero outside `tools/`.
+
+**A1 (remainder) — `.jsx` → `.tsx`.** Sixteen `.jsx` files remain
+(`RoundSandbox`, `SituationPanel`, `CharacterSelect`, `Sprite`, the four
+`svg/*`, everything under `src/ui/`). Spec is TypeScript throughout; the
+`allowJs` step was transitional.
+
+**C3 (remainder) — beats.** `Situation.opening[]` and `resolution[]` are
+authored in `situations.ts` and rendered nowhere. Spec: opening lines
+before the first word; the cascade's "total hit" step triggers the ladder
+transition with its own "page turn" SFX (`sfx.ts` has no such sound yet);
+resolution plays as a 2–3 s beat after the win before the shop button,
+any tap skips. Bosses' openings mention the crescendo.
+
+**D1 — the character tile itself.** Not wired at all (see the header note
+in `characters.ts`; `RoundSandbox.jsx:366`). Today a chosen character only
+adds its passive as a hidden item. Spec:
+
+- `CharacterTileState = { tile: Tile }` on `RunState`; `Tile.origin:
+'bag' | 'pack' | 'character'`.
+- Its own slot beside the rack; playable at most once per word; never
+  drawn, never discarded, returns to the slot after scoring; changeouts
+  cannot discard it; tile packs never duplicate it; deck view shows it
+  separately.
+- Scoring: `CHAR_LETTER_MULT` / `CHAR_MULT` in `ROUND_DEFAULTS` (start 2 /
+  1 per D4), reported as a `character` `ScoreStep` the cascade narrates.
+  Neither tunable exists yet.
+- Rule interactions: `no_repeats` bars it, `sotto_voce` counts its length,
+  blank `?` disallowed. Marginalia apply via the normal path and persist
+  for the run.
+- `useDragReorder` treats the slot as a third row that only accepts its
+  own tile back. First-use callout.
+- D4: revisit `MOVEMENT_BASE_n` once every player has a letter.
+
+**E1 (remainder) — poses.** Every sheet has one static image; `Sprite`
+keys SVG lookup by sheet id only, so the `pose` prop changes a `data-`
+attribute and nothing else. Spec: per-pose frames (sheet + manifest
+`{frameW, frameH, poses: {idle: {frames, fps, loop}}}` played by a
+`steps()` `background-position` animation, or per-pose SVGs) for the five
+ladder poses + `win-idle` on the three people and `idle` / `weakening` /
+`gone` (+ `crescendo` on bosses) on the nine antagonists. Art source is
+still Jaxon's open call (draw / CC0 / generated); the SVGs in
+`src/art/svg/` are the current stand-in and can be extended per pose.
+
+**E2 (remainder) — unwired sheets.** Authored and marked `sourced` but
+rendered nowhere: `wordsmith`, `clock`, `knocking_door`, `loudspeaker`,
+`parade`, `podium`, `the_night` (the pressure/finale antagonists — the
+panel currently shows whatever `situation.antagonist` names, one per
+chapter, so the six per-fight antagonists are not on screen),
+`mark_overlay_gilt/bold/steel`, `bookmark_card_frame`, `pack_wrapper`,
+`backdrop_chapter_1/2/3`. Spec: per-fight antagonist (enemy row →
+sprite), wordsmith at the desk with the character letter in a badge, mark
+overlays on inked tiles, card frame on quill cards, wrapper on packs, and
+chapter backdrops as a far/near parallax pair with slow drift. The
+backdrops need a dark-theme recolour or a proper scrim; the 32 %-opacity
+wash that was reverted is not the design.
+
+**E3 — animation hooks.** None are driven by state yet. Spec: ladder step
+→ person/antagonist pose crossfade (200 ms, panel already crossfades on
+caption change); word played → wordsmith `write`; cascade `total hit` →
+antagonist shake (the existing `board-shake` keyframes are for the board,
+not the antagonist); `clear` → antagonist `gone`; boss crescendo `soon` →
+backdrop pulse, `live` → antagonist `crescendo` pose;
+`prefers-reduced-motion` stops loops and drifts but poses still swap
+(today's rule flattens every animation to 0.01 ms, which also kills the
+pose crossfade).
+
+**E4 (remainder) — perf pass after E1–E3 land.** Visible sheet count
+under ~10, sheets ≤ 1024², lazy-load next chapter's sheets during the
+shop, and a phone check at the deployed link for drag feel, cascade timing
+and crescendo cues (never verified by a person since A3/A4 landed).
+
+---
+
+## 0. What exists today (audit findings, 2026-09-08)
 
 Read before starting. All paths under `src/sandbox/` unless noted.
 
@@ -306,6 +306,8 @@ Stack: **Bun** (runtime + package manager + script runner), **Vite**,
   `VITE_BASE_URL` (deploy target), `AUDIO_CACHE_DIR`,
   `WIKT_CACHE_DIR`, an optional `DEPLOY_REMOTE`.
 - Rename entry to `src/main.tsx`. Keep `index.html` as the only entry.
+- All source is `.ts` / `.tsx`; `allowJs` and `.jsx` files are transitional
+  only and are gone by the end of A.
 - Keep the no-test rule from CLAUDE.md. Parity is checked by seed replay
   in the browser, not by a suite.
 
@@ -348,6 +350,9 @@ src/
 tools/                     unchanged, converted to .mjs where trivial
 ```
 
+No `window.Wordbound.*` / `window.Game.*` attachments survive; modules
+import each other.
+
 ### A3. State model
 
 - Replace mutable `run`/`round` objects with plain immutable state types
@@ -356,9 +361,11 @@ tools/                     unchanged, converted to .mjs where trivial
   `buyCard(state, i)`, `advance(state)`, `skipEnemy(state)`.
   Each returns a new state. Old code that mutated in place (`round.rack.push`)
   becomes spread/`with` helpers.
-- One `useReducer` in `store.ts` with a discriminated-union `Action` type.
-  The UI dispatches; the reducer calls engine functions. Delete
-  `forceRender`.
+- One `useReducer` in `store.ts` with a discriminated-union `Action` type
+  whose payloads are plain data (no closures, no `SB`). The UI dispatches;
+  the reducer calls engine functions; side effects (say / sfx / persist)
+  run in the UI off the returned result. Delete `forceRender` and any
+  `refresh`-style action that stands in for it.
 - RNG state is part of the run state (a seed plus a counter), so replaying a
   seed is deterministic without a hidden mutable generator. `rng.ts` gets
   `next(rngState): [value, rngState]` alongside a convenience class for
@@ -391,20 +398,21 @@ interface RunState { seed: string; rng: RngState; movement: number; stage: numbe
 1. Toolchain: Bun lockfile, TS, Tailwind + shadcn init, Prettier, ESLint,
    Husky/lint-staged, dotenv + `.env.example`; rename `main.jsx` →
    `main.tsx`; everything else still `.js` with `allowJs`. Existing
-   `sandbox.css` keeps working beside Tailwind until step 4. Deploy.
+   `sandbox.css` keeps working beside Tailwind until step 4. Deploy. **Done.**
 2. Port `js/core` + `tiles/lexicon/wordlist` to `src/engine/` as ES modules
    with types. Keep the window namespace shim for one step so the UI still
-   works. Deploy.
+   works. Deploy. **Done.**
 3. Port `round.js` + `items.js` + `inks.js` + `shop.js` + `enemies.js` +
    metas to typed pure functions. Remove the shim. `RoundSandbox.jsx`
-   temporarily imports them directly. Deploy.
+   temporarily imports them directly. Deploy. **Ported; shim NOT removed.**
 4. Split `RoundSandbox.jsx` into the `ui/` tree above, introduce the
-   reducer store, delete `forceRender`. Deploy.
+   reducer store, delete `forceRender`. Deploy. **Partial (see Open A3/A4).**
 5. Move `recorded*.js` envelopes to `src/recordings/*.json`; update
    `tools/fetch-audio.js` and `analyze-audio-piece.js` to write JSON.
-   Rewrite CLAUDE.md's Map to match the new tree. Deploy.
+   Rewrite CLAUDE.md's Map to match the new tree. Deploy. **Done.**
 6. `bun run lint`, `bun run typecheck`, `bun run format --check` clean; no
    `any` outside `tools/`; pre-commit hook proven by a deliberate bad commit.
+   **Open (eight `any`s in store.ts; hook not proven).**
 
 ### A6. Coding rules to write into CLAUDE.md
 
@@ -558,7 +566,9 @@ Example, the Doomscroll:
 
 - `SituationPanel.tsx` above the rack: person sprite left, antagonist
   right, caption between. Replaces the enemy glyph and flavour quote in the
-  intro and strip.
+  intro and strip. The antagonist is the current _enemy's_ sprite, not
+  one per chapter.
+- `opening[]` shows before the first word of the fight.
 - The cascade's final "total hit" step triggers a ladder-step transition
   when the index changes; a step change gets its own SFX ("page turn").
 - Resolution plays as a 2–3 s beat after the win before the shop button
@@ -599,18 +609,19 @@ stays seven; the character tile sits in its own slot beside the rack.
 
 Start with six, chosen for distinct play patterns rather than lore:
 
-| id                                                                      | letter | passive (small, one line)                                  |
-| ----------------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
-| zed                                                                     | Z      | high value, rare in words; +1 swap per round               |
-| ess                                                                     | S      | pluraliser; words ending in S get +10 points               |
-| ee                                                                      | E      | the common one; a second E tile in the slot (two per word) |
-| queue                                                                   | Q      | Q and U played together score ×2 mult                      |
-| why                                                                     | Y      | counts as a vowel for vowel quills                         |
-| ex                                                                      | X      | +15 points when the word is 3–4 letters                    |
-| Passives are `Quill`-shaped hooks (`score(ctx, acc)`) registered as a   |
-| hidden quill at run start, so they reuse the item pipeline instead of a |
-| new one. Unlock: Z and E from the start; others unlock by finishing a   |
-| chapter with the previous one (persisted via `persistence.ts`).         |
+| id    | letter | passive (small, one line)                                  |
+| ----- | ------ | ---------------------------------------------------------- |
+| zed   | Z      | high value, rare in words; +1 swap per round               |
+| ess   | S      | pluraliser; words ending in S get +10 points               |
+| ee    | E      | the common one; a second E tile in the slot (two per word) |
+| queue | Q      | Q and U played together score ×2 mult                      |
+| why   | Y      | counts as a vowel for vowel quills                         |
+| ex    | X      | +15 points when the word is 3–4 letters                    |
+
+Passives are `Quill`-shaped hooks (`score(ctx, acc)`) registered as a
+hidden quill at run start, so they reuse the item pipeline instead of a
+new one. Unlock: Z and E from the start; others unlock by finishing a
+chapter with the previous one (persisted via `persistence.ts`).
 
 ### D3. UI
 
@@ -648,7 +659,7 @@ existing tap/drag/FLIP rules keep working.
   for 2–4 pose swaps; recommend **sheets for people, SVG for pieces**.
 - `src/art/` holds sheets + manifests; a `Sprite.tsx` component takes
   `sheet`, `pose`, plays via `steps()` CSS animation on `background-position`.
-  No JS frame timers.
+  No JS frame timers. A `pose` value must change what is drawn.
 - Source of art: Jaxon's call. Options in order of cost: (1) commission or
   draw in Aseprite; (2) CC0 packs (Kenney, OpenGameArt) as placeholders,
   logged in a `tools/art-manifest.json` with licence like the audio
@@ -671,7 +682,10 @@ existing tap/drag/FLIP rules keep working.
   blank), premium slot marker, bookmark (quill) card frame, pack wrapper,
   coin.
 - Backdrops: three chapters, one parallax pair each (far/near), with a
-  slow drift.
+  slow drift. Must be composed for the dark theme (or scrimmed) so they
+  read as scenery, not a wash.
+- Every sheet in the manifest is rendered somewhere; an authored-but-unwired
+  sheet is not done.
 
 ### E3. Animation hooks (all CSS, driven by state)
 
@@ -705,7 +719,13 @@ deployed link before calling it done.
 D can run in parallel with B/C. C should ship with plain text captions
 before any art exists, so the pacing can be felt early.
 
-## Decisions (settled by Jaxon 2026-09-08)
+Suggested order for what is left, given what has landed: A3 (immutable
+state) → A2 remainder (kill globals, persistence.ts, layout) → D1 (the
+tile; it needs the new RunState) → C3 beats → A4 + A6 together (the
+component split is the moment to swap chrome onto shadcn and delete
+`sandbox.css`) → `.jsx` → `.tsx` → E1 poses + E2 wiring → E3 → E4.
+
+## Decisions (settled by Jaxon)
 
 1. Keep all nine recordings for now; small/big enemies keep theirs.
 2. Gold → **ink**. The old tarot-style "ink" → **marginalia**.
@@ -713,4 +733,6 @@ before any art exists, so the pacing can be felt early.
 4. Toolchain: Bun, Vite, Tailwind, shadcn/ui, Prettier, Husky, lint-staged,
    dotenv (A1). UI on shadcn primitives, not hand-rolled CSS.
 5. Situations deduplicated: one phone enemy per chapter at most.
+6. (2026-09-09) **The whole plan is implemented.** No section is optional;
+   partial passes stay in the Open ledger until they match the spec.
    Still open: art source for E1 (draw, CC0 placeholders, or generated).
