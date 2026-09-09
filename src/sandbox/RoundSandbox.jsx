@@ -1643,7 +1643,7 @@ export default function RoundSandbox() {
                 )}
               </div>
             </div>
-          ) : (
+          ) : phase === 'shop' ? null : (
             <>
               <div
                 className="sb-scoreline"
@@ -1752,7 +1752,8 @@ export default function RoundSandbox() {
               setTip={setTip}
             />
           )}
-          {round.plays.length > (scoring && !scoring.cleared ? 1 : 0) && (
+          {phase !== 'shop' &&
+            round.plays.length > (scoring && !scoring.cleared ? 1 : 0) && (
             <ol className="sb-plays">
               {(scoring && !scoring.cleared
                 ? round.plays.slice(0, -1)
