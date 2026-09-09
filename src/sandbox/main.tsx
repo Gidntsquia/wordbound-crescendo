@@ -30,7 +30,7 @@ import './wordFinder.js';
 import '../engine/content/tileBags';
 // The stolen-letters meta: which letters are locked out of every bag/pack
 // until a boss is felled and one is won back (localStorage wbc.letters).
-import './stolenLetters.js';
+import '../engine/content/stolenLetters';
 // The quill-discovery meta: which quills are hidden from the shop/packs
 // until a boss is felled or Movement III is reached (localStorage wbc.quills).
 import './quillDiscovery.js';
