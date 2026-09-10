@@ -215,7 +215,10 @@ marginalia.ts`'s `MARK_DEFS`: gilt, bold, steel, blank, vowel shift,
 - `READ_SLOWLY_PLAN.md` — the 2026-09-08 plan for the next big step: React +
   TypeScript rebuild and code audit, the "slow down and read" theme, fights
   as situations resolved by reading, playable letter-tile characters, 2D
-  sprites. Implement from this in a fresh session. (Earlier plan docs —
+  sprites. Its Work queue is the standing to-do list: a session takes the
+  top item, lands it, deploys, and takes the next; anything needing Jaxon
+  goes in its Waiting-on-Jaxon list and never ends a session. No "done in
+  spirit" (Jaxon, 2026-09-09). (Earlier plan docs —
   BALATRO_NOTES, COMBAT_REDESIGN, DEMO_PLAN(_2), DIVERGENCE_PLAN,
   NEXT_LEVEL_PLAN, NIGHT_REPORT — were implemented and removed 2026-09-09.)
 - `THEME.md` — world/style bible (pre-dates READ_SLOWLY_PLAN.md; stage B rewrites it). `ROADMAP.md` — north star + known gaps.

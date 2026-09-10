@@ -9,35 +9,61 @@ sprites and animation.
 
 ## The rule: the WHOLE plan ships
 
-Jaxon's standing instruction, restated 2026-09-09 and again when this
-ledger was compacted: **every item in sections A–E is implemented, in
-full, as specified. No session closes this plan early.**
+Jaxon's standing instruction, 2026-09-09, verbatim: _"I don't want 'done in
+spirit' — I want to complete the full transition to shadcn, Tailwind,
+TypeScript, and the other things I wanted, even if it is challenging or
+will take a little while."_
+
+**Every item in sections A–E is implemented, in full, as specified. No
+session closes this plan early, and no session stops while the Work queue
+below is non-empty.**
 
 - **Done means the code matches the spec.** A note explaining why a piece
-  was skipped, deferred, judged "not worth the risk", "done in spirit", or
-  replaced with a wrapper is not a completed item. It is an open item with
-  a note attached, and it stays under **Open** until the code matches.
-- **Sessions do not narrow scope.** If an item is blocked, finish
-  everything else, say exactly what is blocked and why, and leave it under
-  Open with that reason. Only Jaxon strikes an item. "Recommend closing"
-  is a question to Jaxon, not a status.
+  was skipped, deferred, judged "not worth the risk", "done in spirit",
+  "coherent as is", or replaced with a wrapper is not a completed item. It
+  is an open item with a note attached and stays in the Work queue until
+  the code matches. "Recommend closing" is a question to Jaxon, not a
+  status.
 - **Nothing is optional and nothing is cosmetic.** A layout target, a file
-  deletion, a rename, a perf budget and a phone check are items like any
-  other. `sandbox.css` still existing, a `.js` file still in `src/ui/`, a
-  pose prop that changes nothing on screen: each one is open work.
-- **Every session opens by reading Open below and picks the first item it
-  can move.** Do not start new work outside this plan while Open is
-  non-empty unless Jaxon asks for it.
-- **Each landed item deploys** (`bun run deploy`) so it can be played on
-  the phone. Feel-sensitive items (timing, audio, drag) get a phone check
-  before they move to Done.
-- **Keep this ledger truthful and short.** When something lands, move it
-  to Done as one line with the commit hash. Long narrative belongs in the
-  commit message, not here. When a Done item turns out not to be done,
-  move it back.
+  deletion, a rename, a perf budget: each is an item like any other.
+  `sandbox.css` still existing, a `.js` file still in `src/ui/`, a pose
+  prop that changes nothing on screen: each one is open work.
+- **Hard is not blocked.** "A large rewrite with no test suite", "touches
+  30 call sites", "risks a transcription mistake" describe the work, not a
+  reason to skip it. Verify in a real browser (Playwright, headless) after
+  each step; if browser automation is denied, verify by `bun run build`
+  plus a careful diff and say so in the commit.
+- **Blocked means waiting on Jaxon and nothing else.** The only things a
+  session cannot do itself are: hold the phone, choose the art source,
+  settle a rules decision. Those go in the **Waiting on Jaxon** list, never
+  in the Work queue, and never end a session: record the question, move
+  to the next queue item. A phone check is Jaxon's item; the session's
+  item is "deployed and ready for the phone check".
+- **Session protocol.** Open this file. Take the first Work-queue item.
+  Deliver it fully, run `bun run typecheck && bun run lint && bun run
+format:check && bun run build`, verify in the browser, `bun run deploy`,
+  move the item to Done as one line with the commit hash, then take the
+  next item. Repeat until the queue is empty. Do not start work outside
+  this plan while the queue is non-empty unless Jaxon asks for it.
+- **Keep this ledger truthful and short.** One line per Done item. Long
+  narrative belongs in the commit message. When a Done item turns out not
+  to be done, move it back to the queue.
 
 Nothing here changes the music rule: bosses keep their recordings, audio
 stays synthesized elsewhere.
+
+### Why the last session stalled (fix applied 2026-09-09)
+
+The 2026-09-08 status wrote E4 as "needs an actual phone playing the actual
+build" under a heading "Blocked, not abandoned", and E4 was the last item
+in the suggested order. A later session reached E4, had no phone, called
+the plan blocked, and stopped with A2/A4/A6 work still open. Three
+mistakes, each fixed above: (1) a phone check was filed as the session's
+item instead of Jaxon's; (2) "blocked" ended the session instead of
+skipping to the next item; (3) the queue had no acceptance checks, so
+"partial" could pass as done. E4 is now split into what a session does
+(sheet audit, lazy-load, emulated-mobile perf numbers) and what Jaxon does
+(the phone check).
 
 ---
 
@@ -47,130 +73,136 @@ stays synthesized elsewhere.
 
 - **A1 toolchain** — Bun, Vite, TS strict, Tailwind v4 + `@theme`, shadcn
   init, Prettier, ESLint flat, Husky pre-commit/pre-push, `.env.example`.
-- **A1 `.jsx` → `.tsx`** — all sixteen components ported with real prop
-  types (`811df5d`, `4722c2c`, `d69e76f`, `e746198`).
+- **A1 `.jsx` → `.tsx`** — sixteen components ported with real prop types
+  (`811df5d`, `4722c2c`, `d69e76f`, `e746198`).
 - **A2 engine port** — every engine module is typed `.ts`; `recorded*.js`
   became `src/recordings/*.json`; `wordlist.js` is the one allowed plain-JS
   data import.
 - **A2 no globals** — `window.Wordbound.Sandbox` / `window.Game.RNG` gone;
-  every module is a plain ES import (`0405687`). Dead mutable
-  `content/round.ts` `createRound`/`createRun` and `content/shop.ts`
-  deleted.
-- **A2 persistence.ts** — `src/app/persistence.ts` owns `wbc.best/key/
-keyUnlocked/seen/sfx` with a `KEYS` map and a `migrate()` run at startup.
-- **A2 hooks** — `useCrescendo`, `useDragReorder`, `useSfx` extracted to
+  every module is a plain ES import (`0405687`).
+- **A2 persistence.ts** — owns `wbc.best/key/keyUnlocked/seen/sfx` with a
+  `KEYS` map and a startup `migrate()`.
+- **A2 hooks** — `useCrescendo`, `useDragReorder`, `useSfx` in
   `src/ui/hooks/` (`23d7f71`, `f1c9d76`).
-- **A2 App.tsx phase router** — `src/app/App.tsx` composes title / gear
-  sheet / fight / shop / letter / end from `FightScreen.tsx`'s state
-  (`55363aa`).
-- **A2 main.tsx mount-only** — beyond the four legacy-global loads
-  (`5523b48`); `audio/` and `engine/meta/` moved to the target paths
-  (`a994c15`).
-- **A3 immutable engine** — `state/round.ts` / `state/run.ts` pure
-  transitions with threaded `RngState`, parity-verified over 15 seeds
-  (`9d5652b`, `55d49aa`, `cde2d15`, `befe9ec`).
-- **A3 facade + data-only actions** — `state/facade.ts` presents the
-  mutable-shaped API over the immutable state (`8ff70e8`); `store.ts`'s
-  `FightAction` is plain data, `runFightAction` returns `FightEffect[]`
-  (`4f644af` + follow-up).
-- **A4 component split** — `RoundSandbox.jsx` split into the `ui/fight`,
-  `ui/shop`, `ui/chrome`, `ui/meta` children (`22f4d25`, `2379665`,
-  `de45dee`, `a80ea47`), renamed `FightScreen.tsx`; Callout on Sonner
-  (`ba2f69f`).
-- **A5 CLAUDE.md rewrite, A6 rules written** — Map and Coding rules match
-  the tree.
-- **A5 step 6 proof** — zero `any` outside `tools/`; pre-commit hook proven
-  by a deliberate bad commit.
-- **A6 primitives wired** — Sheet (gear, `58acb5d`), Slider (volume,
-  `45d8195`), Progress (meter, `93ab0b1`), Toggle (sfx/helper), Tabs
-  (tuning), Tooltip (felled pips, `726db40`), Popover/Badge/Card/Dialog
-  (intro hint, end screen, share preview, `62edd39`), Sonner (callouts).
-  Three latent bugs in the shadcn scaffolding fixed along the way
-  (`vite.config.mjs` alias, Slider single-value fallback, Progress
-  duplicate track).
-- **B1 vocabulary swap** — `src/ui/copy.ts`; gold → ink; inks →
-  marginalia; `BOOK_WORDS`/`SLOW_WORDS` kinds.
-- **B2 enemy lineup** — nine names and chapter titles in `enemies.ts`,
-  recordings unmoved.
-- **B3 copy pass** — eyebrow, end-screen lines, callouts; THEME.md rewritten.
-- **C1–C4 situations** — `situations.ts` data and ladders, `ladderIndex`,
-  `run.resolved`, `SituationPanel.tsx`, opening beats, page-turn SFX on a
-  ladder crossing, resolution beat before the shop button, boss-specific
-  openings, loss line (`8342754`, `0ab311e`, `9d1d28e`).
-- **D1 character tile** — `RunState.characterTile`, scoring step, drag as a
-  third row, deck-view line, first-use callout.
-- **D2 roster + passives, D3 select screen** — `characters.ts`,
-  `CharacterSelect.tsx`, `wbc.characters`.
-- **E1 pipeline** — `tools/art-manifest.json` (24 sheets, all `sourced`),
-  `Sprite.jsx`, SVG art under `src/art/svg/`, three CC0 PNGs.
-- **E2 per-fight antagonists** — six big/boss antagonists shown on their own
-  enemy via `Enemy.antagonist` (`fb5082a`).
-- **E3 partial** — ladder step → pose crossfade; cascade total hit →
-  antagonist shake (`e6b5550`).
+- **A2 App.tsx phase router** — `src/app/App.tsx` (`55363aa`).
+- **A2 main.tsx mount-only** beyond the four legacy-global loads (`5523b48`);
+  `audio/` and `engine/meta/` at target paths (`a994c15`).
+- **A3 immutable engine** — `state/round.ts` / `state/run.ts`, parity over
+  15 seeds (`9d5652b`, `55d49aa`, `cde2d15`, `befe9ec`).
+- **A3 facade + data-only actions** — `state/facade.ts` (`8ff70e8`);
+  `FightAction` is plain data, `runFightAction` returns `FightEffect[]`.
+- **A4 component split (first pass)** — `ui/fight`, `ui/shop`, `ui/chrome`,
+  `ui/meta` children (`22f4d25`, `2379665`, `de45dee`, `a80ea47`); rename to
+  `FightScreen.tsx`; Callout on Sonner (`ba2f69f`).
+- **A5 CLAUDE.md rewrite, A6 rules written.**
+- **A5 step 6 proof** — zero `any` outside `tools/`; pre-commit proven.
+- **A6 primitives wired** — Sheet (`58acb5d`), Slider (`45d8195`), Progress
+  (`93ab0b1`), Toggle, Tabs, Tooltip (`726db40`), Popover/Badge/Card/Dialog
+  (`62edd39`), Sonner. Three scaffolding bugs fixed (vite alias, Slider
+  fallback, Progress duplicate track).
+- **B1–B3** — `copy.ts`, gold → ink, inks → marginalia, word kinds, nine
+  enemies, THEME.md.
+- **C1–C4** — situations, ladders, `SituationPanel.tsx`, opening beats,
+  page SFX, resolution beat, boss openings, loss line (`8342754`,
+  `0ab311e`, `9d1d28e`).
+- **D1 character tile**, **D2 roster**, **D3 select screen.**
+- **E1 pipeline** — manifest (24 sheets `sourced`), `Sprite`, SVG art.
+- **E2 per-fight antagonists** (`fb5082a`). **E3 partial** — ladder
+  crossfade, hit shake (`e6b5550`).
 - **E4 first phone pass** — 2026-09-09 report fixed (`4d7a4f1`, `1ba0bf0`,
   `077845f`, `7023b2c`, `e46b475`, `75931ac`).
 
-### Open (in build order)
+### Work queue (do in this order; each has an acceptance check)
 
-Each entry is the gap between the tree and the spec. None is optional.
+1. **A1/A2 last files to TypeScript and target paths.**
+   `cardCopy.js` → `cardCopy.ts` with real types; `Sprite.jsx` → `Sprite.tsx`;
+   `git mv src/sandbox/main.tsx src/main.tsx`, `FightScreen.tsx` →
+   `src/ui/fight/`, `CharacterSelect.tsx` → `src/ui/meta/`,
+   `SituationPanel.tsx` → `src/ui/fight/`, `QuillRow`/`QuillCard` →
+   `src/ui/quills/`; `index.html` and CLAUDE.md updated.
+   Accept: `find src -name '*.js' -o -name '*.jsx'` returns nothing;
+   `src/sandbox/` contains only `sandbox.css` (deleted in item 5).
+2. **A2 every localStorage key through `persistence.ts`.**
+   `wbc.letters`, `wbc.quills`, `wbc.characters` move into `KEYS`;
+   `stolenLetters.ts`, `quillDiscovery.ts`, `characters.ts` stop touching
+   `window`: they export pure functions over a passed-in state, and the
+   app layer reads/writes through `persistence.ts`. `isStolen` wiring on
+   `window.Wordbound.StolenLetters` is replaced by a plain import in
+   `tiles.ts`. Accept: `grep -rn "window\|localStorage" src/engine` returns
+   nothing.
+3. **A2 audio lifecycle out of FightScreen.** ctx/gain/seq creation,
+   `onstatechange` resume, rebuild-after-closed, warm-ahead and
+   stage-start music move into `src/ui/hooks/useAudio.ts` (or into
+   `useSfx` + `recordingPlayer.ts`). Accept: `FightScreen.tsx` has no
+   `AudioContext` reference; deployed; listed under Waiting on Jaxon for
+   the background/resume phone check.
+4. **A4 FightScreen becomes a fight screen.** Title, shop, pack, letter
+   choice and end each own their state under `ui/meta` / `ui/shop` /
+   `ui/fight`; `App.tsx` routes on `run.phase`; `useFight.ts` (or the
+   store) holds the fight's state and callbacks. Accept: every file under
+   `src/ui/` and `src/app/` is under ~200 lines, or has a one-line header
+   saying why; `bun run build` clean; a full run (fight → shop → pack →
+   boss letter → end) played in Playwright with zero console errors.
+5. **A6 `sandbox.css` deleted; chrome on shadcn + Tailwind.**
+   Add a `paper` variant (and `paperPrimary`, `paperGhost` as needed) to
+   `button.tsx`'s cva carrying the paper/ink/gilt look, so the primitive
+   expresses the theme instead of fighting it; convert every native
+   `<button>` in `src/ui` and `src/app` to `Button`. Shop/pack cards on
+   `Card` with a rarity `Badge`; the `.sb-card.is-{rarity}` glow becomes
+   Tailwind utilities keyed off `data-rarity`. Everything else in
+   `sandbox.css` becomes Tailwind utilities on the element, section by
+   section (title, run strip, score line, rack, stick, cascade, shop, end
+   screen, tuning). What survives moves to `src/styles/game.css`: only
+   the FLIP/pop keyframes, `.sb-tile`'s no-transform rule, `.sb-tile-pop`,
+   board-shake and sprite crossfade keyframes. Accept: `sandbox.css` does
+   not exist; `game.css` is under ~250 lines; `grep -rn "<button" src/ui
+src/app` returns nothing; a full run in Playwright looks the same at
+   390 px and 1280 px (screenshots before/after committed to the scratch
+   dir, not the repo).
+6. **A6 `GearPanel.tsx`.** `ui/chrome/GearPanel.tsx` composes `SetupPanel`,
+   `StartingQuills`, `TuningPanel` inside the Sheet. Accept: `App.tsx` renders
+   `<GearPanel>` and nothing else from the gear.
+7. **A5 live verification of the win paths.** Add a dev-only forced-win
+   affordance (tuning-panel target override applied at `createRound`, gated
+   on `import.meta.env.DEV`). Then play shop split, resolution beat, page
+   SFX, `nextStage`/`buyCard`/`pickCard`/`useInk`/`applyInk` live in
+   Playwright. Accept: each path listed with "verified live" in the commit.
+8. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
+   letter tile; record the before/after targets in the commit.
+9. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
+   poses + `win-idle` on the three people and `idle`/`weakening`/`gone`
+   (+ `crescendo` on bosses) on the nine antagonists; `Sprite` picks the
+   pose's art; manifest gains `poses`. Accept: changing `pose` changes
+   what is drawn for every sheet; Playwright screenshots of two poses
+   differ.
+10. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
+    letter in a badge), `mark_overlay_gilt/bold/steel` on marked tiles,
+    `bookmark_card_frame` on quill cards, `pack_wrapper` on packs,
+    `backdrop_chapter_1/2/3` as far/near parallax with slow drift and a
+    proper dark-theme scrim (the reverted 32% wash is not the design).
+    Accept: every manifest id appears in a `Sprite` render site.
+11. **E3 remaining hooks.** Word played → wordsmith `write`; win →
+    `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
+    pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
+    loops and drift without freezing a `steps()` loop on frame one.
+    Accept: each hook observed in Playwright via the class/pose it sets.
+12. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
+    count and dimensions (fail over 1024²); visible sheets under ~10 per
+    screen; next chapter's sheets prefetched during the shop; Playwright
+    mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
+    timing and the cascade's timing before/after in the commit. Accept:
+    numbers in the commit; then move "phone check" to Waiting on Jaxon.
 
-- **A2 target layout.** `FightScreen.tsx` and `main.tsx` still live under
-  `src/sandbox/`, not `src/ui/fight/` and `src/`. `src/ui/quills/` does not
-  exist (QuillRow/QuillCard sit in `ui/fight`). `cardCopy.js` in
-  `src/ui/fight/` is still plain JS. `Sprite.jsx` is still `.jsx`.
-  `wbc.letters/quills/characters` are still direct `localStorage` calls
-  inside `engine/meta/` and `content/characters.ts`; the spec says every key
-  goes through `persistence.ts`, which means those modules take the store
-  as a parameter or move out of `engine/`. The audio-context/recording
-  lifecycle (ctx, gain, seq, resume, warm-ahead, stage-start music) is still
-  inline in `FightScreen.tsx`; spec puts it in `useSfx`/`recordingPlayer`.
-  Needs a phone check for background/resume after the move.
-- **A4 FightScreen under ~200 lines.** The rename landed; the split did not.
-  `FightScreen.tsx` is still the whole app. Extract the fight phase's state
-  and callbacks so `App.tsx` truly routes between Title / Fight / Shop /
-  Pack / End screens each owning their state.
-- **A6 sandbox.css deleted, chrome on shadcn.** `sandbox.css` is 3,283
-  lines. Spec: game pieces keep a small `game.css` for FLIP/pop rules;
-  everything else is Tailwind utilities on shadcn primitives, including the
-  native `<button>` theme and the `.sb-card` rarity system. The earlier
-  note recommending "done in spirit" is a request to Jaxon, not a status;
-  until Jaxon strikes it, this is open. Plan for the Button conflict named
-  in that note: a `paper` variant added to `button.tsx`'s cva so the theme
-  is expressed in the primitive rather than fought by it.
-- **A6 GearPanel.tsx.** The Sheet exists but there is no `GearPanel`
-  component in `ui/chrome/`; the three panels are composed inline.
-- **A5 live verification gaps.** Shop split (`a80ea47`), won-banner
-  resolution beat and page SFX (`8342754`, `0ab311e`), and the `nextStage`/
-  `buyCard`/`pickCard`/`useInk`/`applyInk` effect cases were never driven
-  live through a real win. Add a dev-only forced-win affordance (a tuning
-  panel target override applied at `createRound`) so the shop/win/end paths
-  can be played and verified, then verify them.
-- **D1 vs Decision 3.** `7023b2c` limited the character tile to once per
-  round with a divider (`3160a75`); Decision 3 says once per word. Jaxon
-  made the change while watching the phone, so record which rule stands and
-  update D1, `CHAR_*` tunables and the callout copy to match.
-- **D4 balance.** Revisit `MOVEMENT_BASE_n` now every player has a letter.
-- **E1 poses.** `Sprite` keys on sheet id only; the `pose` prop changes a
-  `data-` attribute and nothing drawn. Spec: per-pose frames or per-pose
-  SVGs for the five ladder poses + `win-idle` on the three people and
-  `idle`/`weakening`/`gone` (+ `crescendo` on bosses) on the nine
-  antagonists, played by a `steps()` `background-position` animation with a
-  per-sheet `{frameW, frameH, poses}` manifest. Art source is Jaxon's open
-  call; the SVG stand-ins can be extended per pose meanwhile.
-- **E2 remaining sheets.** `wordsmith` (desk panel with the character letter
-  in a badge), `mark_overlay_gilt/bold/steel` (on inked tiles),
-  `bookmark_card_frame` (quill cards), `pack_wrapper` (packs),
-  `backdrop_chapter_1/2/3` (far/near parallax pair with slow drift,
-  dark-theme recolour or a proper scrim; the reverted 32% wash is not the
-  design). Every sheet in the manifest is rendered somewhere.
-- **E3 remaining hooks.** Word played → wordsmith `write`; win → `flourish`;
-  `clear` (round won) → antagonist `gone`; boss crescendo `soon` → backdrop
-  pulse, `live` → antagonist `crescendo` pose. `prefers-reduced-motion`
-  must disable loops and drifts without freezing a `steps()` loop on its
-  first frame; poses still swap.
-- **E4 perf pass.** Visible sheet count under ~10, sheets ≤ 1024², lazy-load
-  the next chapter's sheets during the shop, then a phone check at the
-  deployed link for drag feel, cascade timing and crescendo cues.
+### Waiting on Jaxon (never blocks the queue)
+
+- **Character tile: once per word or once per round?** Decision 3 says per
+  word; `7023b2c` (made while Jaxon watched the phone) limits it to once per
+  round with a divider (`3160a75`). Until answered, per-round stands as
+  shipped and D1's text is not rewritten.
+- **Art source for E1** (draw / CC0 / generated). Until answered, the SVG
+  stand-ins are extended per pose (queue item 9).
+- **Phone checks** at the deployed link, after items 3, 5 and 12 land:
+  audio background/resume, drag feel, cascade timing, crescendo cues.
 
 ---
 
@@ -683,11 +715,8 @@ deployed link before calling it done.
 D can run in parallel with B/C. C should ship with plain text captions
 before any art exists, so the pacing can be felt early.
 
-Suggested order for what is left, given what has landed: A3 (immutable
-state) → A2 remainder (kill globals, persistence.ts, layout) → D1 (the
-tile; it needs the new RunState) → C3 beats → A4 + A6 together (the
-component split is the moment to swap chrome onto shadcn and delete
-`sandbox.css`) → `.jsx` → `.tsx` → E1 poses + E2 wiring → E3 → E4.
+Order for what is left: the Work queue above, top to bottom. It
+supersedes the earlier suggested order.
 
 ## Decisions (settled by Jaxon)
 
