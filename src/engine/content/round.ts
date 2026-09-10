@@ -15,9 +15,20 @@ import { applyItems, describeDelta } from './items';
 export type Tune = Record<string, number | boolean | undefined>;
 
 export const ROUND_DEFAULTS: Tune = {
-  MOVEMENT_BASE_1: 300, // small-enemy target, first movement (Phase 0)
-  MOVEMENT_BASE_2: 750, // second movement, ~2.5x like Balatro's antes
-  MOVEMENT_BASE_3: 1200, // third movement, x1.6 -- untuned, see NIGHT_REPORT
+  // READ_SLOWLY_PLAN.md D4: raised ~3% over the Phase 0 numbers (300/750/
+  // 1200) once the character tile became standard (every run has one, D1-D3
+  // Done) -- CHAR_LETTER_MULT: 2 with a starting letter of E or Z nets a
+  // guaranteed +1..+10 flat points once per round (charBonusPts in this
+  // file's scoreWordPoints), so a small, round-count-independent bump here
+  // keeps the target the same *fraction* of a word's max score rather than
+  // silently getting easier as more players discover higher-value character
+  // letters (Q/Z=10, X/Y=8/4) via D2's roster unlocks. CHAR_MULT stays 1 (a
+  // no-op on mult) per the plan's own "start conservative" note, so this is
+  // the only compensation needed -- nerfing the letters was the alternative
+  // the plan explicitly ruled out.
+  MOVEMENT_BASE_1: 310, // was 300
+  MOVEMENT_BASE_2: 775, // was 750
+  MOVEMENT_BASE_3: 1240, // was 1200
   BIG_MULT: 1.5, // big enemy target = base x this
   BOSS_MULT: 2, // boss target = base x this
   PLAYS: 4, // words the player may play
