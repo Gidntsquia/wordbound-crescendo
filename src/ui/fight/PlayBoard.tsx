@@ -156,7 +156,10 @@ const PlayBoard = forwardRef<
     'Your letter — tap it into any word. It scores extra and comes back after.',
   );
   return (
-    <section className="sb-play" ref={playRef as React.Ref<HTMLElement>}>
+    <section
+      className="sb-play mb-[22px] border-t border-b border-[var(--rule)] py-[22px] max-[620px]:mb-2.5 max-[620px]:py-2.5"
+      ref={playRef as React.Ref<HTMLElement>}
+    >
       <Rack
         rackShown={rackShown}
         live={live}

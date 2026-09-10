@@ -229,159 +229,15 @@ button:disabled {
 }
 
 /* ---- rack, input, word maker ------------------------------------------ */
-.sb-play {
-  padding: 22px 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  margin-bottom: 22px;
-}
-
-.sb-rack-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-}
-
-/* Visually set apart from the case (Jaxon, 2026-09-09: it's your own tile,
-   not one of the drawn rack), but plain -- no gold fill, no item look, just
-   a thin rule so it doesn't read as a bonus item. Once-per-round is the
-   spent (hollow) state, not the colour. */
-.sb-character-slot {
-  flex: 0 0 auto;
-  padding-right: 8px;
-  border-right: 1px solid var(--rule);
-}
-
-.sb-rack {
-  display: flex;
-  gap: 7px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-  flex: 1 1 auto;
-}
-
-/* A rack tile is a piece of foundry type: paper face, ink letter, point size
-   in the corner. */
-.sb-tile {
-  position: relative;
-  min-width: 46px;
-  height: 52px;
-  padding: 0;
-  font-family: var(--display);
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink);
-  background: var(--leaf);
-  border: 1px solid var(--leaf);
-  border-radius: 2px;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
-}
-
-/* NOTHING HERE MAY SET `transform`. The tap-to-play slide is a FLIP (see
-   flipTileTo in RoundSandbox.jsx) and it owns this element's transform for the
-   190ms it is travelling; a hover or state rule that also wrote transform
-   would fight it for the same property and the tile would jump. Lift is done
-   with shadow and ground alone, which is truer to a piece of type anyway --
-   it is picked UP, not stretched. */
-.sb-tile:hover:not(:disabled):not(.is-slot) {
-  color: var(--ink);
-  background: var(--brass-hot);
-  border-color: var(--brass-hot);
-  box-shadow:
-    0 4px 0 rgba(0, 0, 0, 0.45),
-    0 0 0 1px var(--brass-hot);
-}
-
-/* DRAG TO REORDER (dragReorder.js). The tile being dragged goes hollow where
-   it stood -- its ghost is what the finger is holding -- and that hollow
-   travels to wherever the drop would land, in either row. No transform: the
-   FLIP owns it. touch-action: none, because a drag from the case down to the
-   stick is vertical and the browser must not take it as a scroll. */
-.sb-tile {
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.sb-tile.is-dragging {
-  opacity: 0.25;
-}
-.sb-drag-ghost {
-  position: fixed;
-  z-index: 50;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--display);
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--ink);
-  background: var(--brass-hot);
-  border: 1px solid var(--brass-hot);
-  border-radius: 2px;
-  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.55);
-}
-.sb-drag-ghost sub {
-  position: absolute;
-  right: 4px;
-  bottom: 3px;
-  font-size: 10px;
-  color: rgba(26, 23, 16, 0.6);
-}
-
-/* THE HOLE A PLAYED TILE LEAVES. The case does not close up behind a tile --
-   the row would reshuffle under the player's finger mid-word, and the FLIP
-   needs somewhere for that tile to come home to. Same box, no face. */
-.sb-tile.is-slot {
-  background: transparent;
-  border: 1px dashed var(--rule);
-  box-shadow: none;
-  cursor: default;
-  /* It is a hole, not a control: it must not light under the cursor and must
-     not swallow a click aimed past it. A <span> is not :disabled, so the hover
-     rule above would otherwise paint an empty slot like a live tile. */
-  pointer-events: none;
-}
-
-/* A tile standing in the stick: it has left the case and is inked, ready to
-   print. Brass-hot because that is already what this screen means by "your
-   attention is on this one" -- it is what a rack tile turns under the cursor,
-   and what a picked tile used to turn before the stick existed. */
-.sb-tile.is-set {
-  background: var(--brass-hot);
-  border-color: var(--brass-hot);
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5);
-}
-
-.sb-tile.is-set sub {
-  color: rgba(26, 23, 16, 0.6);
-}
-
-.sb-tile.is-set:hover:not(:disabled) {
-  background: var(--leaf);
-  border-color: var(--leaf);
-  box-shadow:
-    0 3px 0 rgba(0, 0, 0, 0.5),
-    0 0 0 1px var(--leaf);
-}
-
-/* A letter in the field with no tile in the case behind it. Set as an
-   outline: there is nothing to print with. */
-.sb-tile.is-missing {
-  color: var(--rubric);
-  background: transparent;
-  border: 1px dashed var(--rubric-dim);
-  box-shadow: none;
-}
-
-.sb-tile.is-missing:hover:not(:disabled) {
-  color: var(--rubric);
-  background: rgba(212, 97, 74, 0.14);
-  border-color: var(--rubric);
-  box-shadow: none;
-}
+/* .sb-play, .sb-rack-row, .sb-character-slot, .sb-rack, .sb-tile (base +
+   hover/is-dragging/is-slot/is-set/is-missing) and .sb-drag-ghost ported to
+   Tailwind utilities on their JSX (sandbox.css A6 slice 5, READ_SLOWLY_PLAN
+   A6) -- see Rack.tsx/Stick.tsx/PlayBoard.tsx/dragReorder.ts and the other
+   .sb-tile call sites (LetterChoice.tsx, PackPick.tsx, ShopInkPicker.tsx).
+   The class names themselves stay on the elements as plain markers: no CSS
+   is attached to them any more, but dragReorder.ts/useDragReorder.ts still
+   select by them. The "NOTHING MAY SET transform" rule that used to live as
+   a comment here now lives next to the Tailwind classes in Rack.tsx. */
 
 /* -- the composing stick ------------------------------------------------ */
 /* The play area a tapped tile slides down into. Fixed height on purpose: a row
@@ -480,15 +336,6 @@ button:disabled {
   font-size: 13px;
   color: var(--leaf-dim);
   padding-left: 2px;
-}
-
-.sb-tile sub {
-  position: absolute;
-  right: 4px;
-  bottom: 3px;
-  font-family: var(--figure);
-  font-size: 9px;
-  color: rgba(26, 23, 16, 0.55);
 }
 
 .sb-input {
@@ -667,128 +514,22 @@ button:disabled {
 }
 
 /* ---- tuning + log ----------------------------------------------------- */
-.sb-tune {
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 18px;
-  margin-bottom: 22px;
-}
-
-.sb-tune summary {
-  cursor: pointer;
-  padding: 4px 0 12px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--leaf-dim);
-}
-
-.sb-tune summary:hover {
-  color: var(--brass-hot);
-}
-
-.sb-tune-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
-  gap: 10px 14px;
-}
-
-.sb-tune-grid input {
-  width: 100%;
-}
-
-.sb-tune-note {
-  margin: 14px 0 0;
-  font-size: 11px;
-  color: var(--leaf-dim);
-  max-width: 62ch;
-}
-
-.sb-log {
-  font-family: var(--figure);
-  font-size: 12px;
-  color: var(--leaf-dim);
-}
-
-.sb-log summary {
-  cursor: pointer;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sb-log summary::marker {
-  color: var(--leaf-dim);
-}
-.sb-log[open] summary {
-  color: var(--leaf);
-  white-space: normal;
-  text-overflow: clip;
-  margin-bottom: 4px;
-}
-.sb-log-lines {
-  line-height: 1.9;
-  max-height: 210px;
-  overflow-y: auto;
-}
-.sb-log-lines div {
-  border-bottom: 1px solid rgba(44, 46, 69, 0.5);
-}
-.sb-log-lines div:first-child {
-  color: var(--leaf);
-}
+/* .sb-tune/.sb-tune-grid/.sb-tune-note ported to Tailwind utilities on
+   TuningPanel.tsx (sandbox.css A6 slice 5). "sb-tune" stays as a plain
+   marker class on <details>: .sb-tune label (setup-strip section, out of
+   this slice's scope) still selects off it as an ancestor.
+   .sb-log/.sb-log-lines had no remaining call site anywhere in src/ui --
+   dead code, deleted outright rather than ported. */
 
 /* ---- motion ----------------------------------------------------------- */
-@keyframes slug-set {
-  from {
-    opacity: 0;
-    transform: translateX(-14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes staff-strike {
-  0% {
-    box-shadow: inset 0 0 0 0 rgba(242, 194, 96, 0);
-  }
-  25% {
-    box-shadow: inset 0 0 60px 0 rgba(242, 194, 96, 0.38);
-  }
-  100% {
-    box-shadow: inset 0 0 0 0 rgba(242, 194, 96, 0);
-  }
-}
-
-@keyframes barline-judder {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  30% {
-    transform: translateX(5px);
-  }
-  65% {
-    transform: translateX(-2px);
-  }
-}
-
-@keyframes barline-recentre {
-  0% {
-    opacity: 0.15;
-    transform: scaleY(0.82);
-  }
-  45% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-
+/* slug-set, staff-strike, barline-judder and barline-recentre had no
+   `animation:` reference anywhere in this file or src/ (grepped) -- dead
+   keyframes, deleted outright. fade-up is left in place: it's reached via
+   Tailwind's animate-[fade-up_420ms_ease-out_both] arbitrary value in
+   WonBanner.tsx/LetterChoice.tsx, and Tailwind v4 still needs the
+   @keyframes rule defined somewhere in loaded CSS -- a later A6 slice
+   consolidates every surviving keyframe (this one included) into
+   src/styles/game.css. */
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -905,32 +646,15 @@ button:disabled {
   /* A full rack has to stay ONE row on a phone. Seven tiles that wrap turn
      the case into two rows that reflow as tiles leave it, and the hollow slot
      is what this whole layout uses to keep the case still. 7x40 + 6x5 = 310,
-     inside a 375px screen at this padding. */
-  .sb-rack,
+     inside a 375px screen at this padding.
+     .sb-rack's half of this (and .sb-tile's own sizing, and the
+     :has(.sb-character-slot) compact variants, and .sb-play, all below)
+     moved to Tailwind max-[620px]: utilities on Rack.tsx/PlayBoard.tsx
+     (sandbox.css A6 slice 5) -- driven off the characterTile prop instead
+     of :has(), since Rack.tsx already knows whether the slot is showing.
+     .sb-stick's own gap stays here, split out of the old shared rule. */
   .sb-stick {
     gap: 5px;
-  }
-  .sb-tile {
-    min-width: 40px;
-    height: 46px;
-    font-size: 19px;
-  }
-  /* The character slot adds an 8th tile plus its own border/padding to that
-     same row -- the 40px math above only accounts for 7. Shrink everything
-     in the row when it's present so the case still fits on one line instead
-     of wrapping the last rack tile onto a second row. */
-  .sb-rack-row:has(.sb-character-slot) .sb-tile {
-    min-width: 34px;
-    height: 42px;
-    font-size: 17px;
-  }
-  .sb-rack-row:has(.sb-character-slot) .sb-rack {
-    gap: 4px;
-  }
-  .sb-rack-row:has(.sb-character-slot) {
-    gap: 4px;
-  }
-  .sb-stick {
     min-height: 44px;
     padding: 5px 7px;
   }
@@ -946,13 +670,8 @@ button:disabled {
   .sb-strip {
     margin-bottom: 8px;
   }
-  .sb-rack,
   .sb-stick-wrap {
     margin-bottom: 8px;
-  }
-  .sb-play {
-    padding: 10px 0;
-    margin-bottom: 10px;
   }
   .sb-held {
     margin: 6px 0 2px;

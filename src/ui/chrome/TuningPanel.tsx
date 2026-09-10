@@ -166,14 +166,21 @@ export default function TuningPanel({
         step={1}
         value={Number(tune[key])}
         onChange={(e) => setConst(key, Number(e.target.value))}
+        className="w-full"
       />
     </label>
   );
 
   return (
     <div className="sb-gear-panel sb-gear-panel-tune">
-      <details className="sb-tune">
-        <summary>Tuning · every constant, live</summary>
+      {/* Tailwind port of .sb-tune/.sb-tune-grid/.sb-tune-note (sandbox.css
+          A6 slice 5). The "sb-tune" class name stays on <details> as a
+          plain marker: .sb-tune label (setup-strip section, out of this
+          slice's scope) still keys off it as an ancestor selector. */}
+      <details className="sb-tune mb-[22px] border-b border-[var(--rule)] pb-[18px]">
+        <summary className="cursor-pointer pt-1 pb-3 text-[10px] font-semibold tracking-[0.22em] text-[var(--leaf-dim)] uppercase hover:text-[var(--brass-hot)]">
+          Tuning · every constant, live
+        </summary>
         <Tabs defaultValue={groups[0]!.id} className="sb-tune-tabs">
           <TabsList>
             {groups.map((g) => (
@@ -183,12 +190,16 @@ export default function TuningPanel({
             ))}
           </TabsList>
           {groups.map((g) => (
-            <TabsContent key={g.id} value={g.id} className="sb-tune-grid">
+            <TabsContent
+              key={g.id}
+              value={g.id}
+              className="grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-x-[14px] gap-y-[10px]"
+            >
               {g.keys.map((key) => field(key))}
             </TabsContent>
           ))}
         </Tabs>
-        <p className="sb-tune-note">
+        <p className="mt-3.5 max-w-[62ch] text-[11px] text-[var(--leaf-dim)]">
           Targets, words, swaps and rack size take effect on the next round; the
           tier figures apply to the next word; the gold figures are read at the
           win. Nothing is saved — copy the numbers you want to keep into

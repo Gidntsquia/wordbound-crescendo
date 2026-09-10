@@ -54,9 +54,17 @@ export default function PackPick({
               onClick={() => pickCard(i)}
             >
               {c.kind === 'tile' ? (
-                <span className="sb-tile is-set sb-tile-static">
+                <span
+                  className={
+                    // Tailwind port of .sb-tile + .sb-tile.is-set (sandbox.css
+                    // A6 slice 5) -- see Rack.tsx for the full comment. No
+                    // hover classes: this tile is pointer-events-none
+                    // (.sb-tile-static, out of scope) and static.
+                    'sb-tile is-set sb-tile-static relative h-[52px] min-w-[46px] touch-none rounded-[2px] border border-[var(--brass-hot)] bg-[var(--brass-hot)] p-0 text-[22px] font-[var(--display)] font-semibold tracking-normal text-[var(--ink)] normal-case shadow-[0_3px_0_rgba(0,0,0,0.5)] select-none max-[620px]:h-[46px] max-[620px]:min-w-[40px] max-[620px]:text-[19px]'
+                  }
+                >
                   {c.tile.letter}
-                  <sub>
+                  <sub className="absolute right-1 bottom-[3px] text-[9px] font-[var(--figure)] text-[rgba(26,23,16,0.6)]">
                     {SB.LETTER_VALUES
                       ? SB.LETTER_VALUES[c.tile.letter]
                       : window.Wordbound.Lexicon.LETTER_VALUES[c.tile.letter]}

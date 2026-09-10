@@ -55,14 +55,17 @@ export default function ShopInkPicker({
             ink.hint}
       </span>
       {ink.targets > 0 && (
-        <div className="sb-rack">
+        <div className="sb-rack mb-3.5 flex flex-auto flex-wrap gap-[7px] max-[620px]:mb-2 max-[620px]:gap-[5px]">
           {(selecting.hand as Tile[]).map((t) => (
             <Button
               key={t.id}
               type="button"
               variant="paper"
               className={
-                'sb-tile' +
+                // Tailwind port of the base .sb-tile look (sandbox.css A6
+                // slice 5) -- see Rack.tsx for the full comment. Nothing
+                // here may set transform/translate/scale/rotate.
+                'sb-tile relative h-[52px] min-w-[46px] touch-none rounded-[2px] border border-[var(--leaf)] bg-[var(--leaf)] p-0 text-[22px] font-[var(--display)] font-semibold tracking-normal text-[var(--ink)] normal-case shadow-[0_2px_0_rgba(0,0,0,0.45)] select-none not-disabled:hover:border-[var(--brass-hot)] not-disabled:hover:bg-[var(--brass-hot)] not-disabled:hover:text-[var(--ink)] not-disabled:hover:shadow-[0_4px_0_rgba(0,0,0,0.45),0_0_0_1px_var(--brass-hot)] max-[620px]:h-[46px] max-[620px]:min-w-[40px] max-[620px]:text-[19px]' +
                 (t.mark ? ' is-mark-' + t.mark : '') +
                 (selecting.ids.includes(t.id) ? ' is-inking' : '')
               }
@@ -76,7 +79,7 @@ export default function ShopInkPicker({
               onClick={() => toggleSelectTile(t.id)}
             >
               {t.letter === '?' ? '␣' : t.letter}
-              <sub>
+              <sub className="absolute right-1 bottom-[3px] text-[9px] font-[var(--figure)] text-[rgba(26,23,16,0.55)]">
                 {SB.LETTER_VALUES
                   ? SB.LETTER_VALUES[t.letter]
                   : window.Wordbound.Lexicon.LETTER_VALUES[t.letter]}

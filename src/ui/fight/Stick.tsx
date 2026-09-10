@@ -41,6 +41,29 @@ interface DragBind {
   ) => { onPointerDown: (e: React.PointerEvent<HTMLElement>) => void };
 }
 
+// Tailwind port of the .sb-tile rules (sandbox.css A6 slice 5) shared with
+// Rack.tsx -- see the long comment there for why the class names themselves
+// (sb-tile, is-set, is-missing, is-dragging, is-slot-empty) stay put as
+// plain markers and why nothing here may set `transform`/`translate`/
+// `scale`/`rotate`: the tap-to-play FLIP owns this element's transform.
+const TILE_STRUCT =
+  'relative min-w-[46px] h-[52px] p-0 rounded-[2px] font-[var(--display)] text-[22px] font-semibold tracking-normal normal-case touch-none select-none max-[620px]:min-w-[40px] max-[620px]:h-[46px] max-[620px]:text-[19px]';
+const TILE_SET =
+  TILE_STRUCT +
+  ' text-[var(--ink)] bg-[var(--brass-hot)] border border-[var(--brass-hot)] shadow-[0_3px_0_rgba(0,0,0,0.5)]' +
+  ' not-disabled:hover:bg-[var(--leaf)] not-disabled:hover:border-[var(--leaf)] not-disabled:hover:shadow-[0_3px_0_rgba(0,0,0,0.5),0_0_0_1px_var(--leaf)]';
+const TILE_MISSING =
+  TILE_STRUCT +
+  ' text-[var(--rubric)] bg-transparent border border-dashed border-[var(--rubric-dim)] shadow-none' +
+  ' not-disabled:hover:text-[var(--rubric)] not-disabled:hover:bg-[rgba(212,97,74,0.14)] not-disabled:hover:border-[var(--rubric)] not-disabled:hover:shadow-none';
+// The premium-slot preview badges (past the end of the stick) are still
+// .sb-tile for sizing, but their colour/border-style come from the
+// out-of-scope is-premium-*/is-slot-empty rules still in sandbox.css --
+// this only replaces the base sizing/border those rules used to inherit.
+const TILE_PREMIUM_BASE = TILE_STRUCT + ' border border-[var(--leaf)]';
+const SUB_ON_SET =
+  'absolute right-1 bottom-[3px] font-[var(--figure)] text-[9px] text-[rgba(26,23,16,0.6)]';
+
 export default function Stick({
   live,
   seen,
@@ -170,7 +193,8 @@ export default function Stick({
                 disabled
                 data-flip-tile-id={t.id}
                 className={
-                  'sb-tile is-set' +
+                  'sb-tile is-set ' +
+                  TILE_SET +
                   (t.mark ? ' is-mark-' + t.mark : '') +
                   (scoring.litTile === t.id ? ' is-lit' : '') +
                   (round.premium && round.premium.pos === i
@@ -180,7 +204,7 @@ export default function Stick({
                 }
               >
                 {t.letter === '?' ? '␣' : t.letter}
-                <sub>{letterValues[t.letter] || 0}</sub>
+                <sub className={SUB_ON_SET}>{letterValues[t.letter] || 0}</sub>
               </Button>
             </span>
           ))}
@@ -202,8 +226,9 @@ export default function Stick({
                 variant="paper"
                 disabled={!live}
                 className={
-                  'sb-tile is-set' +
-                  (hollow ? ' is-dragging' : '') +
+                  'sb-tile is-set ' +
+                  TILE_SET +
+                  (hollow ? ' is-dragging opacity-25' : '') +
                   (t.mark ? ' is-mark-' + t.mark : '') +
                   (round.isBarred(t) ? ' is-barred' : '') +
                   (premiumHere ? ' is-premium-' + round.premium!.kind : '')
@@ -218,7 +243,7 @@ export default function Stick({
                 onClick={() => unstageAt(i)}
               >
                 {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}
-                <sub>{letterValues[t.letter] || 0}</sub>
+                <sub className={SUB_ON_SET}>{letterValues[t.letter] || 0}</sub>
               </Button>
             ) : (
               <Button
@@ -227,7 +252,9 @@ export default function Stick({
                 variant="paper"
                 disabled={!live}
                 className={
-                  'sb-tile is-missing' + (hollow ? ' is-dragging' : '')
+                  'sb-tile is-missing ' +
+                  TILE_MISSING +
+                  (hollow ? ' is-dragging opacity-25' : '')
                 }
                 title="None of your tiles spells this"
                 {...(drag ? drag.bind('stick', i, null) : {})}
@@ -250,7 +277,10 @@ export default function Stick({
                   <span
                     key="premium-preview"
                     className={
-                      'sb-tile sb-premium-slot is-premium-' + round.premium.kind
+                      'sb-tile sb-premium-slot ' +
+                      TILE_PREMIUM_BASE +
+                      ' is-premium-' +
+                      round.premium.kind
                     }
                     title={
                       PREMIUM_HINT[round.premium.kind] +
@@ -263,7 +293,11 @@ export default function Stick({
                 ) : (
                   <span
                     key={'premium-gap' + i}
-                    className="sb-tile sb-premium-slot is-slot-empty"
+                    className={
+                      'sb-tile sb-premium-slot ' +
+                      TILE_PREMIUM_BASE +
+                      ' is-slot-empty'
+                    }
                     title={'Stick position ' + (i + 1)}
                   />
                 ),

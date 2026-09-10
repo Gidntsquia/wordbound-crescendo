@@ -87,7 +87,18 @@ export function createDragReorder(opts: DragReorderOptions) {
   function makeGhost(el: HTMLElement): HTMLElement {
     const r = el.getBoundingClientRect();
     const g = el.cloneNode(true) as HTMLElement;
-    g.className = 'sb-drag-ghost';
+    // The ghost's look is fully self-contained here (Tailwind port of
+    // .sb-drag-ghost, sandbox.css A6 slice 5) rather than inherited from
+    // whatever classes the dragged element carried -- className is
+    // replaced outright, same as the pre-Tailwind version was. No
+    // transform: the ghost tracks the finger with style.left/top only.
+    g.className =
+      'sb-drag-ghost fixed z-50 pointer-events-none flex items-center justify-center font-[var(--display)] text-[22px] font-semibold text-[var(--ink)] bg-[var(--brass-hot)] border border-[var(--brass-hot)] rounded-[2px] shadow-[0_8px_14px_rgba(0,0,0,0.55)]';
+    const sub = g.querySelector('sub');
+    if (sub) {
+      sub.className =
+        'absolute right-1 bottom-[3px] text-[10px] text-[rgba(26,23,16,0.6)]';
+    }
     g.removeAttribute('data-flip-tile-id');
     g.removeAttribute('disabled');
     g.style.width = r.width + 'px';
