@@ -1,20 +1,22 @@
-// READ_SLOWLY_PLAN.md stage E2: the player's own desk panel -- the
+// READ_SLOWLY_PLAN.md stage E2/E3: the player's own desk panel -- the
 // `wordsmith` sprite (src/art/svg/people.tsx, wired E1) plus the chosen
 // character's letter in a badge, reusing CharacterSelect.tsx's own visual
 // language for a chosen letter (rounded-[2px] square, --leaf fill,
 // --ink text) rather than inventing a new one. Presentational only, no
-// state of its own, same pattern as SituationPanel.tsx; pose stays "idle"
-// here -- wiring `write`/`flourish` to real play/win events is READ_SLOWLY_
-// PLAN.md's next Work-queue item (E3), not this one.
+// state of its own, same pattern as SituationPanel.tsx; `pose` is driven by
+// useFight.ts's wordsmithPose (E3): `write` while a word is being scored,
+// `flourish` on a round win, `idle` otherwise.
 import Sprite from '../../art/Sprite';
 import type { Character } from '../../engine/content/characters';
 
 export default function WordsmithPanel({
   characterId,
   characters,
+  pose = 'idle',
 }: {
   characterId: string;
   characters: Character[];
+  pose?: string;
 }) {
   const character = characters.find((c) => c.id === characterId);
   return (
@@ -25,7 +27,7 @@ export default function WordsmithPanel({
       <span className="relative inline-flex flex-none">
         <Sprite
           sheet="wordsmith"
-          pose="idle"
+          pose={pose}
           className="h-11 w-11 rounded-lg"
         />
         {character && (

@@ -83,7 +83,7 @@ export default function QuillCard({
         cresState === 'idle' && 'opacity-45 saturate-[0.4]',
         cresState === 'soon' && 'border-[var(--brass-hot)] opacity-85',
         cresState === 'live' &&
-          'animate-[cres-throb_500ms_ease-in-out_infinite_alternate] border-[var(--brass-hot)] text-[var(--brass-hot)] opacity-100 shadow-[0_0_0_2px_var(--brass-hot),0_0_22px_4px_rgba(242,194,96,0.55)]',
+          'border-[var(--brass-hot)] text-[var(--brass-hot)] opacity-100 shadow-[0_0_0_2px_var(--brass-hot),0_0_22px_4px_rgba(242,194,96,0.55)] motion-safe:animate-[cres-throb_500ms_ease-in-out_infinite_alternate]',
       )}
       role="button"
       tabIndex={0}

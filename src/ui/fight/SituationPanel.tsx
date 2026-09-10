@@ -10,11 +10,17 @@
 import Sprite from '../../art/Sprite';
 import type { Situation } from '../../engine/content/situations';
 
+// The three boss-tier antagonist sheets that draw an extra `crescendo`
+// variant (READ_SLOWLY_PLAN.md E1's art-manifest note; the other six only
+// have idle/weakening/gone). Kept local since nothing else needs this list.
+const CRESCENDO_ANTAGONISTS = new Set(['knocking_door', 'parade', 'the_night']);
+
 export default function SituationPanel({
   situation,
   ladderIndex,
   hit,
   antagonist,
+  crescendoLive,
 }: {
   situation: Situation | null | undefined;
   ladderIndex: number;
@@ -24,10 +30,19 @@ export default function SituationPanel({
   // to the situation's own antagonist (the small enemy, or pre-fight
   // before `f.def` is known).
   antagonist?: string;
+  // READ_SLOWLY_PLAN.md E3: useCrescendo's 'live' phase, while a held
+  // crescendo quill's window is open -- swaps a boss-tier antagonist to its
+  // `crescendo` pose in place of the ladder's own pose for that beat.
+  crescendoLive?: boolean;
 }) {
   if (!situation) return null;
   const step = situation.ladder[Math.max(0, ladderIndex)];
   if (!step) return null;
+  const antagonistSheet = antagonist || situation.antagonist;
+  const antagonistPose =
+    crescendoLive && CRESCENDO_ANTAGONISTS.has(antagonistSheet)
+      ? 'crescendo'
+      : step.antagonistPose;
   return (
     <div className="my-1 flex items-center gap-2" aria-label={situation.title}>
       <Sprite
@@ -39,8 +54,8 @@ export default function SituationPanel({
         {step.caption}
       </span>
       <Sprite
-        sheet={antagonist || situation.antagonist}
-        pose={step.antagonistPose}
+        sheet={antagonistSheet}
+        pose={antagonistPose}
         className={
           'h-11 w-11 rounded-lg' +
           (hit === 1

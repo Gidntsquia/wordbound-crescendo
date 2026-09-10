@@ -12,17 +12,29 @@
 // line/rack/stick text sits) and lighter toward the centre/top (where the
 // art should actually show through), so it reads as scenery behind the
 // board rather than a grey rectangle under it.
+//
+// READ_SLOWLY_PLAN.md E3: `crescendoSoon` (useCrescendo's 'soon' phase)
+// pulses the near layer's brightness/opacity so the room itself seems to
+// hold its breath ahead of a swell -- `sb-backdrop-pulse` in globals.css,
+// motion-safe-gated same as the drift above.
 import Sprite from '../../art/Sprite';
 
 const CHAPTER_COUNT = 3;
 
-export default function ChapterBackdrop({ movement }: { movement: number }) {
+export default function ChapterBackdrop({
+  movement,
+  crescendoSoon,
+}: {
+  movement: number;
+  crescendoSoon?: boolean;
+}) {
   const chapter = Math.min(CHAPTER_COUNT, Math.max(1, movement + 1));
   const sheet = `backdrop_chapter_${chapter}`;
   return (
     <div
       className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
       aria-hidden="true"
+      data-crescendo-soon={crescendoSoon ? 'true' : 'false'}
     >
       <Sprite
         key={'far-' + sheet}
@@ -34,7 +46,12 @@ export default function ChapterBackdrop({ movement }: { movement: number }) {
         key={'near-' + sheet}
         sheet={sheet}
         pose="near"
-        className="absolute inset-[-2%] h-[104%] w-[104%] opacity-85 motion-safe:animate-[sb-backdrop-drift-near_45s_ease-in-out_infinite_alternate]"
+        className={
+          'absolute inset-[-2%] h-[104%] w-[104%] opacity-85 ' +
+          (crescendoSoon
+            ? 'motion-safe:animate-[sb-backdrop-drift-near_45s_ease-in-out_infinite_alternate,sb-backdrop-pulse_1.1s_ease-in-out_infinite_alternate]'
+            : 'motion-safe:animate-[sb-backdrop-drift-near_45s_ease-in-out_infinite_alternate]')
+        }
       />
       <div
         className="absolute inset-0"

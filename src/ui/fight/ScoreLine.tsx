@@ -11,6 +11,7 @@ import {
 import type { Situation, SituationId } from '../../engine/content/situations';
 import type { Fight } from '../../app/store';
 import type { RoundFacade } from '../../engine/state/facade';
+import type { CrescendoState } from '../hooks/useCrescendo';
 
 type RoundLike = RoundFacade;
 
@@ -44,6 +45,7 @@ export default function ScoreLine({
   pct,
   seen,
   live,
+  cres,
 }: {
   f: Fight | null;
   round: RoundLike;
@@ -62,6 +64,7 @@ export default function ScoreLine({
   pct: number;
   seen: ReadonlySet<string>;
   live: boolean;
+  cres?: CrescendoState;
 }) {
   if (!f || !f.def || !f.piece) return null;
   return (
@@ -146,6 +149,7 @@ export default function ScoreLine({
         }
         hit={scoring?.hit}
         antagonist={f.def.antagonist}
+        crescendoLive={live && cres?.phase === 'live'}
       />
       {round.rule && (
         <div

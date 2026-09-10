@@ -64,6 +64,7 @@ export interface AppProps {
   markSeen: (id: string) => void;
   characterId: string;
   setCharacterId: (id: string) => void;
+  wordsmithPose: string;
   randomSeed: () => string;
   best: BestState;
   f: Fight | null;
@@ -165,6 +166,7 @@ export default function App(props: AppProps) {
     markSeen,
     characterId,
     setCharacterId,
+    wordsmithPose,
     randomSeed,
     best,
     f,
@@ -308,7 +310,10 @@ export default function App(props: AppProps) {
                   : '')
           }
         >
-          <ChapterBackdrop movement={run ? run.movement : 0} />
+          <ChapterBackdrop
+            movement={run ? run.movement : 0}
+            crescendoSoon={live && cres.phase === 'soon'}
+          />
           {showIntro ? (
             <EnemyIntroCard
               f={f}
@@ -327,6 +332,7 @@ export default function App(props: AppProps) {
               pct={pct}
               seen={seen}
               live={live}
+              cres={cres}
             />
           )}
           {phase !== 'shop' && (
@@ -444,6 +450,7 @@ export default function App(props: AppProps) {
             characterTile={characterTile}
             characterPicked={characterPicked}
             characterId={characterId}
+            wordsmithPose={wordsmithPose}
           />
         )}
     </div>

@@ -90,6 +90,10 @@ declare global {
   interface Window {
     __round?: unknown;
     __run?: unknown;
+    // Debug-only mirror of the running recording, same purpose as
+    // __round/__run above -- lets a headless verification script fake a
+    // crescendo window without waiting on a real surge in the audio.
+    __seq?: unknown;
   }
 }
 
@@ -430,6 +434,13 @@ export function useFight() {
   const volumeRef = useRef(0.4);
   // idle | live | won (round, run continues) | shop (between fights) | lost | run-won
   const [phase, setPhase] = useState('idle');
+  // READ_SLOWLY_PLAN.md E3: the wordsmith sprite's transient pose --
+  // `write` for the brief moment a word is being scored, `flourish` on a
+  // round win (persists through the won-banner beat), `idle` otherwise.
+  // Driven entirely off runCascade/startStage below, no new fight state.
+  const [wordsmithPose, setWordsmithPose] = useState<
+    'idle' | 'write' | 'flourish'
+  >('idle');
   const [, setLog] = useState<string[]>([]);
   const [word, setWord] = useState('');
   const [seed, setSeed] = useState('sandbox');
@@ -639,9 +650,11 @@ export function useFight() {
       fight.current = { ...f, run, round, seq, def, piece };
       window.__round = round;
       window.__run = run;
+      window.__seq = seq;
       setWord('');
       setSuggestions([]);
       setPhase('live');
+      setWordsmithPose('idle');
       say(
         copy.chapterLabel(MOVEMENTS[run.movement]!.numeral) +
           ' · ' +
@@ -1027,6 +1040,7 @@ export function useFight() {
         st.floats = [...st.floats.slice(-6), { key: n++, on, text, tone }];
       };
       setPhase('scoring');
+      setWordsmithPose('write');
       show();
       sfx('lock', k);
       await wait(CASCADE.LOCK_MS);
@@ -1115,8 +1129,13 @@ export function useFight() {
       show();
       await wait(CASCADE.CLEAR_MS);
       setScoring(null);
-      if (r.state === 'live') setPhase('live');
-      else finish(r);
+      if (r.state === 'live') {
+        setPhase('live');
+        setWordsmithPose('idle');
+      } else {
+        finish(r);
+        setWordsmithPose(r.state === 'won' ? 'flourish' : 'idle');
+      }
       refresh();
     },
     [sfx, finish, refresh],
@@ -1313,6 +1332,7 @@ export function useFight() {
     markSeen,
     characterId,
     setCharacterId,
+    wordsmithPose,
     randomSeed,
     best,
     f,
