@@ -1,7 +1,8 @@
 import type { ActFn } from '../actFn';
 // The "keep one of three" pack-open picker -- extracted from Shop.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
-import { cardBlurb, cardName } from '../fight/cardCopy';
+import { cardBlurb, cardName } from '../quills/cardCopy';
+import type { CardCopyTables, CardCopyRun } from '../quills/cardCopy';
 import type { PackChoice } from '../../engine/state/run';
 
 interface Pack {
@@ -23,10 +24,10 @@ export default function PackPick({
 }: {
   pack: Pack;
   packDef: (kind: string) => PackDef;
-  SB: {
+  SB: CardCopyTables & {
     LETTER_VALUES?: Record<string, number>;
   };
-  run: unknown;
+  run: CardCopyRun;
   pickCard: (i: number) => void;
   act: ActFn;
 }) {
@@ -73,7 +74,7 @@ export default function PackPick({
             act(
               'Kept nothing.',
               (
-                run as {
+                run as unknown as {
                   pick: (
                     v: null,
                   ) => { ok?: boolean; reason?: string } | boolean | null;

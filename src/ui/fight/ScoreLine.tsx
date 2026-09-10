@@ -2,7 +2,7 @@
 // situation caption, and reading condition card. Extracted from
 // RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in; scoring/seen
 // are read-only here.
-import SituationPanel from '../../sandbox/SituationPanel';
+import SituationPanel from './SituationPanel';
 import {
   Progress,
   ProgressTrack,

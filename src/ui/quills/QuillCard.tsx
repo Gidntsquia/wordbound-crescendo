@@ -14,6 +14,7 @@ interface Float {
 
 interface ItemDef {
   name: string;
+  hint: string;
   rarity?: string;
   glyph?: string;
   crescendo?: boolean;

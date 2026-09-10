@@ -5,7 +5,7 @@
 // Ported to .tsx (READ_SLOWLY_PLAN.md A1 remainder) with real prop types;
 // still the pre-A6 bespoke classNames -- the shadcn/Tailwind chrome pass
 // is a separate, larger visual change tracked under A6.
-import CharacterSelect from '../../sandbox/CharacterSelect';
+import CharacterSelect from '../meta/CharacterSelect';
 import type { Key } from '../../engine/content/round';
 import type { Character } from '../../engine/content/characters';
 import { useCallout } from '../chrome/Callout';

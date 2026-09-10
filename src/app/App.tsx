@@ -5,8 +5,8 @@
 // component is pure props in, no state of its own, so the split is a real
 // phase router (composition), not a state split. SB is a module-level
 // constant, so it's imported directly here rather than threaded as a prop.
-import { SB } from '../sandbox/FightScreen';
-import type { Selecting, Inking, ScoringState } from '../sandbox/FightScreen';
+import { SB } from '../ui/fight/FightScreen';
+import type { Selecting, Inking, ScoringState } from '../ui/fight/FightScreen';
 import { Toaster } from '../ui/primitives/sonner';
 import {
   Sheet,
@@ -28,7 +28,7 @@ import StartingQuills from '../ui/chrome/StartingQuills';
 import TuningPanel from '../ui/chrome/TuningPanel';
 import RunStrip from '../ui/chrome/RunStrip';
 import PlayBoard from '../ui/fight/PlayBoard';
-import { describeBreakdown } from '../ui/fight/cardCopy';
+import { describeBreakdown } from '../ui/quills/cardCopy';
 import type { RunFacade, RoundFacade } from '../engine/state/facade';
 import type { Fight, BestState } from '../app/store';
 import type { Tile } from '../engine/tiles';

@@ -2,7 +2,7 @@
 // quote, the reading condition (or plain target), Fight/Walk-past buttons.
 // Extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in;
 // enterFight/skipFight stay owned by the parent.
-import SituationPanel from '../../sandbox/SituationPanel';
+import SituationPanel from './SituationPanel';
 import { Popover, PopoverTrigger, PopoverContent } from '../primitives/popover';
 import type { Situation, SituationId } from '../../engine/content/situations';
 import type { Fight } from '../../app/store';

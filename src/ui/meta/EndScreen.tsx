@@ -22,6 +22,7 @@ import {
   DialogFooter,
 } from '../primitives/dialog';
 import type { RunFacade } from '../../engine/state/facade';
+import type { Breakdown } from '../../engine/content/round';
 import type { SituationId } from '../../engine/content/situations';
 import type { Enemy } from '../../engine/content/enemies';
 
@@ -60,7 +61,7 @@ export default function EndScreen({
   onShare: () => void;
   shareText: string;
   best: BestState;
-  describe: (breakdown: unknown) => string;
+  describe: (breakdown: Breakdown) => string;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const felled = run.felled

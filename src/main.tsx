@@ -1,4 +1,4 @@
-// ROUND SANDBOX entry (see src/sandbox/FightScreen.tsx).
+// ROUND SANDBOX entry (see src/ui/fight/FightScreen.tsx).
 //
 // Bare-bones second Vite entry: ONE round wrapped in a small RUN, no map, no
 // menus beyond the title screen. It loads only the engine modules a round
@@ -12,8 +12,8 @@
 // a different mechanic from the shipped duel gauge, and keeping it here means
 // tuning it can never break the main app. The music is a soundtrack only.
 import { createRoot } from 'react-dom/client';
-import '../styles/globals.css';
-import './sandbox.css';
+import './styles/globals.css';
+import './sandbox/sandbox.css';
 
 // window.Wordbound.Lexicon/Tiles/WORD_SET/WORDLIST are still legacy globals
 // (js/wordbound/wordlist.js's plumbing, out of scope for A2's no-globals
@@ -23,13 +23,13 @@ import './sandbox.css';
 // tileBags, stolenLetters, quillDiscovery, audioPiece, sfx, recordings) is
 // now reached transitively via FightScreen.tsx's real ES imports, so this
 // file is otherwise mount only (READ_SLOWLY_PLAN.md A2 remainder).
-import '../engine/rng';
-import '../../js/wordbound/wordlist.js';
-import '../engine/lexicon';
-import '../engine/tiles';
+import './engine/rng';
+import '../js/wordbound/wordlist.js';
+import './engine/lexicon';
+import './engine/tiles';
 
-import { migrate } from '../app/persistence';
-import FightScreen from './FightScreen';
+import { migrate } from './app/persistence';
+import FightScreen from './ui/fight/FightScreen';
 
 migrate();
 createRoot(document.getElementById('sandbox-root')!).render(<FightScreen />);

@@ -10,7 +10,7 @@ import ShopInkPicker from './ShopInkPicker';
 import { useCallout } from '../chrome/Callout';
 import type { RunFacade } from '../../engine/state/facade';
 import type { CrescendoWindow } from '../../audio/recordingPlayer';
-import type { Selecting } from '../../sandbox/FightScreen';
+import type { Selecting } from '../fight/FightScreen';
 
 type RunLike = RunFacade;
 type Cres = CrescendoWindow;
@@ -20,6 +20,7 @@ interface ItemDef {
   glyph?: string;
   crescendo?: boolean;
   name: string;
+  hint: string;
 }
 
 export default function Shop({

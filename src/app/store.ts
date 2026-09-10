@@ -18,7 +18,7 @@ import { ITEM_DEFS } from '../engine/content/items';
 import { MARK_DEFS } from '../engine/content/marginalia';
 import { FAVOUR_DEFS, TIER_DEFS } from '../engine/content/round';
 import { unlockNext } from '../engine/content/characters';
-import { cardName, describeBreakdown } from '../ui/fight/cardCopy';
+import { cardName, describeBreakdown } from '../ui/quills/cardCopy';
 import type { Enemy } from '../engine/content/enemies';
 import type { RecordedPiece, AudioPiece } from '../audio/recordingPlayer';
 import type { Sfx } from '../audio/sfx';
@@ -239,7 +239,7 @@ export function runFightAction(action: FightAction): FightEffect[] {
           ' — ' +
           res.breakdown!.total +
           ' (' +
-          describeBreakdown(res.breakdown) +
+          describeBreakdown(res.breakdown!) +
           ')' +
           ' → ' +
           r.score +
@@ -473,13 +473,14 @@ export function runFightAction(action: FightAction): FightEffect[] {
         actResult(effects, res, null, undefined);
         return effects;
       }
-      const label = res.used
-        ? 'Kept ' + cardName(SB, c) + ' and used it — ' + res.used
-        : 'Kept ' +
-          (c.kind === 'tile'
-            ? 'the ' + c.tile.letter
-            : 'the ' + cardName(SB, c)) +
-          '.';
+      const label =
+        res.used && c.kind !== 'tile'
+          ? 'Kept ' + cardName(SB, c) + ' and used it — ' + res.used
+          : 'Kept ' +
+            (c.kind === 'tile'
+              ? 'the ' + c.tile.letter
+              : 'the ' + cardName(SB, c)) +
+            '.';
       actResult(effects, res, label, 'tick');
       return effects;
     }

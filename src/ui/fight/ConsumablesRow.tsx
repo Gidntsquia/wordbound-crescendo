@@ -2,7 +2,7 @@ import type { ActFn } from '../actFn';
 // The row of held consumables (étude/mark cards) -- extracted from
 // HeldRow.jsx (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported
 // to .tsx.
-import { consumableBlurb, consumableName } from './cardCopy';
+import { consumableBlurb, consumableName } from '../quills/cardCopy';
 import type { RunFacade } from '../../engine/state/facade';
 
 type RunLike = RunFacade;
@@ -20,7 +20,10 @@ export default function ConsumablesRow({
   run: RunLike;
   SB: {
     TIER_DEFS: Record<string, { name: string }>;
-    MARK_DEFS: Record<string, { targets: number }>;
+    MARK_DEFS: Record<
+      string,
+      { targets: number; name?: string; hint?: string }
+    >;
   };
   act: ActFn;
   live: boolean;

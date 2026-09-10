@@ -10,18 +10,18 @@
 // touches the score. The tile play (case + composing stick + FLIP slide) is
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
-import { KEYS as STORAGE_KEYS, readRaw, writeRaw } from '../app/persistence';
-import { createRunFacadeFromOpts, fromSeed } from '../engine/state/facade';
-import type { RunFacade, RoundFacade } from '../engine/state/facade';
-import { MOVEMENTS, KIND_LABEL, enemyAt } from '../engine/content/enemies';
+import { KEYS as STORAGE_KEYS, readRaw, writeRaw } from '../../app/persistence';
+import { createRunFacadeFromOpts, fromSeed } from '../../engine/state/facade';
+import type { RunFacade, RoundFacade } from '../../engine/state/facade';
+import { MOVEMENTS, KIND_LABEL, enemyAt } from '../../engine/content/enemies';
 import {
   CHARACTERS,
   CHARACTER_DEFS,
   unlockedCharacters,
   unlockNext,
-} from '../engine/content/characters';
-import { discoveredQuills } from '../engine/meta/quillDiscovery';
-import { RECORDINGS } from '../engine/content/recordings';
+} from '../../engine/content/characters';
+import { discoveredQuills } from '../../engine/meta/quillDiscovery';
+import { RECORDINGS } from '../../engine/content/recordings';
 import {
   ROUND_DEFAULTS,
   KEYS,
@@ -30,29 +30,29 @@ import {
   TIER_DEFS,
   PACK_KINDS,
   priceOf,
-} from '../engine/content/round';
-import { ITEMS, ITEM_DEFS } from '../engine/content/items';
-import { MARK_DEFS, VOWELS } from '../engine/content/marginalia';
-import { TILE_BAGS, createBagDeck } from '../engine/content/tileBags';
-import { availableLetters, isAvailable } from '../engine/meta/stolenLetters';
+} from '../../engine/content/round';
+import { ITEMS, ITEM_DEFS } from '../../engine/content/items';
+import { MARK_DEFS, VOWELS } from '../../engine/content/marginalia';
+import { TILE_BAGS, createBagDeck } from '../../engine/content/tileBags';
+import { availableLetters, isAvailable } from '../../engine/meta/stolenLetters';
 import {
   bestFromRack,
   findWords,
   isWordMakerReady,
   warmWordMaker,
-} from '../engine/content/wordFinder';
+} from '../../engine/content/wordFinder';
 import {
   CRESCENDO,
   createAudioPiece,
   prefetchAudio,
-} from '../audio/recordingPlayer';
-import { createSfx } from '../audio/sfx';
-import { situationFor, ladderIndex } from '../engine/content/situations';
-import * as copy from '../ui/copy';
-import { useCrescendo } from '../ui/hooks/useCrescendo';
-import { useDragReorder } from '../ui/hooks/useDragReorder';
-import { useSfx } from '../ui/hooks/useSfx';
-import App from '../app/App';
+} from '../../audio/recordingPlayer';
+import { createSfx } from '../../audio/sfx';
+import { situationFor, ladderIndex } from '../../engine/content/situations';
+import * as copy from '../copy';
+import { useCrescendo } from '../hooks/useCrescendo';
+import { useDragReorder } from '../hooks/useDragReorder';
+import { useSfx } from '../hooks/useSfx';
+import App from '../../app/App';
 import {
   gearReducer,
   seenReducer,
@@ -65,12 +65,12 @@ import {
   runFightAction,
   recordRun,
   runLength,
-} from '../app/store';
-import type { Fight, FightEffect, BestState } from '../app/store';
-import type { Tile } from '../engine/tiles';
-import type { Breakdown, Step } from '../engine/content/round';
-import type { WordScore } from '../engine/content/wordFinder';
-import type { AudioPiece } from '../audio/recordingPlayer';
+} from '../../app/store';
+import type { Fight, FightEffect, BestState } from '../../app/store';
+import type { Tile } from '../../engine/tiles';
+import type { Breakdown, Step } from '../../engine/content/round';
+import type { WordScore } from '../../engine/content/wordFinder';
+import type { AudioPiece } from '../../audio/recordingPlayer';
 import {
   useCallback,
   useEffect,
@@ -778,7 +778,8 @@ export default function RoundSandbox() {
 
       let ctx: AudioContext | undefined = fight.current?.ctx;
       let gain: GainNode | undefined = fight.current?.gain;
-      let sfxNode: import('../audio/sfx').Sfx | undefined = fight.current?.sfx;
+      let sfxNode: import('../../audio/sfx').Sfx | undefined =
+        fight.current?.sfx;
       try {
         if (ctx && ctx.state === 'closed') {
           ctx = undefined;

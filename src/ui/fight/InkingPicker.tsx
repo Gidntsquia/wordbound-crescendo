@@ -1,6 +1,6 @@
 // The mid-round inking mode picker (vowel choice + Apply/Cancel) --
 // extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md A4).
-import type { Inking as RealInking } from '../../sandbox/FightScreen';
+import type { Inking as RealInking } from '../fight/FightScreen';
 
 type Inking = RealInking;
 

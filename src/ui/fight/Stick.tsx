@@ -5,7 +5,7 @@
 import { useCallout } from '../chrome/Callout';
 import type { Tile } from '../../engine/tiles';
 import type { RoundFacade } from '../../engine/state/facade';
-import type { ScoringState as RealScoringState } from '../../sandbox/FightScreen';
+import type { ScoringState as RealScoringState } from './FightScreen';
 
 const PREMIUM_HINT: Record<string, string> = {
   dl: 'Double letter',

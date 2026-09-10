@@ -1,15 +1,18 @@
 // A single shop card slot (item / ink / étude) -- extracted from Shop.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
-import { cardBlurb, cardName } from '../fight/cardCopy';
+import { cardBlurb, cardName } from '../quills/cardCopy';
+import type { CardCopyTables, CardCopyRun } from '../quills/cardCopy';
 
 interface ShopCard {
-  kind: string;
+  kind: 'item' | 'mark' | 'etude';
   id: string;
   price: number;
   sold?: boolean;
 }
 
 interface ItemDef {
+  name: string;
+  hint: string;
   rarity?: string;
   glyph?: string;
 }
@@ -25,12 +28,12 @@ export default function CardSlot({
 }: {
   c: ShopCard;
   i: number;
-  run: {
+  run: CardCopyRun & {
     ink: number;
     items: readonly string[];
     tune: Record<string, number | boolean | undefined>;
   };
-  SB: { ITEM_DEFS: Record<string, ItemDef> };
+  SB: CardCopyTables & { ITEM_DEFS: Record<string, ItemDef> };
   tip: string | null;
   setTip: (updater: (t: string | null) => string | null) => void;
   buyCard: (i: number) => void;

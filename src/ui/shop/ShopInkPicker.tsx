@@ -1,7 +1,7 @@
 // The shop's "buy an ink, apply it on the spot" picker -- extracted from
 // Shop.jsx (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to
 // .tsx.
-import type { Selecting } from '../../sandbox/FightScreen';
+import type { Selecting } from '../fight/FightScreen';
 
 interface Tile {
   id: string;

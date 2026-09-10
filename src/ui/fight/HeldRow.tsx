@@ -3,7 +3,7 @@ import type { ActFn } from '../actFn';
 // RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4), then split further into
 // QuillRow/QuillCard/ConsumablesRow (A4, second pass) and ported to .tsx
 // (A1 remainder).
-import QuillRow from './QuillRow';
+import QuillRow from '../quills/QuillRow';
 import ConsumablesRow from './ConsumablesRow';
 import type { RunFacade } from '../../engine/state/facade';
 import type { CrescendoWindow } from '../../audio/recordingPlayer';
@@ -20,6 +20,7 @@ type Cres = CrescendoWindow;
 
 interface ItemDef {
   name: string;
+  hint: string;
   rarity?: string;
   glyph?: string;
   crescendo?: boolean;

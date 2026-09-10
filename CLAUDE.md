@@ -54,7 +54,7 @@ not something to reintroduce piecemeal mid-task.
   (`score(ctx, acc)`, `barsLetter`, `goldAtWin`); no game content lives in
   UI components.
 - One component per file, under ~200 lines; a component that grows past
-  that gets a child extracted. (`RoundSandbox.jsx` predates this rule and
+  that gets a child extracted. (`FightScreen.tsx` predates this rule and
   is the one exception until READ_SLOWLY_PLAN.md A4 splits it.)
 - Styling: **shadcn/ui** on Tailwind v4. Components live in
   `src/ui/primitives/`, copied in by `shadcn` and owned by the repo — use
@@ -82,7 +82,7 @@ game/monsters/characters/items/intents/traits/stolenLetters/bossEntrances/
 shakespeareGuide/shopkeepers/achievements/events) were deleted 2026-09-07.
 `index.html` now loads the ROUND SANDBOX
 directly — the sandbox is the app. Only two things survive from that tree:
-`js/wordbound/wordlist.js` (still imported by `src/sandbox/main.tsx`) and
+`js/wordbound/wordlist.js` (still imported by `src/main.tsx`) and
 `js/wordbound/pieces/` (11 sequenced-piece note-data files) — `pieces/` is
 orphaned dead weight, nothing references it; nothing loads `music.js` either
 (it too is gone) since the sandbox plays RECORDINGS, not sequenced pieces.
@@ -98,13 +98,13 @@ orphaned dead weight, nothing references it; nothing loads `music.js` either
   separate global out of that item's scope. Ported so far: `rng.ts`,
   `lexicon.ts`, `tiles.ts`, `sandboxGlobal.ts` (now just the
   `SandboxNamespace` type `app/store.ts` still needs), and everything
-  listed under ROUND SANDBOX below except `RoundSandbox.jsx` itself.
-- `index.html` + `src/sandbox/` — ROUND SANDBOX, the whole app (the public
+  listed under ROUND SANDBOX below except `FightScreen.tsx` itself.
+- `index.html` + `src/main.tsx` — ROUND SANDBOX, the whole app (the public
   link points at it). It is a BALATRO-SHAPED RUN, built 2026-09-06/07.
-  `src/sandbox/main.tsx` is mount only beyond loading `rng.ts`/`lexicon.ts`/
+  `src/main.tsx` is mount only beyond loading `rng.ts`/`lexicon.ts`/
   `tiles.ts`/`wordlist.js` (the legacy-global loads above); every other
-  content module is reached transitively via `RoundSandbox.jsx`'s real
-  imports, which then mounts `RoundSandbox.jsx`:
+  content module is reached transitively via `src/ui/fight/FightScreen.tsx`'s real
+  imports, which then mounts `FightScreen.tsx`:
   - `src/engine/content/enemies.ts` — `MOVEMENTS`: three movements of
     three enemies (small / big / boss), each its own recording;
     `RULES` are the boss TEMPO MARKINGS (four_knocks: 4-letter words
@@ -155,8 +155,8 @@ marginalia.ts`'s `MARK_DEFS`: gilt, bold, steel, blank, vowel shift,
     by default; also used by items.ts's Harmony chord scoring.
   - `src/engine/dragReorder.ts` — drag a tile along or between the case and
     the stick (plain export, not a `Sandbox.*` global — imported directly by
-    `RoundSandbox.jsx`).
-  - `RoundSandbox.jsx` — the whole UI: title screen (Play = random seed),
+    `FightScreen.tsx`).
+  - `src/ui/fight/FightScreen.tsx` — the whole UI: title screen (Play = random seed),
     run strip, one score line (score · meter · target · words · swaps),
     board, shop (Continue is the big button), pack pick, inking mode, end
     screen with Copy result (share text), one-time CALLOUTS in place of an
@@ -179,7 +179,7 @@ marginalia.ts`'s `MARK_DEFS`: gilt, bold, steel, blank, vowel shift,
   - `src/audio/recordingPlayer.ts` (also owns THE CRESCENDO WINDOW:
     `seq.crescendo()` → idle / soon / live from the big surges,
     `CRESCENDO` holds the 0.4 s-before / 1.0 s-after / 5 s-countdown
-    numbers; the quill card in RoundSandbox polls it) +
+    numbers; the quill card in `src/ui/quills/QuillCard.tsx` polls it) +
     `src/engine/content/recordings.ts` (generated import index) +
     `src/recordings/*.json` ×9 — the nine RECORDINGS under public/audio/,
     one per enemy; each JSON holds title/composer/performer/audio plus the
@@ -196,11 +196,11 @@ marginalia.ts`'s `MARK_DEFS`: gilt, bold, steel, blank, vowel shift,
     the logged exceptions to the synthesized-only rule; the sandbox does not
     load music.js. Soundtrack
     only; the music never touches the score.
-  - `src/art/Sprite.jsx` (also owns THE SITUATION SCENE, stage E) +
+  - `src/art/Sprite.tsx` (also owns THE SITUATION SCENE, stage E) +
     `tools/art-manifest.json` — the ~20 sprite sheets stage E's scene/pieces
     need; a `status: "sourced"` entry (`coin`, `premium_slot_marker` so far,
     CC0 Kenney Game Icons pack) has an `image` path under `public/art/`
-    that Sprite.jsx renders as a real background-image; everything else is
+    that Sprite.tsx renders as a real background-image; everything else is
     still `status: "placeholder"` (a CSS box) until sourced.
     layers need (situation people, antagonists, the wordsmith player, tile
     pieces, chapter backdrops), one manifest entry per sheet mirroring
@@ -208,7 +208,7 @@ marginalia.ts`'s `MARK_DEFS`: gilt, bold, steel, blank, vowel shift,
     currently `status: "placeholder"` — there is no real art yet (Jaxon's
     call, still open, is draw/CC0 packs/generated); `Sprite` renders a
     plain CSS box keyed by sheet id + pose so the pose-driven wiring
-    (ladder step → pose prop → CSS crossfade in `SituationPanel.jsx`) is
+    (ladder step → pose prop → CSS crossfade in `src/ui/fight/SituationPanel.tsx`) is
     real end-to-end even without art. Swapping in real PNGs later is a
     manifest + CSS `background-image` change, not a caller change.
 - `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`, `fetch-wiktionary.js` (`npm run fetch:words`: pulls Wiktionary's English lemmas into the GENERATED WIKT_EXTRA block of `js/wordbound/wordlist.js`, 4+ letter lowercase titles only; cache in `.cache/wiktionary/`).

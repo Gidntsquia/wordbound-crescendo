@@ -1,6 +1,8 @@
 // The list of words already played this round. Extracted from
 // RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in; describe is
 // cardCopy.js's describeBreakdown.
+import type { Breakdown } from '../../engine/content/round';
+
 interface Tile {
   id: string;
 }
@@ -8,7 +10,7 @@ interface Tile {
 interface Play {
   word: string;
   tiles?: Tile[];
-  breakdown: { total: number };
+  breakdown: Breakdown;
 }
 
 export default function PlaysList({
@@ -18,7 +20,7 @@ export default function PlaysList({
 }: {
   plays: readonly Play[];
   scoring: { cleared?: boolean } | null;
-  describe: (breakdown: unknown) => string;
+  describe: (breakdown: Breakdown) => string;
 }) {
   const shown = scoring && !scoring.cleared ? plays.slice(0, -1) : plays;
   return (

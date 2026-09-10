@@ -7,8 +7,8 @@
 // only reads props and renders, no state of its own, so it's safe to call
 // every render from RoundSandbox's forceRender loop; the pose crossfade is
 // pure CSS, keyed by the pose prop change.
-import Sprite from '../art/Sprite';
-import type { Situation } from '../engine/content/situations';
+import Sprite from '../../art/Sprite';
+import type { Situation } from '../../engine/content/situations';
 
 export default function SituationPanel({
   situation,
