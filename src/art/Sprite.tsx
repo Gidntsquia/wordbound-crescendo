@@ -9,14 +9,10 @@
 import type { CSSProperties, ComponentType } from 'react';
 import ART_MANIFEST from '../../tools/art-manifest.json';
 import { SVG_SHEETS as PIECES_SHEETS } from './svg/pieces';
-import { PEOPLE_SHEETS } from './svg/people';
-import { ANTAGONIST_SHEETS } from './svg/antagonists';
 import { BACKDROP_SHEETS } from './svg/backdrops';
 
 const SVG_SHEETS: Record<string, ComponentType<{ pose?: string }>> = {
   ...PIECES_SHEETS,
-  ...PEOPLE_SHEETS,
-  ...ANTAGONIST_SHEETS,
   ...BACKDROP_SHEETS,
 };
 

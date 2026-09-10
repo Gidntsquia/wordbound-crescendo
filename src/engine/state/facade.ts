@@ -34,9 +34,6 @@ export function roundFacade(box: Box) {
     get target() {
       return box.run.round!.target;
     },
-    get situation() {
-      return box.run.round!.situation;
-    },
     get rule() {
       return box.run.round!.rule;
     },
@@ -246,9 +243,6 @@ export function createRunFacade(box: Box) {
     },
     get felled() {
       return box.run.felled;
-    },
-    get resolved() {
-      return box.run.resolved;
     },
     get skipped() {
       return box.run.skipped;

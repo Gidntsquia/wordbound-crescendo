@@ -116,7 +116,6 @@ export interface RunState {
   readonly tierLevels: Readonly<Record<string, number>>;
   readonly ink: number;
   readonly felled: readonly string[];
-  readonly resolved: readonly string[];
   readonly skipped: readonly string[];
   readonly favours: readonly string[];
   readonly bestPlay: {
@@ -228,7 +227,6 @@ function begin(run: RunState, rngState: RngState): [RunState, RngState] {
       target: targetFor(run, run.movement, run.stage),
       reward: kindInk(run.tune)[enemy!.kind],
       rule: enemy!.rule ? (RULES as never)[enemy!.rule] : null,
-      situation: enemy!.situation,
     },
     s,
   );
@@ -286,7 +284,6 @@ export function createRunState(
     tierLevels: {},
     ink: Number(tune.START_INK),
     felled: [],
-    resolved: [],
     skipped: [],
     favours: [],
     bestPlay: null,
@@ -592,11 +589,6 @@ export function next(run: RunState, rngState: RngState): [RunState, RngState] {
   const ink = inkAfterReward + interest;
   const lastWin = { reward: r.ink, interest };
   const felled = (run.felled as string[]).concat([run.enemy!.id]);
-  const resolved =
-    run.enemy!.situation &&
-    (run.resolved as string[]).indexOf(run.enemy!.situation) < 0
-      ? (run.resolved as string[]).concat([run.enemy!.situation])
-      : run.resolved;
   const wasBoss = run.enemy!.kind === 'boss';
   const last =
     run.movement >= MOVEMENTS.length - 1 &&
@@ -620,7 +612,6 @@ export function next(run: RunState, rngState: RngState): [RunState, RngState] {
     ink,
     lastWin,
     felled,
-    resolved,
     quillFound,
     discoveredQuills,
   };

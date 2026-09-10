@@ -1,11 +1,9 @@
-// The pre-fight card: enemy/piece line, situation opening frame, flavour
-// quote, the reading condition (or plain target), Fight/Walk-past buttons.
-// Extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in;
-// enterFight/skipFight stay owned by the parent.
-import SituationPanel from './SituationPanel';
+// The pre-fight card: enemy/piece line, flavour quote, the reading condition
+// (or plain target), Fight/Walk-past buttons. Extracted from
+// RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in; enterFight/
+// skipFight stay owned by the parent.
 import { Button } from '@/ui/primitives/button';
 import { Popover, PopoverTrigger, PopoverContent } from '../primitives/popover';
-import type { Situation, SituationId } from '../../engine/content/situations';
 import type { Fight } from '../../app/store';
 import type { RoundFacade } from '../../engine/state/facade';
 
@@ -26,26 +24,13 @@ export default function EnemyIntroCard({
   f: Fight | null;
   round: RoundLike;
   SB: {
-    situationFor?: (
-      situation: SituationId | null | undefined,
-    ) => Situation | null;
-    ladderIndex?: (
-      situation: Situation | null,
-      score: number,
-      target: number,
-    ) => number;
     FAVOUR_DEFS: Record<string, FavourDef>;
   };
   enterFight: () => void;
   skipFight: () => void;
 }) {
   if (!round) return null;
-  const situation = SB.situationFor && SB.situationFor(round.situation);
   if (!f || !f.def || !f.piece) return null;
-  const opening =
-    f.def.kind === 'boss' && situation?.bossOpening?.length
-      ? situation.bossOpening
-      : situation?.opening;
   return (
     <div className="flex flex-col items-start gap-2 px-0 py-2.5 pb-2.5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
@@ -57,20 +42,6 @@ export default function EnemyIntroCard({
           {f.piece.composer ? ' · ' + f.piece.composer : ''}
         </span>
       </div>
-      {opening?.length ? (
-        <p className="m-0 text-sm leading-[1.4] font-[var(--ui)] text-[var(--leaf)]">
-          {opening.join(' ')}
-        </p>
-      ) : null}
-      <SituationPanel
-        situation={situation}
-        ladderIndex={
-          SB.ladderIndex
-            ? SB.ladderIndex(situation ?? null, 0, round.target)
-            : 0
-        }
-        antagonist={f.def.antagonist}
-      />
       {f.def.flavour && (
         <q className="m-0 text-sm font-[var(--display)] text-[var(--leaf-dim)] italic [quotes:none]">
           {f.def.flavour}

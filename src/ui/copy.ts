@@ -33,11 +33,3 @@ export function lostTheRoom(name: string): string {
 }
 
 export const LAST_PAGE_TURNS = 'The last page turns.';
-
-// READ_SLOWLY_PLAN.md stage C: situations resolved by reading.
-export function resolvedSummary(count: number): string {
-  if (count <= 0) return 'No one put the rush down this run.';
-  return count === 1
-    ? 'One person put the rush down.'
-    : count + ' people put the rush down.';
-}

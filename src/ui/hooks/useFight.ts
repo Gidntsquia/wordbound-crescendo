@@ -54,7 +54,6 @@ import {
   warmWordMaker,
 } from '../../engine/content/wordFinder';
 import { CRESCENDO } from '../../audio/recordingPlayer';
-import { situationFor, ladderIndex } from '../../engine/content/situations';
 import { prefetchChapterArt } from '../../art/prefetchArt';
 import * as copy from '../copy';
 import { useCrescendo } from '../hooks/useCrescendo';
@@ -294,8 +293,6 @@ const SB = {
   isWordMakerReady,
   warmWordMaker,
   CRESCENDO,
-  situationFor,
-  ladderIndex,
   CHARACTERS,
   unlockedCharacters: () => unlockedCharacters(readUnlockedCharacters()),
   unlockNext,
@@ -527,9 +524,6 @@ export function useFight() {
   // tiles (from `tiles`), the case shows `rackBefore` with hollows, the
   // header shows `scoreBase` until the total lands. Any tap skips ahead.
   const [scoring, setScoring] = useState<ScoringState | null>(null);
-  // C3: the situation's resolution[] plays as a short beat after a win,
-  // before the shop button appears; any tap skips it.
-  const [wonResolved, setWonResolved] = useState(false);
   // The soundtrack's crescendo window, polled while a crescendo quill is held
   // (audioPiece.js `crescendo()`): { phase: 'idle' | 'soon' | 'live', secs }.
   const cres = useCrescendo(phase, fight, SB.ITEM_DEFS, sfx);
@@ -622,25 +616,16 @@ export function useFight() {
     [warm],
   );
   // READ_SLOWLY_PLAN.md E4: while the player is in the shop, prefetch the
-  // next fight's chapter art the same way warmAhead prefetches its audio
-  // bytes above -- a no-op today since every backdrop/antagonist sheet is
-  // still SVG (bundled in the JS, nothing to fetch); it starts doing real
-  // work once a chapter's art is sourced as a PNG (see prefetchArt.ts).
+  // next chapter's backdrop the same way warmAhead prefetches its audio
+  // bytes above -- a no-op today since it's still SVG (bundled in the JS,
+  // nothing to fetch); it starts doing real work once it's sourced as a
+  // PNG (see prefetchArt.ts).
   useEffect(() => {
     if (phase !== 'shop') return;
     const run = fight.current?.run;
     if (!run) return;
-    const m = run.movements[run.movement];
-    if (!m) return;
-    const nextEnemy =
-      run.stage + 1 < m.enemies.length
-        ? enemyAt(run.movement, run.stage + 1)
-        : enemyAt(run.movement + 1, 0);
     const nextChapter = Math.min(3, Math.max(1, run.movement + 2));
-    prefetchChapterArt([
-      nextEnemy?.antagonist,
-      `backdrop_chapter_${nextChapter}`,
-    ]);
+    prefetchChapterArt([`backdrop_chapter_${nextChapter}`]);
   }, [phase]);
   useEffect(() => {
     warm(0, 0);
@@ -802,18 +787,6 @@ export function useFight() {
   const nextStage = useCallback(() => {
     dispatchFight({ type: 'fight/nextStage', fight, phase });
   }, [phase]);
-
-  // C3: the resolution[] beat runs once per win, then reveals the shop
-  // button; a tap (skipWonResolution) ends it early.
-  useEffect(() => {
-    if (phase !== 'won') {
-      setWonResolved(false);
-      return;
-    }
-    const id = setTimeout(() => setWonResolved(true), 2500);
-    return () => clearTimeout(id);
-  }, [phase]);
-  const skipWonResolution = useCallback(() => setWonResolved(true), []);
 
   // Take a letter offered after a boss, then resume into the shop or the win screen.
   const pickLetter = useCallback(
@@ -1141,14 +1114,6 @@ export function useFight() {
       st.hit = 1 + Math.round(k * (CASCADE.SHAKE_TIERS - 1));
       flyScore(b.total);
       sfx('hit', k);
-      const situation = situationFor(r.situation);
-      if (
-        situation &&
-        ladderIndex(situation, scoreBefore, r.target) !==
-          ladderIndex(situation, r.score, r.target)
-      ) {
-        sfx('page');
-      }
       if (st.crossed) sfx('resolve');
       show();
       await wait(CASCADE.TOTAL_MS);
@@ -1379,8 +1344,6 @@ export function useFight() {
     tip,
     setTip,
     nextStage,
-    wonResolved,
-    skipWonResolution,
     W,
     pickLetter,
     leaveShop,

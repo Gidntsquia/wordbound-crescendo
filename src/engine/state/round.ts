@@ -43,7 +43,6 @@ export interface Pile {
 export interface RoundState {
   readonly tune: Tune;
   readonly target: number;
-  readonly situation: string | null;
   readonly rule: Rule | null;
   readonly usedLetters: Readonly<Record<string, boolean>>;
   readonly reward: number;
@@ -74,7 +73,6 @@ export interface CreateRoundStateOpts {
   rule?: Rule | null;
   target?: number;
   reward?: number;
-  situation?: string | null;
   pile?: Pile;
   noPremium?: boolean;
 }
@@ -162,7 +160,6 @@ export function createRoundState(
       (opts.target != null ? opts.target : Number(tune.MOVEMENT_BASE_1)) *
         (rule && rule.targetMult ? rule.targetMult : 1),
     ),
-    situation: opts.situation ?? null,
     rule,
     usedLetters: {},
     reward: opts.reward != null ? opts.reward : Number(tune.INK_SMALL),

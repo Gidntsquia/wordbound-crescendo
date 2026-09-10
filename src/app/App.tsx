@@ -83,8 +83,6 @@ export interface AppProps {
   tip: string | null;
   setTip: Dispatch<SetStateAction<string | null>>;
   nextStage: () => void;
-  wonResolved: boolean;
-  skipWonResolution: () => void;
   W: typeof window.Wordbound;
   pickLetter: (letter: string) => void;
   leaveShop: () => void;
@@ -178,8 +176,6 @@ export default function App(props: AppProps) {
     tip,
     setTip,
     nextStage,
-    wonResolved,
-    skipWonResolution,
     W,
     pickLetter,
     leaveShop,
@@ -319,13 +315,11 @@ export default function App(props: AppProps) {
             <ScoreLine
               f={f}
               round={round}
-              SB={SB}
               scoring={scoring}
               scoreShown={scoreShown}
               pct={pct}
               seen={seen}
               live={live}
-              cres={cres}
             />
           )}
           {phase !== 'shop' && (
@@ -351,14 +345,7 @@ export default function App(props: AppProps) {
               />
             )}
           {phase === 'won' && (
-            <WonBanner
-              round={round}
-              run={run!}
-              nextStage={nextStage}
-              situation={SB.situationFor(round.situation)}
-              resolved={wonResolved}
-              skip={skipWonResolution}
-            />
+            <WonBanner round={round} run={run!} nextStage={nextStage} />
           )}
           {phase === 'letter' && run!.letterChoice && (
             <LetterChoice

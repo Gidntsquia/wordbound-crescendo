@@ -16,13 +16,6 @@ export interface Enemy {
   kind: EnemyKind;
   flavour: string;
   rule?: string;
-  situation: string;
-  // The big/boss fight in a chapter reuses the chapter's situation (person,
-  // ladder captions) but shows a different antagonist sprite than the
-  // chapter's small enemy -- READ_SLOWLY_PLAN.md E2. Sheet id from
-  // tools/art-manifest.json; omitted on the small enemy, which just uses
-  // situation.antagonist.
-  antagonist?: string;
 }
 
 export interface Movement {
@@ -66,7 +59,6 @@ export const MOVEMENTS: Movement[] = [
     enemies: [
       {
         id: 'bagatelle',
-        situation: 'the_commute',
         name: 'The Doomscroll',
         glyph: '\u{1F4F1}',
         recorded: 'recordedFurElise',
@@ -76,25 +68,21 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'moonlight',
-        situation: 'the_commute',
         name: 'The Deadline',
         glyph: '\u{1F319}',
         recorded: 'recordedMoonlight',
         kind: 'big',
         flavour:
           'The same commuter, now at a desk. A clock face where the phone was.',
-        antagonist: 'clock',
       },
       {
         id: 'fate',
-        situation: 'the_commute',
         name: 'Fate at the Door',
         glyph: '\u{1F451}',
         recorded: 'recordedSymphony5',
         kind: 'boss',
         flavour: 'The deadline arrives in person. Four knocks. Not asking.',
         rule: 'four_knocks',
-        antagonist: 'knocking_door',
       },
     ],
   },
@@ -104,7 +92,6 @@ export const MOVEMENTS: Movement[] = [
     enemies: [
       {
         id: 'aria',
-        situation: 'the_square',
         name: 'The Bored Bench',
         glyph: '\u{1FA91}',
         recorded: 'recordedGoldbergAria',
@@ -114,7 +101,6 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'mountain_king',
-        situation: 'the_square',
         name: 'The Loudspeaker',
         glyph: '\u{1F3D4}️',
         recorded: 'recordedMountainKing',
@@ -122,11 +108,9 @@ export const MOVEMENTS: Movement[] = [
         flavour:
           'A leader who talks so no one has to think. The bench-sitter is in the crowd.',
         rule: 'presto',
-        antagonist: 'loudspeaker',
       },
       {
         id: 'gallop',
-        situation: 'the_square',
         name: 'The Gallop',
         glyph: '\u{1F40E}',
         recorded: 'recordedWilliamTell',
@@ -134,7 +118,6 @@ export const MOVEMENTS: Movement[] = [
         flavour:
           'The parade that never stops for anyone. Every letter you spend, it remembers.',
         rule: 'no_repeats',
-        antagonist: 'parade',
       },
     ],
   },
@@ -144,7 +127,6 @@ export const MOVEMENTS: Movement[] = [
     enemies: [
       {
         id: 'gymnopedie',
-        situation: 'the_tower',
         name: 'The Waiting Room',
         glyph: '\u{1F3E2}',
         recorded: 'recordedGymnopedie',
@@ -154,17 +136,14 @@ export const MOVEMENTS: Movement[] = [
       },
       {
         id: 'serenade',
-        situation: 'the_tower',
         name: 'The Chancellor',
         glyph: '\u{1F3DB}️',
         recorded: 'recordedNachtmusik',
         kind: 'big',
         flavour: 'Hegemony. A hall repeating the same word after a podium.',
-        antagonist: 'podium',
       },
       {
         id: 'bald_mountain',
-        situation: 'the_tower',
         name: 'The Bare Mountain',
         glyph: '\u{1F311}',
         recorded: 'recordedBaldMountain',
@@ -172,7 +151,6 @@ export const MOVEMENTS: Movement[] = [
         flavour:
           'The whole night of noise. Speak softly here; loud words are taken from you.',
         rule: 'sotto_voce',
-        antagonist: 'the_night',
       },
     ],
   },

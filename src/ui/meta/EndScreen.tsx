@@ -26,7 +26,6 @@ import {
 } from '../primitives/dialog';
 import type { RunFacade } from '../../engine/state/facade';
 import type { Breakdown } from '../../engine/content/round';
-import type { SituationId } from '../../engine/content/situations';
 import type { Enemy } from '../../engine/content/enemies';
 
 type EndRun = RunFacade;
@@ -53,9 +52,6 @@ export default function EndScreen({
   run: EndRun;
   won: boolean;
   SB: {
-    situationFor?: (
-      situation: SituationId | null | undefined,
-    ) => { failure: string } | null;
     ITEM_DEFS: Record<string, { name: string; rarity?: string }>;
   };
   seed: string;
@@ -95,14 +91,6 @@ export default function EndScreen({
           ? copy.LAST_PAGE_TURNS
           : copy.lostTheRoom(run.enemy?.name ?? 'unknown')}
       </h2>
-      {!won &&
-        run.round &&
-        SB.situationFor &&
-        SB.situationFor(run.round.situation) && (
-          <p className="sb-end-failure">
-            {SB.situationFor(run.round.situation)!.failure}
-          </p>
-        )}
       <p className="my-1 mb-3.5 text-[var(--leaf-dim)]">
         {won
           ? 'All ' +
@@ -111,8 +99,6 @@ export default function EndScreen({
             run.felled.length +
             ' enemies felled'
           : run.round!.target - run.round!.score + ' short of the target'}
-        {' · '}
-        {copy.resolvedSummary(run.resolved ? run.resolved.length : 0)}
         {' · '}
         {run.wordsPlayed} word{run.wordsPlayed === 1 ? '' : 's'} played ·{' '}
         <b className="font-[var(--figure)] text-[var(--brass-hot)]">

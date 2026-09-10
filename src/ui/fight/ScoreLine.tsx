@@ -1,17 +1,13 @@
-// The live scoreline (score/meter/target/words/swaps), enemy/piece line,
-// situation caption, and reading condition card. Extracted from
-// RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in; scoring/seen
-// are read-only here.
-import SituationPanel from './SituationPanel';
+// The live scoreline (score/meter/target/words/swaps) and enemy/piece line,
+// plus the reading condition card. Extracted from RoundSandbox.jsx
+// (READ_SLOWLY_PLAN.md A4). Pure props in; scoring/seen are read-only here.
 import {
   Progress,
   ProgressTrack,
   ProgressIndicator,
 } from '../primitives/progress';
-import type { Situation, SituationId } from '../../engine/content/situations';
 import type { Fight } from '../../app/store';
 import type { RoundFacade } from '../../engine/state/facade';
-import type { CrescendoState } from '../hooks/useCrescendo';
 
 type RoundLike = RoundFacade;
 
@@ -39,32 +35,19 @@ const FLOAT_MULT = 'text-[var(--rubric)]';
 export default function ScoreLine({
   f,
   round,
-  SB,
   scoring,
   scoreShown,
   pct,
   seen,
   live,
-  cres,
 }: {
   f: Fight | null;
   round: RoundLike;
-  SB: {
-    situationFor?: (
-      situation: SituationId | null | undefined,
-    ) => Situation | null;
-    ladderIndex?: (
-      situation: Situation | null,
-      score: number,
-      target: number,
-    ) => number;
-  };
   scoring: ScoringState | null;
   scoreShown: number;
   pct: number;
   seen: ReadonlySet<string>;
   live: boolean;
-  cres?: CrescendoState;
 }) {
   if (!f || !f.def || !f.piece) return null;
   return (
@@ -136,21 +119,6 @@ export default function ScoreLine({
           {f.piece.composer ? ' · ' + f.piece.composer : ''}
         </span>
       </div>
-      <SituationPanel
-        situation={SB.situationFor && SB.situationFor(round.situation)}
-        ladderIndex={
-          SB.ladderIndex
-            ? SB.ladderIndex(
-                SB.situationFor!(round.situation),
-                scoreShown,
-                round.target,
-              )
-            : 0
-        }
-        hit={scoring?.hit}
-        antagonist={f.def.antagonist}
-        crescendoLive={live && cres?.phase === 'live'}
-      />
       {round.rule && (
         <div
           className={
