@@ -85,6 +85,9 @@ export function roundFacade(box: Box) {
     get favour() {
       return box.run.round!.favour;
     },
+    get characterUsed() {
+      return box.run.round!.characterUsed;
+    },
     breakdownFor(word: string) {
       return R.breakdownFor(
         box.run.round!,

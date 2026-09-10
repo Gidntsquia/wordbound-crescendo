@@ -59,21 +59,29 @@ export default function Rack({
     <div className="sb-rack-row">
       {characterTile && (
         <div className="sb-character-slot">
-          {characterPicked ? (
-            <span className="sb-tile is-slot" aria-hidden="true" />
+          {characterPicked || round.characterUsed ? (
+            <span
+              className="sb-tile is-slot"
+              aria-hidden="true"
+              title={
+                round.characterUsed && !characterPicked
+                  ? 'Played this round already — back next round.'
+                  : undefined
+              }
+            />
           ) : (
             <button
               type="button"
               disabled={!live}
               className={
-                'sb-tile is-character' +
+                'sb-tile' +
                 (round.isBarred(characterTile) ? ' is-barred' : '') +
                 (scoring && scoring.litTile === characterTile.id
                   ? ' is-lit'
                   : '')
               }
               data-flip-tile-id={characterTile.id}
-              title="Your character's own tile — always here, returns after every word."
+              title="Your character's own tile — playable once this round."
               {...(drag ? drag.bind('character', 0, characterTile.id) : {})}
               onClick={() =>
                 round.isBarred(characterTile)

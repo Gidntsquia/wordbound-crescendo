@@ -908,11 +908,6 @@ button:disabled {
   margin-right: 2px;
 }
 
-.sb-tile.is-character {
-  background: var(--gilt, var(--brass-hot));
-  border-color: var(--gilt, var(--brass-hot));
-}
-
 .sb-rack {
   display: flex;
   gap: 7px;
@@ -1576,6 +1571,22 @@ button:disabled {
     min-width: 40px;
     height: 46px;
     font-size: 19px;
+  }
+  /* The character slot adds an 8th tile plus its own border/padding to that
+     same row -- the 40px math above only accounts for 7. Shrink everything
+     in the row when it's present so the case still fits on one line instead
+     of wrapping the last rack tile onto a second row. */
+  .sb-rack-row:has(.sb-character-slot) .sb-tile {
+    min-width: 34px;
+    height: 42px;
+    font-size: 17px;
+  }
+  .sb-rack-row:has(.sb-character-slot) .sb-rack {
+    gap: 4px;
+  }
+  .sb-rack-row:has(.sb-character-slot) .sb-character-slot {
+    padding-right: 8px;
+    margin-right: 0;
   }
   .sb-stick {
     min-height: 44px;
@@ -2617,6 +2628,10 @@ button.sb-card:disabled {
    fold away behind it so the demo has one path -- open, Play, spell. */
 .sb-head {
   position: relative;
+  /* The gear button is position:absolute (out of flow) so an empty header
+     collapses to 0 height and the button sits on top of whatever follows
+     (the run strip's ink readout) instead of reserving its own row. */
+  min-height: 44px;
 }
 .sb-gear {
   display: inline-flex;

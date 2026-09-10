@@ -60,6 +60,10 @@ export interface RoundState {
   readonly rack: readonly Tile[];
   readonly premium: Premium | null;
   readonly favour?: string | null;
+  // The character tile (READ_SLOWLY_PLAN.md D1) is playable once per round --
+  // set true the play it's used in, reset every new round (Jaxon, 2026-09-09:
+  // it read as an always-on item, not a once-a-turn tile).
+  readonly characterUsed: boolean;
 }
 
 export interface CreateRoundStateOpts {
@@ -182,6 +186,7 @@ export function createRoundState(
     pile: pileAfterDraw,
     rack,
     premium,
+    characterUsed: false,
   };
   return [round, s];
 }
@@ -222,6 +227,7 @@ export function breakdownFor(
 ): Breakdown {
   const upper = String(word).toUpperCase();
   const Lexicon = window.Wordbound.Lexicon;
+  if (round.characterUsed) characterTile = null;
   const searchPool = characterTile
     ? (round.rack as Tile[]).concat([characterTile])
     : (round.rack as Tile[]);
@@ -319,7 +325,8 @@ export function playWord(
       rngState,
     ];
   const Lexicon = window.Wordbound.Lexicon;
-  const characterTile = ctx.characterTile ?? null;
+  const characterTile =
+    ctx.characterTile && !round.characterUsed ? ctx.characterTile : null;
   const searchPool = characterTile
     ? (round.rack as Tile[]).concat([characterTile])
     : (round.rack as Tile[]);
@@ -421,6 +428,7 @@ export function playWord(
     rack: newRack,
     state,
     ink,
+    characterUsed: round.characterUsed || !!characterTile,
   };
 
   let effects: PlayEffects | undefined;

@@ -655,12 +655,21 @@ export default function RoundSandbox() {
     // document, so a bubble-phase listener alone misses most real taps.
     document.addEventListener('pointerdown', tryResume, true);
     document.addEventListener('touchstart', tryResume, true);
+    // Belt-and-suspenders for the case none of the above events actually
+    // fire (Jaxon, 2026-09-09 phone check: still silent after a few minutes
+    // backgrounded even with the listeners above) -- poll while the tab is
+    // visible so a suspended/closed context gets caught within a few
+    // seconds of the player looking at the screen again, gesture or not.
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') tryResume();
+    }, 3000);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       window.removeEventListener('pageshow', onVisible);
       document.removeEventListener('pointerdown', tryResume, true);
       document.removeEventListener('touchstart', tryResume, true);
+      window.clearInterval(poll);
     };
   }, []);
 
