@@ -81,7 +81,7 @@ export default function Rack({
   // the same property and the tile would jump. Lift stays shadow + colour
   // only.
   const TILE_STRUCT =
-    'relative min-w-[46px] h-[52px] p-0 rounded-[2px] font-[var(--display)] text-[22px] font-semibold tracking-normal normal-case touch-none select-none';
+    'relative isolate min-w-[46px] h-[52px] p-0 rounded-[2px] font-[var(--display)] text-[22px] font-semibold tracking-normal normal-case touch-none select-none';
   const TILE_PLAIN =
     TILE_STRUCT +
     ' text-[var(--ink)] bg-[var(--leaf)] border border-[var(--leaf)] shadow-[0_2px_0_rgba(0,0,0,0.45)]' +
@@ -268,7 +268,7 @@ export default function Rack({
               <Sprite
                 sheet="tile_face"
                 pose="idle"
-                className="pointer-events-none absolute inset-0 rounded-[2px] opacity-15"
+                className="pointer-events-none absolute inset-0 -z-10 rounded-[2px] opacity-15"
               />
               {t.mark && !round.isBarred(t) && (
                 <i

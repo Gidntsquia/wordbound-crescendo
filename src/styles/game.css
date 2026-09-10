@@ -242,12 +242,13 @@ body {
   }
 }
 
-/* SituationPanel.tsx's sprite crossfade on pose change. */
+/* SituationPanel.tsx's sprite crossfade on pose change. `from` only: the
+   end state is the element's own opacity (the rack's tile_face grain sits
+   at opacity-15), not 1 -- a `to { opacity: 1 }` painted the sandstone
+   sheet at full strength over the letter for the 200 ms it ran, and on iOS
+   Safari a returned tile stayed that way (2026-09-10 phone report). */
 @keyframes sb-sprite-crossfade {
   from {
     opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
