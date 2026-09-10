@@ -316,7 +316,7 @@ export default function App(props: AppProps) {
       {round && (
         <section
           className={
-            'sb-board mb-1 pb-[18px] max-[620px]:flex max-[620px]:min-h-0 max-[620px]:flex-1 max-[620px]:flex-col max-[620px]:overflow-y-auto max-[620px]:[-webkit-overflow-scrolling:touch]' +
+            'sb-board mb-1 pb-[18px] max-[620px]:flex max-[620px]:min-h-0 max-[620px]:flex-1 max-[620px]:flex-col max-[620px]:overflow-y-auto max-[620px]:pb-2 max-[620px]:[-webkit-overflow-scrolling:touch]' +
             (scoring && scoring.hit === 1
               ? ' motion-safe:animate-[board-shake-1_280ms_ease-out]'
               : scoring && scoring.hit === 2

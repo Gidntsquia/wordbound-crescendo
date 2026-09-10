@@ -106,7 +106,7 @@ export default function TitleScreen({
       >
         Play
       </Button>
-      <p className="sb-hint mx-auto mt-[18px] max-w-[520px]">
+      <p className="sb-hint mx-auto mt-[18px] max-w-[520px] text-[11px] text-[var(--leaf-dim)] italic">
         {best.word ? (
           <>
             Best: {best.word.word} for {best.word.total} · {best.wins || 0} win

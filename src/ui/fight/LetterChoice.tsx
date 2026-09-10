@@ -36,7 +36,7 @@ export default function LetterChoice({
           </Button>
         ))}
       </div>
-      <p className="sb-hint">
+      <p className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
         It joins every future run’s bag, win or lose this one.
       </p>
     </div>

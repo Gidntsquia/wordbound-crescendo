@@ -159,14 +159,17 @@ export default function TuningPanel({
     : TUNE_GROUPS;
 
   const field = (key: string) => (
-    <label key={key}>
+    <label
+      key={key}
+      className="flex flex-col gap-1 text-[10px] tracking-[0.06em] text-[var(--leaf-dim)]"
+    >
       {TUNE_LABELS[key] || key}
       <input
         type="number"
         step={1}
         value={Number(tune[key])}
         onChange={(e) => setConst(key, Number(e.target.value))}
-        className="w-full"
+        className="w-full rounded-[2px] border border-[var(--rule)] bg-[var(--pit-deep)] px-2 py-1.5 text-[13px] font-[var(--figure)] text-[var(--leaf)] hover:border-[var(--brass)]"
       />
     </label>
   );

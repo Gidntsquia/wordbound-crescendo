@@ -38,7 +38,7 @@ export default function InputRow({
   );
   return (
     <>
-      <div className="sb-input">
+      <div className="sb-input mb-3.5 flex flex-wrap gap-2 max-[620px]:mb-1.5">
         <Button
           type="button"
           className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"

@@ -149,9 +149,15 @@ export default function EndScreen({
             </TooltipProvider>
 
             {run.skipped.length > 0 && (
-              <em className="sb-hint">{run.skipped.length} skipped</em>
+              <em className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
+                {run.skipped.length} skipped
+              </em>
             )}
-            {felled.length === 0 && <em className="sb-hint">none</em>}
+            {felled.length === 0 && (
+              <em className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
+                none
+              </em>
+            )}
           </div>
         </Card>
         <Card className="bg-transparent p-0 ring-0">
@@ -172,7 +178,9 @@ export default function EndScreen({
               </span>
             </div>
           ) : (
-            <em className="sb-hint">none played</em>
+            <em className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
+              none played
+            </em>
           )}
         </Card>
         <Card className="bg-transparent p-0 ring-0">
@@ -196,7 +204,11 @@ export default function EndScreen({
                 </Card>
               );
             })}
-            {run.items.length === 0 && <em className="sb-hint">none</em>}
+            {run.items.length === 0 && (
+              <em className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
+                none
+              </em>
+            )}
           </div>
         </Card>
       </div>
@@ -220,7 +232,11 @@ export default function EndScreen({
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
           <DialogTrigger
             render={
-              <Button type="button" className="sb-hint" variant="paperGhost" />
+              <Button
+                type="button"
+                className="sb-hint text-[11px] text-[var(--leaf-dim)] italic"
+                variant="paperGhost"
+              />
             }
           >
             preview
@@ -229,7 +245,10 @@ export default function EndScreen({
             <DialogHeader>
               <DialogTitle>Result to share</DialogTitle>
             </DialogHeader>
-            <pre className="sb-hint" style={{ whiteSpace: 'pre-wrap' }}>
+            <pre
+              className="sb-hint text-[11px] text-[var(--leaf-dim)] italic"
+              style={{ whiteSpace: 'pre-wrap' }}
+            >
               {shareText}
             </pre>
             <DialogFooter>
@@ -262,7 +281,7 @@ export default function EndScreen({
           </Button>
         </span>
         {best && best.word && (
-          <span className="sb-hint">
+          <span className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
             best ever: {best.word.word} for {best.word.total} · deepest:{' '}
             {best.deepest ? best.deepest.name : '—'} · {best.wins || 0} win
             {best.wins === 1 ? '' : 's'} in {best.runs || 0} run

@@ -66,169 +66,22 @@ body {
   outline-offset: 2px;
 }
 
-.sb-wordmark {
-  min-width: 0;
-}
-
-.sb-wordmark h1 {
-  font-family: var(--display);
-  font-weight: 500;
-  font-size: clamp(30px, 5vw, 46px);
-  line-height: 1;
-  margin: 4px 0 0;
-  letter-spacing: -0.015em;
-}
-
-.sb-amp {
-  color: var(--brass);
-  padding: 0 0.28em;
-}
-
-/* The dB ramp, said the way a score says it. */
-.sb-dyn {
-  flex: none;
-  text-align: right;
-}
-
-.sb-dyn-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  white-space: nowrap;
-  text-transform: uppercase;
-  color: var(--leaf-dim);
-}
-
-.sb-dyn-mark {
-  display: block;
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 800;
-  font-size: 40px;
-  line-height: 1;
-  padding-right: 3px;
-  color: var(--brass-hot);
-  transition: color 300ms ease;
-}
-
 /* ---- setup strip ------------------------------------------------------ */
-
-/* TILE BAG: a segmented row of buttons rather than a dropdown, because the
-   knob exists to be A/B'd -- one case against another on the same seed -- and
-   that should cost one click, not a click, a read and a click. Reads
-   weak..strong left to right. The lit segment is paper-on-ink like .sb-go,
-   since picking a bag is the same kind of act as pressing Start. */
-
-/* Keys (NEXT_LEVEL_PLAN.md stage 3): a row on the title screen once a
-   second key is unlocked, and a read-only list of all six in the tuning
-   panel. Reuses .sb-bag's button look rather than inventing a new one. */
-
-/* The stolen-letters meta (DIVERGENCE_PLAN.md): every letter, hollow where
-   still stolen. Won letters read the same as the bag chooser's active tab. */
-
-.sb-tune label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--leaf-dim);
-}
-
-input,
-select {
-  font-family: var(--figure);
-  font-size: 13px;
-  color: var(--leaf);
-  background: var(--pit-deep);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  padding: 6px 8px;
-}
-
-input:hover,
-select:hover {
-  border-color: var(--brass);
-}
-
-select {
-  font-family: var(--ui);
-}
-
-input[type='range'] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 132px;
-  height: 2px;
-  padding: 0;
-  border: 0;
-  background: var(--rule);
-  border-radius: 0;
-}
-
-input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 3px;
-  height: 18px;
-  background: var(--brass-hot);
-  cursor: ew-resize;
-}
-
-input[type='range']::-moz-range-thumb {
-  width: 3px;
-  height: 18px;
-  border: 0;
-  border-radius: 0;
-  background: var(--brass-hot);
-  cursor: ew-resize;
-}
-
-button {
-  font-family: var(--ui);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--leaf);
-  background: transparent;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition:
-    background 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease;
-}
-
-button:hover:not(:disabled) {
-  border-color: var(--brass);
-  color: var(--brass-hot);
-}
-
-button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-/* BLIND-PUSH LOCKOUT. The button stops being paper and becomes the countdown
-   itself -- a stated number of seconds, in the figure face, so the cost of the
-   guess is legible rather than felt as an unresponsive control. Overrides
-   button:disabled's flat dimming: greyed out reads as "not available yet",
-   and this is "you spent this". */
-.sb-go.is-locked,
-.sb-go.is-locked:disabled {
-  opacity: 1;
-  color: var(--rubric);
-  background: transparent;
-  border-color: var(--rubric-dim);
-  font-family: var(--figure);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-}
-
-/* ---- rack, input, word maker ------------------------------------------ */
+/* .sb-wordmark/.sb-amp/.sb-dyn/.sb-dyn-label had no remaining call site
+   anywhere in src/ (grepped) -- dead, deleted outright. .sb-dyn-mark is
+   still live (ScoreLine.tsx's live score figure, and useFight.ts's FLIP
+   querySelector target) -- ported to Tailwind utilities on that span.
+   .sb-tune label/.sb-bag/raw input/button element styles ported below;
+   .sb-go.is-locked (the BLIND-PUSH LOCKOUT look) had no caller applying
+   is-locked to a .sb-go element anywhere in src/ -- dead, deleted outright.
+   The plain `button`/`input`/`select` element-selector styles are also
+   gone: every raw <button> was already migrated to shadcn Button in an
+   earlier slice (zero <button> tags remain in src/), and the surviving raw
+   <input>s (TuningPanel.tsx's tune fields, SetupPanel.tsx's seed field) now
+   carry the equivalent utilities directly; StartingQuills.tsx's checkbox
+   input already carries its own bespoke classes and never depended on this
+   rule. There is no raw <select> left either. No `input[type=range]`
+   remains -- Slider (shadcn) replaced it. */
 /* .sb-play, .sb-rack-row, .sb-character-slot, .sb-rack, .sb-tile (base +
    hover/is-dragging/is-slot/is-set/is-missing) and .sb-drag-ghost ported to
    Tailwind utilities on their JSX (sandbox.css A6 slice 5, READ_SLOWLY_PLAN
@@ -239,280 +92,26 @@ button:disabled {
    select by them. The "NOTHING MAY SET transform" rule that used to live as
    a comment here now lives next to the Tailwind classes in Rack.tsx. */
 
-/* -- the composing stick ------------------------------------------------ */
-/* The play area a tapped tile slides down into. Fixed height on purpose: a row
-   that grew as the first tile landed would move the very target the FLIP
-   measured against, and the slide would end somewhere the tile is not. */
-.sb-stick-wrap {
-  margin-bottom: 14px;
-}
-
-.sb-stick-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 6px;
-}
-
-/* What the type standing in the stick is worth if pushed now -- and, when it
-   was assembled rather than looked up, that it is carrying the hand-set
-   bonus. The multiplier is applied at the moment of play and is otherwise
-   completely invisible: a player cannot notice a number they never saw the
-   other version of. */
-.sb-stick-worth {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--leaf-dim);
-}
-
-.sb-stick-worth b {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--leaf);
-}
-
-.sb-stick-worth.is-hand {
-  color: var(--rubric);
-}
-.sb-stick-worth.is-hand b {
-  color: var(--rubric);
-}
-
-/* POINTS × MULT, Balatro-style: cool points, hot mult, then the product. */
-.sb-stick-math {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-}
-.sb-stick-math i {
-  font-style: normal;
-  font-size: 11px;
-  color: var(--leaf-dim);
-}
-.sb-stick-worth.is-hand .sb-pts {
-  color: #6fb3e0;
-}
-.sb-stick-worth.is-hand .sb-mult {
-  color: var(--brass-hot);
-}
-.sb-stick-worth.is-hand .sb-bingo {
-  color: var(--leaf);
-}
-.sb-stick-worth.is-hand .sb-tier-name {
-  font-style: normal;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--leaf);
-  margin-right: 3px;
-}
-
-.sb-stick {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-wrap: wrap;
-  min-height: 68px;
-  padding: 7px 9px;
-  border: 1px solid var(--rule);
-  border-bottom-width: 3px;
-  background: var(--pit-deep);
-}
-
-/* The field is standing on letters the case cannot cover, so the stick itself
-   says so rather than leaving the warning to a line of prose below it. */
-.sb-stick.is-short {
-  border-color: var(--rubric-dim);
-}
-
-.sb-stick-empty {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 13px;
-  color: var(--leaf-dim);
-  padding-left: 2px;
-}
-
-.sb-input {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-/* The bag and the discard pile: a one-line summary, tap for the letters. */
-.sb-piles {
-  margin: -4px 0 12px;
-  font-size: 12px;
-  color: var(--leaf-dim);
-}
-.sb-piles summary {
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: baseline;
-  min-height: 40px;
-  padding: 6px 0;
-}
-.sb-piles summary::-webkit-details-marker {
-  display: none;
-}
-.sb-piles summary b {
-  color: var(--ink);
-  font-weight: 700;
-}
-.sb-piles summary em {
-  font-style: italic;
-  opacity: 0.8;
-}
-.sb-piles[open] summary em {
-  display: none;
-}
-.sb-pile-tiles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 0 8px;
-}
-.sb-pile-tile {
-  width: 22px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--leaf-dim);
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink);
-  opacity: 0.75;
-}
-.sb-pile-tile.is-character {
-  background: var(--gilt, var(--brass-hot));
-  border-color: var(--gilt, var(--brass-hot));
-  opacity: 1;
-}
-
-.sb-input input.is-unformable {
-  border-color: var(--brass);
-  color: var(--brass-hot);
-}
-
-.sb-input input {
-  flex: 1;
-  min-width: 200px;
-  font-family: var(--display);
-  font-size: 20px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 6px 12px;
-}
-
-/* THE WORD LIST, IN A DRAWER. Styled to match .sb-tune, the sandbox's other
-   collapsed panel, so the screen has one idea of what "put away" looks like --
-   with the summary carrying the count and the best word, because those are the
-   two things worth knowing without opening it. */
-.sb-suggests-drop {
-  border-top: 1px solid var(--rule);
-  padding-top: 10px;
-}
-
-.sb-suggests-drop summary {
-  cursor: pointer;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 2px 0;
-}
-
-.sb-suggests-drop summary:hover .sb-suggests-title {
-  color: var(--brass-hot);
-}
-
-.sb-suggests-title {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--leaf-dim);
-}
-
-/* The count, then the best word, then what it is worth -- the summary of a
-   list you have not opened. */
-.sb-suggests-count {
-  font-family: var(--figure);
-  font-size: 11px;
-  color: var(--leaf-dim);
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.sb-suggests-count b {
-  font-family: var(--display);
-  font-size: 15px;
-  letter-spacing: 0.1em;
-  color: var(--leaf);
-}
-
-.sb-suggests-count em {
-  font-style: normal;
-  color: var(--brass);
-}
-
-.sb-suggests {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
-  min-height: 30px;
-  padding-top: 10px;
-}
-
-.sb-suggest {
-  font-family: var(--ui);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  padding: 6px 10px;
-}
-
-.sb-suggest.is-best {
-  color: var(--ink);
-  background: var(--leaf);
-  border-color: var(--leaf);
-}
-
-.sb-suggest.is-best em {
-  color: rgba(26, 23, 16, 0.6);
-}
-
-.sb-suggest em {
-  font-family: var(--figure);
-  font-style: normal;
-  font-size: 10px;
-  color: var(--brass);
-  margin-left: 8px;
-}
-
-.sb-hint {
-  font-size: 11px;
-  color: var(--leaf-dim);
-  font-style: italic;
-}
-
-.sb-warn-line {
-  margin: 10px 0 0;
-  color: var(--brass);
-}
-
+/* -- the composing stick / input / piles / suggestions / hint ---------- */
+/* .sb-stick-wrap/.sb-stick-head/.sb-stick-worth(+is-hand/is-scoring)/
+   .sb-stick-math(+i)/.sb-pts/.sb-mult/.sb-tier-name/.sb-stick(+is-short)/
+   .sb-input/.sb-piles(+summary/summary b/.sb-pile-tiles/.sb-pile-tile+
+   is-character)/.sb-suggests-drop(+summary/.sb-suggests-title/
+   .sb-suggests-count+b/em)/.sb-suggests/.sb-suggest(+is-best/em)/.sb-hint/
+   .sb-warn-line ported to Tailwind utilities on their JSX (sandbox.css A6
+   slice 9) -- see Stick.tsx, InputRow.tsx, PilesDrawer.tsx,
+   SuggestionsDrawer.tsx, and every .sb-hint/.sb-warn-line call site across
+   ui/. The class names stay as plain markers where another module selects
+   by them (e.g. .sb-stick for useDragReorder.ts/useFight.ts's FLIP,
+   .sb-go for nothing anymore -- see below).
+   Dead, deleted outright (zero callers anywhere in src/, confirmed via
+   grep): .sb-stick-worth b's bare rule (only ever reached through the
+   is-hand variant, which is applied on every actual .sb-stick-worth in
+   JSX), .sb-bingo (no element ever carried it), .sb-stick-empty (nothing
+   renders it -- Stick.tsx has no empty-stick placeholder any more),
+   .sb-piles summary em / .sb-piles[open] summary em (PilesDrawer.tsx's
+   summary has no <em> descendant), .sb-input input.is-unformable (no
+   caller ever adds is-unformable to the word input). */
 /* ---- tuning + log ----------------------------------------------------- */
 /* .sb-tune/.sb-tune-grid/.sb-tune-note ported to Tailwind utilities on
    TuningPanel.tsx (sandbox.css A6 slice 5). "sb-tune" stays as a plain
@@ -552,45 +151,22 @@ button:disabled {
 }
 
 /* ---- responsive ------------------------------------------------------- */
+/* .sb-field/.sb-typecase/.sb-slugs/.sb-pit(+.sb-panel-head)/.sb-glyph/
+   .sb-hairpin-live/.sb-pit-foot/.sb-rope (920px block) and .sb-head/.sb-dyn/
+   .sb-dyn-mark's font-size (already carried as a max-[620px]: utility on
+   ScoreLine.tsx)/.sb-wordmark h1(+.sb.is-title variant)/.sb-strip(+-mv/
+   -numeral)/.sb-input input/.sb-held/.sb-skip (620px block) had no
+   remaining call site anywhere in src/ (grepped) -- dead, deleted outright
+   along with their media-query entries (sandbox.css A6 slice 9). The live
+   selectors those two blocks used to also carry (.sb, .sb-setup, .sb-bag,
+   .sb-stick, .sb-board, .sb-stick-wrap, .sb-piles) now carry their
+   max-[620px]: variants as Tailwind utilities directly on their JSX --
+   .sb itself stays here since :root/global resets are a later slice's
+   scope, but SetupPanel.tsx/Stick.tsx/App.tsx/PilesDrawer.tsx carry the
+   rest. */
 @media (max-width: 920px) {
   .sb {
     padding: 20px 16px 40px;
-  }
-  .sb-field {
-    grid-template-columns: 1fr;
-  }
-  .sb-typecase {
-    min-height: 0;
-  }
-  .sb-slugs {
-    max-height: 148px;
-  }
-  .sb-pit {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 14px;
-    text-align: left;
-  }
-  .sb-pit .sb-panel-head {
-    border-bottom: 0;
-    padding-bottom: 0;
-  }
-  .sb-glyph {
-    margin-top: 0;
-    font-size: 30px;
-  }
-  .sb-hairpin-live {
-    flex: 1;
-    min-width: 90px;
-    margin: 0;
-    padding-top: 0;
-  }
-  .sb-pit-foot {
-    white-space: nowrap;
-  }
-  .sb-rope {
-    height: 124px;
   }
 }
 
@@ -598,122 +174,11 @@ button:disabled {
   .sb {
     padding: 14px 14px 24px;
   }
-  .sb-head {
-    top: 10px;
-    right: 12px;
-  }
-  .sb-dyn {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    text-align: left;
-  }
-  .sb-dyn-mark {
-    font-size: 28px;
-  }
-  .sb-wordmark h1 {
-    font-size: 22px;
-    margin-top: 1px;
-  }
-  /* Off the round, the wordmark is the only thing on the page -- give it
-     room. Mid-round it's chrome competing with the board for a phone
-     screen, so only the eyebrow (movement · kind) needs to read clearly. */
-  .sb.is-title .sb-wordmark h1 {
-    font-size: 30px;
-  }
-  .sb-setup {
-    gap: 14px;
-  }
-  /* The full three-movement grid is reference material, not a HUD -- fold
-     it to just the live stage's pips so the strip reads as one line; the
-     header eyebrow and enemy/target line below already say where you are. */
-  .sb-strip {
-    padding: 6px 52px 6px 10px;
-    gap: 6px 10px;
-  }
-  .sb-strip-mv:not(.is-now) {
-    display: none;
-  }
-  .sb-strip-numeral {
-    font-size: 16px;
-  }
-  /* Three segments plus the page's own padding is wider than a 375px phone at
-     the desktop padding; trimmed so the row still reads as one control. */
-  .sb-bag {
-    padding: 7px 8px;
-    letter-spacing: 0.08em;
-  }
-  /* A full rack has to stay ONE row on a phone. Seven tiles that wrap turn
-     the case into two rows that reflow as tiles leave it, and the hollow slot
-     is what this whole layout uses to keep the case still. 7x40 + 6x5 = 310,
-     inside a 375px screen at this padding.
-     .sb-rack's half of this (and .sb-tile's own sizing, and the
-     :has(.sb-character-slot) compact variants, and .sb-play, all below)
-     moved to Tailwind max-[620px]: utilities on Rack.tsx/PlayBoard.tsx
-     (sandbox.css A6 slice 5) -- driven off the characterTile prop instead
-     of :has(), since Rack.tsx already knows whether the slot is showing.
-     .sb-stick's own gap stays here, split out of the old shared rule. */
-  .sb-stick {
-    gap: 5px;
-    min-height: 44px;
-    padding: 5px 7px;
-  }
-  .sb-input input {
-    font-size: 17px;
-  }
-  /* Tighten the vertical rhythm between board sections so a round fits one
-     phone screen without scrolling -- these margins are desktop breathing
-     room the board doesn't need on a 375-wide viewport. */
-  .sb-board {
-    padding-bottom: 8px;
-  }
-  .sb-strip {
-    margin-bottom: 8px;
-  }
-  .sb-stick-wrap {
-    margin-bottom: 8px;
-  }
-  .sb-held {
-    margin: 6px 0 2px;
-    gap: 4px;
-  }
-  .sb-stick-wrap {
-    margin-bottom: 8px;
-  }
-  .sb-input {
-    margin-bottom: 6px;
-  }
-  /* The gauge box carries mostly empty ground at rest on a phone -- 124px
-     desktop/tablet height is scaled for a wider staff; a 375px-wide phone
-     doesn't need that much air below the meter. */
-  .sb-rope {
-    height: 84px;
-  }
-  .sb-piles {
-    margin-bottom: 4px;
-  }
-  .sb-skip {
-    margin: 4px 0 0;
-  }
 }
 
-/* ENDLESS (observation mode). Deliberately looks like a switch that is ON
-   rather than an alert: it is a tool for watching, not a warning. */
-.sb-invuln.is-on {
-  background: #2f2a22;
-  color: #e8dfc8;
-  border-color: #8d7f5a;
-}
-.sb-endless {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #8d7f5a;
-  pointer-events: none;
-}
+/* .sb-invuln.is-on / .sb-endless (ENDLESS observation-mode styling) had no
+   remaining call site anywhere in src/ (grepped) -- dead, deleted outright
+   (sandbox.css A6 slice 9). */
 
 /* ---- mobile: pin to one screen, no page scroll --------------------------
    Margin-trimming alone can't guarantee a fit -- the plays list grows a

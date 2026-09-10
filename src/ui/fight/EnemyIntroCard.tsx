@@ -89,7 +89,9 @@ export default function EnemyIntroCard({
           </q>
         </div>
       ) : (
-        <span className="sb-hint">Target {round.target}</span>
+        <span className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
+          Target {round.target}
+        </span>
       )}
       <div className="mt-1 flex flex-wrap items-center gap-2.5">
         <Button

@@ -165,15 +165,15 @@ export default function Stick({
     'Tap Play, or tap a tile to send it back',
   );
   return (
-    <div className="sb-stick-wrap">
-      <div className="sb-stick-head">
+    <div className="sb-stick-wrap mb-3.5 max-[620px]:mb-2">
+      <div className="sb-stick-head flex items-baseline justify-between gap-2.5 pb-1.5">
         <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
           {scoring ? 'Scoring' : letters.length ? 'Your word' : ' '}
         </span>
         {scoring && (
-          <span className="sb-stick-worth is-hand is-scoring">
-            <span className="sb-stick-math">
-              <em className="sb-tier-name">
+          <span className="sb-stick-worth flex items-baseline gap-[7px] text-[10px] font-semibold tracking-[0.16em] text-[var(--rubric)] uppercase">
+            <span className="sb-stick-math inline-flex items-baseline gap-[5px]">
+              <em className="sb-tier-name mr-[3px] text-[11px] tracking-[0.12em] text-[var(--leaf)] not-italic">
                 {scoring.tier
                   ? scoring.tier.name +
                     ((scoring.tier.level ?? 0) > 1
@@ -181,18 +181,18 @@ export default function Stick({
                       : '')
                   : ' '}
               </em>
-              <b className="sb-pts font-[var(--figure)] tabular-nums">
+              <b className="sb-pts font-[var(--figure)] text-[#6fb3e0] tabular-nums">
                 {scoring.pts}
               </b>
-              <i>×</i>
-              <b className="sb-mult font-[var(--figure)] tabular-nums">
+              <i className="text-[11px] text-[var(--leaf-dim)] not-italic">×</i>
+              <b className="sb-mult font-[var(--figure)] text-[var(--brass-hot)] tabular-nums">
                 {scoring.mult}
               </b>
-              <i>=</i>
+              <i className="text-[11px] text-[var(--leaf-dim)] not-italic">=</i>
             </span>
             <b
               className={
-                'sb-total inline-block min-w-[1.2em] font-[var(--figure)] tabular-nums' +
+                'sb-total inline-block min-w-[1.2em] text-[15px] font-[var(--figure)] font-semibold text-[var(--rubric)] tabular-nums' +
                 (scoring.total != null
                   ? ' motion-safe:animate-[total-hit_460ms_cubic-bezier(0.2,0.9,0.3,1)]'
                   : '')
@@ -208,22 +208,24 @@ export default function Stick({
           </span>
         )}
         {!scoring && spelt && worthHow && (
-          <span className="sb-stick-worth is-hand">
-            <span className="sb-stick-math">
-              <em className="sb-tier-name">
+          <span className="sb-stick-worth flex items-baseline gap-[7px] text-[10px] font-semibold tracking-[0.16em] text-[var(--rubric)] uppercase">
+            <span className="sb-stick-math inline-flex items-baseline gap-[5px]">
+              <em className="sb-tier-name mr-[3px] text-[11px] tracking-[0.12em] text-[var(--leaf)] not-italic">
                 {worthHow.tierName}
                 {worthHow.tierLevel > 1 ? ' ' + worthHow.tierLevel : ''}
               </em>
-              <b className="sb-pts font-[var(--figure)] tabular-nums">
+              <b className="sb-pts font-[var(--figure)] text-[#6fb3e0] tabular-nums">
                 {worthHow.points}
               </b>
-              <i>×</i>
-              <b className="sb-mult font-[var(--figure)] tabular-nums">
+              <i className="text-[11px] text-[var(--leaf-dim)] not-italic">×</i>
+              <b className="sb-mult font-[var(--figure)] text-[var(--brass-hot)] tabular-nums">
                 {worthHow.mult}
               </b>
-              <i>=</i>
+              <i className="text-[11px] text-[var(--leaf-dim)] not-italic">=</i>
             </span>
-            <b className="font-[var(--figure)] tabular-nums">{worth}</b>
+            <b className="text-[15px] font-[var(--figure)] font-semibold text-[var(--rubric)] tabular-nums">
+              {worth}
+            </b>
             {round.score + worth >= round.target
               ? 'meets the target'
               : letters.length === 1
@@ -234,8 +236,8 @@ export default function Stick({
       </div>
       <div
         className={
-          'sb-stick' +
-          (formable ? '' : ' is-short') +
+          'sb-stick flex min-h-[68px] flex-wrap items-center gap-[7px] border border-b-[3px] bg-[var(--pit-deep)] px-[9px] py-[7px] max-[620px]:min-h-[44px] max-[620px]:gap-[5px] max-[620px]:px-[7px] max-[620px]:py-[5px]' +
+          (formable ? ' border-[var(--rule)]' : ' border-[var(--rubric-dim)]') +
           (scoring && !scoring.cleared ? ' is-locked relative' : '')
         }
       >

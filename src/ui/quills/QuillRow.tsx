@@ -86,7 +86,9 @@ export default function QuillRow({
         );
       })}
       {run.items.length === 0 && (
-        <span className="sb-hint m-0">nothing yet</span>
+        <span className="sb-hint m-0 text-[11px] text-[var(--leaf-dim)] italic">
+          nothing yet
+        </span>
       )}
     </div>
   );

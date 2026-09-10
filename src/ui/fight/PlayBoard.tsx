@@ -244,12 +244,12 @@ const PlayBoard = forwardRef<
         />
       )}
       {!formable && letters && (
-        <p className="sb-hint sb-warn-line">
+        <p className="sb-hint sb-warn-line mt-2.5 text-[11px] text-[var(--brass)] text-[var(--leaf-dim)] italic">
           {letters} needs letters that aren’t in your rack.
         </p>
       )}
       {formable && barredNow.length > 0 && (
-        <p className="sb-hint sb-warn-line">
+        <p className="sb-hint sb-warn-line mt-2.5 text-[11px] text-[var(--brass)] text-[var(--leaf-dim)] italic">
           {barredNow.map((t) => t.letter).join(', ')} has been played this round
           — {round.rule!.name}.
         </p>

@@ -72,7 +72,7 @@ export default function ScoreLine({
       >
         <span
           className={
-            'sb-dyn-mark min-w-[2.2ch] flex-none p-0 text-[34px] max-[620px]:text-[28px]' +
+            'sb-dyn-mark block min-w-[2.2ch] flex-none p-0 pr-[3px] text-[34px] font-[var(--display)] font-extrabold text-[var(--brass-hot)] italic transition-colors duration-300 ease-in-out max-[620px]:text-[28px]' +
             (scoring && scoring.total != null
               ? ' inline-block motion-safe:animate-[total-hit_460ms_cubic-bezier(0.2,0.9,0.3,1)]'
               : '')

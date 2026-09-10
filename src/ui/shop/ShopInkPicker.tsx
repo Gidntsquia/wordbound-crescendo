@@ -57,7 +57,7 @@ export default function ShopInkPicker({
         {selecting.name}
         {selecting.from === 'shop' ? ' · ' + selecting.price + ' gold' : ''}
       </span>
-      <span className="sb-hint">
+      <span className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
         {ink.targets === 0
           ? ink.hint
           : (ink.targets === 1

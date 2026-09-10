@@ -29,7 +29,7 @@ export default function InkingPicker({
       <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         {ink.name}
       </span>
-      <span className="sb-hint">
+      <span className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
         {ink.targets === 1
           ? 'tap one of your tiles'
           : 'tap up to ' + ink.targets + ' of your tiles'}

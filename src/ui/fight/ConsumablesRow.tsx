@@ -131,7 +131,9 @@ export default function ConsumablesRow({
         );
       })}
       {run.consumables.length === 0 && (
-        <span className="sb-hint m-0">none held</span>
+        <span className="sb-hint m-0 text-[11px] text-[var(--leaf-dim)] italic">
+          none held
+        </span>
       )}
     </div>
   );
