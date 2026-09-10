@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import type { ActFn } from '../actFn';
 import { Button } from '@/ui/primitives/button';
 import Sprite from '../../art/Sprite';
@@ -15,6 +14,7 @@ import type { CrescendoWindow } from '../../audio/recordingPlayer';
 import { Card } from '@/ui/primitives/card';
 import { Badge } from '@/ui/primitives/badge';
 import { cn } from 'cn';
+import { TapTooltip, useTapTooltip } from '../items/useTapTooltip';
 
 interface Float {
   key: string | number;
@@ -74,12 +74,7 @@ export default function QuillCard({
 }) {
   const tipId = 'item:' + id;
   const rarity = d.rarity || 'common';
-  // Tracks whether the upcoming focus event came from a pointer press, so
-  // onFocus can skip opening the tip -- otherwise focus fires before click
-  // on a mouse/touch tap, onFocus already opens the tip, and the click
-  // handler's toggle sees it open and immediately closes it again, making
-  // clicks look like they do nothing.
-  const viaPointerRef = useRef(false);
+  const { open, handlers } = useTapTooltip(tipId, tip, setTip);
   return (
     <Card
       data-rarity={rarity}
@@ -92,30 +87,8 @@ export default function QuillCard({
         cresState === 'live' &&
           'border-[var(--brass-hot)] text-[var(--brass-hot)] opacity-100 shadow-[0_0_0_2px_var(--brass-hot),0_0_22px_4px_rgba(242,194,96,0.55)] motion-safe:animate-[cres-throb_500ms_ease-in-out_infinite_alternate]',
       )}
-      role="button"
-      tabIndex={0}
       aria-label={d.name + ' — ' + itemBlurb(d)}
-      onClick={() => setTip((t) => (t === tipId ? null : tipId))}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          setTip((t) => (t === tipId ? null : tipId));
-        }
-      }}
-      onMouseDown={() => {
-        viaPointerRef.current = true;
-      }}
-      onTouchStart={() => {
-        viaPointerRef.current = true;
-      }}
-      onFocus={() => {
-        if (viaPointerRef.current) {
-          viaPointerRef.current = false;
-          return;
-        }
-        setTip(() => tipId);
-      }}
-      onBlur={() => setTip((t) => (t === tipId ? null : t))}
+      {...handlers}
     >
       <Sprite
         sheet="bookmark_card_frame"
@@ -153,16 +126,13 @@ export default function QuillCard({
       <b className="absolute h-px w-px overflow-hidden [clip:rect(0_0_0_0)]">
         {d.name}
       </b>
-      {tip === tipId && (
-        <span
-          className="absolute bottom-[calc(100%+6px)] left-1/2 z-5 flex w-max max-w-[180px] -translate-x-1/2 flex-col gap-0.5 rounded-[3px] border border-[var(--brass)] bg-[var(--pit-deep)] px-[9px] py-[7px] text-left text-[11px] whitespace-normal shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
-          role="tooltip"
-        >
+      {open && (
+        <TapTooltip>
           <b className="text-[13px] font-[var(--display)]">{d.name}</b>
           <em className="[line-height:1.3] font-normal text-[var(--leaf-dim)] not-italic">
             {itemBlurb(d)}
           </em>
-        </span>
+        </TapTooltip>
       )}
       {cresState && (
         <span

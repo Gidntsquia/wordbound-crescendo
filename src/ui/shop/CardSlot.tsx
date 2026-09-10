@@ -11,6 +11,7 @@ import { Button } from '@/ui/primitives/button';
 import { Card } from '@/ui/primitives/card';
 import { Badge } from '@/ui/primitives/badge';
 import { cn } from 'cn';
+import { TapTooltip, useTapTooltip } from '../items/useTapTooltip';
 
 interface ShopCard {
   kind: 'item' | 'mark' | 'etude';
@@ -52,6 +53,7 @@ export default function CardSlot({
     run.ink < c.price ||
     (c.kind === 'item' && run.items.length >= Number(run.tune.ITEM_SLOTS));
   const tipId = 'shop:' + i;
+  const { open, handlers } = useTapTooltip(tipId, tip, setTip);
   if (c.kind === 'item' && !c.sold) {
     const d = SB.ITEM_DEFS[c.id]!;
     const rarity = d.rarity || 'common';
@@ -61,20 +63,14 @@ export default function CardSlot({
         className={cn(
           // Wide enough for a two-word name under the glyph plus the price
           // in the corner; at the old 60px the name, price and rarity badge
-          // all overlapped each other on phones.
-          'relative w-[96px] cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 pt-5 pb-1.5 text-center',
+          // all overlapped each other on phones. overflow-visible so the
+          // tap-to-show-stats tooltip below isn't clipped by Card's default
+          // overflow-hidden (the shop-specific version of 6f33151's fix).
+          'relative w-[96px] cursor-pointer flex-col items-center gap-0 overflow-visible rounded-sm p-0 px-1 pt-5 pb-1.5 text-center',
           rarityCardClass(rarity),
         )}
-        role="button"
-        tabIndex={0}
         aria-label={cardName(SB, c) + ' — ' + cardBlurb(SB, c, run)}
-        onClick={() => setTip((t) => (t === tipId ? null : tipId))}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setTip((t) => (t === tipId ? null : tipId));
-          }
-        }}
+        {...handlers}
       >
         <span
           className="block text-2xl leading-none max-[620px]:text-[22px]"
@@ -90,18 +86,15 @@ export default function CardSlot({
         >
           {rarity}
         </Badge>
-        {tip === tipId && (
-          <span
-            className="absolute bottom-[calc(100%+6px)] left-1/2 z-5 flex w-max max-w-[180px] -translate-x-1/2 flex-col gap-0.5 rounded-[3px] border border-[var(--brass)] bg-[var(--pit-deep)] px-[9px] py-[7px] text-left text-[11px] whitespace-normal shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
-            role="tooltip"
-          >
+        {open && (
+          <TapTooltip>
             <b className="text-[13px] font-[var(--display)]">
               {cardName(SB, c)}
             </b>
             <em className="[line-height:1.3] font-normal text-[var(--leaf-dim)] not-italic">
               {cardBlurb(SB, c, run)}
             </em>
-          </span>
+          </TapTooltip>
         )}
         <span className="absolute top-1.5 right-2 text-[13px] font-[var(--figure)] text-[var(--brass-hot)] before:mr-1 before:text-[8px] before:content-['\25C6']">
           {c.price}

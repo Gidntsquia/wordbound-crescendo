@@ -26,7 +26,6 @@ import { describeBreakdown } from '../ui/quills/cardCopy';
 import type { RunFacade, RoundFacade } from '../engine/state/facade';
 import type { Fight, BestState } from '../app/store';
 import type { Tile } from '../engine/tiles';
-import type { WordScore } from '../engine/content/wordFinder';
 import type { CrescendoState } from '../ui/hooks/useCrescendo';
 import type { createDragReorder } from '../engine/dragReorder';
 import type { ROUND_DEFAULTS } from '../engine/content/round';
@@ -126,9 +125,6 @@ export interface AppProps {
     ch: string | undefined;
     hollow: boolean;
   }[];
-  indexing: boolean;
-  suggestions: WordScore[];
-  playWord: (raw: string) => void;
   characterTile: Tile | null;
   characterPicked: boolean;
 }
@@ -219,9 +215,6 @@ export default function App(props: AppProps) {
     worthHow,
     worth,
     stickShown,
-    indexing,
-    suggestions,
-    playWord,
     characterTile,
     characterPicked,
   } = props;
@@ -444,9 +437,6 @@ export default function App(props: AppProps) {
             worth={worth}
             scoring={scoring}
             stickShown={stickShown}
-            indexing={indexing}
-            suggestions={suggestions}
-            playWord={playWord}
             characterTile={characterTile}
             characterPicked={characterPicked}
             characterId={characterId}

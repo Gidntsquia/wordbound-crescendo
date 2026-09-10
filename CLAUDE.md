@@ -4,7 +4,11 @@ Working notes for anyone touching this repo. This file is the repo map — keep
 it truthful when you add or move structure.
 
 Standing rules: verify changes by running the app (see `run` skill) before
-calling a task done; music must be public-domain or the logged
+calling a task done — for a state/game-logic/economy change, `tools/
+debug-run.ts` (see RUNBOOK.md) can answer the question in-process, no
+browser, and is the default first check; it's not a substitute for the
+`run` skill on anything CSS/layout/visual, which still needs a real
+browser; music must be public-domain or the logged
 recorded-Fur-Elise exception; audio is synthesized-only outside that
 exception; deploys follow the LIVE DEPLOY steps under Commands below; keep
 committed state clean (no stray scratch files). **Never open anything in
@@ -29,6 +33,10 @@ Live build: https://gidntsquia.github.io/wordbound-crescendo/
 - `bun run dev` / `build` / `preview` — Vite (toolchain switched to Bun,
   READ_SLOWLY_PLAN.md A1); build outputs to `dist/app` (relative `base: './'`).
 - `bun run dev:sandbox` — alias for `dev`; index.html IS the ROUND SANDBOX.
+- `bun run debug:shop` / `debug:run` — fast-forward the pure engine to a
+  chosen point (a shop, N fights in, given seed/ink/items/bag) with no
+  browser; see RUNBOOK.md. The default first check for a state/logic
+  question; not a substitute for the `run` skill on visual changes.
 - `bun run typecheck` / `lint` / `format` / `format:check` — TypeScript,
   ESLint, Prettier. Pre-commit runs lint-staged; pre-push runs typecheck.
 - Deploy (LIVE DEPLOY rule): `bun run deploy` (tools/deploy.sh) does all of
@@ -218,7 +226,9 @@ marginalia.ts`'s `MARK_DEFS`: gilt, bold, steel, blank, vowel shift,
     (ladder step → pose prop → CSS crossfade in `src/ui/fight/SituationPanel.tsx`) is
     real end-to-end even without art. Swapping in real PNGs later is a
     manifest + CSS `background-image` change, not a caller change.
-- `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`, `fetch-wiktionary.js` (`npm run fetch:words`: pulls Wiktionary's English lemmas into the GENERATED WIKT_EXTRA block of `js/wordbound/wordlist.js`, 4+ letter lowercase titles only; cache in `.cache/wiktionary/`).
+- `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`, `fetch-wiktionary.js` (`npm run fetch:words`: pulls Wiktionary's English lemmas into the GENERATED WIKT_EXTRA block of `js/wordbound/wordlist.js`, 4+ letter lowercase titles only; cache in `.cache/wiktionary/`), `debug-run.ts` (`bun run debug:shop`/`debug:run`, via `vite-node`: fast-forwards the pure engine facade to a chosen shop/fight with no browser — see RUNBOOK.md).
+- `RUNBOOK.md` — when to use `tools/debug-run.ts` (state/logic questions,
+  no browser) vs. the `run` skill's real browser (CSS/layout/visual).
 - `READ_SLOWLY_PLAN.md` — the 2026-09-08 plan for the next big step: React +
   TypeScript rebuild and code audit, the "slow down and read" theme, fights
   as situations resolved by reading, playable letter-tile characters, 2D

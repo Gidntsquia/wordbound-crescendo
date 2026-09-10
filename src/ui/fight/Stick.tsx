@@ -404,7 +404,15 @@ export default function Stick({
           })}
         {!(scoring && !scoring.cleared) &&
           (() => {
-            const minEnd = Math.max(5, round.premium ? round.premium.pos : 0);
+            // Include stickShown.length in the floor so the preview block
+            // never disappears outright once the word passes 5 letters (or
+            // the premium position) -- it used to drop straight to zero
+            // slots there, yanking the row's width/height in one frame.
+            const minEnd = Math.max(
+              5,
+              round.premium ? round.premium.pos : 0,
+              stickShown.length,
+            );
             return (
               minEnd >= stickShown.length &&
               Array.from(

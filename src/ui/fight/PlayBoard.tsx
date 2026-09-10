@@ -13,7 +13,6 @@ import InkingPicker from './InkingPicker';
 import Stick from './Stick';
 import InputRow from './InputRow';
 import PilesDrawer from './PilesDrawer';
-import SuggestionsDrawer from './SuggestionsDrawer';
 import WordsmithPanel from './WordsmithPanel';
 import { useCallout } from '../chrome/Callout';
 import type { Tile } from '../../engine/tiles';
@@ -106,9 +105,6 @@ const PlayBoard = forwardRef<
     worth: number;
     scoring: ScoringState | null;
     stickShown: StickEntry[];
-    indexing: boolean;
-    suggestions: Suggestion[];
-    playWord: (word: string) => void;
     characterTile?: Tile | null;
     characterPicked?: boolean;
     characterId: string;
@@ -146,9 +142,6 @@ const PlayBoard = forwardRef<
     worth,
     scoring,
     stickShown,
-    indexing,
-    suggestions,
-    playWord,
     characterTile,
     characterPicked,
     characterId,
@@ -247,15 +240,6 @@ const PlayBoard = forwardRef<
         discardPile={round.pile.discardPile}
         characterTile={characterTile}
       />
-      {helper && (
-        <SuggestionsDrawer
-          indexing={indexing}
-          letters={letters}
-          suggestions={suggestions}
-          live={live}
-          playWord={playWord}
-        />
-      )}
       {!formable && letters && (
         <p className="sb-hint sb-warn-line mt-2.5 text-[11px] text-[var(--brass)] text-[var(--leaf-dim)] italic">
           {letters} needs letters that aren’t in your rack.
