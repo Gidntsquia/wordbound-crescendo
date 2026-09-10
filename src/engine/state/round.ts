@@ -60,9 +60,9 @@ export interface RoundState {
   readonly rack: readonly Tile[];
   readonly premium: Premium | null;
   readonly favour?: string | null;
-  // The character tile (READ_SLOWLY_PLAN.md D1) is playable once per round --
-  // set true the play it's used in, reset every new round (Jaxon, 2026-09-09:
-  // it read as an always-on item, not a once-a-turn tile).
+  // The character tile (READ_SLOWLY_PLAN.md D1) is playable once per turn --
+  // true only mid-resolution of the play it's used in, always reset to false
+  // afterward (Jaxon, 2026-09-10: once per turn, not once per round).
   readonly characterUsed: boolean;
 }
 
@@ -428,7 +428,9 @@ export function playWord(
     rack: newRack,
     state,
     ink,
-    characterUsed: round.characterUsed || !!characterTile,
+    // Resets every play (Jaxon, 2026-09-10: once per turn, not once per
+    // round) -- a word can only use it once anyway since it's a single tile.
+    characterUsed: false,
   };
 
   let effects: PlayEffects | undefined;

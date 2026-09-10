@@ -95,6 +95,10 @@ export default function QuillCard({
           setTip((t) => (t === tipId ? null : tipId));
         }
       }}
+      onMouseEnter={() => setTip(() => tipId)}
+      onMouseLeave={() => setTip((t) => (t === tipId ? null : t))}
+      onFocus={() => setTip(() => tipId)}
+      onBlur={() => setTip((t) => (t === tipId ? null : t))}
     >
       <Sprite
         sheet="bookmark_card_frame"

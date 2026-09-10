@@ -521,6 +521,75 @@ export const ITEMS: Item[] = [
       return null;
     },
   },
+
+  // Character starting items (formerly auto-injected "passives" in
+  // characters.ts; Jaxon, 2026-09-10: made into ordinary starting items so
+  // they show up, and behave, like any other held item).
+  {
+    id: 'char_ess',
+    name: 'Ess',
+    glyph: 'S',
+    rarity: 'common',
+    price: 0,
+    hint: '+10 points on words ending in S',
+    score(c, a) {
+      if (!c.word || c.word[c.word.length - 1] !== 'S') return null;
+      a.points += 10;
+      return '+10, ess';
+    },
+  },
+  {
+    id: 'char_ee',
+    name: 'Ee',
+    glyph: 'E',
+    rarity: 'common',
+    price: 0,
+    hint: '+6 points on words containing E',
+    score(c, a) {
+      if (!c.word || c.word.indexOf('E') === -1) return null;
+      a.points += 6;
+      return '+6, ee';
+    },
+  },
+  {
+    id: 'char_queue',
+    name: 'Queue',
+    glyph: 'Q',
+    rarity: 'common',
+    price: 0,
+    hint: 'Q and U together score ×2 mult',
+    score(c, a) {
+      if (c.word && c.word.indexOf('Q') !== -1 && c.word.indexOf('U') !== -1) {
+        a.mult *= 2;
+        return '×2 mult, queue';
+      }
+      return null;
+    },
+  },
+  {
+    id: 'char_why',
+    name: 'Why',
+    glyph: 'Y',
+    rarity: 'common',
+    price: 0,
+    hint: 'Y counts as a vowel',
+    // The vowel check other items use (this file's local VOWELS table) isn't
+    // exported for reuse elsewhere -- the actual vowel-counting interaction
+    // is not yet live, same placeholder status it had as a passive.
+  },
+  {
+    id: 'char_ex',
+    name: 'Ex',
+    glyph: 'X',
+    rarity: 'common',
+    price: 0,
+    hint: '+15 points on 3-4 letter words',
+    score(c, a) {
+      if (!c.word || c.word.length < 3 || c.word.length > 4) return null;
+      a.points += 15;
+      return '+15, ex';
+    },
+  },
 ];
 
 export const ITEM_DEFS: Record<string, Item> = {};

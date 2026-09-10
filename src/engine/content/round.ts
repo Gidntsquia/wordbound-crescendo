@@ -18,7 +18,7 @@ export const ROUND_DEFAULTS: Tune = {
   // READ_SLOWLY_PLAN.md D4: raised ~3% over the Phase 0 numbers (300/750/
   // 1200) once the character tile became standard (every run has one, D1-D3
   // Done) -- CHAR_LETTER_MULT: 2 with a starting letter of E or Z nets a
-  // guaranteed +1..+10 flat points once per round (charBonusPts in this
+  // guaranteed +1..+10 flat points every turn (charBonusPts in this
   // file's scoreWordPoints), so a small, round-count-independent bump here
   // keeps the target the same *fraction* of a word's max score rather than
   // silently getting easier as more players discover higher-value character

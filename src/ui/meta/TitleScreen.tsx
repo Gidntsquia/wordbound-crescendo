@@ -52,7 +52,7 @@ export default function TitleScreen({
 }) {
   useCallout(
     !seen.has('character'),
-    'Your letter. Play it once a round; it scores extra.',
+    'Your letter. Play it once a turn; it scores extra.',
   );
   return (
     <section className="px-3 pt-10 pb-7 text-center max-[620px]:flex-none">

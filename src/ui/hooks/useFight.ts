@@ -740,9 +740,10 @@ export function useFight() {
         {
           deck: SB.createBagDeck(bagId, wonLetters),
           tune,
-          items: characterDef
-            ? [...itemIds, characterDef.passive.id]
-            : [...itemIds],
+          items:
+            characterDef && characterDef.itemId
+              ? [...itemIds, characterDef.itemId]
+              : [...itemIds],
           crescendo: crescendoNow,
           key,
           wonLetters,
@@ -781,6 +782,7 @@ export function useFight() {
       tune,
       itemIds,
       key,
+      characterId,
       say,
       startStage,
       SB,
