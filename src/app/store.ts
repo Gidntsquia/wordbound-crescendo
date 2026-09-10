@@ -13,7 +13,17 @@
 // independent so a mistake in one can't touch another.
 
 import type { RunFacade, RoundFacade } from '../engine/state/facade';
-import { KEYS, readJSON, readRaw, writeJSON, writeRaw } from './persistence';
+import {
+  KEYS,
+  readJSON,
+  readRaw,
+  writeJSON,
+  writeRaw,
+  readUnlockedCharacters,
+  writeUnlockedCharacters,
+  writeWonLetters,
+  writeDiscoveredQuills,
+} from './persistence';
 import { ITEM_DEFS } from '../engine/content/items';
 import { MARK_DEFS } from '../engine/content/marginalia';
 import { FAVOUR_DEFS, TIER_DEFS } from '../engine/content/round';
@@ -189,6 +199,15 @@ export type FightEffect =
 // whether it was ok (callers use that to decide whether to also clear local
 // state like setSelecting(null)/setInking(null)), same division as the old
 // `act`/actResult helper.
+// Pure unlockNext (READ_SLOWLY_PLAN.md A2 remainder) + the one place that
+// persists the result -- callers just fire-and-forget like the old
+// side-effecting unlockNext(characterId) did.
+function unlockNextCharacter(characterId: string | null | undefined): void {
+  const stored = readUnlockedCharacters();
+  const next = unlockNext(characterId, stored);
+  if (next) writeUnlockedCharacters(next);
+}
+
 function actResult(
   effects: FightEffect[],
   res: { ok?: boolean; reason?: string } | null | undefined,
@@ -302,6 +321,7 @@ export function runFightAction(action: FightAction): FightEffect[] {
             '.',
         });
         f.run.quillFound = null;
+        writeDiscoveredQuills(f.run.discoveredQuills);
         effects.push({ kind: 'refreshDiscovered' });
       }
       if (won === 'won') {
@@ -312,7 +332,7 @@ export function runFightAction(action: FightAction): FightEffect[] {
         });
         effects.push({ kind: 'recordRun', run: f.run as RunLike, won: true });
         effects.push({ kind: 'unlockNextKey', run: f.run });
-        unlockNext(f.run.character);
+        unlockNextCharacter(f.run.character);
         return effects;
       }
       if (f.run.letterChoice) {
@@ -321,7 +341,7 @@ export function runFightAction(action: FightAction): FightEffect[] {
           kind: 'say',
           message: 'The boss falls — choose a letter to win back.',
         });
-        unlockNext(f.run.character);
+        unlockNextCharacter(f.run.character);
         return effects;
       }
       if (f.run.shop) {
@@ -349,6 +369,7 @@ export function runFightAction(action: FightAction): FightEffect[] {
         !f.run.pickLetter(action.letter)
       )
         return effects;
+      writeWonLetters(f.run.wonLetters);
       if (f.run.state === 'won') {
         effects.push({ kind: 'setPhase', phase: 'run-won' });
         effects.push({
@@ -357,7 +378,7 @@ export function runFightAction(action: FightAction): FightEffect[] {
         });
         effects.push({ kind: 'recordRun', run: f.run as RunLike, won: true });
         effects.push({ kind: 'unlockNextKey', run: f.run });
-        unlockNext(f.run.character);
+        unlockNextCharacter(f.run.character);
         return effects;
       }
       if (f.run.shop) {

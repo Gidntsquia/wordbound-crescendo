@@ -4,6 +4,7 @@
 // window.Wordbound.Tiles for the untyped js/wordbound/* and sandbox modules
 // that read it off the global (removed once every reader imports directly).
 import type { RngStream } from './rng';
+import { isAvailable as isLetterAvailable } from './meta/stolenLetters';
 
 export const BONUS_TYPES = {
   FLAT_ON_PLAY: 'flatOnPlay',
@@ -99,14 +100,12 @@ function getBaseLetterFrequencyPool(): string[] {
 
 // A currently-stolen letter (DIVERGENCE_PLAN.md meta) never appears in a
 // freshly-generated reward/shop tile. Filtered fresh every call, unlike the
-// base pool, so a letter recovered mid-run is reflected immediately.
-// window.Wordbound.StolenLetters may not be loaded in every context this
-// runs in -- guarded, falls back to "nothing stolen" if absent.
-function getAvailableLetterFrequencyPool(): string[] {
-  const StolenLetters = window.Wordbound.StolenLetters;
+// base pool, so a letter recovered mid-run is reflected immediately. `won`
+// is the caller's stolenLetters.ts-shaped won-letters list (READ_SLOWLY_PLAN.md
+// A2 remainder: a plain import/parameter, not a window global).
+function getAvailableLetterFrequencyPool(won: readonly string[]): string[] {
   const base = getBaseLetterFrequencyPool();
-  if (!StolenLetters) return base;
-  return base.filter((letter) => !StolenLetters.isStolen(letter));
+  return base.filter((letter) => isLetterAvailable(letter, won));
 }
 
 const BONUS_CHANCE = 0.18;
@@ -138,8 +137,12 @@ function rollVariant(rng: RngStream): Variant {
   return rng.choice(VARIANT_LIST)!;
 }
 
-export function rollRewardOptions(rng: RngStream, count = 3): Tile[] {
-  const pool = getAvailableLetterFrequencyPool();
+export function rollRewardOptions(
+  rng: RngStream,
+  won: readonly string[] = [],
+  count = 3,
+): Tile[] {
+  const pool = getAvailableLetterFrequencyPool(won);
   const options: Tile[] = [];
   for (let i = 0; i < count; i++) {
     const letter = rng.choice(pool)!;
@@ -153,8 +156,11 @@ export function rollRewardOptions(rng: RngStream, count = 3): Tile[] {
 // Guaranteed-variant roll for the shop's premium tile offer -- a "premium"
 // offer that sometimes has no variant at all would undercut the point of
 // paying extra for one.
-export function rollVariantTile(rng: RngStream): Tile {
-  const pool = getAvailableLetterFrequencyPool();
+export function rollVariantTile(
+  rng: RngStream,
+  won: readonly string[] = [],
+): Tile {
+  const pool = getAvailableLetterFrequencyPool(won);
   const letter = rng.choice(pool)!;
   return createTile(letter, null, rollVariant(rng));
 }
@@ -247,7 +253,6 @@ declare global {
     };
     WORD_SET: Set<string>;
     WORDLIST: string[];
-    StolenLetters?: { isStolen(letter: string): boolean };
     Items?: { FLIP_MAP: Record<string, string> };
     [key: string]: unknown;
   }

@@ -10,7 +10,15 @@
 // touches the score. The tile play (case + composing stick + FLIP slide) is
 // carried over from the tug sandbox unchanged; what the stick MEANS is new --
 // Play scores the word standing on it, Change out throws those tiles back.
-import { KEYS as STORAGE_KEYS, readRaw, writeRaw } from '../../app/persistence';
+import {
+  KEYS as STORAGE_KEYS,
+  readRaw,
+  writeRaw,
+  readWonLetters,
+  readDiscoveredQuills,
+  writeDiscoveredQuills,
+  readUnlockedCharacters,
+} from '../../app/persistence';
 import { createRunFacadeFromOpts, fromSeed } from '../../engine/state/facade';
 import type { RunFacade, RoundFacade } from '../../engine/state/facade';
 import { MOVEMENTS, KIND_LABEL, enemyAt } from '../../engine/content/enemies';
@@ -20,7 +28,7 @@ import {
   unlockedCharacters,
   unlockNext,
 } from '../../engine/content/characters';
-import { discoveredQuills } from '../../engine/meta/quillDiscovery';
+import { DEFAULT_KNOWN_QUILLS } from '../../engine/meta/quillDiscovery';
 import { RECORDINGS } from '../../engine/content/recordings';
 import {
   ROUND_DEFAULTS,
@@ -294,7 +302,7 @@ const SB = {
   situationFor,
   ladderIndex,
   CHARACTERS,
-  unlockedCharacters,
+  unlockedCharacters: () => unlockedCharacters(readUnlockedCharacters()),
   unlockNext,
   enemyAt,
 };
@@ -444,12 +452,16 @@ export default function RoundSandbox() {
   const { sfxOn, setSfxOn, sfxOnRef, sfx } = useSfx(fight);
   const [tune, setTune] = useState(() => ({ ...SB.ROUND_DEFAULTS }));
   const [discovered, setDiscovered] = useState(
-    () => new Set(discoveredQuills ? discoveredQuills() : []),
+    () => new Set(readDiscoveredQuills(DEFAULT_KNOWN_QUILLS)),
   );
-  const refreshDiscovered = useCallback(
-    () => setDiscovered(new Set(discoveredQuills())),
-    [SB],
-  );
+  const refreshDiscovered = useCallback(() => {
+    setDiscovered(
+      new Set(
+        fight.current?.run?.discoveredQuills ??
+          readDiscoveredQuills(DEFAULT_KNOWN_QUILLS),
+      ),
+    );
+  }, []);
   const [keyUnlockedState, dispatchKeyUnlocked] = useReducer(
     keyUnlockedReducer,
     { index: 0 },
@@ -461,7 +473,7 @@ export default function RoundSandbox() {
   // passive is threaded into createRun's `items` list, and its permanent
   // tile (D1) is threaded into createRunFacadeFromOpts's `characterId`.
   const [characterId, setCharacterId] = useState(
-    () => unlockedCharacters()[0] || 'zed',
+    () => unlockedCharacters(readUnlockedCharacters())[0] || 'zed',
   );
   // A win on the highest-unlocked key offers the next one (stage 3).
   const unlockNextKey = useCallback(
@@ -763,6 +775,7 @@ export default function RoundSandbox() {
             '.',
         );
         run.movementIIIQuillFound = null;
+        writeDiscoveredQuills(run.discoveredQuills);
         refreshDiscovered();
       }
       if (def.rule) setTimeout(() => markSeen('boss'), 6000);
@@ -803,15 +816,20 @@ export default function RoundSandbox() {
       }
 
       const characterDef = CHARACTER_DEFS[characterId];
+      const wonLetters = readWonLetters();
+      const discoveredQuillsAtStart =
+        readDiscoveredQuills(DEFAULT_KNOWN_QUILLS);
       const run = createRunFacadeFromOpts(
         {
-          deck: SB.createBagDeck(bagId),
+          deck: SB.createBagDeck(bagId, wonLetters),
           tune,
           items: characterDef
             ? [...itemIds, characterDef.passive.id]
             : [...itemIds],
           crescendo: crescendoNow,
           key,
+          wonLetters,
+          discoveredQuills: discoveredQuillsAtStart,
           characterId: characterDef ? characterId : undefined,
           extendCrescendo: (extraSec: number) => {
             const s = fight.current?.seq;

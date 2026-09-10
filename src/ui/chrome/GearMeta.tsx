@@ -3,6 +3,8 @@
 // won back, Bookmarks discovered. No closures over run/round mutation or
 // forceRender; everything it needs is a prop. Ported to .tsx
 // (READ_SLOWLY_PLAN.md A1 remainder).
+import { isAvailable } from '../../engine/meta/stolenLetters';
+
 interface KeyDef {
   id: string;
   index: number;
@@ -19,15 +21,16 @@ export default function GearMeta({
   SB,
   keyUnlocked,
   discovered,
+  wonLetters,
 }: {
   SB: {
     KEYS: KeyDef[];
     availableLetters?: unknown;
-    isAvailable: (letter: string) => boolean;
     ITEMS?: ItemDef[];
   };
   keyUnlocked: number;
   discovered: ReadonlySet<string>;
+  wonLetters: readonly string[];
 }) {
   return (
     <>
@@ -49,10 +52,10 @@ export default function GearMeta({
               <span
                 key={l}
                 className={
-                  'sb-letter' + (SB.isAvailable(l) ? '' : ' is-hollow')
+                  'sb-letter' + (isAvailable(l, wonLetters) ? '' : ' is-hollow')
                 }
                 title={
-                  SB.isAvailable(l)
+                  isAvailable(l, wonLetters)
                     ? l
                     : l + ' — lost; win it back by felling a boss'
                 }

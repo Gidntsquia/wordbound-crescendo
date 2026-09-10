@@ -1,13 +1,14 @@
 // TS port of src/sandbox/quillDiscovery.js (READ_SLOWLY_PLAN.md A2/A5 step 3):
 // the second meta after stolen letters (NEXT_LEVEL_PLAN.md stage 4). Every
 // crescendo and second-axis quill (and Harmony) starts hidden and is not
-// offered in the shop or a pack until discovered. Persisted in localStorage
-// as wbc.quills. A lost run never loses a discovered quill -- this module
-// only ever adds.
+// offered in the shop or a pack until discovered. Pure functions over a
+// `known: readonly string[]` list of discovered quill ids; the app layer
+// owns reading/writing that list through app/persistence.ts's `wbc.quills`
+// key (READ_SLOWLY_PLAN.md A2 remainder -- no window/localStorage access
+// lives in src/engine). A lost run never loses a discovered quill -- this
+// module only ever adds.
 import type { RngStream } from '../rng';
 import { ITEMS, ITEM_DEFS } from '../content/items';
-
-const STORE_KEY = 'wbc.quills';
 
 // The plain length and mult quills -- flat points/mult with no word-kind,
 // crescendo, or scaling condition attached (~10, per the plan).
@@ -24,45 +25,41 @@ export const STARTING_QUILLS = [
   'miser',
 ];
 
-export function discoveredQuills(): string[] {
-  try {
-    const raw = window.localStorage.getItem(STORE_KEY);
-    const arr: unknown = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(arr) && arr.length)
-      return arr.filter((id): id is string => typeof id === 'string');
-  } catch {
-    /* private mode etc */
-  }
-  return STARTING_QUILLS.slice();
+// The default `known` list for a fresh install (no persisted quills yet).
+export const DEFAULT_KNOWN_QUILLS: readonly string[] = STARTING_QUILLS;
+
+export function isQuillDiscovered(
+  id: string,
+  known: readonly string[],
+): boolean {
+  return known.indexOf(id) >= 0;
 }
 
-export function isQuillDiscovered(id: string): boolean {
-  return discoveredQuills().indexOf(id) >= 0;
-}
-
-export function hiddenQuillIds(): string[] {
-  const known: Record<string, boolean> = {};
-  discoveredQuills().forEach((id) => {
-    known[id] = true;
+export function hiddenQuillIds(known: readonly string[]): string[] {
+  const knownSet: Record<string, boolean> = {};
+  known.forEach((id) => {
+    knownSet[id] = true;
   });
-  return ITEMS.map((it) => it.id).filter((id) => !known[id]);
+  return ITEMS.map((it) => it.id).filter((id) => !knownSet[id]);
 }
 
-export function discoverQuill(id: string): boolean {
-  if (!ITEM_DEFS[id]) return false;
-  const known = discoveredQuills();
-  if (known.indexOf(id) >= 0) return false;
-  known.push(id);
-  try {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(known));
-  } catch {
-    /* ignore */
-  }
-  return true;
+// Pure: returns a new known list with `id` added, or null if `id` is not a
+// real quill or was already known. The app layer persists the result
+// through app/persistence.ts.
+export function discoverQuill(
+  known: readonly string[],
+  id: string,
+): string[] | null {
+  if (!ITEM_DEFS[id]) return null;
+  if (known.indexOf(id) >= 0) return null;
+  return [...known, id];
 }
 
-export function rollQuillDiscovery(rng: RngStream): string | null {
-  const hidden = hiddenQuillIds();
+export function rollQuillDiscovery(
+  rng: RngStream,
+  known: readonly string[],
+): string | null {
+  const hidden = hiddenQuillIds(known);
   if (!hidden.length) return null;
   return hidden[rng.randInt(0, hidden.length - 1)]!;
 }

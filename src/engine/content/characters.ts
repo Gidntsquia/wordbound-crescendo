@@ -1,8 +1,11 @@
 // READ_SLOWLY_PLAN.md stage D: playable letter-tile characters. D2's roster
 // of six, each a small passive registered as a Quill-shaped hook so it
 // reuses items.ts's existing score(ctx, acc) pipeline (createRun's `items`
-// list) rather than new plumbing. Unlock progress persists in localStorage
-// as wbc.characters, mirroring stolenLetters.ts's pattern.
+// list) rather than new plumbing. Unlock progress is a pure `unlocked:
+// readonly string[]` list, mirroring stolenLetters.ts's pattern; the app
+// layer persists it through app/persistence.ts's `wbc.characters` key
+// (READ_SLOWLY_PLAN.md A2 remainder -- no window/localStorage access lives
+// in src/engine).
 //
 // D1's permanent character tile (its own slot, playable in every word,
 // returns after scoring instead of being drawn/discarded) is wired in
@@ -20,14 +23,12 @@ export interface Character {
   passive: Item;
 }
 
-const STORE_KEY = 'wbc.characters';
-
 // Unlock order: zed and ee are free; each of the rest unlocks by finishing
 // a chapter with the previous one in this list equipped (round.ts's
 // run.next() calls unlockNext() alongside the existing felled/resolved
 // bookkeeping once the character mechanic itself is wired).
 export const CHARACTER_ORDER = ['zed', 'ess', 'ee', 'queue', 'why', 'ex'];
-const STARTING_UNLOCKED = ['zed', 'ee'];
+export const STARTING_UNLOCKED = ['zed', 'ee'];
 
 export const CHARACTERS: Character[] = [
   {
@@ -162,39 +163,31 @@ CHARACTERS.forEach((c) => {
   ITEM_DEFS[c.passive.id] = c.passive;
 });
 
-export function unlockedCharacters(): string[] {
-  try {
-    const raw = window.localStorage.getItem(STORE_KEY);
-    const arr: unknown = raw ? JSON.parse(raw) : null;
-    const stored = Array.isArray(arr)
-      ? arr.filter((id): id is string => typeof id === 'string')
-      : [];
-    const set = new Set([...STARTING_UNLOCKED, ...stored]);
-    return CHARACTER_ORDER.filter((id) => set.has(id));
-  } catch {
-    return STARTING_UNLOCKED.slice();
-  }
+export function unlockedCharacters(stored: readonly string[] = []): string[] {
+  const set = new Set([...STARTING_UNLOCKED, ...stored]);
+  return CHARACTER_ORDER.filter((id) => set.has(id));
 }
 
-export function isCharacterUnlocked(id: string): boolean {
-  return unlockedCharacters().includes(id);
+export function isCharacterUnlocked(
+  id: string,
+  stored: readonly string[] = [],
+): boolean {
+  return unlockedCharacters(stored).includes(id);
 }
 
-// Called once a chapter is finished with `characterId` equipped -- unlocks
-// the next id in CHARACTER_ORDER, if any and not already unlocked.
-export function unlockNext(characterId: string | null | undefined): void {
-  if (!characterId) return;
+// Called once a chapter is finished with `characterId` equipped -- returns
+// a new stored-unlocks list with the next id in CHARACTER_ORDER added, or
+// null if there is no next id or it is already unlocked. Pure: the app
+// layer persists the result through app/persistence.ts.
+export function unlockNext(
+  characterId: string | null | undefined,
+  stored: readonly string[] = [],
+): string[] | null {
+  if (!characterId) return null;
   const idx = CHARACTER_ORDER.indexOf(characterId);
-  if (idx === -1 || idx + 1 >= CHARACTER_ORDER.length) return;
+  if (idx === -1 || idx + 1 >= CHARACTER_ORDER.length) return null;
   const nextId = CHARACTER_ORDER[idx + 1]!;
-  const unlocked = unlockedCharacters();
-  if (unlocked.includes(nextId)) return;
-  try {
-    window.localStorage.setItem(
-      STORE_KEY,
-      JSON.stringify([...unlocked, nextId]),
-    );
-  } catch {
-    // localStorage unavailable (private mode, etc) -- unlock just doesn't persist.
-  }
+  const unlocked = unlockedCharacters(stored);
+  if (unlocked.includes(nextId)) return null;
+  return [...stored, nextId];
 }

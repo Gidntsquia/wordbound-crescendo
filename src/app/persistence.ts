@@ -51,6 +51,33 @@ export function writeJSON(key: string, value: unknown): void {
   writeRaw(key, JSON.stringify(value));
 }
 
+// wbc.letters/quills/characters (READ_SLOWLY_PLAN.md A2 remainder): the
+// stolenLetters.ts/quillDiscovery.ts/characters.ts metas are pure functions
+// over these lists -- this is the one place that reads/writes them.
+export function readWonLetters(): string[] {
+  return readJSON<string[]>(KEYS.letters, []);
+}
+
+export function writeWonLetters(letters: readonly string[]): void {
+  writeJSON(KEYS.letters, letters);
+}
+
+export function readDiscoveredQuills(fallback: readonly string[]): string[] {
+  return readJSON<string[]>(KEYS.quills, fallback.slice());
+}
+
+export function writeDiscoveredQuills(known: readonly string[]): void {
+  writeJSON(KEYS.quills, known);
+}
+
+export function readUnlockedCharacters(): string[] {
+  return readJSON<string[]>(KEYS.characters, []);
+}
+
+export function writeUnlockedCharacters(unlocked: readonly string[]): void {
+  writeJSON(KEYS.characters, unlocked);
+}
+
 // Runs once at startup. Nothing has ever shipped a schema change yet, so
 // this only stamps wbc.schemaVersion to PERSISTENCE_VERSION -- a future
 // version bump adds its `if (stored < N)` transform here, ahead of the stamp.

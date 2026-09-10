@@ -39,7 +39,6 @@ export default function SetupPanel({
     TILE_BAGS: TileBag[];
     KEYS: { id: string; index: number; name: string; hint: string }[];
     availableLetters?: unknown;
-    isAvailable: (letter: string) => boolean;
     ITEMS?: { id: string; name: string }[];
   };
   seed: string;
@@ -85,7 +84,12 @@ export default function SetupPanel({
           ))}
         </div>
       </div>
-      <GearMeta SB={SB} keyUnlocked={keyUnlocked} discovered={discovered} />
+      <GearMeta
+        SB={SB}
+        keyUnlocked={keyUnlocked}
+        discovered={discovered}
+        wonLetters={run?.wonLetters ?? []}
+      />
       <label className="sb-volume">
         Volume
         <Slider

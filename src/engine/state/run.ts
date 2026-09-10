@@ -4,12 +4,12 @@
 // openPack/pick). Same RNG call order as the mutable versions -- verified by
 // tools/parity-new.ts against tools/parity-old.ts's trace.
 //
-// stolenLetters.ts and quillDiscovery.ts stay RngStream-based and
-// side-effecting on localStorage (READ_SLOWLY_PLAN.md A2's persistence.ts is
-// the slice that gives them a versioned, pure-friendly home) -- toStream
-// (rng.ts) bridges a pure RngState into a mutable RngStream for the span of
-// one call into them, then hands back the RngState so the rest of this
-// module stays pure.
+// stolenLetters.ts and quillDiscovery.ts are pure functions over this
+// module's RunState.wonLetters/discoveredQuills lists (READ_SLOWLY_PLAN.md
+// A2 remainder); the app layer seeds those lists from app/persistence.ts at
+// run creation and persists them back on change. toStream (rng.ts) bridges
+// a pure RngState into a mutable RngStream for the span of one call into
+// them, then hands back the RngState so the rest of this module stays pure.
 import type { Tile } from '../tiles';
 import type { RngState } from '../rng';
 import * as rng from '../rng';
@@ -30,12 +30,13 @@ import { getTileBag } from '../content/tileBags';
 import {
   isAvailable,
   rollLetterChoice,
-  winLetter,
+  addWonLetter,
 } from '../meta/stolenLetters';
 import {
   isQuillDiscovered,
   rollQuillDiscovery,
   discoverQuill,
+  DEFAULT_KNOWN_QUILLS,
 } from '../meta/quillDiscovery';
 import { createTile } from '../tiles';
 import * as R from './round';
@@ -134,6 +135,12 @@ export interface RunState {
   // part of the deck/pile/rack. Null for no character (or one with no
   // roster entry).
   readonly characterTile: Tile | null;
+  // READ_SLOWLY_PLAN.md A2 remainder: the stolenLetters.ts/quillDiscovery.ts
+  // meta lists, seeded from app/persistence.ts at run creation and updated
+  // by this module's pure transitions (winning a letter, discovering a
+  // quill) -- the app layer diffs before/after and persists the change.
+  readonly wonLetters: readonly string[];
+  readonly discoveredQuills: readonly string[];
 }
 
 export interface CreateRunStateOpts {
@@ -142,6 +149,8 @@ export interface CreateRunStateOpts {
   deck?: Tile[];
   items?: string[];
   characterId?: string;
+  wonLetters?: string[];
+  discoveredQuills?: string[];
 }
 
 function kindMult(tune: Tune): Record<string, number> {
@@ -186,12 +195,17 @@ function begin(run: RunState, rngState: RngState): [RunState, RngState] {
   let s = rngState;
   let movementIIIQuillDone = run.movementIIIQuillDone;
   let movementIIIQuillFound = run.movementIIIQuillFound ?? null;
+  let discoveredQuills = run.discoveredQuills;
   if (run.movement >= 2 && !movementIIIQuillDone) {
     movementIIIQuillDone = true;
     const bridge = rng.toStream(s);
-    const found = rollQuillDiscovery(bridge.stream);
+    const found = rollQuillDiscovery(bridge.stream, discoveredQuills);
     s = bridge.get();
-    if (found && discoverQuill(found)) movementIIIQuillFound = found;
+    const newKnown = found ? discoverQuill(discoveredQuills, found) : null;
+    if (newKnown) {
+      movementIIIQuillFound = found;
+      discoveredQuills = newKnown;
+    }
   }
   const enemy = enemyAt(run.movement, run.stage);
   const [shuffledDeck, s2] = rng.shuffle(s, run.deck);
@@ -227,6 +241,7 @@ function begin(run: RunState, rngState: RngState): [RunState, RngState] {
     ...run,
     movementIIIQuillDone,
     movementIIIQuillFound,
+    discoveredQuills,
     enemy,
     round: roundWithFavour,
   };
@@ -273,6 +288,10 @@ export function createRunState(
     lastWin: null,
     state: 'live',
     characterTile,
+    wonLetters: opts.wonLetters ? opts.wonLetters.slice() : [],
+    discoveredQuills: opts.discoveredQuills
+      ? opts.discoveredQuills.slice()
+      : DEFAULT_KNOWN_QUILLS.slice(),
   };
   return begin(run, rngState);
 }
@@ -436,7 +455,7 @@ function rollItem(
   taken: string[],
 ): [{ kind: 'item'; id: string } | null, RngState] {
   const pool = itemIds().filter((id) => {
-    if (!isQuillDiscovered(id)) return false;
+    if (!isQuillDiscovered(id, run.discoveredQuills)) return false;
     return (run.items as string[]).indexOf(id) < 0 && taken.indexOf(id) < 0;
   });
   if (!pool.length) return [null, s];
@@ -578,11 +597,16 @@ export function next(run: RunState, rngState: RngState): [RunState, RngState] {
     run.stage >= MOVEMENTS[run.movement]!.enemies.length - 1;
 
   let quillFound: string | null = null;
+  let discoveredQuills = run.discoveredQuills;
   if (wasBoss) {
     const bridge = rng.toStream(s);
-    const found = rollQuillDiscovery(bridge.stream);
+    const found = rollQuillDiscovery(bridge.stream, discoveredQuills);
     s = bridge.get();
-    if (found && discoverQuill(found)) quillFound = found;
+    const newKnown = found ? discoverQuill(discoveredQuills, found) : null;
+    if (newKnown) {
+      quillFound = found;
+      discoveredQuills = newKnown;
+    }
   }
 
   const afterSettle: RunState = {
@@ -592,11 +616,12 @@ export function next(run: RunState, rngState: RngState): [RunState, RngState] {
     felled,
     resolved,
     quillFound,
+    discoveredQuills,
   };
 
   if (wasBoss) {
     const bridge = rng.toStream(s);
-    const choices = rollLetterChoice(bridge.stream, 3);
+    const choices = rollLetterChoice(bridge.stream, run.wonLetters, 3);
     s = bridge.get();
     if (choices && choices.length) {
       return [{ ...afterSettle, letterChoice: { options: choices, last } }, s];
@@ -613,9 +638,13 @@ export function pickLetter(
   if (!run.letterChoice) return [run, false, rngState];
   if (run.letterChoice.options.indexOf(letter) < 0)
     return [run, false, rngState];
-  winLetter(letter);
+  const wonLetters = addWonLetter(run.wonLetters, letter);
   const last = run.letterChoice.last;
-  const [next, s] = finishWin({ ...run, letterChoice: null }, last, rngState);
+  const [next, s] = finishWin(
+    { ...run, letterChoice: null, wonLetters },
+    last,
+    rngState,
+  );
   return [next, true, s];
 }
 
@@ -774,7 +803,7 @@ export function openPack(
     const counts = getTileBag('strong').counts;
     const letters: string[] = [];
     Object.keys(counts).forEach((l) => {
-      if (!isAvailable(l)) return;
+      if (!isAvailable(l, run.wonLetters)) return;
       for (let k = 0; k < (counts[l] ?? 0); k++) letters.push(l);
     });
     for (let a = 0; a < n; a++) {

@@ -100,17 +100,21 @@ export function getTileBag(id: string | null | undefined): TileBag {
 }
 
 // A letter still stolen (stolenLetters.ts) is dropped from the bag entirely
-// rather than reduced in count -- when stolenLetters isn't loaded (other
-// sandbox entries), every letter is available. Built in sorted-letter order
-// so a bag written with its letters in a different order cannot shuffle
-// differently under the same seed.
-export function createBagDeck(bagId: string | null | undefined): Tile[] {
+// rather than reduced in count. `won` is the caller's won-letters list
+// (READ_SLOWLY_PLAN.md A2 remainder -- a plain parameter, not a window
+// global); an empty list means every letter is available. Built in
+// sorted-letter order so a bag written with its letters in a different
+// order cannot shuffle differently under the same seed.
+export function createBagDeck(
+  bagId: string | null | undefined,
+  won: readonly string[] = [],
+): Tile[] {
   const counts = getTileBag(bagId).counts;
   const deck: Tile[] = [];
   Object.keys(counts)
     .sort()
     .forEach((letter) => {
-      if (!isAvailable(letter)) return;
+      if (!isAvailable(letter, won)) return;
       for (let i = 0; i < counts[letter]!; i++)
         deck.push(createTile(letter, null));
     });

@@ -292,6 +292,12 @@ export function createRunFacade(box: Box) {
     get characterTile() {
       return box.run.characterTile;
     },
+    get wonLetters() {
+      return box.run.wonLetters;
+    },
+    get discoveredQuills() {
+      return box.run.discoveredQuills;
+    },
     targetFor(movement: number, stage: number) {
       return Run.targetFor(box.run, movement, stage);
     },
@@ -394,6 +400,8 @@ export interface CreateRunFacadeOpts {
   deck?: Tile[];
   items?: string[];
   characterId?: string;
+  wonLetters?: string[];
+  discoveredQuills?: string[];
   crescendo?: () => { phase: string; mag?: number } | null;
   extendCrescendo?: (extraSec: number) => void;
 }
@@ -412,6 +420,8 @@ export function createRunFacadeFromOpts(
       deck: opts.deck,
       items: opts.items,
       characterId: opts.characterId,
+      wonLetters: opts.wonLetters,
+      discoveredQuills: opts.discoveredQuills,
     },
     rngState,
   );
