@@ -104,34 +104,60 @@ export function describeBreakdown(b: Breakdown): string {
   return out;
 }
 
-// Rarity → Tailwind classes for the Card primitive (A6 slice 2): reuses the
-// paper/gilt/marginalia tokens already carrying the shadcn Button variants
-// (`bg-paper`/`border-gilt`/`text-marginalia`) rather than the old sandbox.css
-// pit/brass/rubric dark palette, since the chrome pass has moved the shop to
-// that lighter paper look. Common stays neutral; uncommon takes the gilt
-// border the old `.is-uncommon` brass border stood in for; rare takes the
-// marginalia border + soft glow for the strongest distinction (the old
-// `.is-rare` rubric border had no equivalent token, so marginalia carries the
-// "this one's different" signal instead).
-export function rarityCardClass(rarity: string | undefined): string {
+// Rarity → Tailwind classes for the Card primitive (A6 slice 2). QuillCard
+// renders in two contexts with opposite themes: the shop (light paper/ink
+// chrome) and the in-fight held row (dark pit/leaf/brass-hot chrome, see
+// Stick.tsx/Rack.tsx). These used to be the paper/gilt/marginalia tokens
+// unconditionally -- correct in the shop, but a light cream card dropped
+// onto the near-black fight screen everywhere else. `inShop` picks the
+// palette that actually matches the surrounding chrome in each place.
+// Common stays neutral; uncommon takes the gilt/brass-hot border; rare takes
+// the marginalia/steel border + soft glow for the strongest distinction.
+export function rarityCardClass(
+  rarity: string | undefined,
+  inShop?: boolean,
+): string {
+  if (inShop) {
+    switch (rarity) {
+      case 'uncommon':
+        return 'border-gilt bg-paper text-ink';
+      case 'rare':
+        return 'border-marginalia bg-paper text-ink shadow-[0_0_0_1px_var(--color-marginalia),0_0_12px_1px_color-mix(in_oklch,var(--color-marginalia),transparent_60%)]';
+      default:
+        return 'border-ink/15 bg-paper text-ink';
+    }
+  }
   switch (rarity) {
     case 'uncommon':
-      return 'border-gilt bg-paper text-ink';
+      return 'border-[var(--brass-hot)] bg-[var(--pit-raise)] text-[var(--leaf)]';
     case 'rare':
-      return 'border-marginalia bg-paper text-ink shadow-[0_0_0_1px_var(--color-marginalia),0_0_12px_1px_color-mix(in_oklch,var(--color-marginalia),transparent_60%)]';
+      return 'border-[#b8a5d8] bg-[var(--pit-raise)] text-[var(--leaf)] shadow-[0_0_0_1px_#b8a5d8,0_0_12px_1px_rgba(184,165,216,0.4)]';
     default:
-      return 'border-ink/15 bg-paper text-ink';
+      return 'border-[var(--rule)] bg-[var(--pit-raise)] text-[var(--leaf)]';
   }
 }
 
-export function rarityBadgeClass(rarity: string | undefined): string {
+export function rarityBadgeClass(
+  rarity: string | undefined,
+  inShop?: boolean,
+): string {
+  if (inShop) {
+    switch (rarity) {
+      case 'uncommon':
+        return 'bg-gilt/20 text-ink border-gilt';
+      case 'rare':
+        return 'bg-marginalia/15 text-marginalia border-marginalia';
+      default:
+        return 'bg-ink/5 text-ink/70 border-ink/15';
+    }
+  }
   switch (rarity) {
     case 'uncommon':
-      return 'bg-gilt/20 text-ink border-gilt';
+      return 'bg-[var(--brass-hot)]/20 text-[var(--brass-hot)] border-[var(--brass-hot)]';
     case 'rare':
-      return 'bg-marginalia/15 text-marginalia border-marginalia';
+      return 'bg-[#b8a5d8]/15 text-[#b8a5d8] border-[#b8a5d8]';
     default:
-      return 'bg-ink/5 text-ink/70 border-ink/15';
+      return 'bg-[var(--leaf)]/5 text-[var(--leaf-dim)] border-[var(--rule)]';
   }
 }
 

@@ -176,7 +176,11 @@ export default function Stick({
   );
   return (
     <div className="sb-stick-wrap mb-3.5 max-[620px]:mb-2">
-      <div className="sb-stick-head flex items-baseline justify-between gap-2.5 pb-1.5">
+      {/* min-h reserves the tallest state's (wrapped, two-line) height up
+          front -- the math line only appears once a word is formable, and
+          without a reserved slot its appearance/disappearance shoved the
+          tile row below up and down on every tile tap. */}
+      <div className="sb-stick-head flex min-h-[34px] flex-wrap items-baseline justify-between gap-x-2.5 gap-y-0.5 pb-1.5">
         <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
           {scoring ? 'Scoring' : letters.length ? 'Your word' : ' '}
         </span>

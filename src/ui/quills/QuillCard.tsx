@@ -78,7 +78,7 @@ export default function QuillCard({
       data-rarity={rarity}
       className={cn(
         'relative isolate w-[72px] cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center transition-[opacity,box-shadow,border-color] duration-[240ms]',
-        rarityCardClass(rarity),
+        rarityCardClass(rarity, inShop),
         lit === id && 'z-[2] motion-safe:animate-[card-jiggle_320ms_ease-out]',
         cresState === 'idle' && 'opacity-45 saturate-[0.4]',
         cresState === 'soon' && 'border-[var(--brass-hot)] opacity-85',
@@ -88,6 +88,11 @@ export default function QuillCard({
       role="button"
       tabIndex={0}
       aria-label={d.name + ' — ' + itemBlurb(d)}
+      // Click/tap is the only open trigger -- hover used to also open the
+      // tip, but then a click on an already-hovered card (any mouse click,
+      // and every touch tap, since touch synthesizes hover first) saw the
+      // tip already open and immediately toggled it back off, so clicking
+      // looked like it did nothing.
       onClick={() => setTip((t) => (t === tipId ? null : tipId))}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -95,8 +100,6 @@ export default function QuillCard({
           setTip((t) => (t === tipId ? null : tipId));
         }
       }}
-      onMouseEnter={() => setTip(() => tipId)}
-      onMouseLeave={() => setTip((t) => (t === tipId ? null : t))}
       onFocus={() => setTip(() => tipId)}
       onBlur={() => setTip((t) => (t === tipId ? null : t))}
     >
@@ -128,7 +131,7 @@ export default function QuillCard({
         className={cn(
           'mt-0.5 px-1.5 text-[9px]',
           !inShop && 'max-[620px]:hidden',
-          rarityBadgeClass(rarity),
+          rarityBadgeClass(rarity, inShop),
         )}
       >
         {rarity}
