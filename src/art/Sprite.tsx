@@ -9,11 +9,9 @@
 import type { CSSProperties, ComponentType } from 'react';
 import ART_MANIFEST from '../../tools/art-manifest.json';
 import { SVG_SHEETS as PIECES_SHEETS } from './svg/pieces';
-import { BACKDROP_SHEETS } from './svg/backdrops';
 
 const SVG_SHEETS: Record<string, ComponentType<{ pose?: string }>> = {
   ...PIECES_SHEETS,
-  ...BACKDROP_SHEETS,
 };
 
 interface SheetDef {

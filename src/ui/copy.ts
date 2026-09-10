@@ -20,10 +20,6 @@ export function chapterLabel(numeral: string | number): string {
   return 'Chapter ' + n;
 }
 
-export function walkPastFor(favourName: string): string {
-  return 'Walk past for ' + favourName;
-}
-
 export function targetHint(target: number): string {
   return TARGET_LABEL + ' ' + target;
 }

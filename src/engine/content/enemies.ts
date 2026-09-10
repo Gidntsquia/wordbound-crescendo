@@ -1,10 +1,8 @@
 // TS port of src/sandbox/enemies.js (READ_SLOWLY_PLAN.md A2/A5 step 3): the
 // lineup (MOVEMENTS) and the boss tempo markings (RULES).
 //
-// Names/flavour rewritten to READ_SLOWLY_PLAN.md stage B ("slow down and
-// read"): antagonists are tempos a reader outlasts, not villains. `id`,
-// `kind`, `recorded`, and `rule` are unchanged -- only the on-screen name
-// and flavour text moved.
+// Names are the recorded piece's own name/nickname -- no narrative scene or
+// character attached. `id`, `kind`, `recorded`, and `rule` are unchanged.
 
 export type EnemyKind = 'small' | 'big' | 'boss';
 
@@ -55,97 +53,91 @@ export interface Rule {
 export const MOVEMENTS: Movement[] = [
   {
     numeral: 'I',
-    name: 'Chapter 1: The Commute',
+    name: 'Movement I',
     enemies: [
       {
         id: 'bagatelle',
-        name: 'The Doomscroll',
-        glyph: '\u{1F4F1}',
+        name: 'Bagatelle No. 25',
+        glyph: '\u{1F3B9}',
         recorded: 'recordedFurElise',
         kind: 'small',
-        flavour:
-          'A commuter, hypnotised by a phone. Thumb moving, eyes glazed.',
+        flavour: 'A light bagatelle, better known as "Für Elise."',
       },
       {
         id: 'moonlight',
-        name: 'The Deadline',
-        glyph: '\u{1F319}',
+        name: 'Moonlight Sonata',
+        glyph: '\u{1F3B9}',
         recorded: 'recordedMoonlight',
         kind: 'big',
-        flavour:
-          'The same commuter, now at a desk. A clock face where the phone was.',
+        flavour: 'Piano Sonata No. 14, first movement -- Adagio sostenuto.',
       },
       {
         id: 'fate',
-        name: 'Fate at the Door',
-        glyph: '\u{1F451}',
+        name: 'Symphony No. 5',
+        glyph: '\u{1F3BB}',
         recorded: 'recordedSymphony5',
         kind: 'boss',
-        flavour: 'The deadline arrives in person. Four knocks. Not asking.',
+        flavour: 'Four notes, then the rest of it. Not asking.',
         rule: 'four_knocks',
       },
     ],
   },
   {
     numeral: 'II',
-    name: 'Chapter 2: The Square',
+    name: 'Movement II',
     enemies: [
       {
         id: 'aria',
-        name: 'The Bored Bench',
-        glyph: '\u{1FA91}',
+        name: 'Goldberg Variations: Aria',
+        glyph: '\u{1F3B9}',
         recorded: 'recordedGoldbergAria',
         kind: 'small',
-        flavour:
-          'Someone with nothing to do, and no idea a book counts as something.',
+        flavour: 'The Aria that opens and closes the Goldberg Variations.',
       },
       {
         id: 'mountain_king',
-        name: 'The Loudspeaker',
-        glyph: '\u{1F3D4}️',
+        name: 'In the Hall of the Mountain King',
+        glyph: '\u{1F3BB}',
         recorded: 'recordedMountainKing',
         kind: 'big',
-        flavour:
-          'A leader who talks so no one has to think. The bench-sitter is in the crowd.',
+        flavour: 'From Peer Gynt. Starts slow. Does not stay slow.',
         rule: 'presto',
       },
       {
         id: 'gallop',
-        name: 'The Gallop',
-        glyph: '\u{1F40E}',
+        name: 'William Tell Overture: Finale',
+        glyph: '\u{1F3BA}',
         recorded: 'recordedWilliamTell',
         kind: 'boss',
-        flavour:
-          'The parade that never stops for anyone. Every letter you spend, it remembers.',
+        flavour: 'The gallop. Every letter you spend, it remembers.',
         rule: 'no_repeats',
       },
     ],
   },
   {
     numeral: 'III',
-    name: 'Chapter 3: The Tower',
+    name: 'Movement III',
     enemies: [
       {
         id: 'gymnopedie',
-        name: 'The Waiting Room',
-        glyph: '\u{1F3E2}',
+        name: 'Gymnopédie No. 1',
+        glyph: '\u{1F3B9}',
         recorded: 'recordedGymnopedie',
         kind: 'small',
-        flavour:
-          'A person staring at a wall, so bored they have forgotten boredom has a cure.',
+        flavour: 'Satie, slow and unhurried.',
       },
       {
         id: 'serenade',
-        name: 'The Chancellor',
-        glyph: '\u{1F3DB}️',
+        name: 'Eine kleine Nachtmusik',
+        glyph: '\u{1F3BB}',
         recorded: 'recordedNachtmusik',
         kind: 'big',
-        flavour: 'Hegemony. A hall repeating the same word after a podium.',
+        flavour: "Mozart's serenade, repeating its own theme.",
       },
       {
         id: 'bald_mountain',
-        name: 'The Bare Mountain',
-        glyph: '\u{1F311}',
+        name: 'Night on Bald Mountain',
+        glyph: '\u{1F3BB}',
         recorded: 'recordedBaldMountain',
         kind: 'boss',
         flavour:

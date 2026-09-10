@@ -54,7 +54,6 @@ import {
   warmWordMaker,
 } from '../../engine/content/wordFinder';
 import { CRESCENDO } from '../../audio/recordingPlayer';
-import { prefetchChapterArt } from '../../art/prefetchArt';
 import * as copy from '../copy';
 import { useCrescendo } from '../hooks/useCrescendo';
 import { useDragReorder } from '../hooks/useDragReorder';
@@ -615,18 +614,6 @@ export function useFight() {
     },
     [warm],
   );
-  // READ_SLOWLY_PLAN.md E4: while the player is in the shop, prefetch the
-  // next chapter's backdrop the same way warmAhead prefetches its audio
-  // bytes above -- a no-op today since it's still SVG (bundled in the JS,
-  // nothing to fetch); it starts doing real work once it's sourced as a
-  // PNG (see prefetchArt.ts).
-  useEffect(() => {
-    if (phase !== 'shop') return;
-    const run = fight.current?.run;
-    if (!run) return;
-    const nextChapter = Math.min(3, Math.max(1, run.movement + 2));
-    prefetchChapterArt([`backdrop_chapter_${nextChapter}`]);
-  }, [phase]);
   useEffect(() => {
     warm(0, 0);
     warm(0, 1);

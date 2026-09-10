@@ -3,7 +3,7 @@
 // character's letter in a badge, reusing CharacterSelect.tsx's own visual
 // language for a chosen letter (rounded-[2px] square, --leaf fill,
 // --ink text) rather than inventing a new one. Presentational only, no
-// state of its own, same pattern as SituationPanel.tsx; `pose` is driven by
+// state of its own; `pose` is driven by
 // useFight.ts's wordsmithPose (E3): `write` while a word is being scored,
 // `flourish` on a round win, `idle` otherwise.
 import Sprite from '../../art/Sprite';

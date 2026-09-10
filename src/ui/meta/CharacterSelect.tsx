@@ -1,6 +1,5 @@
 // READ_SLOWLY_PLAN.md stage D3: title-screen row of the six letter
-// characters. Presentational only (props in, JSX out, no internal state),
-// same pattern as SituationPanel.jsx.
+// characters. Presentational only (props in, JSX out, no internal state).
 import type { Character } from '../../engine/content/characters';
 import { Button } from '@/ui/primitives/button';
 

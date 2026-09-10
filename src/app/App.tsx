@@ -21,7 +21,6 @@ import LetterChoice from '../ui/fight/LetterChoice';
 import GearPanel from '../ui/chrome/GearPanel';
 import RunStrip from '../ui/chrome/RunStrip';
 import PlayBoard from '../ui/fight/PlayBoard';
-import ChapterBackdrop from '../ui/fight/ChapterBackdrop';
 import { describeBreakdown } from '../ui/quills/cardCopy';
 import type { RunFacade, RoundFacade } from '../engine/state/facade';
 import type { Fight, BestState } from '../app/store';
@@ -299,10 +298,6 @@ export default function App(props: AppProps) {
                   : '')
           }
         >
-          <ChapterBackdrop
-            movement={run ? run.movement : 0}
-            crescendoSoon={live && cres.phase === 'soon'}
-          />
           {showIntro ? (
             <EnemyIntroCard
               f={f}

@@ -81,7 +81,7 @@ export default function EnemyIntroCard({
               variant="paperGhost"
               onClick={skipFight}
             >
-              Walk past for <b>{SB.FAVOUR_DEFS[round.favour]!.name}</b>
+              Skip for <b>{SB.FAVOUR_DEFS[round.favour]!.name}</b>
             </Button>
             <Popover>
               <PopoverTrigger

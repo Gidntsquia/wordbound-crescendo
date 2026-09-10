@@ -57,7 +57,7 @@ export const SFX_DEFAULTS = {
   RIFFLE_TAPS: 5,
   RIFFLE_MS: 160,
   RIFFLE_GAIN: 0.5,
-  // page: a soft paper turn, for the situation ladder's step transitions
+  // page: a soft paper turn
   PAGE_TAPS: 3,
   PAGE_MS: 90,
   PAGE_GAIN: 0.3,

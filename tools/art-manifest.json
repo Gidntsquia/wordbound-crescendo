@@ -99,39 +99,6 @@
       "author": "Kenney",
       "sha256": "8e10578b82d6d46aff27a9939f4c1adccd1be6dc93c8302c9e28d281e126aae2",
       "note": "Kenney Game Icons pack has no coin glyph; using its star.png (White/2x) as the closest generic value/currency icon until a purpose-drawn coin exists."
-    },
-    {
-      "id": "backdrop_chapter_1",
-      "kind": "backdrop",
-      "chapter": 1,
-      "poses": ["far", "near"],
-      "status": "sourced",
-      "format": "svg",
-      "licence": "original",
-      "author": "repo",
-      "note": "Hand-authored SVG (src/art/svg/backdrops.jsx). Single static composition (no separate far/near parallax layers yet)."
-    },
-    {
-      "id": "backdrop_chapter_2",
-      "kind": "backdrop",
-      "chapter": 2,
-      "poses": ["far", "near"],
-      "status": "sourced",
-      "format": "svg",
-      "licence": "original",
-      "author": "repo",
-      "note": "Hand-authored SVG (src/art/svg/backdrops.jsx). Single static composition (no separate far/near parallax layers yet)."
-    },
-    {
-      "id": "backdrop_chapter_3",
-      "kind": "backdrop",
-      "chapter": 3,
-      "poses": ["far", "near"],
-      "status": "sourced",
-      "format": "svg",
-      "licence": "original",
-      "author": "repo",
-      "note": "Hand-authored SVG (src/art/svg/backdrops.jsx). Single static composition (no separate far/near parallax layers yet)."
     }
   ]
 }
