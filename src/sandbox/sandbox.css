@@ -58,6 +58,7 @@ body {
   max-width: 1240px;
   margin: 0 auto;
   padding: 28px 24px 48px;
+  position: relative;
 }
 
 :focus-visible {
@@ -79,17 +80,6 @@ body {
 .sb-figure {
   font-family: var(--figure);
   font-variant-numeric: tabular-nums;
-}
-
-/* ---- programme header ------------------------------------------------ */
-.sb-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--rule);
 }
 
 .sb-wordmark {
@@ -898,14 +888,14 @@ button:disabled {
 .sb-rack-row {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: 7px;
 }
 
+/* No divider, no reserved gap of its own (Jaxon, 2026-09-09: it read as a
+   bonus item slot) -- the character tile sits flush in the same row as the
+   rest of the case; only the once-per-round "spent" state sets it apart. */
 .sb-character-slot {
   flex: 0 0 auto;
-  padding-right: 12px;
-  border-right: 1px solid var(--leaf);
-  margin-right: 2px;
 }
 
 .sb-rack {
@@ -1514,9 +1504,8 @@ button:disabled {
     padding: 14px 14px 24px;
   }
   .sb-head {
-    align-items: flex-start;
-    gap: 10px;
-    padding-bottom: 8px;
+    top: 10px;
+    right: 12px;
   }
   .sb-dyn {
     display: flex;
@@ -1544,7 +1533,7 @@ button:disabled {
      it to just the live stage's pips so the strip reads as one line; the
      header eyebrow and enemy/target line below already say where you are. */
   .sb-strip {
-    padding: 6px 10px;
+    padding: 6px 52px 6px 10px;
     gap: 6px 10px;
   }
   .sb-strip-mv:not(.is-now) {
@@ -1584,9 +1573,8 @@ button:disabled {
   .sb-rack-row:has(.sb-character-slot) .sb-rack {
     gap: 4px;
   }
-  .sb-rack-row:has(.sb-character-slot) .sb-character-slot {
-    padding-right: 8px;
-    margin-right: 0;
+  .sb-rack-row:has(.sb-character-slot) {
+    gap: 4px;
   }
   .sb-stick {
     min-height: 44px;
@@ -2187,7 +2175,7 @@ button.sb-card:disabled {
   align-items: center;
   gap: 8px 18px;
   margin: 0 0 14px;
-  padding: 8px 12px;
+  padding: 8px 56px 8px 12px;
   border: 1px solid var(--rule);
   background: var(--pit-deep);
   font-size: 12px;
@@ -2627,11 +2615,15 @@ button.sb-card:disabled {
 /* The gear, every screen size: seed, bag, starting items, helper, tuning
    fold away behind it so the demo has one path -- open, Play, spell. */
 .sb-head {
-  position: relative;
-  /* The gear button is position:absolute (out of flow) so an empty header
-     collapses to 0 height and the button sits on top of whatever follows
-     (the run strip's ink readout) instead of reserving its own row. */
-  min-height: 44px;
+  /* Docked to the corner of .sb itself, not given its own row -- a
+     reserved-height row left a wide empty bar above the strip (Jaxon,
+     2026-09-09). The gear reads as a corner control on the strip/title
+     card instead; .sb-strip reserves room on its right so the ink purse
+     doesn't run underneath it. */
+  position: absolute;
+  top: 28px;
+  right: 24px;
+  height: 0;
 }
 .sb-gear {
   display: inline-flex;
@@ -2668,7 +2660,7 @@ button.sb-card:disabled {
   }
   .sb-strip {
     gap: 6px 12px;
-    padding: 8px 10px;
+    padding: 8px 52px 8px 10px;
   }
   .sb-card {
     min-width: 120px;
