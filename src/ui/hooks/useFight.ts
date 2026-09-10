@@ -55,6 +55,7 @@ import {
 } from '../../engine/content/wordFinder';
 import { CRESCENDO } from '../../audio/recordingPlayer';
 import { situationFor, ladderIndex } from '../../engine/content/situations';
+import { prefetchChapterArt } from '../../art/prefetchArt';
 import * as copy from '../copy';
 import { useCrescendo } from '../hooks/useCrescendo';
 import { useDragReorder } from '../hooks/useDragReorder';
@@ -620,6 +621,27 @@ export function useFight() {
     },
     [warm],
   );
+  // READ_SLOWLY_PLAN.md E4: while the player is in the shop, prefetch the
+  // next fight's chapter art the same way warmAhead prefetches its audio
+  // bytes above -- a no-op today since every backdrop/antagonist sheet is
+  // still SVG (bundled in the JS, nothing to fetch); it starts doing real
+  // work once a chapter's art is sourced as a PNG (see prefetchArt.ts).
+  useEffect(() => {
+    if (phase !== 'shop') return;
+    const run = fight.current?.run;
+    if (!run) return;
+    const m = run.movements[run.movement];
+    if (!m) return;
+    const nextEnemy =
+      run.stage + 1 < m.enemies.length
+        ? enemyAt(run.movement, run.stage + 1)
+        : enemyAt(run.movement + 1, 0);
+    const nextChapter = Math.min(3, Math.max(1, run.movement + 2));
+    prefetchChapterArt([
+      nextEnemy?.antagonist,
+      `backdrop_chapter_${nextChapter}`,
+    ]);
+  }, [phase]);
   useEffect(() => {
     warm(0, 0);
     warm(0, 1);
