@@ -891,11 +891,14 @@ button:disabled {
   gap: 7px;
 }
 
-/* No divider, no reserved gap of its own (Jaxon, 2026-09-09: it read as a
-   bonus item slot) -- the character tile sits flush in the same row as the
-   rest of the case; only the once-per-round "spent" state sets it apart. */
+/* Visually set apart from the case (Jaxon, 2026-09-09: it's your own tile,
+   not one of the drawn rack), but plain -- no gold fill, no item look, just
+   a thin rule so it doesn't read as a bonus item. Once-per-round is the
+   spent (hollow) state, not the colour. */
 .sb-character-slot {
   flex: 0 0 auto;
+  padding-right: 8px;
+  border-right: 1px solid var(--rule);
 }
 
 .sb-rack {
