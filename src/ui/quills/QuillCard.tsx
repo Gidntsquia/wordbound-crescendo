@@ -1,4 +1,5 @@
 import type { ActFn } from '../actFn';
+import { Button } from '@/ui/primitives/button';
 // A single held quill (item) card -- extracted from HeldRow.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
 import { cresBadge, itemBlurb } from './cardCopy';
@@ -115,8 +116,9 @@ export default function QuillCard({
       )}
       {itemsLength > 1 && (
         <span className="sb-card-order" title="Bookmarks fire left to right">
-          <button
+          <Button
             type="button"
+            variant="paperGhost"
             disabled={i === 0}
             aria-label="Move left"
             onClick={(e) => {
@@ -125,9 +127,10 @@ export default function QuillCard({
             }}
           >
             ‹
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="paperGhost"
             disabled={i === itemsLength - 1}
             aria-label="Move right"
             onClick={(e) => {
@@ -136,12 +139,13 @@ export default function QuillCard({
             }}
           >
             ›
-          </button>
+          </Button>
         </span>
       )}
       {inShop && (
-        <button
+        <Button
           type="button"
+          variant="paper"
           className="sb-card-sell"
           title="Sell"
           onClick={(e) => {
@@ -150,7 +154,7 @@ export default function QuillCard({
           }}
         >
           sell {Math.floor(SB.priceOf(d) / 2)}
-        </button>
+        </Button>
       )}
     </span>
   );

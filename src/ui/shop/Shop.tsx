@@ -1,4 +1,5 @@
 import type { ActFn } from '../actFn';
+import { Button } from '@/ui/primitives/button';
 // The shop between fights: two cards, two packs, reroll, and the door --
 // extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4), then split
 // further into CardSlot/PackPick/ShopInkPicker (A4, second pass) and
@@ -124,20 +125,22 @@ export default function Shop({
                 buyCard={buyCard}
               />
             ))}
-            <button
+            <Button
               type="button"
+              variant="paper"
               className="sb-reroll"
               disabled={run.ink < shop.rerollPrice()}
               onClick={() => act('Rerolled.', shop.reroll(), 'coin')}
             >
               Reroll <span className="sb-price">{shop.rerollPrice()}</span>
-            </button>
+            </Button>
           </div>
           <div className="sb-shop-row" aria-label="Packs">
             {(shop.packs ?? []).map((p, i) => (
-              <button
+              <Button
                 key={i}
                 type="button"
+                variant="paper"
                 disabled={p.opened || run.ink < (p.free ? 0 : p.price)}
                 className={
                   'sb-card sb-card-pack sb-pack-' +
@@ -159,7 +162,7 @@ export default function Shop({
                 {!p.opened && (
                   <span className="sb-price">{p.free ? 'free' : p.price}</span>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
           <HeldRow
@@ -175,13 +178,18 @@ export default function Shop({
             tip={tip}
             setTip={setTip}
           />
-          <button type="button" className="sb-go sb-shop-leave" onClick={leave}>
+          <Button
+            type="button"
+            variant="paperPrimary"
+            className="sb-go sb-shop-leave"
+            onClick={leave}
+          >
             Continue
             <small>
               next: {next?.glyph} {next?.name} · target{' '}
               {run.targetFor(run.movement, run.stage)}
             </small>
-          </button>
+          </Button>
         </>
       )}
     </div>

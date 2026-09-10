@@ -1,5 +1,7 @@
 // After a boss falls: choose a stolen letter to win back. Extracted from
 // RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4).
+import { Button } from '@/ui/primitives/button';
+
 export default function LetterChoice({
   options,
   letterValues,
@@ -16,15 +18,16 @@ export default function LetterChoice({
       </span>
       <div className="sb-letter-row">
         {options.map((l) => (
-          <button
+          <Button
             key={l}
             type="button"
+            variant="paper"
             className="sb-tile sb-letter-pick"
             onClick={() => pickLetter(l)}
           >
             {l}
             <sub>{letterValues[l] || 0}</sub>
-          </button>
+          </Button>
         ))}
       </div>
       <p className="sb-hint">

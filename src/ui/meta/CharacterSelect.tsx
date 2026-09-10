@@ -2,6 +2,7 @@
 // characters. Presentational only (props in, JSX out, no internal state),
 // same pattern as SituationPanel.jsx.
 import type { Character } from '../../engine/content/characters';
+import { Button } from '@/ui/primitives/button';
 
 export default function CharacterSelect({
   characters,
@@ -19,9 +20,10 @@ export default function CharacterSelect({
       {characters.map((c) => {
         const isUnlocked = unlocked.includes(c.id);
         return (
-          <button
+          <Button
             key={c.id}
             type="button"
+            variant="paper"
             title={isUnlocked ? c.hint : c.hint + ' — locked'}
             disabled={!isUnlocked}
             className={
@@ -32,7 +34,7 @@ export default function CharacterSelect({
             onClick={() => isUnlocked && onChoose(c.id)}
           >
             {c.letter}
-          </button>
+          </Button>
         );
       })}
     </div>

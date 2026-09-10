@@ -1,6 +1,7 @@
 // The case (rack) of tiles -- extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md
 // A4). Tap plays a tile onto the stick, drag reorders/moves it; inking mode
 // diverts taps to toggleInkTile instead.
+import { Button } from '@/ui/primitives/button';
 import type { Tile } from '../../engine/tiles';
 import type { RoundFacade } from '../../engine/state/facade';
 import type { Inking as RealInking } from './FightScreen';
@@ -70,9 +71,10 @@ export default function Rack({
               }
             />
           ) : (
-            <button
+            <Button
               type="button"
               disabled={!live}
+              variant="paper"
               className={
                 'sb-tile' +
                 (round.isBarred(characterTile) ? ' is-barred' : '') +
@@ -97,7 +99,7 @@ export default function Rack({
             >
               {characterTile.letter}
               <sub>{letterValues[characterTile.letter] || 0}</sub>
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -106,10 +108,11 @@ export default function Rack({
           picked ? (
             <span key={t.id} className="sb-tile is-slot" aria-hidden="true" />
           ) : (
-            <button
+            <Button
               key={t.id}
               type="button"
               disabled={!live}
+              variant="paper"
               className={
                 'sb-tile' +
                 (hollow ? ' is-dragging' : '') +
@@ -143,7 +146,7 @@ export default function Rack({
             >
               {t.letter === '?' ? '␣' : t.letter}
               <sub>{letterValues[t.letter] || 0}</sub>
-            </button>
+            </Button>
           ),
         )}
       </div>

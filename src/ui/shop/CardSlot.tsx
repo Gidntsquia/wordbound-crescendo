@@ -2,6 +2,7 @@
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
 import { cardBlurb, cardName } from '../quills/cardCopy';
 import type { CardCopyTables, CardCopyRun } from '../quills/cardCopy';
+import { Button } from '@/ui/primitives/button';
 
 interface ShopCard {
   kind: 'item' | 'mark' | 'etude';
@@ -73,8 +74,9 @@ export default function CardSlot({
           </span>
         )}
         <span className="sb-price">{c.price}</span>
-        <button
+        <Button
           type="button"
+          variant="paperPrimary"
           className="sb-card-buy-btn"
           disabled={disabled}
           onClick={(e) => {
@@ -83,13 +85,14 @@ export default function CardSlot({
           }}
         >
           Buy
-        </button>
+        </Button>
       </span>
     );
   }
   return (
-    <button
+    <Button
       type="button"
+      variant="paper"
       disabled={disabled}
       className={
         'sb-card sb-card-buy sb-card-' + c.kind + (c.sold ? ' is-sold' : '')
@@ -101,6 +104,6 @@ export default function CardSlot({
       <em>{c.sold ? '' : cardBlurb(SB, c, run)}</em>
       <b>{c.sold ? 'sold' : cardName(SB, c)}</b>
       {!c.sold && <span className="sb-price">{c.price}</span>}
-    </button>
+    </Button>
   );
 }

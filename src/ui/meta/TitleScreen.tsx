@@ -9,6 +9,7 @@ import CharacterSelect from '../meta/CharacterSelect';
 import type { Key } from '../../engine/content/round';
 import type { Character } from '../../engine/content/characters';
 import { useCallout } from '../chrome/Callout';
+import { Button } from '@/ui/primitives/button';
 
 interface BestState {
   word?: { word: string; total: number };
@@ -61,9 +62,10 @@ export default function TitleScreen({
       {keyUnlocked > 0 && (
         <div className="sb-keys" role="group" aria-label="Key">
           {SB.KEYS.map((k) => (
-            <button
+            <Button
               key={k.id}
               type="button"
+              variant="paper"
               title={k.hint}
               disabled={k.index > keyUnlocked}
               className={
@@ -77,7 +79,7 @@ export default function TitleScreen({
               }}
             >
               {k.name}
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -90,13 +92,14 @@ export default function TitleScreen({
           markSeen('character');
         }}
       />
-      <button
+      <Button
         type="button"
+        variant="paperPrimary"
         className="sb-go sb-title-play"
         onClick={() => start(randomSeed())}
       >
         Play
-      </button>
+      </Button>
       <p className="sb-hint sb-title-best">
         {best.word ? (
           <>

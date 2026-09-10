@@ -4,6 +4,7 @@ import type { ActFn } from '../actFn';
 // to .tsx.
 import { consumableBlurb, consumableName } from '../quills/cardCopy';
 import type { RunFacade } from '../../engine/state/facade';
+import { Button } from '@/ui/primitives/button';
 
 type RunLike = RunFacade;
 
@@ -42,21 +43,23 @@ export default function ConsumablesRow({
         const tipId = 'cons:' + c.kind + ':' + i;
         return (
           <span key={i} className={'sb-card sb-card-' + c.kind}>
-            <button
+            <Button
               type="button"
+              variant="paperGhost"
               className="sb-card-name-btn"
               onClick={() => setTip((t) => (t === tipId ? null : tipId))}
             >
               <b>{consumableName(SB, c)}</b>
-            </button>
+            </Button>
             {tip === tipId && (
               <span className="sb-card-tip" role="tooltip">
                 <em>{consumableBlurb(SB, c, run)}</em>
               </span>
             )}
             {(live || inShop) && c.kind === 'etude' && (
-              <button
+              <Button
                 type="button"
+                variant="paper"
                 className="sb-card-use"
                 onClick={() =>
                   act(
@@ -72,22 +75,24 @@ export default function ConsumablesRow({
                 }
               >
                 use
-              </button>
+              </Button>
             )}
             {c.kind === 'mark' &&
               onInk &&
               (live || SB.MARK_DEFS[c.id]!.targets === 0) && (
-                <button
+                <Button
                   type="button"
+                  variant="paper"
                   className="sb-card-use"
                   onClick={() => onInk(i)}
                 >
                   use
-                </button>
+                </Button>
               )}
             {inShop && (
-              <button
+              <Button
                 type="button"
+                variant="paper"
                 className="sb-card-sell"
                 title="Sell"
                 onClick={() =>
@@ -104,7 +109,7 @@ export default function ConsumablesRow({
                     c.kind === 'mark' ? tune.MARK_PRICE : tune.ETUDE_PRICE,
                   ) / 2,
                 )}
-              </button>
+              </Button>
             )}
           </span>
         );

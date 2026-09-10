@@ -1,5 +1,7 @@
 // The word-helper suggestions disclosure. Extracted from PlayBoard.jsx
 // (READ_SLOWLY_PLAN.md A4).
+import { Button } from '@/ui/primitives/button';
+
 interface Suggestion {
   word: string;
   score: number;
@@ -40,16 +42,17 @@ export default function SuggestionsDrawer({
       <div className="sb-suggests">
         {!indexing &&
           suggestions.map((s, i) => (
-            <button
+            <Button
               key={s.word}
               type="button"
+              variant="paper"
               className={'sb-suggest' + (i === 0 ? ' is-best' : '')}
               onClick={() => playWord(s.word)}
               disabled={!live}
             >
               {s.word}
               <em>{s.score}</em>
-            </button>
+            </Button>
           ))}
       </div>
     </details>

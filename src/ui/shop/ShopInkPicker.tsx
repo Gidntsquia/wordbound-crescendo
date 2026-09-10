@@ -2,6 +2,7 @@
 // Shop.jsx (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to
 // .tsx.
 import type { Selecting } from '../fight/FightScreen';
+import { Button } from '@/ui/primitives/button';
 
 interface Tile {
   id: string;
@@ -56,9 +57,10 @@ export default function ShopInkPicker({
       {ink.targets > 0 && (
         <div className="sb-rack">
           {(selecting.hand as Tile[]).map((t) => (
-            <button
+            <Button
               key={t.id}
               type="button"
+              variant="paper"
               className={
                 'sb-tile' +
                 (t.mark ? ' is-mark-' + t.mark : '') +
@@ -79,34 +81,37 @@ export default function ShopInkPicker({
                   ? SB.LETTER_VALUES[t.letter]
                   : window.Wordbound.Lexicon.LETTER_VALUES[t.letter]}
               </sub>
-            </button>
+            </Button>
           ))}
         </div>
       )}
       {ink.needsVowel && selecting.ids.length > 0 && (
         <span className="sb-vowels">
           {SB.VOWELS.map((v) => (
-            <button
+            <Button
               key={v}
               type="button"
+              variant="paper"
               className={'sb-vowel' + (selecting.vowel === v ? ' is-on' : '')}
               onClick={() => toggleSelectTile(null, v)}
             >
               {v}
-            </button>
+            </Button>
           ))}
         </span>
       )}
       <div className="sb-shop-row">
-        <button
+        <Button
           type="button"
+          variant="paper"
           onClick={() => commitSelecting(false)}
           disabled={run.consumables.length >= slots}
         >
           Buy ({run.consumables.length}/{slots} slots)
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="paperPrimary"
           className="sb-go"
           onClick={() => commitSelecting(true)}
           disabled={
@@ -116,10 +121,10 @@ export default function ShopInkPicker({
         >
           Buy &amp; apply
           {selecting.ids.length ? ' to ' + selecting.ids.length : ''}
-        </button>
-        <button type="button" onClick={cancelSelecting}>
+        </Button>
+        <Button type="button" variant="paperGhost" onClick={cancelSelecting}>
           Never mind
-        </button>
+        </Button>
       </div>
     </div>
   );

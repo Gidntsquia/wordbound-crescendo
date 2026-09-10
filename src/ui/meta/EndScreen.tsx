@@ -12,6 +12,7 @@ import {
   TooltipProvider,
 } from '../primitives/tooltip';
 import { Card } from '../primitives/card';
+import { Button } from '@/ui/primitives/button';
 import { Badge } from '../primitives/badge';
 import {
   Dialog,
@@ -164,14 +165,28 @@ export default function EndScreen({
         </Card>
       </div>
       <div className="sb-end-actions">
-        <button type="button" className="sb-go" onClick={onAgain}>
+        <Button
+          type="button"
+          className="sb-go"
+          variant="paperPrimary"
+          onClick={onAgain}
+        >
           Play again
-        </button>
-        <button type="button" className="sb-share" onClick={onShare}>
+        </Button>
+        <Button
+          type="button"
+          className="sb-share"
+          variant="paper"
+          onClick={onShare}
+        >
           Copy result
-        </button>
+        </Button>
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-          <DialogTrigger render={<button type="button" className="sb-hint" />}>
+          <DialogTrigger
+            render={
+              <Button type="button" className="sb-hint" variant="paperGhost" />
+            }
+          >
             preview
           </DialogTrigger>
           <DialogContent>
@@ -182,24 +197,25 @@ export default function EndScreen({
               {shareText}
             </pre>
             <DialogFooter>
-              <button
+              <Button
                 type="button"
                 className="sb-go"
+                variant="paperPrimary"
                 onClick={() => {
                   onShare();
                   setPreviewOpen(false);
                 }}
               >
                 Copy
-              </button>
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
         <span className="sb-seed-line">
           seed <code>{seed}</code>
-          <button type="button" onClick={onCopy}>
+          <Button type="button" variant="paperGhost" onClick={onCopy}>
             copy
-          </button>
+          </Button>
         </span>
         {best && best.word && (
           <span className="sb-hint">

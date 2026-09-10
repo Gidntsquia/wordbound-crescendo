@@ -4,6 +4,7 @@ import type { ActFn } from '../actFn';
 import { cardBlurb, cardName } from '../quills/cardCopy';
 import type { CardCopyTables, CardCopyRun } from '../quills/cardCopy';
 import type { PackChoice } from '../../engine/state/run';
+import { Button } from '@/ui/primitives/button';
 
 interface Pack {
   kind: string;
@@ -38,9 +39,10 @@ export default function PackPick({
         {pack.choices.map((c, i) => {
           if (!c) return null;
           return (
-            <button
+            <Button
               key={i}
               type="button"
+              variant="paper"
               className={'sb-card sb-card-pick sb-card-' + c.kind}
               title={
                 c.kind === 'tile'
@@ -64,11 +66,12 @@ export default function PackPick({
                   <em>{cardBlurb(SB, c, run)}</em>
                 </>
               )}
-            </button>
+            </Button>
           );
         })}
-        <button
+        <Button
           type="button"
+          variant="paperGhost"
           className="sb-offer-skip"
           onClick={() =>
             act(
@@ -84,7 +87,7 @@ export default function PackPick({
           }
         >
           Keep nothing
-        </button>
+        </Button>
       </div>
     </div>
   );

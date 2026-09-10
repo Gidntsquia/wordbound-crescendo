@@ -3,6 +3,7 @@
 // Extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure props in;
 // enterFight/skipFight stay owned by the parent.
 import SituationPanel from './SituationPanel';
+import { Button } from '@/ui/primitives/button';
 import { Popover, PopoverTrigger, PopoverContent } from '../primitives/popover';
 import type { Situation, SituationId } from '../../engine/content/situations';
 import type { Fight } from '../../app/store';
@@ -81,17 +82,33 @@ export default function EnemyIntroCard({
         <span className="sb-hint">Target {round.target}</span>
       )}
       <div className="sb-intro-row">
-        <button type="button" className="sb-go" onClick={enterFight}>
+        <Button
+          type="button"
+          className="sb-go"
+          variant="paperPrimary"
+          onClick={enterFight}
+        >
           Fight {f.def.name}
-        </button>
+        </Button>
         {round.favour && (
           <span className="sb-skip-row">
-            <button type="button" className="sb-skip-btn" onClick={skipFight}>
+            <Button
+              type="button"
+              className="sb-skip-btn"
+              variant="paperGhost"
+              onClick={skipFight}
+            >
               Walk past for <b>{SB.FAVOUR_DEFS[round.favour]!.name}</b>
-            </button>
+            </Button>
             <Popover>
               <PopoverTrigger
-                render={<button type="button" className="sb-skip-info" />}
+                render={
+                  <Button
+                    type="button"
+                    className="sb-skip-info"
+                    variant="paperGhost"
+                  />
+                }
                 aria-label={
                   'What ' + SB.FAVOUR_DEFS[round.favour]!.name + ' does'
                 }

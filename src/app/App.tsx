@@ -8,6 +8,7 @@
 import { SB } from '../ui/fight/FightScreen';
 import type { Selecting, Inking, ScoringState } from '../ui/fight/FightScreen';
 import { Toaster } from '../ui/primitives/sonner';
+import { Button } from '../ui/primitives/button';
 import {
   Sheet,
   SheetContent,
@@ -237,15 +238,16 @@ export default function App(props: AppProps) {
     >
       <Toaster position="top-center" />
       <header className="sb-head">
-        <button
+        <Button
           type="button"
+          variant="paperGhost"
           className="sb-gear"
           aria-label="Setup and tuning"
           title="Setup and tuning"
           onClick={() => setGearOpen(true)}
         >
           ⚙
-        </button>
+        </Button>
       </header>
 
       <Sheet open={gearOpen} onOpenChange={setGearOpen}>

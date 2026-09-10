@@ -3,6 +3,7 @@
 // counts. Extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4). Pure
 // props in, no fight.current/round mutation of its own.
 import GearMeta from './GearMeta';
+import { Button } from '@/ui/primitives/button';
 import { Slider } from '../primitives/slider';
 import { Toggle } from '../primitives/toggle';
 import type { RunFacade, RoundFacade } from '../../engine/state/facade';
@@ -72,15 +73,16 @@ export default function SetupPanel({
         <span className="sb-bags-head">Tile bag</span>
         <div className="sb-bag-row">
           {SB.TILE_BAGS.map((b) => (
-            <button
+            <Button
               key={b.id}
               type="button"
+              variant="paper"
               title={b.blurb}
               className={'sb-bag' + (b.id === bagId ? ' is-on' : '')}
               onClick={() => setBagId(b.id)}
             >
               {b.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -116,9 +118,14 @@ export default function SetupPanel({
       >
         Word helper
       </Toggle>
-      <button type="button" className="sb-go" onClick={() => start()}>
+      <Button
+        type="button"
+        className="sb-go"
+        variant="paperPrimary"
+        onClick={() => start()}
+      >
         {phase === 'idle' ? 'Start with this seed' : 'Restart with this seed'}
-      </button>
+      </Button>
       {round && run && (
         <span className="sb-hint">
           <b>{round.pile.drawPile.length}</b> in the bag,{' '}

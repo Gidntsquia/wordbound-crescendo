@@ -6,6 +6,7 @@ import { useCallout } from '../chrome/Callout';
 import type { Tile } from '../../engine/tiles';
 import type { RoundFacade } from '../../engine/state/facade';
 import type { ScoringState as RealScoringState } from './FightScreen';
+import { Button } from '@/ui/primitives/button';
 
 const PREMIUM_HINT: Record<string, string> = {
   dl: 'Double letter',
@@ -154,8 +155,9 @@ export default function Stick({
                     {x.text}
                   </i>
                 ))}
-              <button
+              <Button
                 type="button"
+                variant="paper"
                 disabled
                 data-flip-tile-id={t.id}
                 className={
@@ -170,7 +172,7 @@ export default function Stick({
               >
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub>{letterValues[t.letter] || 0}</sub>
-              </button>
+              </Button>
             </span>
           ))}
         {scoring &&
@@ -185,9 +187,10 @@ export default function Stick({
           stickShown.map(({ t, i, ch, hollow }) => {
             const premiumHere = round.premium && round.premium.pos === i;
             return t ? (
-              <button
+              <Button
                 key={t.id}
                 type="button"
+                variant="paper"
                 disabled={!live}
                 className={
                   'sb-tile is-set' +
@@ -207,11 +210,12 @@ export default function Stick({
               >
                 {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}
                 <sub>{letterValues[t.letter] || 0}</sub>
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 key={'gap' + i}
                 type="button"
+                variant="paper"
                 disabled={!live}
                 className={
                   'sb-tile is-missing' + (hollow ? ' is-dragging' : '')
@@ -221,7 +225,7 @@ export default function Stick({
                 onClick={() => unstageAt(i)}
               >
                 {ch}
-              </button>
+              </Button>
             );
           })}
         {!(scoring && !scoring.cleared) &&

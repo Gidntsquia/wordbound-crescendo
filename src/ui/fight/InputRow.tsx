@@ -1,6 +1,7 @@
 // Play / Swap / Clear / Best-play buttons, plus the swap callout.
 // Extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md A4).
 import { useCallout } from '../chrome/Callout';
+import { Button } from '@/ui/primitives/button';
 
 export default function InputRow({
   live,
@@ -38,29 +39,41 @@ export default function InputRow({
   return (
     <>
       <div className="sb-input">
-        <button
+        <Button
           type="button"
           className="sb-go"
+          variant="paperPrimary"
           onClick={play}
           disabled={!live || !letters}
         >
           Play
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="paper"
           onClick={changeout}
           disabled={!live || !pickedIds.size || changeoutsLeft <= 0}
           title="Put the chosen tiles back in the bag and draw as many"
         >
           Swap{pickedIds.size ? ' ' + pickedIds.size : ''}
-        </button>
-        <button type="button" onClick={() => setWord('')} disabled={!live}>
+        </Button>
+        <Button
+          type="button"
+          variant="paperGhost"
+          onClick={() => setWord('')}
+          disabled={!live}
+        >
           Clear
-        </button>
+        </Button>
         {helper && (
-          <button type="button" onClick={onBestPlay} disabled={!live}>
+          <Button
+            type="button"
+            variant="paper"
+            onClick={onBestPlay}
+            disabled={!live}
+          >
             Best play
-          </button>
+          </Button>
         )}
       </div>
     </>

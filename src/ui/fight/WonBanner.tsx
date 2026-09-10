@@ -6,6 +6,7 @@
 // the continue button until then, or immediately on `skip`.
 import type { Situation } from '../../engine/content/situations';
 import type { RunFacade, RoundFacade } from '../../engine/state/facade';
+import { Button } from '@/ui/primitives/button';
 
 type RoundLike = RoundFacade;
 type RunLike = RunFacade;
@@ -42,12 +43,17 @@ export default function WonBanner({
         <> + {run.interestPreview()} interest</>
       )}.{' '}
       {!showResolution && (
-        <button type="button" className="sb-go" onClick={nextStage}>
+        <Button
+          type="button"
+          variant="paperPrimary"
+          className="sb-go"
+          onClick={nextStage}
+        >
           {run.movement >= run.movements.length - 1 &&
           run.enemy?.kind === 'boss'
             ? 'Finish the run'
             : 'To the shop'}
-        </button>
+        </Button>
       )}
     </div>
   );

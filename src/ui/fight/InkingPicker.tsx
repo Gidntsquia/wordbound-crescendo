@@ -1,6 +1,7 @@
 // The mid-round inking mode picker (vowel choice + Apply/Cancel) --
 // extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md A4).
 import type { Inking as RealInking } from '../fight/FightScreen';
+import { Button } from '@/ui/primitives/button';
 
 type Inking = RealInking;
 
@@ -36,28 +37,34 @@ export default function InkingPicker({
       {ink.needsVowel && (
         <span className="sb-vowels">
           {vowels.map((v) => (
-            <button
+            <Button
               key={v}
               type="button"
+              variant="paper"
               className={'sb-vowel' + (inking.vowel === v ? ' is-on' : '')}
               onClick={() => setInking((k) => (k ? { ...k, vowel: v } : k))}
             >
               {v}
-            </button>
+            </Button>
           ))}
         </span>
       )}
-      <button
+      <Button
         type="button"
+        variant="paperPrimary"
         className="sb-go"
         onClick={applyInk}
         disabled={!inking.ids.length || (ink.needsVowel && !inking.vowel)}
       >
         Apply{inking.ids.length ? ' to ' + inking.ids.length : ''}
-      </button>
-      <button type="button" onClick={() => setInking(null)}>
+      </Button>
+      <Button
+        type="button"
+        variant="paperGhost"
+        onClick={() => setInking(null)}
+      >
         Cancel
-      </button>
+      </Button>
     </div>
   );
 }
