@@ -49,17 +49,13 @@ import {
   isWordMakerReady,
   warmWordMaker,
 } from '../../engine/content/wordFinder';
-import {
-  CRESCENDO,
-  createAudioPiece,
-  prefetchAudio,
-} from '../../audio/recordingPlayer';
-import { createSfx } from '../../audio/sfx';
+import { CRESCENDO } from '../../audio/recordingPlayer';
 import { situationFor, ladderIndex } from '../../engine/content/situations';
 import * as copy from '../copy';
 import { useCrescendo } from '../hooks/useCrescendo';
 import { useDragReorder } from '../hooks/useDragReorder';
 import { useSfx } from '../hooks/useSfx';
+import { useAudio } from '../hooks/useAudio';
 import App from '../../app/App';
 import {
   gearReducer,
@@ -78,7 +74,6 @@ import type { Fight, FightEffect, BestState } from '../../app/store';
 import type { Tile } from '../../engine/tiles';
 import type { Breakdown, Step } from '../../engine/content/round';
 import type { WordScore } from '../../engine/content/wordFinder';
-import type { AudioPiece } from '../../audio/recordingPlayer';
 import {
   useCallback,
   useEffect,
@@ -90,18 +85,9 @@ import {
 
 declare global {
   interface Window {
-    webkitAudioContext?: typeof AudioContext;
     __round?: unknown;
     __run?: unknown;
   }
-}
-
-function errMessage(err: unknown): string {
-  return err instanceof Error
-    ? err.message
-    : typeof err === 'string'
-      ? err
-      : String(err);
 }
 
 // Plain FLIP: record where the tile was,
@@ -296,9 +282,6 @@ const SB = {
   isWordMakerReady,
   warmWordMaker,
   CRESCENDO,
-  createAudioPiece,
-  prefetchAudio,
-  createSfx,
   situationFor,
   ladderIndex,
   CHARACTERS,
@@ -568,6 +551,11 @@ export default function RoundSandbox() {
   const say = useCallback((line: string) => {
     setLog((prev) => [line, ...prev].slice(0, 60));
   }, []);
+  const {
+    openAudio,
+    playPiece,
+    warm: warmPiece,
+  } = useAudio(fight, volumeRef, sfxOnRef, say);
   const refresh = useCallback(() => dispatchRefresh({ type: 'refresh' }), []);
 
   // The dictionary index is only built once the helper is switched on.
@@ -590,103 +578,8 @@ export default function RoundSandbox() {
     if (f && f.sfx) f.sfx.setLevel(volume);
   }, [volume]);
 
-  // Mobile browsers suspend the AudioContext when the tab is backgrounded and
-  // do not always resume it on their own when it comes back to the
-  // foreground -- leaving both music and sfx silent until the player
-  // manually restarts the run. Resume on return to visibility instead.
-  //
-  // A few minutes backgrounded goes further on some mobile browsers (iOS
-  // Safari in particular): the OS doesn't just suspend the context, it
-  // CLOSES it outright to free the audio hardware, and a closed context can
-  // never resume -- ctx.resume() silently no-ops on it forever. That is the
-  // "leave for a bit and the whole app goes silent for good" failure. When
-  // that's happened, rebuild the graph and the current piece from scratch
-  // rather than trying to resume something that's gone.
-  const onCtxStateChangeRef = useRef<() => void>(() => {});
-  useEffect(() => {
-    const rebuildClosed = () => {
-      const f = fight.current;
-      if (!f || !f.ctx || f.ctx.state !== 'closed') return;
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const gain = ctx.createGain();
-        gain.connect(ctx.destination);
-        gain.gain.value = volumeRef.current;
-        const sfxNode = SB.createSfx(ctx, ctx.destination);
-        sfxNode.setLevel(volumeRef.current);
-        sfxNode.setEnabled(sfxOnRef.current);
-        let seq: AudioPiece | null = null;
-        if (f.piece) {
-          seq = SB.createAudioPiece(ctx, gain, f.piece);
-          seq.on('load-failed', (err) =>
-            say(
-              'The recording did not load (' +
-                errMessage(err) +
-                ') — Restart to try again.',
-            ),
-          );
-          seq.on('piece-ended', () => {
-            const g = fight.current;
-            if (!g || g.seq !== seq) return;
-            seq!.stop();
-            seq!.play();
-          });
-          seq.play();
-        }
-        ctx.onstatechange = () => onCtxStateChangeRef.current();
-        fight.current = { ...f, ctx, gain, sfx: sfxNode, seq };
-        if (seq)
-          say(
-            'The soundtrack dropped out while the tab was in the background — restarted.',
-          );
-      } catch (err) {
-        /* still no audio device available; leave it silent */
-      }
-    };
-    const tryResume = () => {
-      const ctx = fight.current?.ctx;
-      if (ctx && ctx.state === 'closed') {
-        rebuildClosed();
-        return;
-      }
-      if (ctx && ctx.state !== 'running') {
-        ctx.resume().catch(() => {});
-      }
-    };
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      tryResume();
-    };
-    // Event-driven, not polled: the AudioContext itself fires 'statechange'
-    // the instant the browser suspends/closes it (or lets it resume), so
-    // reacting there catches it immediately with no interval tick to wait
-    // out. onCtxStateChangeRef is called from ctx.onstatechange, wired at
-    // every place a context gets created (this effect doesn't own that
-    // object -- start()/rebuildClosed() each make their own).
-    onCtxStateChangeRef.current = () => {
-      if (document.visibilityState === 'visible') tryResume();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', onVisible);
-    window.addEventListener('pageshow', onVisible);
-    // A tab backgrounded for a few minutes can leave some mobile browsers
-    // (Firefox on Android in particular) refusing resume() unless it rides
-    // on an actual user gesture -- visibilitychange/statechange alone does
-    // not count. The player's first tap back on the page doubles as that
-    // gesture. Capture phase, not bubble: most taps land on a disabled
-    // <button> (Play/Swap/tiles mid-scoring) whose pointerdown never
-    // bubbles to document, so a bubble-phase listener alone misses most
-    // real taps.
-    document.addEventListener('pointerdown', tryResume, true);
-    document.addEventListener('touchstart', tryResume, true);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', onVisible);
-      window.removeEventListener('pageshow', onVisible);
-      document.removeEventListener('pointerdown', tryResume, true);
-      document.removeEventListener('touchstart', tryResume, true);
-    };
-  }, []);
+  // The AudioContext/gain/sfx/seq lifecycle (opening the device, mobile
+  // suspend/close rebuild, visibility/gesture resume) lives in useAudio.
 
   // Warm the recording for an enemy (bytes only; the decode waits for the
   // fight). Nine excerpts are ~25 MB, too much to pull up front on a phone,
@@ -694,10 +587,9 @@ export default function RoundSandbox() {
   const warm = useCallback(
     (movement: number, stage: number) => {
       const def = enemyAt(movement, stage);
-      const piece = def && RECORDINGS[def.recorded];
-      if (piece && piece.audio) SB.prefetchAudio(piece.audio).catch(() => {});
+      warmPiece(def ? RECORDINGS[def.recorded] : undefined);
     },
-    [SB],
+    [warmPiece],
   );
   const warmAhead = useCallback(
     (run: RunFacade) => {
@@ -726,27 +618,14 @@ export default function RoundSandbox() {
         else f.seq!.stop();
       }
       const piece = RECORDINGS[def.recorded]!;
-      const seq = SB.createAudioPiece(f.ctx, f.gain, piece);
-      seq.on('load-failed', (err) =>
-        say(
-          'The recording did not load (' +
-            errMessage(err) +
-            ') — Restart to try again.',
-        ),
-      );
-      seq.on('piece-ended', () => {
-        const g = fight.current;
-        if (!g || g.seq !== seq) return;
-        seq.stop();
-        seq.play();
-      });
-      seq.play();
       // Take the stage under the previous enemy's last breath, not over it.
       // The first fight of a run starts clean so the opening notes are heard.
-      if (hadMusic)
-        seq.whenReady?.then(() => {
-          if (fight.current?.seq === seq) seq.fadeIn(0.4);
-        });
+      const seq = playPiece(
+        f.ctx,
+        f.gain,
+        piece,
+        hadMusic ? { fadeIn: 0.4 } : undefined,
+      );
       const round = run.round;
       warmAhead(run);
       fight.current = { ...f, run, round, seq, def, piece };
@@ -780,7 +659,7 @@ export default function RoundSandbox() {
       }
       if (def.rule) setTimeout(() => markSeen('boss'), 6000);
     },
-    [say, W, SB, warmAhead, markSeen, refreshDiscovered],
+    [say, W, SB, warmAhead, markSeen, refreshDiscovered, playPiece],
   );
 
   const start = useCallback(
@@ -789,31 +668,26 @@ export default function RoundSandbox() {
       if (useSeed !== seed) setSeed(useSeed);
       const rngState = fromSeed(useSeed);
 
-      let ctx: AudioContext | undefined = fight.current?.ctx;
-      let gain: GainNode | undefined = fight.current?.gain;
-      let sfxNode: import('../../audio/sfx').Sfx | undefined =
-        fight.current?.sfx;
-      try {
-        if (ctx && ctx.state === 'closed') {
-          ctx = undefined;
-          gain = undefined;
-          sfxNode = undefined;
-        }
-        if (!ctx) {
-          ctx = new (window.AudioContext || window.webkitAudioContext)!();
-          gain = ctx.createGain();
-          gain.connect(ctx.destination);
-          sfxNode = SB.createSfx(ctx, ctx.destination);
-          ctx.onstatechange = () => onCtxStateChangeRef.current();
-        }
-        if (ctx.state !== 'running') ctx.resume().catch(() => {});
-        gain!.gain.value = volume;
-        sfxNode!.setLevel(volume);
-        sfxNode!.setEnabled(sfxOn);
-      } catch (err) {
-        say('Could not open the audio device: ' + errMessage(err));
-        return;
+      let ctx = fight.current?.ctx;
+      let gain = fight.current?.gain;
+      let sfxNode = fight.current?.sfx;
+      if (ctx && ctx.state === 'closed') {
+        ctx = undefined;
+        gain = undefined;
+        sfxNode = undefined;
       }
+      if (!ctx) {
+        const opened = openAudio();
+        if (!opened) {
+          say('Could not open the audio device.');
+          return;
+        }
+        ({ ctx, gain, sfx: sfxNode } = opened);
+      }
+      if (ctx.state !== 'running') ctx.resume().catch(() => {});
+      gain!.gain.value = volume;
+      sfxNode!.setLevel(volume);
+      sfxNode!.setEnabled(sfxOn);
 
       const characterDef = CHARACTER_DEFS[characterId];
       const wonLetters = readWonLetters();
@@ -868,6 +742,7 @@ export default function RoundSandbox() {
       startStage,
       SB,
       crescendoNow,
+      openAudio,
     ],
   );
 
