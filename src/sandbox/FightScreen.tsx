@@ -49,31 +49,10 @@ import {
 import { createSfx } from '../audio/sfx';
 import { situationFor, ladderIndex } from '../engine/content/situations';
 import * as copy from '../ui/copy';
-import TitleScreen from '../ui/meta/TitleScreen';
-import HeldRow from '../ui/fight/HeldRow';
-import Shop from '../ui/shop/Shop';
-import EndScreen from '../ui/meta/EndScreen';
-import EnemyIntroCard from '../ui/fight/EnemyIntroCard';
-import ScoreLine from '../ui/fight/ScoreLine';
-import PlaysList from '../ui/fight/PlaysList';
-import WonBanner from '../ui/fight/WonBanner';
 import { useCrescendo } from '../ui/hooks/useCrescendo';
 import { useDragReorder } from '../ui/hooks/useDragReorder';
 import { useSfx } from '../ui/hooks/useSfx';
-import { Toaster } from '../ui/primitives/sonner';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '../ui/primitives/sheet';
-import LetterChoice from '../ui/fight/LetterChoice';
-import SetupPanel from '../ui/chrome/SetupPanel';
-import StartingQuills from '../ui/chrome/StartingQuills';
-import TuningPanel from '../ui/chrome/TuningPanel';
-import RunStrip from '../ui/chrome/RunStrip';
-import { describeBreakdown } from '../ui/fight/cardCopy';
-import PlayBoard from '../ui/fight/PlayBoard';
+import App from '../app/App';
 import {
   gearReducer,
   seenReducer,
@@ -365,6 +344,9 @@ export interface ScoringState {
   crossed: boolean;
   cleared: boolean;
 }
+
+export { SB };
+export type { SandboxTables };
 
 export default function RoundSandbox() {
   const W = window.Wordbound;
@@ -1385,223 +1367,95 @@ export default function RoundSandbox() {
   const pct = round ? Math.min(100, (100 * scoreShown) / round.target) : 0;
 
   return (
-    <div
-      className={'sb is-phase-' + phase + (phase === 'idle' ? ' is-title' : '')}
-      onPointerDownCapture={scoring ? skipCascade : undefined}
-    >
-      <Toaster position="top-center" />
-      <header className="sb-head">
-        <button
-          type="button"
-          className="sb-gear"
-          aria-label="Setup and tuning"
-          title="Setup and tuning"
-          onClick={() => dispatchGear({ type: 'gear/toggle' })}
-        >
-          ⚙
-        </button>
-      </header>
-
-      <Sheet
-        open={gearOpen}
-        onOpenChange={(open) => dispatchGear({ type: 'gear/set', open })}
-      >
-        <SheetContent side="right" className="sb-gear-sheet">
-          <SheetHeader>
-            <SheetTitle>Setup and tuning</SheetTitle>
-          </SheetHeader>
-          <div className="sb-gear-panel">
-            <SetupPanel
-              SB={SB}
-              seed={seed}
-              setSeed={setSeed}
-              bagId={bagId}
-              setBagId={setBagId}
-              keyUnlocked={keyUnlocked}
-              discovered={discovered}
-              volume={volume}
-              setVolume={setVolume}
-              sfxOn={sfxOn}
-              setSfxOn={setSfxOn}
-              helper={helper}
-              setHelper={setHelper}
-              phase={phase}
-              start={start}
-              round={round}
-              run={run}
-            />
-            <StartingQuills
-              SB={SB}
-              itemIds={itemIds}
-              setItemIds={setItemIds}
-              run={run}
-            />
-            <TuningPanel SB={SB} tune={tune} setConst={setConst} />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {phase === 'idle' && (
-        <TitleScreen
-          SB={SB}
-          keyUnlocked={keyUnlocked}
-          keyId={key}
-          setKey={setKey}
-          writeKeyChoice={writeKeyChoice}
-          seen={seen}
-          markSeen={markSeen}
-          characterId={characterId}
-          setCharacterId={setCharacterId}
-          start={start}
-          randomSeed={randomSeed}
-          best={best}
-        />
-      )}
-
-      <RunStrip run={run} phase={phase} />
-
-      {round && (
-        <section
-          className={
-            'sb-board' +
-            (scoring && scoring.hit ? ' is-hit-' + scoring.hit : '')
-          }
-        >
-          {showIntro ? (
-            <EnemyIntroCard
-              f={f}
-              round={round}
-              SB={SB}
-              enterFight={enterFight}
-              skipFight={skipFight}
-            />
-          ) : phase === 'shop' ? null : (
-            <ScoreLine
-              f={f}
-              round={round}
-              SB={SB}
-              scoring={scoring}
-              scoreShown={scoreShown}
-              pct={pct}
-              seen={seen}
-              live={live}
-            />
-          )}
-          {phase !== 'shop' && (
-            <HeldRow
-              run={run}
-              SB={SB}
-              act={act}
-              live={phase === 'live'}
-              onInk={useInk}
-              cres={cres}
-              lit={scoring ? scoring.litItem : null}
-              floats={scoring ? scoring.floats : null}
-              tip={tip}
-              setTip={setTip}
-            />
-          )}
-          {phase !== 'shop' &&
-            round.plays.length > (scoring && !scoring.cleared ? 1 : 0) && (
-              <PlaysList
-                plays={round.plays}
-                scoring={scoring}
-                describe={describeBreakdown}
-              />
-            )}
-          {phase === 'won' && (
-            <WonBanner
-              round={round}
-              run={run!}
-              nextStage={nextStage}
-              situation={SB.situationFor(round.situation)}
-              resolved={wonResolved}
-              skip={skipWonResolution}
-            />
-          )}
-          {phase === 'letter' && run!.letterChoice && (
-            <LetterChoice
-              options={run!.letterChoice!.options.slice()}
-              letterValues={W.Lexicon.LETTER_VALUES}
-              pickLetter={pickLetter}
-            />
-          )}
-          {phase === 'shop' && run!.shop && (
-            <Shop
-              run={run!}
-              SB={SB}
-              act={act}
-              leave={leaveShop}
-              onInk={useInk}
-              firstVisit={!seen.has('shop')}
-              buyCard={buyCard}
-              pickCard={pickCard}
-              selecting={selecting}
-              commitSelecting={commitSelecting}
-              cancelSelecting={cancelSelecting}
-              toggleSelectTile={toggleSelectTile}
-              tip={tip}
-              setTip={setTip}
-            />
-          )}
-          {(phase === 'run-won' || phase === 'lost') && (
-            <EndScreen
-              run={run!}
-              won={phase === 'run-won'}
-              SB={SB}
-              seed={seed}
-              best={best}
-              onAgain={() => start(randomSeed())}
-              onCopy={copySeed}
-              onShare={copyResult}
-              shareText={run ? shareText(run, phase === 'run-won', seed) : ''}
-              describe={describeBreakdown}
-            />
-          )}
-        </section>
-      )}
-
-      {round &&
-        !showIntro &&
-        (phase === 'live' || phase === 'scoring' || phase === 'won') && (
-          <PlayBoard
-            ref={playRef}
-            live={live}
-            seen={seen}
-            round={round}
-            inking={inking}
-            setInking={setInking}
-            toggleInkTile={toggleInkTile}
-            applyInk={applyInk}
-            SB={SB}
-            rackShown={rackShown}
-            drag={drag}
-            letters={letters}
-            setWord={setWord}
-            play={play}
-            changeout={changeout}
-            pickedIds={pickedIds}
-            helper={helper}
-            rackLetters={rackLetters}
-            say={say}
-            stageTile={stageTile}
-            unstageAt={unstageAt}
-            sfx={sfx}
-            W={W}
-            formable={formable}
-            barredNow={barredNow}
-            spelt={spelt}
-            worthHow={worthHow}
-            worth={worth}
-            scoring={scoring}
-            stickShown={stickShown}
-            indexing={indexing}
-            suggestions={suggestions}
-            playWord={playWord}
-            characterTile={characterTile}
-            characterPicked={!!characterTile && pickedIds.has(characterTile.id)}
-          />
-        )}
-    </div>
+    <App
+      phase={phase}
+      scoring={scoring}
+      skipCascade={skipCascade}
+      gearOpen={gearOpen}
+      setGearOpen={(open) => dispatchGear({ type: 'gear/set', open })}
+      seed={seed}
+      setSeed={setSeed}
+      bagId={bagId}
+      setBagId={setBagId}
+      keyUnlocked={keyUnlocked}
+      discovered={discovered}
+      volume={volume}
+      setVolume={setVolume}
+      sfxOn={sfxOn}
+      setSfxOn={setSfxOn}
+      helper={helper}
+      setHelper={setHelper}
+      start={start}
+      round={round}
+      run={run}
+      itemIds={itemIds}
+      setItemIds={setItemIds}
+      tune={tune}
+      setConst={setConst}
+      keyId={key}
+      setKey={setKey}
+      writeKeyChoice={writeKeyChoice}
+      seen={seen}
+      markSeen={markSeen}
+      characterId={characterId}
+      setCharacterId={setCharacterId}
+      randomSeed={randomSeed}
+      best={best}
+      f={f}
+      enterFight={enterFight}
+      skipFight={skipFight}
+      showIntro={showIntro}
+      scoreShown={scoreShown}
+      pct={pct}
+      live={live}
+      act={act}
+      useInk={useInk}
+      cres={cres}
+      tip={tip}
+      setTip={setTip}
+      nextStage={nextStage}
+      wonResolved={wonResolved}
+      skipWonResolution={skipWonResolution}
+      W={W}
+      pickLetter={pickLetter}
+      leaveShop={leaveShop}
+      buyCard={buyCard}
+      pickCard={pickCard}
+      selecting={selecting}
+      commitSelecting={commitSelecting}
+      cancelSelecting={cancelSelecting}
+      toggleSelectTile={toggleSelectTile}
+      copySeed={copySeed}
+      copyResult={copyResult}
+      shareText={run ? shareText(run, phase === 'run-won', seed) : ''}
+      playRef={playRef}
+      inking={inking}
+      setInking={setInking}
+      toggleInkTile={toggleInkTile}
+      applyInk={applyInk}
+      rackShown={rackShown}
+      drag={drag}
+      letters={letters}
+      setWord={setWord}
+      play={play}
+      changeout={changeout}
+      pickedIds={pickedIds}
+      rackLetters={rackLetters}
+      say={say}
+      stageTile={stageTile}
+      unstageAt={unstageAt}
+      sfx={sfx}
+      formable={formable}
+      barredNow={barredNow}
+      spelt={spelt}
+      worthHow={worthHow}
+      worth={worth}
+      stickShown={stickShown}
+      indexing={indexing}
+      suggestions={suggestions}
+      playWord={playWord}
+      characterTile={characterTile}
+      characterPicked={!!characterTile && pickedIds.has(characterTile.id)}
+    />
   );
 }

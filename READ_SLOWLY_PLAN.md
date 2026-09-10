@@ -378,9 +378,30 @@ resume, rebuild-after-`closed`, warm-ahead, stage-start music), which
 stays tightly coupled to the mutable `fight` ref in `RoundSandbox.jsx`.
 That lifecycle has real mobile background/resume failure modes nothing
 automated here can exercise, so pulling it into its own hook still needs
-a phone check first — left open, not attempted. `src/app/App.tsx`'s
-phase router and the rest of the `ui/` feature split remain open too,
-tied to A4's remaining `RoundSandbox.jsx` reduction below.
+a phone check first — left open, not attempted.
+
+`src/app/App.tsx`'s phase router: DONE. `FightScreen.tsx`'s terminal JSX
+return (title/gear-sheet/fight/shop/letter/end-screen composition) moved
+verbatim into a new `App(props: AppProps)` component; `FightScreen.tsx`
+keeps every hook/state/callback declaration and now calls `<App {...}>`
+in place of returning JSX directly — a real phase-router split (pure
+composition, no state moved), not a cosmetic one, since the block was
+already built almost entirely from A4's pre-extracted child components.
+`SB`/`SandboxTables` are now `export`ed from `FightScreen.tsx` and
+imported directly into `App.tsx` rather than threaded as a prop, since
+`SB` is a module-level constant, not per-render state — this shrank the
+props surface materially. `AppProps` types each field explicitly against
+the real engine/store types (`RunFacade`/`RoundFacade`/`Fight`/`Tile`/
+`WordScore`/`BestState`/`CrescendoState`, `Dispatch<SetStateAction<T>>`
+for the raw `useState` setters threaded straight through) rather than
+loosening anything to `any`. Verified: `typecheck`/`lint`/`format` clean
+(same pre-existing 21 `react-hooks/exhaustive-deps` warnings, no new
+ones), `build` succeeds; live Playwright pass through the actual dev
+server confirmed the gear sheet opens, the title screen starts a run,
+the enemy-intro card's Fight button enters the fight, and playing a real
+word ("HI" for 6 points) updates the score/plays list correctly — zero
+console errors throughout. The rest of the `ui/` feature split remains
+open, tied to A4's remaining `RoundSandbox.jsx` reduction below.
 
 `main.tsx` is mount only now beyond four unavoidable legacy-global loads
 (`rng.ts`/`lexicon.ts`/`tiles.ts`/`wordlist.js` — nothing ES-imports them
