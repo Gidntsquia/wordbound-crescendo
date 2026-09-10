@@ -1,5 +1,6 @@
 import type { ActFn } from '../actFn';
 import { Button } from '@/ui/primitives/button';
+import Sprite from '../../art/Sprite';
 // The shop between fights: two cards, two packs, reroll, and the door --
 // extracted from RoundSandbox.jsx (READ_SLOWLY_PLAN.md A4), then split
 // further into CardSlot/PackPick/ShopInkPicker (A4, second pass) and
@@ -155,7 +156,7 @@ export default function Shop({
                 variant="paper"
                 disabled={p.opened || run.ink < (p.free ? 0 : p.price)}
                 className={
-                  'relative inline-flex max-w-[200px] min-w-32 flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case max-[620px]:max-w-full max-[620px]:min-w-[120px]' +
+                  'relative isolate inline-flex max-w-[200px] min-w-32 flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case max-[620px]:max-w-full max-[620px]:min-w-[120px]' +
                   (p.opened ? ' opacity-40' : '')
                 }
                 title={packDef(p.kind).hint}
@@ -167,6 +168,13 @@ export default function Shop({
                   )
                 }
               >
+                {!p.opened && (
+                  <Sprite
+                    sheet="pack_wrapper"
+                    pose="idle"
+                    className="pointer-events-none absolute inset-0 -z-10 opacity-65"
+                  />
+                )}
                 <span className="text-[9px] tracking-[0.2em] text-[var(--leaf-dim)] uppercase">
                   pack
                 </span>

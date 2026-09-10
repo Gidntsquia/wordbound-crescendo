@@ -1,5 +1,6 @@
 import type { ActFn } from '../actFn';
 import { Button } from '@/ui/primitives/button';
+import Sprite from '../../art/Sprite';
 // A single held quill (item) card -- extracted from HeldRow.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
 import {
@@ -76,7 +77,7 @@ export default function QuillCard({
     <Card
       data-rarity={rarity}
       className={cn(
-        'relative max-w-[60px] min-w-11 cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center transition-[opacity,box-shadow,border-color] duration-[240ms]',
+        'relative isolate max-w-[60px] min-w-11 cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center transition-[opacity,box-shadow,border-color] duration-[240ms]',
         rarityCardClass(rarity),
         lit === id && 'z-[2] motion-safe:animate-[card-jiggle_320ms_ease-out]',
         cresState === 'idle' && 'opacity-45 saturate-[0.4]',
@@ -95,6 +96,11 @@ export default function QuillCard({
         }
       }}
     >
+      <Sprite
+        sheet="bookmark_card_frame"
+        pose="idle"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-70"
+      />
       {(floats || [])
         .filter((x) => x.on === id)
         .map((x) => (

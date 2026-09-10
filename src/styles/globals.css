@@ -69,6 +69,28 @@
   }
 }
 
+/* READ_SLOWLY_PLAN.md stage E2: the two chapter-backdrop parallax layers
+   (ChapterBackdrop.tsx) drift slowly in opposite phase so the far/near
+   layers read as depth, not a static poster -- motion-safe-gated at the
+   call site. Kept as plain keyframes (Tailwind has no arbitrary-keyframes
+   syntax), same pattern as cres-throb above. */
+@keyframes sb-backdrop-drift-far {
+  from {
+    transform: translateX(-1.5%) scale(1.06);
+  }
+  to {
+    transform: translateX(1.5%) scale(1.06);
+  }
+}
+@keyframes sb-backdrop-drift-near {
+  from {
+    transform: translateX(-3%);
+  }
+  to {
+    transform: translateX(3%);
+  }
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

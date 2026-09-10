@@ -21,6 +21,7 @@ import LetterChoice from '../ui/fight/LetterChoice';
 import GearPanel from '../ui/chrome/GearPanel';
 import RunStrip from '../ui/chrome/RunStrip';
 import PlayBoard from '../ui/fight/PlayBoard';
+import ChapterBackdrop from '../ui/fight/ChapterBackdrop';
 import { describeBreakdown } from '../ui/quills/cardCopy';
 import type { RunFacade, RoundFacade } from '../engine/state/facade';
 import type { Fight, BestState } from '../app/store';
@@ -297,7 +298,7 @@ export default function App(props: AppProps) {
       {round && (
         <section
           className={
-            'sb-board mb-1 pb-[18px] max-[620px]:flex max-[620px]:min-h-0 max-[620px]:flex-1 max-[620px]:flex-col max-[620px]:overflow-y-auto max-[620px]:pb-2 max-[620px]:[-webkit-overflow-scrolling:touch]' +
+            'sb-board relative isolate mb-1 pb-[18px] max-[620px]:flex max-[620px]:min-h-0 max-[620px]:flex-1 max-[620px]:flex-col max-[620px]:overflow-y-auto max-[620px]:pb-2 max-[620px]:[-webkit-overflow-scrolling:touch]' +
             (scoring && scoring.hit === 1
               ? ' motion-safe:animate-[board-shake-1_280ms_ease-out]'
               : scoring && scoring.hit === 2
@@ -307,6 +308,7 @@ export default function App(props: AppProps) {
                   : '')
           }
         >
+          <ChapterBackdrop movement={run ? run.movement : 0} />
           {showIntro ? (
             <EnemyIntroCard
               f={f}
@@ -441,6 +443,7 @@ export default function App(props: AppProps) {
             playWord={playWord}
             characterTile={characterTile}
             characterPicked={characterPicked}
+            characterId={characterId}
           />
         )}
     </div>

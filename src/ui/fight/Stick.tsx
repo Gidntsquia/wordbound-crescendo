@@ -7,6 +7,16 @@ import type { Tile } from '../../engine/tiles';
 import type { RoundFacade } from '../../engine/state/facade';
 import type { ScoringState as RealScoringState } from './FightScreen';
 import { Button } from '@/ui/primitives/button';
+import Sprite from '../../art/Sprite';
+
+// The three marks with a src/art/svg/pieces.tsx overlay sheet -- 'blank'
+// has no manifest sheet, so it stays dot-only (MARK_DOT below). Shared with
+// Rack.tsx's copy of the same table.
+const MARK_OVERLAY_SHEET: Record<string, string> = {
+  gilt: 'mark_overlay_gilt',
+  bold: 'mark_overlay_bold',
+  steel: 'mark_overlay_steel',
+};
 
 const PREMIUM_HINT: Record<string, string> = {
   dl: 'Double letter',
@@ -287,6 +297,13 @@ export default function Stick({
                     style={{ background: MARK_DOT[t.mark] }}
                   />
                 )}
+                {t.mark && MARK_OVERLAY_SHEET[t.mark] && (
+                  <Sprite
+                    sheet={MARK_OVERLAY_SHEET[t.mark]!}
+                    pose="idle"
+                    className="absolute inset-0 rounded-[2px]"
+                  />
+                )}
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub className={SUB_ON_SET}>{letterValues[t.letter] || 0}</sub>
               </Button>
@@ -343,6 +360,13 @@ export default function Stick({
                     aria-hidden="true"
                     className="absolute top-1/2 right-1.5 left-1.5 h-px"
                     style={{ background: 'var(--rubric)' }}
+                  />
+                )}
+                {t.mark && MARK_OVERLAY_SHEET[t.mark] && !round.isBarred(t) && (
+                  <Sprite
+                    sheet={MARK_OVERLAY_SHEET[t.mark]!}
+                    pose="idle"
+                    className="absolute inset-0 rounded-[2px]"
                   />
                 )}
                 {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}

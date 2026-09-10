@@ -2,9 +2,18 @@
 // A4). Tap plays a tile onto the stick, drag reorders/moves it; inking mode
 // diverts taps to toggleInkTile instead.
 import { Button } from '@/ui/primitives/button';
+import Sprite from '../../art/Sprite';
 import type { Tile } from '../../engine/tiles';
 import type { RoundFacade } from '../../engine/state/facade';
 import type { Inking as RealInking } from './FightScreen';
+
+// The three marks with a src/art/svg/pieces.tsx overlay sheet -- 'blank'
+// has no manifest sheet, so it stays dot-only (MARK_DOT below).
+const MARK_OVERLAY_SHEET: Record<string, string> = {
+  gilt: 'mark_overlay_gilt',
+  bold: 'mark_overlay_bold',
+  steel: 'mark_overlay_steel',
+};
 
 interface RackEntry {
   t: Tile;
@@ -258,6 +267,13 @@ export default function Rack({
                   aria-hidden="true"
                   className="absolute top-[3px] left-1 h-1.5 w-1.5 rounded-full"
                   style={{ background: MARK_DOT[t.mark] }}
+                />
+              )}
+              {t.mark && MARK_OVERLAY_SHEET[t.mark] && !round.isBarred(t) && (
+                <Sprite
+                  sheet={MARK_OVERLAY_SHEET[t.mark]!}
+                  pose="idle"
+                  className="absolute inset-0 rounded-[2px]"
                 />
               )}
               {round.isBarred(t) && (

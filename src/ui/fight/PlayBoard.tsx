@@ -14,9 +14,11 @@ import Stick from './Stick';
 import InputRow from './InputRow';
 import PilesDrawer from './PilesDrawer';
 import SuggestionsDrawer from './SuggestionsDrawer';
+import WordsmithPanel from './WordsmithPanel';
 import { useCallout } from '../chrome/Callout';
 import type { Tile } from '../../engine/tiles';
 import type { RoundFacade } from '../../engine/state/facade';
+import type { Character } from '../../engine/content/characters';
 import type {
   Inking as RealInking,
   ScoringState as RealScoringState,
@@ -76,6 +78,7 @@ const PlayBoard = forwardRef<
     SB: {
       MARK_DEFS: Record<string, { name: string; hint: string }>;
       VOWELS: string[];
+      CHARACTERS: Character[];
       bestFromRack: (
         letters: string,
         score: (w: string) => number,
@@ -108,6 +111,7 @@ const PlayBoard = forwardRef<
     playWord: (word: string) => void;
     characterTile?: Tile | null;
     characterPicked?: boolean;
+    characterId: string;
   }
 >(function PlayBoard(
   {
@@ -146,6 +150,7 @@ const PlayBoard = forwardRef<
     playWord,
     characterTile,
     characterPicked,
+    characterId,
   },
   playRef,
 ) {
@@ -190,6 +195,8 @@ const PlayBoard = forwardRef<
           vowels={SB.VOWELS}
         />
       )}
+
+      <WordsmithPanel characterId={characterId} characters={SB.CHARACTERS} />
 
       <Stick
         live={live}
