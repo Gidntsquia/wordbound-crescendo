@@ -123,6 +123,7 @@ export default function ScoreLine({
             : 0
         }
         hit={scoring?.hit}
+        antagonist={f.def.antagonist}
       />
       {round.rule && (
         <div

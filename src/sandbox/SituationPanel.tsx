@@ -14,10 +14,16 @@ export default function SituationPanel({
   situation,
   ladderIndex,
   hit,
+  antagonist,
 }: {
   situation: Situation | null | undefined;
   ladderIndex: number;
   hit?: number;
+  // The big/boss fight in a chapter shows a different antagonist sprite
+  // than the chapter's small enemy (READ_SLOWLY_PLAN.md E2) -- falls back
+  // to the situation's own antagonist (the small enemy, or pre-fight
+  // before `f.def` is known).
+  antagonist?: string;
 }) {
   if (!situation) return null;
   const step = situation.ladder[Math.max(0, ladderIndex)];
@@ -31,7 +37,7 @@ export default function SituationPanel({
       />
       <span className="sb-situation-caption">{step.caption}</span>
       <Sprite
-        sheet={situation.antagonist}
+        sheet={antagonist || situation.antagonist}
         pose={step.antagonistPose}
         className={
           'sb-situation-antagonist' + (hit ? ' is-antagonist-hit-' + hit : '')

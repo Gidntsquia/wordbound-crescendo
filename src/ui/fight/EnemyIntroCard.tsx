@@ -66,6 +66,7 @@ export default function EnemyIntroCard({
             ? SB.ladderIndex(situation ?? null, 0, round.target)
             : 0
         }
+        antagonist={f.def.antagonist}
       />
       {f.def.flavour && <q className="sb-intro-flavour">{f.def.flavour}</q>}
       {round.rule ? (

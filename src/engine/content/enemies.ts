@@ -17,6 +17,12 @@ export interface Enemy {
   flavour: string;
   rule?: string;
   situation: string;
+  // The big/boss fight in a chapter reuses the chapter's situation (person,
+  // ladder captions) but shows a different antagonist sprite than the
+  // chapter's small enemy -- READ_SLOWLY_PLAN.md E2. Sheet id from
+  // tools/art-manifest.json; omitted on the small enemy, which just uses
+  // situation.antagonist.
+  antagonist?: string;
 }
 
 export interface Movement {
@@ -77,6 +83,7 @@ export const MOVEMENTS: Movement[] = [
         kind: 'big',
         flavour:
           'The same commuter, now at a desk. A clock face where the phone was.',
+        antagonist: 'clock',
       },
       {
         id: 'fate',
@@ -87,6 +94,7 @@ export const MOVEMENTS: Movement[] = [
         kind: 'boss',
         flavour: 'The deadline arrives in person. Four knocks. Not asking.',
         rule: 'four_knocks',
+        antagonist: 'knocking_door',
       },
     ],
   },
@@ -114,6 +122,7 @@ export const MOVEMENTS: Movement[] = [
         flavour:
           'A leader who talks so no one has to think. The bench-sitter is in the crowd.',
         rule: 'presto',
+        antagonist: 'loudspeaker',
       },
       {
         id: 'gallop',
@@ -125,6 +134,7 @@ export const MOVEMENTS: Movement[] = [
         flavour:
           'The parade that never stops for anyone. Every letter you spend, it remembers.',
         rule: 'no_repeats',
+        antagonist: 'parade',
       },
     ],
   },
@@ -150,6 +160,7 @@ export const MOVEMENTS: Movement[] = [
         recorded: 'recordedNachtmusik',
         kind: 'big',
         flavour: 'Hegemony. A hall repeating the same word after a podium.',
+        antagonist: 'podium',
       },
       {
         id: 'bald_mountain',
@@ -161,6 +172,7 @@ export const MOVEMENTS: Movement[] = [
         flavour:
           'The whole night of noise. Speak softly here; loud words are taken from you.',
         rule: 'sotto_voce',
+        antagonist: 'the_night',
       },
     ],
   },
