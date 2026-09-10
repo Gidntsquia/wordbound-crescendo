@@ -146,15 +146,24 @@ export function useAudio(
     // gesture. Capture phase, not bubble: most taps land on a disabled
     // <button> (Play/Swap/tiles mid-scoring) whose pointerdown never
     // bubbles to document, so a bubble-phase listener alone misses most
-    // real taps.
+    // real taps. touchstart/pointerdown alone are not enough on Firefox for
+    // Android: Firefox only grants transient activation for Web Audio unlock
+    // on click/touchend-shaped gestures, not touchstart/pointerdown, so a
+    // resume() fired there silently fails there every time (desktop Chrome
+    // does not have this restriction, which is why the same code plays fine
+    // there) -- touchend/click cover that case too.
     document.addEventListener('pointerdown', tryResume, true);
     document.addEventListener('touchstart', tryResume, true);
+    document.addEventListener('touchend', tryResume, true);
+    document.addEventListener('click', tryResume, true);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       window.removeEventListener('pageshow', onVisible);
       document.removeEventListener('pointerdown', tryResume, true);
       document.removeEventListener('touchstart', tryResume, true);
+      document.removeEventListener('touchend', tryResume, true);
+      document.removeEventListener('click', tryResume, true);
     };
   }, [fight, openAudio, playPiece, say]);
 

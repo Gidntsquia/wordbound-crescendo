@@ -727,7 +727,14 @@ export function useFight() {
         }
         ({ ctx, gain, sfx: sfxNode } = opened);
       }
-      if (ctx.state !== 'running') ctx.resume().catch(() => {});
+      if (ctx.state !== 'running') {
+        ctx.resume().catch(() => {});
+        setTimeout(() => {
+          if (fight.current?.ctx === ctx && ctx.state !== 'running') {
+            say('Sound is blocked — tap anywhere to enable it.');
+          }
+        }, 400);
+      }
       gain!.gain.value = volume;
       sfxNode!.setLevel(volume);
       sfxNode!.setEnabled(sfxOn);
