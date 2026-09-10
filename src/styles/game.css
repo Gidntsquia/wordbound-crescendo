@@ -1,0 +1,241 @@
+/* Game chrome that isn't a Tailwind utility: the legacy colour/type tokens
+ * (sandbox.css's original naming, kept because the sandbox JSX still
+ * references them via Tailwind arbitrary values, e.g. bg-[var(--pit)]),
+ * the page reset, and every @keyframes an animate-[...] utility reaches.
+ *
+ * DIRECTION: the fight is words against music, so the screen is built out of
+ * those two crafts' materials. The left is a TYPECASE -- every word you spell
+ * is a slug of set type. The right is the PIT -- the orchestra. Between them
+ * the tug bar is a five-line STAFF, printed in ink on paper where your words
+ * hold it and lit in brass where the pit does.
+ */
+
+:root {
+  /* The pit: cool indigo dark, never neutral black. */
+  --pit: #131426;
+  --pit-deep: #0a0b16;
+  --pit-raise: #1b1d33;
+  --rule: #2c2e45;
+
+  /* The song: brass under stage light. */
+  --brass: #c9922e;
+  --brass-hot: #f2c260;
+
+  /* The words: paper and ink. */
+  --leaf: #ede6d4;
+  --leaf-dim: #9d9784;
+  --ink: #1a1710;
+
+  /* Rubrication: the hand-lettered red a scribe put in among the printed
+     black. It is what marks a word the PLAYER spelled, as opposed to one
+     lifted off the word maker -- a third colour on purpose, because brass is
+     already spoken for by the song and cream by ordinary type. */
+  --rubric: #d4614a;
+  --rubric-dim: #8f3f30;
+
+  --display: 'Bodoni Moda', 'Didot', 'Playfair Display', Georgia, serif;
+  --ui: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --figure: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--pit);
+  color: var(--leaf);
+  font-family: var(--ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sb {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  position: relative;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brass-hot);
+  outline-offset: 2px;
+}
+
+@media (max-width: 920px) {
+  .sb {
+    padding: 20px 16px 40px;
+  }
+}
+
+@media (max-width: 620px) {
+  .sb {
+    padding: 14px 14px 24px;
+  }
+}
+
+/* fade-up: WonBanner.tsx/LetterChoice.tsx's plain (non motion-safe:)
+   animate-[fade-up_420ms_ease-out_both] -- the reduced-motion block below
+   is what makes those two respect the setting. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* The scoring cascade (Stick.tsx/ScoreLine.tsx/App.tsx's
+   motion-safe:animate-[...] utilities). */
+@keyframes tile-pop {
+  0% {
+    transform: translateY(-4px) scale(1);
+  }
+  35% {
+    transform: translateY(-12px) scale(1.2);
+  }
+  100% {
+    transform: translateY(-4px) scale(1);
+  }
+}
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -30px);
+  }
+}
+@keyframes card-jiggle {
+  0% {
+    transform: rotate(0) scale(1);
+  }
+  30% {
+    transform: rotate(-3deg) scale(1.07);
+  }
+  70% {
+    transform: rotate(3deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(0) scale(1);
+  }
+}
+@keyframes rule-flash {
+  0% {
+    background: var(--pit-deep);
+  }
+  30% {
+    background: rgba(212, 97, 74, 0.35);
+  }
+  100% {
+    background: var(--pit-deep);
+  }
+}
+@keyframes total-hit {
+  0% {
+    transform: scale(1.7);
+    color: #fff;
+  }
+  55% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes board-shake-1 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(1px, -1px);
+  }
+  50% {
+    transform: translate(-1px, 1px);
+  }
+  75% {
+    transform: translate(1px, 0);
+  }
+}
+@keyframes board-shake-2 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(2px, -2px);
+  }
+  40% {
+    transform: translate(-2px, 1px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(-1px, -1px);
+  }
+}
+@keyframes board-shake-3 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  15% {
+    transform: translate(3px, -3px);
+  }
+  30% {
+    transform: translate(-3px, 2px);
+  }
+  45% {
+    transform: translate(3px, 3px);
+  }
+  60% {
+    transform: translate(-2px, -2px);
+  }
+  80% {
+    transform: translate(1px, 1px);
+  }
+}
+
+/* First-time-player UI: the pre-fight card's read-ready pulse. */
+@keyframes rule-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(212, 97, 74, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(212, 97, 74, 0.55);
+  }
+}
+
+/* SituationPanel.tsx's sprite crossfade on pose change. */
+@keyframes sb-sprite-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

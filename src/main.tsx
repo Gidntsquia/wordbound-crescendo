@@ -13,7 +13,7 @@
 // tuning it can never break the main app. The music is a soundtrack only.
 import { createRoot } from 'react-dom/client';
 import './styles/globals.css';
-import './sandbox/sandbox.css';
+import './styles/game.css';
 
 // window.Wordbound.Lexicon/Tiles/WORD_SET/WORDLIST are still legacy globals
 // (js/wordbound/wordlist.js's plumbing, out of scope for A2's no-globals
