@@ -206,15 +206,23 @@ Items` remain, the documented legacy-global exception (`4ab4dab`).
   commits): every manifest id confirmed present via
   `document.querySelectorAll('[data-sheet]')` during a real fight, zero
   console errors, no visual regression. Deployed.
+- **E3 remaining hooks.** Word played sets wordsmith to `write` (settles to
+  `idle`/`flourish`); win sets `flourish` (persists through the won
+  banner); round-won antagonist pose reaches `gone` (already data-driven
+  via `situations.ts`'s ladder, confirmed rather than changed); crescendo
+  `soon` triggers a new `sb-backdrop-pulse` class on `ChapterBackdrop.tsx`'s
+  near layer; crescendo `live` flips a boss-tier antagonist's pose to
+  `crescendo` while non-boss antagonists stay unaffected (`a1db0b6`). Also
+  fixed a real `prefers-reduced-motion` gap found in passing:
+  `QuillCard.tsx`'s `cres-throb` loop was missing `motion-safe:` entirely.
+  Verified live in Playwright: all 5 hooks confirmed via `data-pose`/class
+  before→after (word play, win, round-won, crescendo soon/live faked via
+  `window.__seq.crescendo()`, boss vs non-boss control); `emulateMedia({
+reducedMotion: 'reduce' })` confirms zero active animations. Deployed.
 
 ### Work queue (do in this order; each has an acceptance check)
 
-1. **E3 remaining hooks.** Word played → wordsmith `write`; win →
-   `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
-   pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
-   loops and drift without freezing a `steps()` loop on frame one.
-   Accept: each hook observed in Playwright via the class/pose it sets.
-2. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
+1. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
    count and dimensions (fail over 1024²); visible sheets under ~10 per
    screen; next chapter's sheets prefetched during the shop; Playwright
    mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
