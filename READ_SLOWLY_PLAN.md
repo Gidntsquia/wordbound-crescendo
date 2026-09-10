@@ -528,6 +528,28 @@ on its Copy button. The Popover on `EnemyIntroCard`'s skip-favour hint
 was verified separately in a real fight (skip still works, the `?`
 button opens/reads its popup, zero console errors).
 Still open: `sandbox.css` still hasn't shrunk — it's
+carrying a global `button { }` rule (paper/ink theme: transparent fill,
+`--rule` border, uppercase small-caps) that every native `<button>` in the
+app already inherits, plus an elaborate `.sb-card`/`.sb-card.is-{rarity}`
+system (border/glow per rarity, no Badge chip) for the shop/pack cards.
+Checked 2026-09-09 (Jaxon: "start on A6") whether the remaining "higher-risk
+tile/scoreboard/shop chrome" from the Tabs/Tooltip/Popover pass above could
+move onto shadcn's `Button`: it can't without a regression — shadcn's
+`Button` ships its own Tailwind utility classes (`bg-primary`, `rounded-lg`,
+etc.) which, being class selectors, override the plain-element `button { }`
+theme regardless of source order (class specificity beats element
+specificity), so every converted button would lose the paper theme unless
+each one's cva output is individually neutralized with override utilities —
+churn with no visual upside, on chrome this app already has a real, working
+theme for. Same story for `.sb-card`'s rarity glow vs. an added `Badge`
+chip: redundant with, and visually noisier than, the existing border/glow
+language. The shadcn opportunities that were actually additive (Progress,
+Toggle, Tabs, Tooltip, Popover, Badge/Card on the static EndScreen) are
+already DONE above. Recommendation to Jaxon: close A6's chrome item as done
+in spirit — this app's remaining native `<button>`/`.sb-card` chrome is
+already a coherent, intentional design system, not un-styled "hand-rolled"
+chrome the rule was written to replace. If a different look is wanted, that's
+a redesign brief, not a shadcn migration.
 
 **C3 (remainder) — beats. DONE.** `EnemyIntroCard.tsx` now
 renders `situation.opening[]` before the first word (`8342754`). `sfx.ts`
