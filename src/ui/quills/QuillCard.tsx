@@ -2,9 +2,17 @@ import type { ActFn } from '../actFn';
 import { Button } from '@/ui/primitives/button';
 // A single held quill (item) card -- extracted from HeldRow.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
-import { cresBadge, itemBlurb } from './cardCopy';
+import {
+  cresBadge,
+  itemBlurb,
+  rarityBadgeClass,
+  rarityCardClass,
+} from './cardCopy';
 import type { RunFacade } from '../../engine/state/facade';
 import type { CrescendoWindow } from '../../audio/recordingPlayer';
+import { Card } from '@/ui/primitives/card';
+import { Badge } from '@/ui/primitives/badge';
+import { cn } from 'cn';
 
 interface Float {
   key: string | number;
@@ -56,14 +64,16 @@ export default function QuillCard({
   SB: { CRESCENDO: { countdown: number }; priceOf: (d: ItemDef) => number };
 }) {
   const tipId = 'item:' + id;
+  const rarity = d.rarity || 'common';
   return (
-    <span
-      className={
-        'sb-card sb-card-item sb-card-glyphed is-' +
-        (d.rarity || 'common') +
-        (lit === id ? ' is-jiggle' : '') +
-        (cresState ? ' sb-card-cres is-cres-' + cresState : '')
-      }
+    <Card
+      data-rarity={rarity}
+      className={cn(
+        'sb-card-glyphed relative gap-0 rounded-sm p-0 px-1 py-1.5',
+        rarityCardClass(rarity),
+        lit === id && 'is-jiggle',
+        cresState && 'sb-card-cres is-cres-' + cresState,
+      )}
       role="button"
       tabIndex={0}
       aria-label={d.name + ' — ' + itemBlurb(d)}
@@ -85,6 +95,7 @@ export default function QuillCard({
       <span className="sb-card-icon" aria-hidden="true">
         {d.glyph || '❖'}
       </span>
+      <Badge className={cn('mt-0.5', rarityBadgeClass(rarity))}>{rarity}</Badge>
       <b className="sb-card-name-sr">{d.name}</b>
       {tip === tipId && (
         <span className="sb-card-tip" role="tooltip">
@@ -156,6 +167,6 @@ export default function QuillCard({
           sell {Math.floor(SB.priceOf(d) / 2)}
         </Button>
       )}
-    </span>
+    </Card>
   );
 }

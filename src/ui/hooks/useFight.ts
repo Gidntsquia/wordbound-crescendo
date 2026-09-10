@@ -491,7 +491,8 @@ export function useFight() {
   useEffect(() => {
     if (!tip) return undefined;
     const close = (e: Event) => {
-      if (!(e.target as HTMLElement).closest('.sb-card')) setTip(null);
+      if (!(e.target as HTMLElement).closest('.sb-card, [data-slot="card"]'))
+        setTip(null);
     };
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);

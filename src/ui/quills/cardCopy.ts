@@ -104,6 +104,37 @@ export function describeBreakdown(b: Breakdown): string {
   return out;
 }
 
+// Rarity → Tailwind classes for the Card primitive (A6 slice 2): reuses the
+// paper/gilt/marginalia tokens already carrying the shadcn Button variants
+// (`bg-paper`/`border-gilt`/`text-marginalia`) rather than the old sandbox.css
+// pit/brass/rubric dark palette, since the chrome pass has moved the shop to
+// that lighter paper look. Common stays neutral; uncommon takes the gilt
+// border the old `.is-uncommon` brass border stood in for; rare takes the
+// marginalia border + soft glow for the strongest distinction (the old
+// `.is-rare` rubric border had no equivalent token, so marginalia carries the
+// "this one's different" signal instead).
+export function rarityCardClass(rarity: string | undefined): string {
+  switch (rarity) {
+    case 'uncommon':
+      return 'border-gilt bg-paper text-ink';
+    case 'rare':
+      return 'border-marginalia bg-paper text-ink shadow-[0_0_0_1px_var(--color-marginalia),0_0_12px_1px_color-mix(in_oklch,var(--color-marginalia),transparent_60%)]';
+    default:
+      return 'border-ink/15 bg-paper text-ink';
+  }
+}
+
+export function rarityBadgeClass(rarity: string | undefined): string {
+  switch (rarity) {
+    case 'uncommon':
+      return 'bg-gilt/20 text-ink border-gilt';
+    case 'rare':
+      return 'bg-marginalia/15 text-marginalia border-marginalia';
+    default:
+      return 'bg-ink/5 text-ink/70 border-ink/15';
+  }
+}
+
 export interface CrescendoState {
   phase: 'idle' | 'soon' | 'live';
   secs?: number;

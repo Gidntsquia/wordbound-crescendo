@@ -1,8 +1,16 @@
 // A single shop card slot (item / ink / étude) -- extracted from Shop.jsx
 // (READ_SLOWLY_PLAN.md A4, mechanical extraction), ported to .tsx.
-import { cardBlurb, cardName } from '../quills/cardCopy';
+import {
+  cardBlurb,
+  cardName,
+  rarityBadgeClass,
+  rarityCardClass,
+} from '../quills/cardCopy';
 import type { CardCopyTables, CardCopyRun } from '../quills/cardCopy';
 import { Button } from '@/ui/primitives/button';
+import { Card } from '@/ui/primitives/card';
+import { Badge } from '@/ui/primitives/badge';
+import { cn } from 'cn';
 
 interface ShopCard {
   kind: 'item' | 'mark' | 'etude';
@@ -46,12 +54,14 @@ export default function CardSlot({
   const tipId = 'shop:' + i;
   if (c.kind === 'item' && !c.sold) {
     const d = SB.ITEM_DEFS[c.id]!;
+    const rarity = d.rarity || 'common';
     return (
-      <span
-        className={
-          'sb-card sb-card-buy sb-card-item sb-card-glyphed is-' +
-          (d.rarity || 'common')
-        }
+      <Card
+        data-rarity={rarity}
+        className={cn(
+          'sb-card-glyphed relative gap-0 rounded-sm p-0 px-1 py-1.5',
+          rarityCardClass(rarity),
+        )}
         role="button"
         tabIndex={0}
         aria-label={cardName(SB, c) + ' — ' + cardBlurb(SB, c, run)}
@@ -67,6 +77,9 @@ export default function CardSlot({
         <span className="sb-card-icon" aria-hidden="true">
           {d.glyph || '❖'}
         </span>
+        <Badge className={cn('mt-0.5', rarityBadgeClass(rarity))}>
+          {rarity}
+        </Badge>
         {tip === tipId && (
           <span className="sb-card-tip" role="tooltip">
             <b>{cardName(SB, c)}</b>
@@ -86,7 +99,7 @@ export default function CardSlot({
         >
           Buy
         </Button>
-      </span>
+      </Card>
     );
   }
   return (

@@ -14,6 +14,8 @@ import {
 import { Card } from '../primitives/card';
 import { Button } from '@/ui/primitives/button';
 import { Badge } from '../primitives/badge';
+import { rarityBadgeClass, rarityCardClass } from '../quills/cardCopy';
+import { cn } from 'cn';
 import {
   Dialog,
   DialogTrigger,
@@ -146,20 +148,22 @@ export default function EndScreen({
         <Card className="bg-transparent p-0 ring-0">
           <span className="sb-eyebrow">Items</span>
           <div className="sb-end-items">
-            {run.items.map((id) => (
-              <span
-                key={id}
-                className={
-                  'sb-card sb-card-item is-' +
-                  (SB.ITEM_DEFS[id]!.rarity || 'common')
-                }
-              >
-                <b>{SB.ITEM_DEFS[id]!.name}</b>
-                <Badge variant="outline" className="ml-1 align-middle">
-                  {SB.ITEM_DEFS[id]!.rarity || 'common'}
-                </Badge>
-              </span>
-            ))}
+            {run.items.map((id) => {
+              const rarity = SB.ITEM_DEFS[id]!.rarity || 'common';
+              return (
+                <Card
+                  key={id}
+                  data-rarity={rarity}
+                  className={cn(
+                    'flex-row items-center gap-1.5 rounded-sm px-2 py-1',
+                    rarityCardClass(rarity),
+                  )}
+                >
+                  <b>{SB.ITEM_DEFS[id]!.name}</b>
+                  <Badge className={rarityBadgeClass(rarity)}>{rarity}</Badge>
+                </Card>
+              );
+            })}
             {run.items.length === 0 && <em className="sb-hint">none</em>}
           </div>
         </Card>

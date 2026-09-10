@@ -1950,12 +1950,6 @@ button:disabled {
 .sb-card-buy-btn:disabled {
   opacity: 0.4;
 }
-.sb-card.is-uncommon {
-  border-color: var(--brass);
-}
-.sb-card.is-rare {
-  border-color: var(--rubric);
-}
 .sb-card-etude {
   border-style: dashed;
 }
@@ -2563,14 +2557,6 @@ button.sb-card:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-.sb-end-items .sb-card {
-  min-width: 0;
-  padding: 6px 10px;
-}
-.sb-end-items .sb-card b {
-  font-size: 13px;
-  padding-right: 0;
 }
 .sb-end-actions {
   display: flex;
