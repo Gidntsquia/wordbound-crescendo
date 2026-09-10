@@ -211,7 +211,7 @@ export default function EndScreen({
         </Button>
         <Button
           type="button"
-          className="sb-share"
+          className="px-4 py-3"
           variant="paper"
           onClick={onShare}
         >

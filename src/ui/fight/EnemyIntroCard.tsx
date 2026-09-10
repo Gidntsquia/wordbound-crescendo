@@ -47,18 +47,20 @@ export default function EnemyIntroCard({
       ? situation.bossOpening
       : situation?.opening;
   return (
-    <div className="sb-intro">
-      <div className="sb-enemy-line">
-        <span className="sb-enemy">
+    <div className="flex flex-col items-start gap-2 px-0 py-2.5 pb-2.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
+        <span className="text-[11px] font-semibold tracking-[0.08em] text-[var(--brass)] uppercase">
           {f.def.glyph} {f.def.name}
         </span>
-        <span className="sb-piece">
+        <span className="text-[13px] font-[var(--display)] text-[var(--leaf-dim)] italic">
           {f.piece.title}
           {f.piece.composer ? ' · ' + f.piece.composer : ''}
         </span>
       </div>
       {opening?.length ? (
-        <p className="sb-intro-opening">{opening.join(' ')}</p>
+        <p className="m-0 text-sm leading-[1.4] font-[var(--ui)] text-[var(--leaf-dim)]">
+          {opening.join(' ')}
+        </p>
       ) : null}
       <SituationPanel
         situation={situation}
@@ -69,13 +71,19 @@ export default function EnemyIntroCard({
         }
         antagonist={f.def.antagonist}
       />
-      {f.def.flavour && <q className="sb-intro-flavour">{f.def.flavour}</q>}
+      {f.def.flavour && (
+        <q className="m-0 text-sm font-[var(--display)] text-[var(--leaf-dim)] italic [quotes:none]">
+          {f.def.flavour}
+        </q>
+      )}
       {round.rule ? (
-        <div className="is-pulse my-2 border-l-[3px] border-[var(--rubric)] bg-[var(--pit-deep)] px-3 py-2">
+        <div className="my-2 border-l-[3px] border-[var(--rubric)] bg-[var(--pit-deep)] px-3 py-2 motion-safe:animate-[rule-pulse_1.6s_ease-in-out_3]">
           <span className="sb-eyebrow mb-0.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--rubric)] uppercase">
             Reading condition · {round.rule.name}
           </span>
-          <b className="sb-rule-plain">{round.rule.plain}</b>
+          <b className="mt-0.5 mb-[3px] block text-[13px] font-[var(--ui)] font-semibold text-[var(--leaf)]">
+            {round.rule.plain}
+          </b>
           <q className="text-[15px] font-[var(--display)] italic [quotes:none]">
             {round.rule.text}
           </q>
@@ -83,7 +91,7 @@ export default function EnemyIntroCard({
       ) : (
         <span className="sb-hint">Target {round.target}</span>
       )}
-      <div className="sb-intro-row">
+      <div className="mt-1 flex flex-wrap items-center gap-2.5">
         <Button
           type="button"
           className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
@@ -93,10 +101,10 @@ export default function EnemyIntroCard({
           Fight {f.def.name}
         </Button>
         {round.favour && (
-          <span className="sb-skip-row">
+          <span className="inline-flex items-center gap-1">
             <Button
               type="button"
-              className="sb-skip-btn"
+              className="rounded-[6px] border border-[var(--brass-dim,var(--brass))] bg-none px-3 py-2 text-[13px] text-[var(--leaf-dim)] hover:border-[var(--brass-hot)] hover:text-[var(--leaf)] [&_b]:font-semibold [&_b]:text-[var(--brass-hot)]"
               variant="paperGhost"
               onClick={skipFight}
             >
@@ -107,7 +115,7 @@ export default function EnemyIntroCard({
                 render={
                   <Button
                     type="button"
-                    className="sb-skip-info"
+                    className="h-5 w-5 rounded-full border border-[var(--brass-dim,var(--brass))] bg-none text-[11px] leading-none text-[var(--leaf-dim)] hover:border-[var(--brass-hot)] hover:text-[var(--leaf)]"
                     variant="paperGhost"
                   />
                 }

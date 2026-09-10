@@ -57,8 +57,10 @@ export default function Sprite({
     <span
       key={pose}
       className={
-        'sb-sprite sb-sprite-pose-in ' +
-        (SvgArt ? 'sb-sprite-svg ' : '') +
+        'inline-flex flex-none items-center justify-center bg-[length:contain] bg-center bg-no-repeat text-[13px] font-[var(--display)] font-semibold text-white motion-safe:animate-[sb-sprite-crossfade_200ms_ease-out] ' +
+        (SvgArt
+          ? 'bg-transparent [&>svg]:block [&>svg]:h-full [&>svg]:w-full '
+          : 'bg-[hsl(var(--sb-sprite-hue)_45%_42%)] ') +
         (className || '')
       }
       data-sheet={sheet}

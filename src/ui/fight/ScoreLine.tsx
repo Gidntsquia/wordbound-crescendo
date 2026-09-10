@@ -66,10 +66,13 @@ export default function ScoreLine({
   if (!f || !f.def || !f.piece) return null;
   return (
     <>
-      <div className="sb-scoreline" aria-label="Score against the target">
+      <div
+        className="my-2.5 mt-2.5 mb-1 flex flex-wrap items-center gap-x-3 gap-y-1.5"
+        aria-label="Score against the target"
+      >
         <span
           className={
-            'sb-dyn-mark' +
+            'sb-dyn-mark min-w-[2.2ch] flex-none p-0 text-[34px] max-[620px]:text-[28px]' +
             (scoring && scoring.total != null
               ? ' inline-block motion-safe:animate-[total-hit_460ms_cubic-bezier(0.2,0.9,0.3,1)]'
               : '')
@@ -80,7 +83,7 @@ export default function ScoreLine({
         <Progress
           value={scoreShown}
           max={round.target}
-          className="sb-meter-progress"
+          className="sb-meter-progress m-0 h-3 flex-[1_1_120px]"
           aria-label="Progress to target"
         >
           <ProgressTrack className="relative h-3.5 overflow-hidden rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)]">
@@ -93,8 +96,10 @@ export default function ScoreLine({
             />
           </ProgressTrack>
         </Progress>
-        <span className="sb-target">
-          <small>target</small>
+        <span className="inline-flex flex-none items-baseline gap-[5px] text-[15px] font-[var(--figure)] text-[var(--leaf-dim)]">
+          <small className="text-[9px] tracking-[0.2em] uppercase">
+            target
+          </small>
           {round.target}
         </span>
         <span className="flex flex-wrap gap-x-[22px] gap-y-2 text-xs tracking-[0.04em] text-[var(--leaf-dim)]">
@@ -119,11 +124,11 @@ export default function ScoreLine({
           </span>
         </span>
       </div>
-      <div className="sb-enemy-line">
-        <span className="sb-enemy">
+      <div className="my-0.5 mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
+        <span className="text-[11px] font-semibold tracking-[0.08em] text-[var(--brass)] uppercase">
           {f.def.glyph} {f.def.name}
         </span>
-        <span className="sb-piece">
+        <span className="text-[13px] font-[var(--display)] text-[var(--leaf-dim)] italic">
           {f.piece.title}
           {f.piece.composer ? ' · ' + f.piece.composer : ''}
         </span>
@@ -149,7 +154,9 @@ export default function ScoreLine({
             (scoring && scoring.litItem === round.rule.id
               ? ' motion-safe:animate-[rule-flash_420ms_ease-out]'
               : '') +
-            (!seen.has('boss') ? ' is-pulse' : '')
+            (!seen.has('boss')
+              ? ' motion-safe:animate-[rule-pulse_1.6s_ease-in-out_3]'
+              : '')
           }
         >
           {scoring &&
@@ -168,7 +175,9 @@ export default function ScoreLine({
           <span className="sb-eyebrow mb-0.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--rubric)] uppercase">
             Reading condition · {round.rule.name}
           </span>
-          <b className="sb-rule-plain">{round.rule.plain}</b>
+          <b className="mt-0.5 mb-[3px] block text-[13px] font-[var(--ui)] font-semibold text-[var(--leaf)]">
+            {round.rule.plain}
+          </b>
           <q className="text-[15px] font-[var(--display)] italic [quotes:none]">
             {round.rule.text}
           </q>

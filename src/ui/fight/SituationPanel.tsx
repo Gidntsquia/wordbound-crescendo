@@ -29,18 +29,27 @@ export default function SituationPanel({
   const step = situation.ladder[Math.max(0, ladderIndex)];
   if (!step) return null;
   return (
-    <div className="sb-situation" aria-label={situation.title}>
+    <div className="my-1 flex items-center gap-2" aria-label={situation.title}>
       <Sprite
         sheet={situation.person}
         pose={step.personPose}
-        className="sb-situation-person"
+        className="h-11 w-11 rounded-lg"
       />
-      <span className="sb-situation-caption">{step.caption}</span>
+      <span className="flex-1 text-[13px] font-[var(--display)] text-[var(--leaf-dim)]">
+        {step.caption}
+      </span>
       <Sprite
         sheet={antagonist || situation.antagonist}
         pose={step.antagonistPose}
         className={
-          'sb-situation-antagonist' + (hit ? ' is-antagonist-hit-' + hit : '')
+          'h-11 w-11 rounded-lg' +
+          (hit === 1
+            ? ' motion-safe:animate-[sb-sprite-crossfade_200ms_ease-out,board-shake-1_280ms_ease-out]'
+            : hit === 2
+              ? ' motion-safe:animate-[sb-sprite-crossfade_200ms_ease-out,board-shake-2_320ms_ease-out]'
+              : hit === 3
+                ? ' motion-safe:animate-[sb-sprite-crossfade_200ms_ease-out,board-shake-3_380ms_ease-out]'
+                : '')
         }
       />
     </div>

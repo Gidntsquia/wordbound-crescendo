@@ -55,8 +55,8 @@ export default function TitleScreen({
     'Your letter. Play it once a round; it scores extra.',
   );
   return (
-    <section className="sb-title max-[620px]:flex-none">
-      <p className="sb-title-line">
+    <section className="px-3 pt-10 pb-7 text-center max-[620px]:flex-none">
+      <p className="m-0 mb-[22px] text-[clamp(19px,3vw,26px)] font-[var(--display)] text-[var(--leaf)]">
         Spell words. Beat the target before your words run out.
       </p>
       {keyUnlocked > 0 && (
@@ -101,12 +101,12 @@ export default function TitleScreen({
       <Button
         type="button"
         variant="paperPrimary"
-        className="sb-go sb-title-play border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
+        className="sb-go mx-auto mt-[18px] border-[var(--leaf)] bg-[var(--leaf)] px-16 py-[18px] text-[20px] tracking-[0.3em] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
         onClick={() => start(randomSeed())}
       >
         Play
       </Button>
-      <p className="sb-hint sb-title-best">
+      <p className="sb-hint mx-auto mt-[18px] max-w-[520px]">
         {best.word ? (
           <>
             Best: {best.word.word} for {best.word.total} · {best.wins || 0} win
