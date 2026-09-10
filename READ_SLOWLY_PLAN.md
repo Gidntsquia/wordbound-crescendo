@@ -166,34 +166,38 @@ Items` remain, the documented legacy-global exception (`4ab4dab`).
   no longer imports `Sheet`/`SetupPanel`/`StartingQuills`/`TuningPanel`
   itself. Verified live: gear button opens the sheet from title screen and
   mid-run alike, zero console errors. Deployed.
+- **A5 live verification of the win paths.** `FORCE_WIN_TARGET` dev-only
+  affordance (`import.meta.env.DEV`-gated) added as a real `TuningPanel.tsx`
+  control (`d1e6628`). Verified live in headless Playwright, zero console
+  errors: shop split/resolution (buy card, buy pack, open pack, pick from
+  pack, sell card, reroll); the resolution beat (`WonBanner`); page SFX (no
+  exceptions); `nextStage`; `buyCard`; `pickCard`; `useInk`/`applyInk`; the
+  boss fight leg (Movement III) through to round win; letter-choice through
+  to end screen; the end screen's Copy-result button and other actions.
+  Deployed.
 
 ### Work queue (do in this order; each has an acceptance check)
 
-1. **A5 live verification of the win paths.** Add a dev-only forced-win
-   affordance (tuning-panel target override applied at `createRound`, gated
-   on `import.meta.env.DEV`). Then play shop split, resolution beat, page
-   SFX, `nextStage`/`buyCard`/`pickCard`/`useInk`/`applyInk` live in
-   Playwright. Accept: each path listed with "verified live" in the commit.
-2. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
+1. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
    letter tile; record the before/after targets in the commit.
-3. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
+2. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
    poses + `win-idle` on the three people and `idle`/`weakening`/`gone`
    (+ `crescendo` on bosses) on the nine antagonists; `Sprite` picks the
    pose's art; manifest gains `poses`. Accept: changing `pose` changes
    what is drawn for every sheet; Playwright screenshots of two poses
    differ.
-4. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
+3. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
    letter in a badge), `mark_overlay_gilt/bold/steel` on marked tiles,
    `bookmark_card_frame` on quill cards, `pack_wrapper` on packs,
    `backdrop_chapter_1/2/3` as far/near parallax with slow drift and a
    proper dark-theme scrim (the reverted 32% wash is not the design).
    Accept: every manifest id appears in a `Sprite` render site.
-5. **E3 remaining hooks.** Word played → wordsmith `write`; win →
+4. **E3 remaining hooks.** Word played → wordsmith `write`; win →
    `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
    pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
    loops and drift without freezing a `steps()` loop on frame one.
    Accept: each hook observed in Playwright via the class/pose it sets.
-6. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
+5. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
    count and dimensions (fail over 1024²); visible sheets under ~10 per
    screen; next chapter's sheets prefetched during the shop; Playwright
    mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
