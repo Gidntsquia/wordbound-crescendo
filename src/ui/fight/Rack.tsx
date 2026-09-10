@@ -103,10 +103,17 @@ export default function Rack({
     steel: '#b8a5d8',
     blank: '#6fb3e0',
   };
+  // The lit glow (sandbox.css A6 slice 7 port of .sb-tile.is-lit), same
+  // priority note as Stick.tsx's copy: a marked/inking tile's own inline
+  // style already wins over any CSS class, so it also wins over the lit
+  // glow here -- unchanged from the pre-Tailwind cascade.
+  const LIT_GLOW =
+    '0 0 0 2px var(--brass-hot), 0 0 18px rgba(242, 194, 96, 0.55)';
   function tileOverrideStyle(
     mark: string | null | undefined,
     inking: boolean,
     barred: boolean,
+    lit?: boolean,
   ): React.CSSProperties | undefined {
     if (barred)
       return {
@@ -121,6 +128,7 @@ export default function Rack({
         borderColor: 'var(--brass-hot)',
       };
     if (mark) return { boxShadow: MARK_GLOW[mark] };
+    if (lit) return { boxShadow: LIT_GLOW };
     return undefined;
   }
 
@@ -155,15 +163,17 @@ export default function Rack({
               type="button"
               disabled={!live}
               variant="paper"
+              style={
+                scoring && scoring.litTile === characterTile.id
+                  ? { boxShadow: LIT_GLOW }
+                  : undefined
+              }
               className={
                 'sb-tile ' +
                 TILE_PLAIN +
                 ' ' +
                 tileSize +
-                (round.isBarred(characterTile) ? ' is-barred' : '') +
-                (scoring && scoring.litTile === characterTile.id
-                  ? ' is-lit'
-                  : '')
+                (round.isBarred(characterTile) ? ' is-barred' : '')
               }
               data-flip-tile-id={characterTile.id}
               title="Your character's own tile — playable once this round."
@@ -211,14 +221,14 @@ export default function Rack({
                 t.mark,
                 !!(inking && inking.ids.includes(t.id)),
                 round.isBarred(t),
+                !!(scoring && scoring.litTile === t.id),
               )}
               className={
                 'sb-tile ' +
                 TILE_PLAIN +
                 ' ' +
                 tileSize +
-                (hollow ? ' is-dragging opacity-25' : '') +
-                (scoring && scoring.litTile === t.id ? ' is-lit' : '')
+                (hollow ? ' is-dragging opacity-25' : '')
               }
               data-flip-tile-id={t.id}
               title={

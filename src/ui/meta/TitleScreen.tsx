@@ -55,7 +55,7 @@ export default function TitleScreen({
     'Your letter. Play it once a round; it scores extra.',
   );
   return (
-    <section className="sb-title">
+    <section className="sb-title max-[620px]:flex-none">
       <p className="sb-title-line">
         Spell words. Beat the target before your words run out.
       </p>

@@ -32,6 +32,13 @@ interface ItemDef {
 type RunLike = RunFacade;
 type Cres = CrescendoWindow;
 
+// The held-quill card's floating +N/x2 badges (sandbox.css A6 slice 7 port of
+// .sb-float.sb-float-card / .is-mult); `float-up` stays a keyframe in
+// sandbox.css.
+const FLOAT_CARD_BASE =
+  'pointer-events-none absolute top-[-10px] left-1/2 z-6 font-[var(--figure)] text-sm font-bold whitespace-nowrap text-[var(--brass-hot)] not-italic [text-shadow:0_1px_6px_rgba(0,0,0,0.8)] motion-safe:animate-[float-up_720ms_ease-out_forwards] ';
+const FLOAT_MULT = 'text-[var(--rubric)]';
+
 export default function QuillCard({
   id,
   d,
@@ -71,7 +78,7 @@ export default function QuillCard({
       className={cn(
         'relative max-w-[60px] min-w-11 cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center transition-[opacity,box-shadow,border-color] duration-[240ms]',
         rarityCardClass(rarity),
-        lit === id && 'is-jiggle',
+        lit === id && 'z-[2] motion-safe:animate-[card-jiggle_320ms_ease-out]',
         cresState === 'idle' && 'opacity-45 saturate-[0.4]',
         cresState === 'soon' && 'border-[var(--brass-hot)] opacity-85',
         cresState === 'live' &&
@@ -91,7 +98,10 @@ export default function QuillCard({
       {(floats || [])
         .filter((x) => x.on === id)
         .map((x) => (
-          <i key={x.key} className={'sb-float sb-float-card is-' + x.tone}>
+          <i
+            key={x.key}
+            className={FLOAT_CARD_BASE + (x.tone === 'mult' ? FLOAT_MULT : '')}
+          >
             {x.text}
           </i>
         ))}

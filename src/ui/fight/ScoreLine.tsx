@@ -28,6 +28,13 @@ interface ScoringState {
   hit?: number;
 }
 
+// The reading-condition card's floating +N/x2 badges (sandbox.css A6 slice 7
+// port of .sb-float.sb-float-card / .is-mult); `float-up` stays a keyframe
+// in sandbox.css.
+const FLOAT_CARD_BASE =
+  'pointer-events-none absolute top-[-10px] left-1/2 z-6 font-[var(--figure)] text-sm font-bold whitespace-nowrap text-[var(--brass-hot)] not-italic [text-shadow:0_1px_6px_rgba(0,0,0,0.8)] motion-safe:animate-[float-up_720ms_ease-out_forwards] ';
+const FLOAT_MULT = 'text-[var(--rubric)]';
+
 export default function ScoreLine({
   f,
   round,
@@ -62,7 +69,10 @@ export default function ScoreLine({
       <div className="sb-scoreline" aria-label="Score against the target">
         <span
           className={
-            'sb-dyn-mark' + (scoring && scoring.total != null ? ' is-hit' : '')
+            'sb-dyn-mark' +
+            (scoring && scoring.total != null
+              ? ' inline-block motion-safe:animate-[total-hit_460ms_cubic-bezier(0.2,0.9,0.3,1)]'
+              : '')
           }
         >
           {scoreShown}
@@ -135,8 +145,10 @@ export default function ScoreLine({
       {round.rule && (
         <div
           className={
-            'my-2 border-l-[3px] border-[var(--rubric)] bg-[var(--pit-deep)] px-3 py-2' +
-            (scoring && scoring.litItem === round.rule.id ? ' is-flash' : '') +
+            'relative my-2 border-l-[3px] border-[var(--rubric)] bg-[var(--pit-deep)] px-3 py-2' +
+            (scoring && scoring.litItem === round.rule.id
+              ? ' motion-safe:animate-[rule-flash_420ms_ease-out]'
+              : '') +
             (!seen.has('boss') ? ' is-pulse' : '')
           }
         >
@@ -146,7 +158,9 @@ export default function ScoreLine({
               .map((x) => (
                 <i
                   key={x.key}
-                  className={'sb-float sb-float-card is-' + x.tone}
+                  className={
+                    FLOAT_CARD_BASE + (x.tone === 'mult' ? FLOAT_MULT : '')
+                  }
                 >
                   {x.text}
                 </i>

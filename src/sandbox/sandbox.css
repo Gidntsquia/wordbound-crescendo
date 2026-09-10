@@ -725,78 +725,48 @@ button:disabled {
    flex:none so it's always fully visible; `.sb-board` (score, enemy,
    quills, word history, shop, end screen -- the variable-height stuff)
    is the one flex:1 region allowed to scroll internally when it doesn't
-   fit. The held-quill row scrolls sideways instead of wrapping to a
-   second line, so buying more quills eats board scroll, not board height. */
-@media (max-width: 620px) {
-  html,
-  body {
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-  #sandbox-root {
-    height: 100%;
-  }
-  .sb {
-    height: 100dvh;
-    max-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding: 10px 12px 8px;
-  }
-  .sb.is-title {
-    overflow-y: auto;
-  }
-  .sb-head,
-  .sb-strip,
-  .sb-title {
-    flex: none;
-  }
-  .sb-gear-panel {
-    flex: none;
-    max-height: 55vh;
-    overflow-y: auto;
-  }
-  .sb-board {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    display: flex;
-    flex-direction: column;
-  }
-  .sb-play {
-    flex: none;
-  }
-  /* Once the round is won the rack is inert; drop it so the outcome line and
-     its "To the shop" button get the screen instead of a 40px scroll slit. */
-  .sb.is-phase-won .sb-play {
-    display: none;
-  }
-  .sb-held-row {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
-  }
-  .sb-held-row .sb-card {
-    flex: none;
-  }
-}
+   fit. Ported to Tailwind (sandbox.css A6 slice 7): html/body/#sandbox-root
+   carry their max-[620px]: utilities directly in index.html; `.sb`
+   (App.tsx), `.sb-board`/`.sb-play` (App.tsx/PlayBoard.tsx) and `.sb-title`
+   (TitleScreen.tsx) carry theirs in JSX. `.sb.is-phase-won .sb-play` is now
+   a `hiddenOnMobile` prop PlayBoard turns into `max-[620px]:hidden`.
+   `.sb-head`/`.sb-strip`/`.sb-gear-panel`/`.sb-held-row` had zero remaining
+   callers (renamed away in earlier slices) and are gone outright. */
 
 /* ---- the scoring cascade (DEMO_PLAN_2 Phase 4) ------------------------- */
-/* Pops and lifts go on a WRAPPER; nothing here touches .sb-tile's transform
-   (the FLIP owns it). */
-.sb-tile-pop {
-  position: relative;
-  display: inline-flex;
-  transform: translateY(-4px);
-  transition: transform 90ms ease-out;
-}
-.sb-tile-pop.is-pop {
-  animation: tile-pop 260ms cubic-bezier(0.2, 0.9, 0.3, 1);
-}
+/* Ported to Tailwind (sandbox.css A6 slice 7): .sb-tile-pop/.is-pop (a
+   transform-bearing WRAPPER, never .sb-tile itself) and .sb-tile.is-lit are
+   Stick.tsx's classes/inline style; .sb-float/.is-mult/.sb-float-card are
+   Stick.tsx/ScoreLine.tsx/QuillCard.tsx's FLOAT_* constants; .sb-card.is-
+   jiggle is QuillCard.tsx's Card className; .sb-rule.is-flash is
+   ScoreLine.tsx's reading-condition div (it never actually carried the bare
+   `sb-rule` class -- that class had no caller at all, see below -- so the
+   flash is now wired straight onto the div that already carries is-flash,
+   fixing what had been a dead selector); .sb-stick-worth.is-scoring
+   .sb-total's display/min-width are unconditional utilities on Stick.tsx's
+   sb-total <b> (it only ever renders inside an is-scoring wrapper); .sb-
+   total.is-hit/.sb-dyn-mark.is-hit are Stick.tsx/ScoreLine.tsx's
+   motion-safe:animate-[total-hit...] utilities; .sb-crossed is a plain
+   utility string on Stick.tsx's "meets the target" span; .sb-board.is-hit-1
+   ..3 are App.tsx's motion-safe:animate-[board-shake-N...] utilities keyed
+   off scoring.hit. All `@keyframes` referenced by an animate-[...] utility
+   stay here for now (READ_SLOWLY_PLAN.md A6 final consolidation moves them
+   to src/styles/game.css later). The `motion-safe:` variant on every ported
+   animate-[...] utility replaces the old prefers-reduced-motion block below
+   (Tailwind's `motion-safe:` already compiles to that same media query), so
+   that block is gone too.
+   Dead classes removed outright (zero callers anywhere in src/, confirmed
+   via grep): .sb-rule (bare -- see is-flash note above; also killed with it
+   was its bare position:relative, replaced by a `relative` utility directly
+   on the is-flash div so the card's absolutely-positioned floats still
+   anchor to it), .sb-stick.is-locked's position:relative (ported as a
+   `relative` utility alongside the existing is-locked marker class instead
+   of deleted, since is-locked/is-short stay bare markers pending a later
+   slice), .sb-tile.is-lit.is-mark-gilt/bold/steel (dead the moment
+   is-mark-* classes stopped being applied to tiles in A6 slice 6 -- marks
+   render via inline style now, which always beats a CSS class regardless of
+   specificity, so these compound rules could never win even before this
+   slice), .sb-plays-word i. */
 @keyframes tile-pop {
   0% {
     transform: translateY(-4px) scale(1);
@@ -807,52 +777,6 @@ button:disabled {
   100% {
     transform: translateY(-4px) scale(1);
   }
-}
-.sb-stick.is-locked {
-  position: relative;
-}
-.sb-tile.is-lit {
-  box-shadow:
-    0 0 0 2px var(--brass-hot),
-    0 0 18px rgba(242, 194, 96, 0.55);
-}
-.sb-tile.is-lit.is-mark-gilt {
-  box-shadow:
-    0 0 0 2px var(--brass-hot),
-    0 0 22px rgba(242, 194, 96, 0.9);
-}
-.sb-tile.is-lit.is-mark-bold {
-  box-shadow:
-    0 0 0 2px var(--rubric),
-    0 0 22px rgba(212, 97, 74, 0.8);
-}
-.sb-tile.is-lit.is-mark-steel {
-  box-shadow:
-    0 0 0 2px var(--leaf),
-    0 0 22px rgba(237, 230, 212, 0.7);
-}
-.sb-float {
-  position: absolute;
-  left: 50%;
-  top: -8px;
-  z-index: 6;
-  pointer-events: none;
-  transform: translate(-50%, 0);
-  font-family: var(--figure);
-  font-size: 13px;
-  font-weight: 700;
-  font-style: normal;
-  color: var(--brass-hot);
-  white-space: nowrap;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
-  animation: float-up 720ms ease-out forwards;
-}
-.sb-float.is-mult {
-  color: var(--rubric);
-}
-.sb-float-card {
-  top: -10px;
-  font-size: 14px;
 }
 @keyframes float-up {
   0% {
@@ -868,10 +792,6 @@ button:disabled {
     transform: translate(-50%, -30px);
   }
 }
-.sb-card.is-jiggle {
-  animation: card-jiggle 320ms ease-out;
-  z-index: 2;
-}
 @keyframes card-jiggle {
   0% {
     transform: rotate(0) scale(1);
@@ -886,12 +806,6 @@ button:disabled {
     transform: rotate(0) scale(1);
   }
 }
-.sb-rule {
-  position: relative;
-}
-.sb-rule.is-flash {
-  animation: rule-flash 420ms ease-out;
-}
 @keyframes rule-flash {
   0% {
     background: var(--pit-deep);
@@ -902,15 +816,6 @@ button:disabled {
   100% {
     background: var(--pit-deep);
   }
-}
-.sb-stick-worth.is-scoring .sb-total {
-  display: inline-block;
-  min-width: 1.2em;
-}
-.sb-total.is-hit,
-.sb-dyn-mark.is-hit {
-  animation: total-hit 460ms cubic-bezier(0.2, 0.9, 0.3, 1);
-  display: inline-block;
 }
 @keyframes total-hit {
   0% {
@@ -923,19 +828,6 @@ button:disabled {
   100% {
     transform: scale(1);
   }
-}
-.sb-crossed {
-  color: var(--brass-hot);
-  font-weight: 600;
-}
-.sb-board.is-hit-1 {
-  animation: board-shake-1 280ms ease-out;
-}
-.sb-board.is-hit-2 {
-  animation: board-shake-2 320ms ease-out;
-}
-.sb-board.is-hit-3 {
-  animation: board-shake-3 380ms ease-out;
 }
 @keyframes board-shake-1 {
   0%,
@@ -989,21 +881,6 @@ button:disabled {
   }
   80% {
     transform: translate(1px, 1px);
-  }
-}
-.sb-plays-word i {
-  font-style: normal;
-  display: inline-block;
-}
-@media (prefers-reduced-motion: reduce) {
-  .sb-tile-pop,
-  .sb-tile-pop.is-pop,
-  .sb-card.is-jiggle,
-  .sb-board[class*='is-hit-'],
-  .sb-total.is-hit,
-  .sb-dyn-mark.is-hit {
-    animation: none !important;
-    transform: none !important;
   }
 }
 

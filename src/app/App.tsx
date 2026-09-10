@@ -233,7 +233,15 @@ export default function App(props: AppProps) {
 
   return (
     <div
-      className={'sb is-phase-' + phase + (phase === 'idle' ? ' is-title' : '')}
+      className={
+        'sb is-phase-' +
+        phase +
+        (phase === 'idle' ? ' is-title' : '') +
+        ' max-[620px]:flex max-[620px]:h-dvh max-[620px]:max-h-dvh max-[620px]:flex-col max-[620px]:px-3 max-[620px]:pt-2.5 max-[620px]:pb-2' +
+        (phase === 'idle'
+          ? ' max-[620px]:overflow-y-auto'
+          : ' max-[620px]:overflow-hidden')
+      }
       onPointerDownCapture={scoring ? skipCascade : undefined}
     >
       <Toaster position="top-center" />
@@ -308,8 +316,14 @@ export default function App(props: AppProps) {
       {round && (
         <section
           className={
-            'sb-board mb-1 pb-[18px]' +
-            (scoring && scoring.hit ? ' is-hit-' + scoring.hit : '')
+            'sb-board mb-1 pb-[18px] max-[620px]:flex max-[620px]:min-h-0 max-[620px]:flex-1 max-[620px]:flex-col max-[620px]:overflow-y-auto max-[620px]:[-webkit-overflow-scrolling:touch]' +
+            (scoring && scoring.hit === 1
+              ? ' motion-safe:animate-[board-shake-1_280ms_ease-out]'
+              : scoring && scoring.hit === 2
+                ? ' motion-safe:animate-[board-shake-2_320ms_ease-out]'
+                : scoring && scoring.hit === 3
+                  ? ' motion-safe:animate-[board-shake-3_380ms_ease-out]'
+                  : '')
           }
         >
           {showIntro ? (
@@ -411,6 +425,7 @@ export default function App(props: AppProps) {
         (phase === 'live' || phase === 'scoring' || phase === 'won') && (
           <PlayBoard
             ref={playRef}
+            hiddenOnMobile={phase === 'won'}
             live={live}
             seen={seen}
             round={round}

@@ -68,6 +68,12 @@ const TILE_PREMIUM_BASE =
 const SUB_ON_SET =
   'absolute right-1 bottom-[3px] font-[var(--figure)] text-[9px] text-[rgba(26,23,16,0.6)]';
 
+// The scoring-cascade floating +N/x2 badges (sandbox.css A6 slice 7 port of
+// .sb-float / .is-mult); `float-up` stays a keyframe in sandbox.css.
+const FLOAT_BASE =
+  'pointer-events-none absolute top-[-8px] left-1/2 z-6 font-[var(--figure)] text-[13px] font-bold whitespace-nowrap text-[var(--brass-hot)] not-italic [text-shadow:0_1px_6px_rgba(0,0,0,0.8)] motion-safe:animate-[float-up_720ms_ease-out_forwards] ';
+const FLOAT_MULT = 'text-[var(--rubric)]';
+
 // Ported from sandbox.css's INKED TILES / barred / premium-rim rules (A6
 // slice 6) -- inline style, not stacked Tailwind shadow classes, so the
 // override reliably beats TILE_SET's own box-shadow utility. Priority
@@ -97,10 +103,20 @@ function premiumStyle(kind: string): React.CSSProperties {
     boxShadow: `0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px ${c}`,
   };
 }
+// The lit glow (sandbox.css A6 slice 7 port of .sb-tile.is-lit) plays while
+// the scoring cascade highlights this tile -- inline style for the same
+// reason as the mark/premium overrides above (must beat TILE_SET's own
+// box-shadow utility deterministically). A marked/premium tile's own inline
+// style already wins over any CSS class, so a lit tile that also has a mark
+// never actually swaps to the lit glow either -- that priority carries over
+// unchanged here.
+const LIT_GLOW =
+  '0 0 0 2px var(--brass-hot), 0 0 18px rgba(242, 194, 96, 0.55)';
 function setTileOverrideStyle(
   mark: string | null | undefined,
   barred: boolean,
   premiumKind: string | undefined,
+  lit?: boolean,
 ): React.CSSProperties | undefined {
   if (barred)
     return {
@@ -111,6 +127,7 @@ function setTileOverrideStyle(
     };
   if (premiumKind) return premiumStyle(premiumKind);
   if (mark) return { boxShadow: MARK_GLOW[mark] };
+  if (lit) return { boxShadow: LIT_GLOW };
   return undefined;
 }
 
@@ -175,14 +192,18 @@ export default function Stick({
             </span>
             <b
               className={
-                'sb-total font-[var(--figure)] tabular-nums' +
-                (scoring.total != null ? ' is-hit' : '')
+                'sb-total inline-block min-w-[1.2em] font-[var(--figure)] tabular-nums' +
+                (scoring.total != null
+                  ? ' motion-safe:animate-[total-hit_460ms_cubic-bezier(0.2,0.9,0.3,1)]'
+                  : '')
               }
             >
               {scoring.total != null ? scoring.total : '…'}
             </b>
             {scoring.total != null && scoring.crossed && (
-              <span className="sb-crossed">meets the target</span>
+              <span className="font-semibold text-[var(--brass-hot)]">
+                meets the target
+              </span>
             )}
           </span>
         )}
@@ -215,7 +236,7 @@ export default function Stick({
         className={
           'sb-stick' +
           (formable ? '' : ' is-short') +
-          (scoring && !scoring.cleared ? ' is-locked' : '')
+          (scoring && !scoring.cleared ? ' is-locked relative' : '')
         }
       >
         {scoring &&
@@ -224,16 +245,21 @@ export default function Stick({
             <span
               key={t.id}
               className={
-                'sb-tile-pop' +
+                'relative inline-flex -translate-y-1 transition-transform duration-[90ms] ease-out' +
                 (scoring.litTile === t.id || scoring.litSlot === t.id
-                  ? ' is-pop'
+                  ? ' motion-safe:animate-[tile-pop_260ms_cubic-bezier(0.2,0.9,0.3,1)]'
                   : '')
               }
             >
               {scoring.floats
                 .filter((x) => x.on === t.id)
                 .map((x) => (
-                  <i key={x.key} className={'sb-float is-' + x.tone}>
+                  <i
+                    key={x.key}
+                    className={
+                      FLOAT_BASE + (x.tone === 'mult' ? FLOAT_MULT : '')
+                    }
+                  >
                     {x.text}
                   </i>
                 ))}
@@ -248,13 +274,9 @@ export default function Stick({
                   round.premium && round.premium.pos === i
                     ? round.premium.kind
                     : undefined,
+                  scoring.litTile === t.id || scoring.litSlot === t.id,
                 )}
-                className={
-                  'sb-tile is-set ' +
-                  TILE_SET +
-                  (scoring.litTile === t.id ? ' is-lit' : '') +
-                  (scoring.litSlot === t.id ? ' is-lit' : '')
-                }
+                className={'sb-tile is-set ' + TILE_SET}
               >
                 {t.mark && (
                   <i
@@ -272,7 +294,10 @@ export default function Stick({
           scoring.floats
             .filter((x) => x.on === 'stick')
             .map((x) => (
-              <i key={x.key} className={'sb-float is-' + x.tone}>
+              <i
+                key={x.key}
+                className={FLOAT_BASE + (x.tone === 'mult' ? FLOAT_MULT : '')}
+              >
                 {x.text}
               </i>
             ))}

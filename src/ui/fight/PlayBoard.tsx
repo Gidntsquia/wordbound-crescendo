@@ -65,6 +65,7 @@ interface Suggestion {
 const PlayBoard = forwardRef<
   HTMLElement,
   {
+    hiddenOnMobile?: boolean;
     live: boolean;
     seen: ReadonlySet<string>;
     round: RoundLike;
@@ -110,6 +111,7 @@ const PlayBoard = forwardRef<
   }
 >(function PlayBoard(
   {
+    hiddenOnMobile,
     live,
     seen,
     round,
@@ -157,7 +159,10 @@ const PlayBoard = forwardRef<
   );
   return (
     <section
-      className="sb-play mb-[22px] border-t border-b border-[var(--rule)] py-[22px] max-[620px]:mb-2.5 max-[620px]:py-2.5"
+      className={
+        'sb-play mb-[22px] border-t border-b border-[var(--rule)] py-[22px] max-[620px]:mb-2.5 max-[620px]:flex-none max-[620px]:py-2.5' +
+        (hiddenOnMobile ? ' max-[620px]:hidden' : '')
+      }
       ref={playRef as React.Ref<HTMLElement>}
     >
       <Rack
