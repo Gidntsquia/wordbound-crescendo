@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { ActFn } from '../actFn';
 import { Button } from '@/ui/primitives/button';
 import Sprite from '../../art/Sprite';
@@ -73,11 +74,17 @@ export default function QuillCard({
 }) {
   const tipId = 'item:' + id;
   const rarity = d.rarity || 'common';
+  // Tracks whether the upcoming focus event came from a pointer press, so
+  // onFocus can skip opening the tip -- otherwise focus fires before click
+  // on a mouse/touch tap, onFocus already opens the tip, and the click
+  // handler's toggle sees it open and immediately closes it again, making
+  // clicks look like they do nothing.
+  const viaPointerRef = useRef(false);
   return (
     <Card
       data-rarity={rarity}
       className={cn(
-        'relative isolate w-[72px] cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center transition-[opacity,box-shadow,border-color] duration-[240ms]',
+        'relative isolate w-[72px] cursor-pointer flex-col items-center gap-0 overflow-visible rounded-sm p-0 px-1 py-1.5 text-center transition-[opacity,box-shadow,border-color] duration-[240ms]',
         rarityCardClass(rarity, inShop),
         lit === id && 'z-[2] motion-safe:animate-[card-jiggle_320ms_ease-out]',
         cresState === 'idle' && 'opacity-45 saturate-[0.4]',
@@ -88,11 +95,6 @@ export default function QuillCard({
       role="button"
       tabIndex={0}
       aria-label={d.name + ' — ' + itemBlurb(d)}
-      // Click/tap is the only open trigger -- hover used to also open the
-      // tip, but then a click on an already-hovered card (any mouse click,
-      // and every touch tap, since touch synthesizes hover first) saw the
-      // tip already open and immediately toggled it back off, so clicking
-      // looked like it did nothing.
       onClick={() => setTip((t) => (t === tipId ? null : tipId))}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -100,7 +102,19 @@ export default function QuillCard({
           setTip((t) => (t === tipId ? null : tipId));
         }
       }}
-      onFocus={() => setTip(() => tipId)}
+      onMouseDown={() => {
+        viaPointerRef.current = true;
+      }}
+      onTouchStart={() => {
+        viaPointerRef.current = true;
+      }}
+      onFocus={() => {
+        if (viaPointerRef.current) {
+          viaPointerRef.current = false;
+          return;
+        }
+        setTip(() => tipId);
+      }}
       onBlur={() => setTip((t) => (t === tipId ? null : t))}
     >
       <Sprite
