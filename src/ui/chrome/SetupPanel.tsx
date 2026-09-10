@@ -60,8 +60,8 @@ export default function SetupPanel({
   run: RunLike | null;
 }) {
   return (
-    <section className="sb-setup">
-      <label>
+    <section className="sb-setup mb-[22px] flex flex-wrap items-end gap-[18px] border-b border-[var(--rule)] pt-4 pb-5">
+      <label className="flex flex-col gap-[5px] text-[10px] font-semibold tracking-[0.16em] text-[var(--leaf-dim)] uppercase">
         Seed
         <input
           value={seed}
@@ -69,16 +69,25 @@ export default function SetupPanel({
           style={{ width: 110 }}
         />
       </label>
-      <div className="sb-bags" role="group" aria-label="Tile bag">
-        <span className="sb-bags-head">Tile bag</span>
-        <div className="sb-bag-row">
+      <div
+        className="flex flex-col gap-[5px] text-[10px] font-semibold tracking-[0.16em] text-[var(--leaf-dim)] uppercase"
+        role="group"
+        aria-label="Tile bag"
+      >
+        <span className="flex items-baseline gap-2">Tile bag</span>
+        <div className="flex">
           {SB.TILE_BAGS.map((b) => (
             <Button
               key={b.id}
               type="button"
               variant="paper"
               title={b.blurb}
-              className={'sb-bag' + (b.id === bagId ? ' is-on' : '')}
+              className={
+                'sb-bag -ml-px rounded-none px-[13px] py-[7px] first:ml-0 first:rounded-l-[2px] first:rounded-r-none last:rounded-l-none last:rounded-r-[2px]' +
+                (b.id === bagId
+                  ? ' relative z-10 border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]'
+                  : '')
+              }
               onClick={() => setBagId(b.id)}
             >
               {b.label}
@@ -92,7 +101,7 @@ export default function SetupPanel({
         discovered={discovered}
         wonLetters={run?.wonLetters ?? []}
       />
-      <label className="sb-volume">
+      <label className="sb-volume flex flex-col gap-[5px] text-[10px] font-semibold tracking-[0.16em] text-[var(--leaf-dim)] uppercase">
         Volume
         <Slider
           min={0}
@@ -120,7 +129,7 @@ export default function SetupPanel({
       </Toggle>
       <Button
         type="button"
-        className="sb-go"
+        className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
         variant="paperPrimary"
         onClick={() => start()}
       >

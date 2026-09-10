@@ -36,7 +36,7 @@ export default function ConsumablesRow({
   const tune = run.tune;
   return (
     <div className="sb-held-row" aria-label="Consumables">
-      <span className="sb-eyebrow">
+      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         Consumables · {run.consumables.length}/{tune.CONSUMABLE_SLOTS}
       </span>
       {run.consumables.map((c, i) => {

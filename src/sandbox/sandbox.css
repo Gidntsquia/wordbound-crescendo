@@ -66,22 +66,6 @@ body {
   outline-offset: 2px;
 }
 
-/* Small caps eyebrow -- used for the three panel names, nothing else. */
-.sb-eyebrow {
-  font-family: var(--ui);
-  font-size: 10px;
-  white-space: nowrap;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--leaf-dim);
-}
-
-.sb-figure {
-  font-family: var(--figure);
-  font-variant-numeric: tabular-nums;
-}
-
 .sb-wordmark {
   min-width: 0;
 }
@@ -129,200 +113,19 @@ body {
 }
 
 /* ---- setup strip ------------------------------------------------------ */
-.sb-setup {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  align-items: flex-end;
-  padding: 16px 0 20px;
-  border-bottom: 1px solid var(--rule);
-  margin-bottom: 22px;
-}
-
-.sb-setup label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--leaf-dim);
-}
 
 /* TILE BAG: a segmented row of buttons rather than a dropdown, because the
    knob exists to be A/B'd -- one case against another on the same seed -- and
    that should cost one click, not a click, a read and a click. Reads
    weak..strong left to right. The lit segment is paper-on-ink like .sb-go,
    since picking a bag is the same kind of act as pressing Start. */
-.sb-bags {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--leaf-dim);
-}
-
-.sb-bags-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-/* The bag is read at Start, so a swap under a live fight is pending, not
-   ignored. Brass because it is the song's clock the change is waiting on. */
-.sb-bag-note {
-  font-style: normal;
-  font-weight: 700;
-  color: var(--brass-hot);
-}
-
-.sb-bag-row {
-  display: flex;
-}
-
-.sb-bag {
-  padding: 7px 13px;
-  border-radius: 0;
-  margin-left: -1px; /* one shared rule between neighbours, not two */
-}
-
-.sb-bag:first-child {
-  margin-left: 0;
-  border-radius: 2px 0 0 2px;
-}
-
-.sb-bag:last-child {
-  border-radius: 0 2px 2px 0;
-}
-
-.sb-bag.is-on {
-  color: var(--ink);
-  background: var(--leaf);
-  border-color: var(--leaf);
-  position: relative; /* lit segment's rules sit over its neighbours' */
-  z-index: 1;
-}
-
-.sb-bag.is-on:hover {
-  color: var(--ink);
-  background: var(--brass-hot);
-  border-color: var(--brass-hot);
-}
 
 /* Keys (NEXT_LEVEL_PLAN.md stage 3): a row on the title screen once a
    second key is unlocked, and a read-only list of all six in the tuning
    panel. Reuses .sb-bag's button look rather than inventing a new one. */
-.sb-keys {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin: 0 0 18px;
-}
-
-.sb-key {
-  padding: 6px 12px;
-  border-radius: 2px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.sb-key.is-on {
-  color: var(--ink);
-  background: var(--leaf);
-  border-color: var(--leaf);
-}
-
-.sb-key.is-locked {
-  opacity: 0.35;
-}
-
-.sb-characters {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin: 0 0 18px;
-}
-
-.sb-character {
-  width: 34px;
-  height: 34px;
-  border-radius: 2px;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.sb-character.is-on {
-  color: var(--ink);
-  background: var(--leaf);
-  border-color: var(--leaf);
-}
-
-.sb-character.is-locked {
-  opacity: 0.35;
-}
-
-.sb-key-tune {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 10px;
-  color: var(--leaf-dim);
-}
-
-.sb-key-list {
-  margin: 0;
-  padding: 0 0 0 14px;
-  list-style: disc;
-}
-
-.sb-key-list li.is-locked {
-  opacity: 0.4;
-}
-
-.sb-key-list b {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--leaf-dim);
-}
 
 /* The stolen-letters meta (DIVERGENCE_PLAN.md): every letter, hollow where
    still stolen. Won letters read the same as the bag chooser's active tab. */
-.sb-alphabet {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.sb-alphabet-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
-.sb-letter {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--brass);
-  border-radius: 2px;
-  font-family: var(--display);
-  font-size: 11px;
-  text-transform: uppercase;
-  color: var(--leaf);
-}
-.sb-letter.is-hollow {
-  opacity: 0.35;
-  border-style: dashed;
-  color: var(--leaf-dim);
-}
 
 .sb-tune label {
   display: flex;
@@ -407,18 +210,6 @@ button:hover:not(:disabled) {
 button:disabled {
   opacity: 0.35;
   cursor: default;
-}
-
-.sb-go {
-  color: var(--ink);
-  background: var(--leaf);
-  border-color: var(--leaf);
-}
-
-.sb-go:hover:not(:disabled) {
-  color: var(--ink);
-  background: var(--brass-hot);
-  border-color: var(--brass-hot);
 }
 
 /* BLIND-PUSH LOCKOUT. The button stops being paper and becomes the countdown

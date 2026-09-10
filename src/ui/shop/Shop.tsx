@@ -79,7 +79,7 @@ export default function Shop({
   return (
     <div className="sb-shop">
       <div className="sb-shop-head">
-        <span className="sb-eyebrow">
+        <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
           The shop · between fights
           {shop.coupon ? ' · coupon: cards are free' : ''}
           {(shop.packs ?? []).some((p) => p.free && !p.opened)
@@ -181,7 +181,7 @@ export default function Shop({
           <Button
             type="button"
             variant="paperPrimary"
-            className="sb-go sb-shop-leave"
+            className="sb-go sb-shop-leave border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
             onClick={leave}
           >
             Continue

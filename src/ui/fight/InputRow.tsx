@@ -41,7 +41,7 @@ export default function InputRow({
       <div className="sb-input">
         <Button
           type="button"
-          className="sb-go"
+          className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
           variant="paperPrimary"
           onClick={play}
           disabled={!live || !letters}

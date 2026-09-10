@@ -72,7 +72,7 @@ export default function EnemyIntroCard({
       {f.def.flavour && <q className="sb-intro-flavour">{f.def.flavour}</q>}
       {round.rule ? (
         <div className="sb-rule is-pulse">
-          <span className="sb-eyebrow">
+          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
             Reading condition · {round.rule.name}
           </span>
           <b className="sb-rule-plain">{round.rule.plain}</b>
@@ -84,7 +84,7 @@ export default function EnemyIntroCard({
       <div className="sb-intro-row">
         <Button
           type="button"
-          className="sb-go"
+          className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
           variant="paperPrimary"
           onClick={enterFight}
         >

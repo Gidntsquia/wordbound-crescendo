@@ -40,7 +40,7 @@ export default function ShopInkPicker({
   const slots = Number(run.tune.CONSUMABLE_SLOTS);
   return (
     <div className="sb-pack-open sb-ink-decide">
-      <span className="sb-eyebrow">
+      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         {selecting.name}
         {selecting.from === 'shop' ? ' · ' + selecting.price + ' gold' : ''}
       </span>
@@ -112,7 +112,7 @@ export default function ShopInkPicker({
         <Button
           type="button"
           variant="paperPrimary"
-          className="sb-go"
+          className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
           onClick={() => commitSelecting(true)}
           disabled={
             ink.targets > 0 &&

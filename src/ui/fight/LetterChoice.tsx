@@ -13,7 +13,7 @@ export default function LetterChoice({
 }) {
   return (
     <div className="sb-outcome sb-letter-choice">
-      <span className="sb-eyebrow">
+      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         The boss falls — choose a letter to win back
       </span>
       <div className="sb-letter-row">

@@ -144,7 +144,7 @@ export default function ScoreLine({
                   {x.text}
                 </i>
               ))}
-          <span className="sb-eyebrow">
+          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
             Reading condition · {round.rule.name}
           </span>
           <b className="sb-rule-plain">{round.rule.plain}</b>

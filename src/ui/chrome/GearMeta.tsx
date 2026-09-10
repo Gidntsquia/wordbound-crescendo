@@ -34,25 +34,42 @@ export default function GearMeta({
 }) {
   return (
     <>
-      <div className="sb-key-tune" role="group" aria-label="Editions">
-        <span className="sb-bags-head">Editions</span>
-        <ul className="sb-key-list">
+      <div
+        className="flex flex-col gap-[5px] text-[10px] text-[var(--leaf-dim)]"
+        role="group"
+        aria-label="Editions"
+      >
+        <span className="flex items-baseline gap-2">Editions</span>
+        <ul className="m-0 list-disc pl-[14px]">
           {SB.KEYS.map((k) => (
-            <li key={k.id} className={k.index > keyUnlocked ? 'is-locked' : ''}>
-              <b>{k.name}</b> — {k.hint}
+            <li
+              key={k.id}
+              className={k.index > keyUnlocked ? 'opacity-40' : ''}
+            >
+              <b className="tracking-[0.06em] text-[var(--leaf-dim)] uppercase">
+                {k.name}
+              </b>{' '}
+              — {k.hint}
             </li>
           ))}
         </ul>
       </div>
       {SB.availableLetters && (
-        <div className="sb-alphabet" role="group" aria-label="Letters won back">
-          <span className="sb-bags-head">Letters</span>
-          <div className="sb-alphabet-row">
+        <div
+          className="flex flex-col gap-[5px]"
+          role="group"
+          aria-label="Letters won back"
+        >
+          <span className="flex items-baseline gap-2">Letters</span>
+          <div className="flex flex-wrap gap-[3px]">
             {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((l) => (
               <span
                 key={l}
                 className={
-                  'sb-letter' + (isAvailable(l, wonLetters) ? '' : ' is-hollow')
+                  'inline-flex h-[20px] w-[20px] items-center justify-center rounded-[2px] border border-[var(--brass)] text-[11px] font-[var(--display)] text-[var(--leaf)] uppercase' +
+                  (isAvailable(l, wonLetters)
+                    ? ''
+                    : ' border-dashed !text-[var(--leaf-dim)] opacity-[0.35]')
                 }
                 title={
                   isAvailable(l, wonLetters)
@@ -68,19 +85,22 @@ export default function GearMeta({
       )}
       {SB.ITEMS && (
         <div
-          className="sb-alphabet"
+          className="flex flex-col gap-[5px]"
           role="group"
           aria-label="Quills discovered"
         >
-          <span className="sb-bags-head">
+          <span className="flex items-baseline gap-2">
             Bookmarks · {discovered.size}/{SB.ITEMS.length}
           </span>
-          <div className="sb-alphabet-row sb-quill-row">
+          <div className="sb-quill-row flex flex-wrap gap-[3px]">
             {SB.ITEMS.map((it) => (
               <span
                 key={it.id}
                 className={
-                  'sb-letter' + (discovered.has(it.id) ? '' : ' is-hollow')
+                  'inline-flex h-[20px] w-[20px] items-center justify-center rounded-[2px] border border-[var(--brass)] text-[11px] font-[var(--display)] text-[var(--leaf)] uppercase' +
+                  (discovered.has(it.id)
+                    ? ''
+                    : ' border-dashed !text-[var(--leaf-dim)] opacity-[0.35]')
                 }
                 title={
                   discovered.has(it.id)

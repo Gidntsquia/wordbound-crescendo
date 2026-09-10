@@ -16,7 +16,11 @@ export default function CharacterSelect({
   onChoose: (id: string) => void;
 }) {
   return (
-    <div className="sb-characters" role="group" aria-label="Character">
+    <div
+      className="mb-[18px] flex flex-wrap justify-center gap-1.5"
+      role="group"
+      aria-label="Character"
+    >
       {characters.map((c) => {
         const isUnlocked = unlocked.includes(c.id);
         return (
@@ -27,9 +31,11 @@ export default function CharacterSelect({
             title={isUnlocked ? c.hint : c.hint + ' — locked'}
             disabled={!isUnlocked}
             className={
-              'sb-character' +
-              (c.id === chosen ? ' is-on' : '') +
-              (!isUnlocked ? ' is-locked' : '')
+              'h-[34px] w-[34px] rounded-[2px] text-[15px] font-bold' +
+              (c.id === chosen
+                ? ' border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)]'
+                : '') +
+              (!isUnlocked ? ' disabled:opacity-[0.35]' : '')
             }
             onClick={() => isUnlocked && onChoose(c.id)}
           >

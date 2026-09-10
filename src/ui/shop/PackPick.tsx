@@ -34,7 +34,9 @@ export default function PackPick({
 }) {
   return (
     <div className="sb-pack-open">
-      <span className="sb-eyebrow">{packDef(pack.kind).name} · keep one</span>
+      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+        {packDef(pack.kind).name} · keep one
+      </span>
       <div className="sb-shop-row">
         {pack.choices.map((c, i) => {
           if (!c) return null;

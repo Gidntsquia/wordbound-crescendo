@@ -105,7 +105,9 @@ export default function EndScreen({
       </p>
       <div className="sb-end-grid">
         <Card className="bg-transparent p-0 ring-0">
-          <span className="sb-eyebrow">Felled</span>
+          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+            Felled
+          </span>
           <div className="sb-end-felled">
             <TooltipProvider>
               {felled.map((e) => (
@@ -131,11 +133,15 @@ export default function EndScreen({
           </div>
         </Card>
         <Card className="bg-transparent p-0 ring-0">
-          <span className="sb-eyebrow">Best word</span>
+          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+            Best word
+          </span>
           {run.bestPlay ? (
             <div className="sb-end-best">
               <span className="sb-plays-word">{run.bestPlay.word}</span>
-              <b className="sb-figure">{run.bestPlay.breakdown.total}</b>
+              <b className="font-[var(--figure)] tabular-nums">
+                {run.bestPlay.breakdown.total}
+              </b>
               <span className="sb-plays-how">
                 {describe(run.bestPlay.breakdown)} · against{' '}
                 {run.bestPlay.enemy}
@@ -146,7 +152,9 @@ export default function EndScreen({
           )}
         </Card>
         <Card className="bg-transparent p-0 ring-0">
-          <span className="sb-eyebrow">Items</span>
+          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+            Items
+          </span>
           <div className="sb-end-items">
             {run.items.map((id) => {
               const rarity = SB.ITEM_DEFS[id]!.rarity || 'common';
@@ -171,7 +179,7 @@ export default function EndScreen({
       <div className="sb-end-actions">
         <Button
           type="button"
-          className="sb-go"
+          className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
           variant="paperPrimary"
           onClick={onAgain}
         >
@@ -203,7 +211,7 @@ export default function EndScreen({
             <DialogFooter>
               <Button
                 type="button"
-                className="sb-go"
+                className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
                 variant="paperPrimary"
                 onClick={() => {
                   onShare();

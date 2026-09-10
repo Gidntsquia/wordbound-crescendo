@@ -26,7 +26,9 @@ export default function InkingPicker({
   const ink = inking.ink as unknown as Ink;
   return (
     <div className="sb-inking">
-      <span className="sb-eyebrow">{ink.name}</span>
+      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+        {ink.name}
+      </span>
       <span className="sb-hint">
         {ink.targets === 1
           ? 'tap one of your tiles'
@@ -52,7 +54,7 @@ export default function InkingPicker({
       <Button
         type="button"
         variant="paperPrimary"
-        className="sb-go"
+        className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
         onClick={applyInk}
         disabled={!inking.ids.length || (ink.needsVowel && !inking.vowel)}
       >

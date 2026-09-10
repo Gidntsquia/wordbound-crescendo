@@ -37,7 +37,9 @@ export default function PlaysList({
               : p.word}
           </span>
           <span className="sb-plays-how">{describe(p.breakdown)}</span>
-          <b className="sb-figure">{p.breakdown.total}</b>
+          <b className="font-[var(--figure)] tabular-nums">
+            {p.breakdown.total}
+          </b>
         </li>
       ))}
     </ol>

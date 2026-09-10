@@ -77,7 +77,7 @@ export default function Stick({
   return (
     <div className="sb-stick-wrap">
       <div className="sb-stick-head">
-        <span className="sb-eyebrow">
+        <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
           {scoring ? 'Scoring' : letters.length ? 'Your word' : ' '}
         </span>
         {scoring && (
@@ -91,14 +91,19 @@ export default function Stick({
                       : '')
                   : ' '}
               </em>
-              <b className="sb-figure sb-pts">{scoring.pts}</b>
+              <b className="sb-pts font-[var(--figure)] tabular-nums">
+                {scoring.pts}
+              </b>
               <i>×</i>
-              <b className="sb-figure sb-mult">{scoring.mult}</b>
+              <b className="sb-mult font-[var(--figure)] tabular-nums">
+                {scoring.mult}
+              </b>
               <i>=</i>
             </span>
             <b
               className={
-                'sb-figure sb-total' + (scoring.total != null ? ' is-hit' : '')
+                'sb-total font-[var(--figure)] tabular-nums' +
+                (scoring.total != null ? ' is-hit' : '')
               }
             >
               {scoring.total != null ? scoring.total : '…'}
@@ -115,12 +120,16 @@ export default function Stick({
                 {worthHow.tierName}
                 {worthHow.tierLevel > 1 ? ' ' + worthHow.tierLevel : ''}
               </em>
-              <b className="sb-figure sb-pts">{worthHow.points}</b>
+              <b className="sb-pts font-[var(--figure)] tabular-nums">
+                {worthHow.points}
+              </b>
               <i>×</i>
-              <b className="sb-figure sb-mult">{worthHow.mult}</b>
+              <b className="sb-mult font-[var(--figure)] tabular-nums">
+                {worthHow.mult}
+              </b>
               <i>=</i>
             </span>
-            <b className="sb-figure">{worth}</b>
+            <b className="font-[var(--figure)] tabular-nums">{worth}</b>
             {round.score + worth >= round.target
               ? 'meets the target'
               : letters.length === 1

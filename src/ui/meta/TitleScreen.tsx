@@ -60,7 +60,11 @@ export default function TitleScreen({
         Spell words. Beat the target before your words run out.
       </p>
       {keyUnlocked > 0 && (
-        <div className="sb-keys" role="group" aria-label="Key">
+        <div
+          className="mb-[18px] flex flex-wrap justify-center gap-1.5"
+          role="group"
+          aria-label="Key"
+        >
           {SB.KEYS.map((k) => (
             <Button
               key={k.id}
@@ -69,9 +73,11 @@ export default function TitleScreen({
               title={k.hint}
               disabled={k.index > keyUnlocked}
               className={
-                'sb-key' +
-                (k.id === keyId ? ' is-on' : '') +
-                (k.index > keyUnlocked ? ' is-locked' : '')
+                'rounded-[2px] px-[12px] py-[6px] text-[11px] font-semibold tracking-[0.08em] uppercase' +
+                (k.id === keyId
+                  ? ' border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)]'
+                  : '') +
+                (k.index > keyUnlocked ? ' disabled:opacity-[0.35]' : '')
               }
               onClick={() => {
                 setKey(k.id);
@@ -95,7 +101,7 @@ export default function TitleScreen({
       <Button
         type="button"
         variant="paperPrimary"
-        className="sb-go sb-title-play"
+        className="sb-go sb-title-play border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
         onClick={() => start(randomSeed())}
       >
         Play

@@ -24,7 +24,9 @@ export default function StartingQuills({
 }) {
   return (
     <section className="sb-items" role="group" aria-label="Starting quills">
-      <span className="sb-eyebrow">Starting quills · read at start</span>
+      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+        Starting quills · read at start
+      </span>
       {SB.ITEMS.map((d) => {
         const id = d.id;
         return (

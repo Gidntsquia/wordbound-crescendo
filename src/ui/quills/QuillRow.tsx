@@ -52,7 +52,7 @@ export default function QuillRow({
 }) {
   return (
     <div className="sb-held-row" aria-label="Quills">
-      <span className="sb-eyebrow">
+      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         Bookmarks · {run.items.length}/{run.tune.ITEM_SLOTS}
       </span>
       {run.items.map((id, i) => {

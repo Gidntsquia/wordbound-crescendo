@@ -46,7 +46,7 @@ export default function WonBanner({
         <Button
           type="button"
           variant="paperPrimary"
-          className="sb-go"
+          className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
           onClick={nextStage}
         >
           {run.movement >= run.movements.length - 1 &&
