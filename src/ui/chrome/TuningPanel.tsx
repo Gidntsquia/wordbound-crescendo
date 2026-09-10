@@ -20,6 +20,10 @@ const TUNE_GROUPS: { id: string; label: string; keys: string[] }[] = [
       'PLAYS',
       'CHANGEOUTS',
       'RACK_SIZE',
+      // READ_SLOWLY_PLAN.md A5: dev-only, filtered out of `groups` below in
+      // a production build (see FORCE_WIN_TARGET's comment in
+      // content/round.ts).
+      'FORCE_WIN_TARGET',
     ],
   },
   {
@@ -140,6 +144,7 @@ const TUNE_LABELS: Record<string, string> = {
   PREMIUM_DL: 'Premium · double letter ×',
   PREMIUM_TL: 'Premium · triple letter ×',
   PREMIUM_DW: 'Premium · double word ×',
+  FORCE_WIN_TARGET: 'Dev: force win target (0 = off)',
 };
 
 export default function TuningPanel({
@@ -151,12 +156,23 @@ export default function TuningPanel({
   tune: Record<string, number | boolean | undefined>;
   setConst: (key: string, value: number | boolean | undefined) => void;
 }) {
-  const allKeys = Object.keys(SB.ROUND_DEFAULTS);
-  const grouped = new Set(TUNE_GROUPS.flatMap((g) => g.keys));
+  const allKeys = Object.keys(SB.ROUND_DEFAULTS).filter(
+    (k) => import.meta.env.DEV || k !== 'FORCE_WIN_TARGET',
+  );
+  const groupsWithDevKeysFiltered = import.meta.env.DEV
+    ? TUNE_GROUPS
+    : TUNE_GROUPS.map((g) => ({
+        ...g,
+        keys: g.keys.filter((k) => k !== 'FORCE_WIN_TARGET'),
+      }));
+  const grouped = new Set(groupsWithDevKeysFiltered.flatMap((g) => g.keys));
   const leftover = allKeys.filter((k) => !grouped.has(k));
   const groups = leftover.length
-    ? [...TUNE_GROUPS, { id: 'other', label: 'Other', keys: leftover }]
-    : TUNE_GROUPS;
+    ? [
+        ...groupsWithDevKeysFiltered,
+        { id: 'other', label: 'Other', keys: leftover },
+      ]
+    : groupsWithDevKeysFiltered;
 
   const field = (key: string) => (
     <label

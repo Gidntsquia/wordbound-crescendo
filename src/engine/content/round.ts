@@ -74,6 +74,13 @@ export const ROUND_DEFAULTS: Tune = {
   // played, on top of whatever else the word earns.
   CHAR_LETTER_MULT: 2, // x its own letter value
   CHAR_MULT: 1, // x the whole word's mult
+  // READ_SLOWLY_PLAN.md A5: dev-only forced-win affordance. When set > 0
+  // AND import.meta.env.DEV, run.ts's targetFor returns this instead of the
+  // computed target, so any single word wins the round -- lets live
+  // verification reach shop/boss/letter-choice/end-screen states without
+  // typing real words. No-ops (and is hidden from the tuning panel) in a
+  // production build; 0 means off.
+  FORCE_WIN_TARGET: 0,
 };
 
 export interface PremiumKind {

@@ -169,6 +169,12 @@ export function targetFor(
   movement: number,
   stage: number,
 ): number {
+  // READ_SLOWLY_PLAN.md A5: dev-only forced-win override -- see
+  // FORCE_WIN_TARGET's comment in content/round.ts. Gated on import.meta.env.DEV
+  // so it is dead code (and stripped) in a production build.
+  if (import.meta.env.DEV && Number(run.tune.FORCE_WIN_TARGET) > 0) {
+    return Number(run.tune.FORCE_WIN_TARGET);
+  }
   const e = enemyAt(movement, stage);
   const base =
     Number(run.tune['MOVEMENT_BASE_' + (movement + 1)]) ||
