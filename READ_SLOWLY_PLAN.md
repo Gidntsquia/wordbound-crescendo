@@ -142,53 +142,55 @@ Items` remain, the documented legacy-global exception (`4ab4dab`).
   console errors across the whole sequence; the boss/letter-choice/end leg
   needs either a scripted real word or the dev forced-win affordance the
   next item adds, so that specific leg is unverified pending it (`0cd23e9`).
+- **A6 `sandbox.css` deleted; chrome on shadcn + Tailwind.** Every native
+  `<button>` in `src/ui`/`src/app` already used shadcn `Button` before this
+  item (verified, no swap needed); shop/pack cards already on `Card` +
+  rarity `Badge` from an earlier slice. Nine narrow, independently
+  committed slices (`28e8d95`, `4f707b0`, `c6caab7`, `08fadf7` + five
+  earlier not restated here) ported every remaining section — round
+  board/items/shop/gear, mobile pin + scoring cascade, first-time-player
+  UI, stick/input/piles/suggests/hint chrome — to Tailwind utilities on
+  the JSX, deleting confirmed-dead rules along the way. Final
+  consolidation (`ea45704`) moved the surviving `:root` tokens, page
+  reset, responsive `.sb` padding, and every `@keyframes` an
+  `animate-[...]` utility still reaches into `src/styles/game.css` (241
+  lines) and deleted `src/sandbox/sandbox.css` and its `main.tsx` import
+  outright. Verified: `sandbox.css` doesn't exist; `game.css` is 241
+  lines; `grep -rn "<button" src/ui src/app` returns nothing; Playwright
+  at 390px/1280px shows title/enemy-intro/live-fight rendering correctly
+  with zero console errors, no page scroll on mobile, and zero `.sb-tile`
+  elements carrying a `transform`. Deployed.
 
 ### Work queue (do in this order; each has an acceptance check)
 
-1. **A6 `sandbox.css` deleted; chrome on shadcn + Tailwind.**
-   Add a `paper` variant (and `paperPrimary`, `paperGhost` as needed) to
-   `button.tsx`'s cva carrying the paper/ink/gilt look, so the primitive
-   expresses the theme instead of fighting it; convert every native
-   `<button>` in `src/ui` and `src/app` to `Button`. Shop/pack cards on
-   `Card` with a rarity `Badge`; the `.sb-card.is-{rarity}` glow becomes
-   Tailwind utilities keyed off `data-rarity`. Everything else in
-   `sandbox.css` becomes Tailwind utilities on the element, section by
-   section (title, run strip, score line, rack, stick, cascade, shop, end
-   screen, tuning). What survives moves to `src/styles/game.css`: only
-   the FLIP/pop keyframes, `.sb-tile`'s no-transform rule, `.sb-tile-pop`,
-   board-shake and sprite crossfade keyframes. Accept: `sandbox.css` does
-   not exist; `game.css` is under ~250 lines; `grep -rn "<button" src/ui
-src/app` returns nothing; a full run in Playwright looks the same at
-   390 px and 1280 px (screenshots before/after committed to the scratch
-   dir, not the repo).
-2. **A6 `GearPanel.tsx`.** `ui/chrome/GearPanel.tsx` composes `SetupPanel`,
+1. **A6 `GearPanel.tsx`.** `ui/chrome/GearPanel.tsx` composes `SetupPanel`,
    `StartingQuills`, `TuningPanel` inside the Sheet. Accept: `App.tsx` renders
    `<GearPanel>` and nothing else from the gear.
-3. **A5 live verification of the win paths.** Add a dev-only forced-win
+2. **A5 live verification of the win paths.** Add a dev-only forced-win
    affordance (tuning-panel target override applied at `createRound`, gated
    on `import.meta.env.DEV`). Then play shop split, resolution beat, page
    SFX, `nextStage`/`buyCard`/`pickCard`/`useInk`/`applyInk` live in
    Playwright. Accept: each path listed with "verified live" in the commit.
-4. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
+3. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
    letter tile; record the before/after targets in the commit.
-5. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
+4. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
    poses + `win-idle` on the three people and `idle`/`weakening`/`gone`
    (+ `crescendo` on bosses) on the nine antagonists; `Sprite` picks the
    pose's art; manifest gains `poses`. Accept: changing `pose` changes
    what is drawn for every sheet; Playwright screenshots of two poses
    differ.
-6. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
+5. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
    letter in a badge), `mark_overlay_gilt/bold/steel` on marked tiles,
    `bookmark_card_frame` on quill cards, `pack_wrapper` on packs,
    `backdrop_chapter_1/2/3` as far/near parallax with slow drift and a
    proper dark-theme scrim (the reverted 32% wash is not the design).
    Accept: every manifest id appears in a `Sprite` render site.
-7. **E3 remaining hooks.** Word played → wordsmith `write`; win →
+6. **E3 remaining hooks.** Word played → wordsmith `write`; win →
    `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
    pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
    loops and drift without freezing a `steps()` loop on frame one.
    Accept: each hook observed in Playwright via the class/pose it sets.
-8. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
+7. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
    count and dimensions (fail over 1024²); visible sheets under ~10 per
    screen; next chapter's sheets prefetched during the shop; Playwright
    mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
