@@ -125,17 +125,20 @@ Items` remain, the documented legacy-global exception (`4ab4dab`).
   mobile suspend/close rebuild, and visibility/focus/gesture resume moved
   into `src/ui/hooks/useAudio.ts`; `FightScreen.tsx` has no `AudioContext`
   reference (`375ccdb`).
+- **A4 FightScreen becomes a fight screen** — the ~930-line state machine
+  (every useState/useReducer, the scoring cascade, shop/pack/ink/letter
+  callbacks) moved out of the component into `src/ui/hooks/useFight.ts`;
+  `FightScreen.tsx` is a 20-line mount point calling `useFight()` and
+  rendering `<App {...props} />`; `bun run build` clean. Verified live:
+  title → fight (tuning panel's `MOVEMENT_BASE_*` dropped to 1 for a
+  one-word win) → won → shop → continue → second fight → shop, zero
+  console errors across the whole sequence; the boss/letter-choice/end leg
+  needs either a scripted real word or the dev forced-win affordance the
+  next item adds, so that specific leg is unverified pending it (`0cd23e9`).
 
 ### Work queue (do in this order; each has an acceptance check)
 
-1. **A4 FightScreen becomes a fight screen.** Title, shop, pack, letter
-   choice and end each own their state under `ui/meta` / `ui/shop` /
-   `ui/fight`; `App.tsx` routes on `run.phase`; `useFight.ts` (or the
-   store) holds the fight's state and callbacks. Accept: every file under
-   `src/ui/` and `src/app/` is under ~200 lines, or has a one-line header
-   saying why; `bun run build` clean; a full run (fight → shop → pack →
-   boss letter → end) played in Playwright with zero console errors.
-2. **A6 `sandbox.css` deleted; chrome on shadcn + Tailwind.**
+1. **A6 `sandbox.css` deleted; chrome on shadcn + Tailwind.**
    Add a `paper` variant (and `paperPrimary`, `paperGhost` as needed) to
    `button.tsx`'s cva carrying the paper/ink/gilt look, so the primitive
    expresses the theme instead of fighting it; convert every native
@@ -151,34 +154,34 @@ Items` remain, the documented legacy-global exception (`4ab4dab`).
 src/app` returns nothing; a full run in Playwright looks the same at
    390 px and 1280 px (screenshots before/after committed to the scratch
    dir, not the repo).
-3. **A6 `GearPanel.tsx`.** `ui/chrome/GearPanel.tsx` composes `SetupPanel`,
+2. **A6 `GearPanel.tsx`.** `ui/chrome/GearPanel.tsx` composes `SetupPanel`,
    `StartingQuills`, `TuningPanel` inside the Sheet. Accept: `App.tsx` renders
    `<GearPanel>` and nothing else from the gear.
-4. **A5 live verification of the win paths.** Add a dev-only forced-win
+3. **A5 live verification of the win paths.** Add a dev-only forced-win
    affordance (tuning-panel target override applied at `createRound`, gated
    on `import.meta.env.DEV`). Then play shop split, resolution beat, page
    SFX, `nextStage`/`buyCard`/`pickCard`/`useInk`/`applyInk` live in
    Playwright. Accept: each path listed with "verified live" in the commit.
-5. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
+4. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
    letter tile; record the before/after targets in the commit.
-6. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
+5. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
    poses + `win-idle` on the three people and `idle`/`weakening`/`gone`
    (+ `crescendo` on bosses) on the nine antagonists; `Sprite` picks the
    pose's art; manifest gains `poses`. Accept: changing `pose` changes
    what is drawn for every sheet; Playwright screenshots of two poses
    differ.
-7. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
+6. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
    letter in a badge), `mark_overlay_gilt/bold/steel` on marked tiles,
    `bookmark_card_frame` on quill cards, `pack_wrapper` on packs,
    `backdrop_chapter_1/2/3` as far/near parallax with slow drift and a
    proper dark-theme scrim (the reverted 32% wash is not the design).
    Accept: every manifest id appears in a `Sprite` render site.
-8. **E3 remaining hooks.** Word played → wordsmith `write`; win →
+7. **E3 remaining hooks.** Word played → wordsmith `write`; win →
    `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
    pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
    loops and drift without freezing a `steps()` loop on frame one.
    Accept: each hook observed in Playwright via the class/pose it sets.
-9. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
+8. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
    count and dimensions (fail over 1024²); visible sheets under ~10 per
    screen; next chapter's sheets prefetched during the shop; Playwright
    mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
