@@ -262,6 +262,11 @@ export default function Rack({
                     : stageTile(t)
               }
             >
+              <Sprite
+                sheet="tile_face"
+                pose="idle"
+                className="pointer-events-none absolute inset-0 rounded-[2px] opacity-15"
+              />
               {t.mark && !round.isBarred(t) && (
                 <i
                   aria-hidden="true"

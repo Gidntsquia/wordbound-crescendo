@@ -410,7 +410,9 @@ export default function Stick({
                 round.premium && i === round.premium.pos ? (
                   <span
                     key="premium-preview"
-                    className={'sb-tile sb-premium-slot ' + TILE_PREMIUM_BASE}
+                    className={
+                      'sb-tile sb-premium-slot relative ' + TILE_PREMIUM_BASE
+                    }
                     style={{
                       ...premiumStyle(round.premium.kind),
                       color: PREMIUM_RIM_COLOR[round.premium.kind],
@@ -421,7 +423,14 @@ export default function Stick({
                       (round.premium.pos + 1)
                     }
                   >
-                    {PREMIUM_ICON[round.premium.kind]}
+                    <Sprite
+                      sheet="premium_slot_marker"
+                      pose="idle"
+                      className="pointer-events-none absolute inset-0 opacity-40"
+                    />
+                    <span className="relative">
+                      {PREMIUM_ICON[round.premium.kind]}
+                    </span>
                   </span>
                 ) : (
                   <span

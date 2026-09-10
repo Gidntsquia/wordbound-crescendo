@@ -3,6 +3,7 @@
 // fight.current/round mutation, no refresh/dispatch of its own. Ported to
 // .tsx (READ_SLOWLY_PLAN.md A1 remainder).
 import type { RunFacade } from '../../engine/state/facade';
+import Sprite from '../../art/Sprite';
 
 type RunLike = RunFacade | null | undefined;
 
@@ -82,6 +83,7 @@ export default function RunStrip({
           run.tune.INTEREST_CAP
         }
       >
+        <Sprite sheet="coin" pose="idle" className="h-[14px] w-[14px]" />
         <b className="text-lg font-[var(--figure)] text-[var(--brass-hot)]">
           {run.ink}
         </b>{' '}
