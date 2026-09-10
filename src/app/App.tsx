@@ -9,12 +9,6 @@ import { SB } from '../ui/fight/FightScreen';
 import type { Selecting, Inking, ScoringState } from '../ui/fight/FightScreen';
 import { Toaster } from '../ui/primitives/sonner';
 import { Button } from '../ui/primitives/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '../ui/primitives/sheet';
 import TitleScreen from '../ui/meta/TitleScreen';
 import HeldRow from '../ui/fight/HeldRow';
 import Shop from '../ui/shop/Shop';
@@ -24,9 +18,7 @@ import ScoreLine from '../ui/fight/ScoreLine';
 import PlaysList from '../ui/fight/PlaysList';
 import WonBanner from '../ui/fight/WonBanner';
 import LetterChoice from '../ui/fight/LetterChoice';
-import SetupPanel from '../ui/chrome/SetupPanel';
-import StartingQuills from '../ui/chrome/StartingQuills';
-import TuningPanel from '../ui/chrome/TuningPanel';
+import GearPanel from '../ui/chrome/GearPanel';
 import RunStrip from '../ui/chrome/RunStrip';
 import PlayBoard from '../ui/fight/PlayBoard';
 import { describeBreakdown } from '../ui/quills/cardCopy';
@@ -258,41 +250,30 @@ export default function App(props: AppProps) {
         </Button>
       </header>
 
-      <Sheet open={gearOpen} onOpenChange={setGearOpen}>
-        <SheetContent side="right" className="overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Setup and tuning</SheetTitle>
-          </SheetHeader>
-          <div className="mt-2.5 border border-dashed border-[var(--rule)] px-3 pt-2 pb-1">
-            <SetupPanel
-              SB={SB}
-              seed={seed}
-              setSeed={setSeed}
-              bagId={bagId}
-              setBagId={setBagId}
-              keyUnlocked={keyUnlocked}
-              discovered={discovered}
-              volume={volume}
-              setVolume={setVolume}
-              sfxOn={sfxOn}
-              setSfxOn={setSfxOn}
-              helper={helper}
-              setHelper={setHelper}
-              phase={phase}
-              start={start}
-              round={round}
-              run={run}
-            />
-            <StartingQuills
-              SB={SB}
-              itemIds={itemIds}
-              setItemIds={setItemIds}
-              run={run}
-            />
-            <TuningPanel SB={SB} tune={tune} setConst={setConst} />
-          </div>
-        </SheetContent>
-      </Sheet>
+      <GearPanel
+        open={gearOpen}
+        onOpenChange={setGearOpen}
+        seed={seed}
+        setSeed={setSeed}
+        bagId={bagId}
+        setBagId={setBagId}
+        keyUnlocked={keyUnlocked}
+        discovered={discovered}
+        volume={volume}
+        setVolume={setVolume}
+        sfxOn={sfxOn}
+        setSfxOn={setSfxOn}
+        helper={helper}
+        setHelper={setHelper}
+        phase={phase}
+        start={start}
+        round={round}
+        run={run}
+        itemIds={itemIds}
+        setItemIds={setItemIds}
+        tune={tune}
+        setConst={setConst}
+      />
 
       {phase === 'idle' && (
         <TitleScreen
