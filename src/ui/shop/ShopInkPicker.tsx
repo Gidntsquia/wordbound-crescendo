@@ -38,9 +38,22 @@ export default function ShopInkPicker({
     hint: string;
   };
   const slots = Number(run.tune.CONSUMABLE_SLOTS);
+  const MARK_GLOW: Record<string, string> = {
+    gilt: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #e0b544, 0 0 8px rgba(224,181,68,0.7)',
+    bold: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px var(--rubric), 0 0 8px rgba(212,97,74,0.7)',
+    steel:
+      '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #b8a5d8, 0 0 8px rgba(184,165,216,0.7)',
+    blank: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #6fb3e0',
+  };
+  const MARK_DOT: Record<string, string> = {
+    gilt: '#e0b544',
+    bold: 'var(--rubric)',
+    steel: '#b8a5d8',
+    blank: '#6fb3e0',
+  };
   return (
-    <div className="sb-pack-open sb-ink-decide">
-      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+    <div className="sb-pack-open sb-ink-decide border border-dashed border-[var(--brass)] bg-[var(--pit-deep)] p-[10px_12px]">
+      <span className="sb-eyebrow mb-2 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         {selecting.name}
         {selecting.from === 'shop' ? ' · ' + selecting.price + ' gold' : ''}
       </span>
@@ -65,9 +78,17 @@ export default function ShopInkPicker({
                 // Tailwind port of the base .sb-tile look (sandbox.css A6
                 // slice 5) -- see Rack.tsx for the full comment. Nothing
                 // here may set transform/translate/scale/rotate.
-                'sb-tile relative h-[52px] min-w-[46px] touch-none rounded-[2px] border border-[var(--leaf)] bg-[var(--leaf)] p-0 text-[22px] font-[var(--display)] font-semibold tracking-normal text-[var(--ink)] normal-case shadow-[0_2px_0_rgba(0,0,0,0.45)] select-none not-disabled:hover:border-[var(--brass-hot)] not-disabled:hover:bg-[var(--brass-hot)] not-disabled:hover:text-[var(--ink)] not-disabled:hover:shadow-[0_4px_0_rgba(0,0,0,0.45),0_0_0_1px_var(--brass-hot)] max-[620px]:h-[46px] max-[620px]:min-w-[40px] max-[620px]:text-[19px]' +
-                (t.mark ? ' is-mark-' + t.mark : '') +
-                (selecting.ids.includes(t.id) ? ' is-inking' : '')
+                'sb-tile relative h-[52px] min-w-[46px] touch-none rounded-[2px] border border-[var(--leaf)] bg-[var(--leaf)] p-0 text-[22px] font-[var(--display)] font-semibold tracking-normal text-[var(--ink)] normal-case shadow-[0_2px_0_rgba(0,0,0,0.45)] select-none not-disabled:hover:border-[var(--brass-hot)] not-disabled:hover:bg-[var(--brass-hot)] not-disabled:hover:text-[var(--ink)] not-disabled:hover:shadow-[0_4px_0_rgba(0,0,0,0.45),0_0_0_1px_var(--brass-hot)] max-[620px]:h-[46px] max-[620px]:min-w-[40px] max-[620px]:text-[19px]'
+              }
+              style={
+                selecting.ids.includes(t.id)
+                  ? {
+                      background: 'var(--brass-hot)',
+                      borderColor: 'var(--brass-hot)',
+                    }
+                  : t.mark
+                    ? { boxShadow: MARK_GLOW[t.mark] }
+                    : undefined
               }
               title={
                 t.mark
@@ -78,6 +99,13 @@ export default function ShopInkPicker({
               }
               onClick={() => toggleSelectTile(t.id)}
             >
+              {t.mark && !selecting.ids.includes(t.id) && (
+                <i
+                  aria-hidden="true"
+                  className="absolute top-[3px] left-1 h-1.5 w-1.5 rounded-full"
+                  style={{ background: MARK_DOT[t.mark] }}
+                />
+              )}
               {t.letter === '?' ? '␣' : t.letter}
               <sub className="absolute right-1 bottom-[3px] text-[9px] font-[var(--figure)] text-[rgba(26,23,16,0.55)]">
                 {SB.LETTER_VALUES
@@ -89,13 +117,18 @@ export default function ShopInkPicker({
         </div>
       )}
       {ink.needsVowel && selecting.ids.length > 0 && (
-        <span className="sb-vowels">
+        <span className="inline-flex gap-1">
           {SB.VOWELS.map((v) => (
             <Button
               key={v}
               type="button"
               variant="paper"
-              className={'sb-vowel' + (selecting.vowel === v ? ' is-on' : '')}
+              className={
+                'px-2.5 py-1.5 text-[15px] font-[var(--display)] tracking-normal normal-case max-[620px]:min-h-8' +
+                (selecting.vowel === v
+                  ? ' border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)]'
+                  : '')
+              }
               onClick={() => toggleSelectTile(null, v)}
             >
               {v}

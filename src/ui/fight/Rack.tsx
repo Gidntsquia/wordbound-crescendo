@@ -83,6 +83,47 @@ export default function Rack({
   const SUB_BASE =
     'absolute right-1 bottom-[3px] font-[var(--figure)] text-[9px] text-[rgba(26,23,16,0.55)]';
 
+  // Ported from sandbox.css's INKED TILES / barred-tile rules (A6 slice 6).
+  // Inline style, not Tailwind classes, because these box-shadow overrides
+  // must beat TILE_PLAIN's own box-shadow utility deterministically --
+  // stacking two `shadow-[...]` classes on one element leaves the winner to
+  // Tailwind's build-order, not this file's priority. Priority mirrors the
+  // old cascade (barred was declared last in sandbox.css, so it wins over a
+  // mark; inking wins over a mark too since it was declared after marks).
+  const MARK_GLOW: Record<string, string> = {
+    gilt: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #e0b544, 0 0 8px rgba(224,181,68,0.7)',
+    bold: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px var(--rubric), 0 0 8px rgba(212,97,74,0.7)',
+    steel:
+      '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #b8a5d8, 0 0 8px rgba(184,165,216,0.7)',
+    blank: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #6fb3e0',
+  };
+  const MARK_DOT: Record<string, string> = {
+    gilt: '#e0b544',
+    bold: 'var(--rubric)',
+    steel: '#b8a5d8',
+    blank: '#6fb3e0',
+  };
+  function tileOverrideStyle(
+    mark: string | null | undefined,
+    inking: boolean,
+    barred: boolean,
+  ): React.CSSProperties | undefined {
+    if (barred)
+      return {
+        background: 'var(--rule)',
+        borderColor: 'var(--rule)',
+        color: 'var(--leaf-dim)',
+        boxShadow: 'none',
+      };
+    if (inking)
+      return {
+        background: 'var(--brass-hot)',
+        borderColor: 'var(--brass-hot)',
+      };
+    if (mark) return { boxShadow: MARK_GLOW[mark] };
+    return undefined;
+  }
+
   // The character slot squeezes the case down to fit an 8th tile on one
   // phone row (sandbox.css used to key this off .sb-rack-row:has(.sb-
   // character-slot); doing it from the characterTile prop instead of :has
@@ -166,15 +207,17 @@ export default function Rack({
               type="button"
               disabled={!live}
               variant="paper"
+              style={tileOverrideStyle(
+                t.mark,
+                !!(inking && inking.ids.includes(t.id)),
+                round.isBarred(t),
+              )}
               className={
                 'sb-tile ' +
                 TILE_PLAIN +
                 ' ' +
                 tileSize +
                 (hollow ? ' is-dragging opacity-25' : '') +
-                (t.mark ? ' is-mark-' + t.mark : '') +
-                (inking && inking.ids.includes(t.id) ? ' is-inking' : '') +
-                (round.isBarred(t) ? ' is-barred' : '') +
                 (scoring && scoring.litTile === t.id ? ' is-lit' : '')
               }
               data-flip-tile-id={t.id}
@@ -200,8 +243,29 @@ export default function Rack({
                     : stageTile(t)
               }
             >
+              {t.mark && !round.isBarred(t) && (
+                <i
+                  aria-hidden="true"
+                  className="absolute top-[3px] left-1 h-1.5 w-1.5 rounded-full"
+                  style={{ background: MARK_DOT[t.mark] }}
+                />
+              )}
+              {round.isBarred(t) && (
+                <i
+                  aria-hidden="true"
+                  className="absolute top-1/2 right-1.5 left-1.5 h-px"
+                  style={{ background: 'var(--rubric)' }}
+                />
+              )}
               {t.letter === '?' ? '␣' : t.letter}
-              <sub className={SUB_BASE}>{letterValues[t.letter] || 0}</sub>
+              <sub
+                className={SUB_BASE}
+                style={
+                  round.isBarred(t) ? { color: 'var(--leaf-dim)' } : undefined
+                }
+              >
+                {letterValues[t.letter] || 0}
+              </sub>
             </Button>
           ),
         )}

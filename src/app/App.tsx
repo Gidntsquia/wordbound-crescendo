@@ -237,11 +237,11 @@ export default function App(props: AppProps) {
       onPointerDownCapture={scoring ? skipCascade : undefined}
     >
       <Toaster position="top-center" />
-      <header className="sb-head">
+      <header className="absolute top-7 right-6 h-0">
         <Button
           type="button"
           variant="paperGhost"
-          className="sb-gear"
+          className="absolute top-0 right-0 inline-flex h-11 w-11 items-center justify-center p-0 text-xl"
           aria-label="Setup and tuning"
           title="Setup and tuning"
           onClick={() => setGearOpen(true)}
@@ -251,11 +251,11 @@ export default function App(props: AppProps) {
       </header>
 
       <Sheet open={gearOpen} onOpenChange={setGearOpen}>
-        <SheetContent side="right" className="sb-gear-sheet">
+        <SheetContent side="right" className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Setup and tuning</SheetTitle>
           </SheetHeader>
-          <div className="sb-gear-panel">
+          <div className="mt-2.5 border border-dashed border-[var(--rule)] px-3 pt-2 pb-1">
             <SetupPanel
               SB={SB}
               seed={seed}
@@ -308,7 +308,7 @@ export default function App(props: AppProps) {
       {round && (
         <section
           className={
-            'sb-board' +
+            'sb-board mb-1 pb-[18px]' +
             (scoring && scoring.hit ? ' is-hit-' + scoring.hit : '')
           }
         >

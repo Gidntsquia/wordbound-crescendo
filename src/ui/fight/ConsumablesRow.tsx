@@ -35,32 +35,48 @@ export default function ConsumablesRow({
 }) {
   const tune = run.tune;
   return (
-    <div className="sb-held-row" aria-label="Consumables">
-      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+    <div
+      className="flex flex-wrap items-center gap-2 max-[620px]:gap-1.5"
+      aria-label="Consumables"
+    >
+      <span className="sb-eyebrow min-w-24 text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase max-[620px]:w-full max-[620px]:min-w-0">
         Consumables · {run.consumables.length}/{tune.CONSUMABLE_SLOTS}
       </span>
       {run.consumables.map((c, i) => {
         const tipId = 'cons:' + c.kind + ':' + i;
         return (
-          <span key={i} className={'sb-card sb-card-' + c.kind}>
+          <span
+            key={i}
+            className={
+              'relative inline-flex max-w-[200px] min-w-32 flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-[11px] font-[var(--ui)] tracking-[0.04em] text-[var(--leaf)] max-[620px]:min-w-[76px] max-[620px]:gap-0.5 max-[620px]:px-2 max-[620px]:py-1.5' +
+              (c.kind === 'etude' ? ' border-dashed' : '')
+            }
+          >
             <Button
               type="button"
               variant="paperGhost"
-              className="sb-card-name-btn"
+              className="h-auto min-h-0 justify-start border-0 bg-none p-0 text-left"
               onClick={() => setTip((t) => (t === tipId ? null : tipId))}
             >
-              <b>{consumableName(SB, c)}</b>
+              <b className="block pr-[26px] text-base leading-[1.15] font-[var(--display)] font-semibold tracking-normal">
+                {consumableName(SB, c)}
+              </b>
             </Button>
             {tip === tipId && (
-              <span className="sb-card-tip" role="tooltip">
-                <em>{consumableBlurb(SB, c, run)}</em>
+              <span
+                className="absolute bottom-[calc(100%+6px)] left-1/2 z-5 flex w-max max-w-[180px] -translate-x-1/2 flex-col gap-0.5 rounded-[3px] border border-[var(--brass)] bg-[var(--pit-deep)] px-[9px] py-[7px] text-left text-[11px] whitespace-normal shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
+                role="tooltip"
+              >
+                <em className="[line-height:1.3] font-normal text-[var(--leaf-dim)] not-italic">
+                  {consumableBlurb(SB, c, run)}
+                </em>
               </span>
             )}
             {(live || inShop) && c.kind === 'etude' && (
               <Button
                 type="button"
                 variant="paper"
-                className="sb-card-use"
+                className="mt-1 h-auto border-[var(--brass-hot)] bg-[var(--brass-hot)] px-2 py-[3px] text-[9px] tracking-[0.12em] text-[var(--ink)] max-[620px]:min-h-8"
                 onClick={() =>
                   act(
                     'Played the ' +
@@ -83,7 +99,7 @@ export default function ConsumablesRow({
                 <Button
                   type="button"
                   variant="paper"
-                  className="sb-card-use"
+                  className="mt-1 h-auto border-[var(--brass-hot)] bg-[var(--brass-hot)] px-2 py-[3px] text-[9px] tracking-[0.12em] text-[var(--ink)] max-[620px]:min-h-8"
                   onClick={() => onInk(i)}
                 >
                   use
@@ -93,7 +109,7 @@ export default function ConsumablesRow({
               <Button
                 type="button"
                 variant="paper"
-                className="sb-card-sell"
+                className="mt-1 h-auto px-2 py-[3px] text-[9px] tracking-[0.12em] max-[620px]:min-h-8"
                 title="Sell"
                 onClick={() =>
                   act(
@@ -115,7 +131,7 @@ export default function ConsumablesRow({
         );
       })}
       {run.consumables.length === 0 && (
-        <span className="sb-hint">none held</span>
+        <span className="sb-hint m-0">none held</span>
       )}
     </div>
   );

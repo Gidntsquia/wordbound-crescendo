@@ -77,11 +77,18 @@ export default function EndScreen({
   return (
     <div
       className={
-        'sb-end ' +
-        (won ? 'sb-win text-[var(--leaf)]' : 'sb-lose text-[var(--brass-hot)]')
+        'mt-4 border bg-[var(--pit-deep)] p-[18px_20px_20px] max-[620px]:p-3.5 ' +
+        (won
+          ? 'border-[var(--brass)] text-[var(--leaf)]'
+          : 'border-[var(--rubric-dim)] text-[var(--brass-hot)]')
       }
     >
-      <h2 className="sb-end-title">
+      <h2
+        className={
+          'm-0 text-[clamp(26px,4vw,38px)] leading-[1.1] font-[var(--display)] font-medium ' +
+          (won ? 'text-[var(--brass-hot)]' : 'text-[var(--leaf-dim)]')
+        }
+      >
         {won
           ? copy.LAST_PAGE_TURNS
           : copy.lostTheRoom(run.enemy?.name ?? 'unknown')}
@@ -94,7 +101,7 @@ export default function EndScreen({
             {SB.situationFor(run.round.situation)!.failure}
           </p>
         )}
-      <p className="sb-end-sub">
+      <p className="my-1 mb-3.5 text-[var(--leaf-dim)]">
         {won
           ? 'All ' +
             run.movements.length +
@@ -106,21 +113,31 @@ export default function EndScreen({
         {copy.resolvedSummary(run.resolved ? run.resolved.length : 0)}
         {' · '}
         {run.wordsPlayed} word{run.wordsPlayed === 1 ? '' : 's'} played ·{' '}
-        <b>{run.ink}</b> ink
+        <b className="font-[var(--figure)] text-[var(--brass-hot)]">
+          {run.ink}
+        </b>{' '}
+        ink
       </p>
-      <div className="sb-end-grid">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-x-6 gap-y-3.5">
         <Card className="bg-transparent p-0 ring-0">
-          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+          <span className="sb-eyebrow mb-1.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
             Felled
           </span>
-          <div className="sb-end-felled">
+          <div className="flex flex-wrap items-center gap-[5px]">
             <TooltipProvider>
               {felled.map((e) => (
                 <Tooltip key={e.id}>
                   <TooltipTrigger
                     render={
                       <span
-                        className={'sb-pip sb-pip-' + e.kind + ' is-done'}
+                        className={
+                          'inline-flex items-center justify-center rounded-full border border-[var(--leaf)] bg-[var(--leaf)] text-[15px] leading-none font-[var(--figure)] text-[var(--ink)]' +
+                          (e.kind === 'boss'
+                            ? ' h-[30px] w-[30px] border-[var(--brass)]'
+                            : e.kind === 'big'
+                              ? ' h-[26px] w-[26px]'
+                              : ' h-[22px] w-[22px]')
+                        }
                       />
                     }
                   >
@@ -138,16 +155,18 @@ export default function EndScreen({
           </div>
         </Card>
         <Card className="bg-transparent p-0 ring-0">
-          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+          <span className="sb-eyebrow mb-1.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
             Best word
           </span>
           {run.bestPlay ? (
-            <div className="sb-end-best">
-              <span className="sb-plays-word">{run.bestPlay.word}</span>
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <span className="text-xl font-[var(--display)] tracking-[0.04em]">
+                {run.bestPlay.word}
+              </span>
               <b className="font-[var(--figure)] tabular-nums">
                 {run.bestPlay.breakdown.total}
               </b>
-              <span className="sb-plays-how">
+              <span className="basis-full text-[11px] font-[var(--figure)] text-[var(--leaf-dim)]">
                 {describe(run.bestPlay.breakdown)} · against{' '}
                 {run.bestPlay.enemy}
               </span>
@@ -157,10 +176,10 @@ export default function EndScreen({
           )}
         </Card>
         <Card className="bg-transparent p-0 ring-0">
-          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+          <span className="sb-eyebrow mb-1.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
             Items
           </span>
-          <div className="sb-end-items">
+          <div className="flex flex-wrap gap-1.5">
             {run.items.map((id) => {
               const rarity = SB.ITEM_DEFS[id]!.rarity || 'common';
               return (
@@ -181,10 +200,10 @@ export default function EndScreen({
           </div>
         </Card>
       </div>
-      <div className="sb-end-actions">
+      <div className="mt-4 flex flex-wrap items-center gap-x-[18px] gap-y-2.5">
         <Button
           type="button"
-          className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
+          className="sb-go h-auto border-[var(--leaf)] bg-[var(--leaf)] px-[18px] py-3 text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
           variant="paperPrimary"
           onClick={onAgain}
         >
@@ -228,9 +247,17 @@ export default function EndScreen({
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <span className="sb-seed-line">
-          seed <code>{seed}</code>
-          <Button type="button" variant="paperGhost" onClick={onCopy}>
+        <span className="inline-flex items-center gap-1.5 text-xs text-[var(--leaf-dim)]">
+          seed{' '}
+          <code className="font-[var(--figure)] text-[var(--leaf)]">
+            {seed}
+          </code>
+          <Button
+            type="button"
+            variant="paperGhost"
+            className="h-auto px-2 py-[3px] text-[9px]"
+            onClick={onCopy}
+          >
             copy
           </Button>
         </span>

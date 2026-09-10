@@ -172,7 +172,7 @@ export default function TuningPanel({
   );
 
   return (
-    <div className="sb-gear-panel sb-gear-panel-tune">
+    <div className="mt-[18px] border border-dashed border-[var(--rule)] px-3 pt-2 pb-1">
       {/* Tailwind port of .sb-tune/.sb-tune-grid/.sb-tune-note (sandbox.css
           A6 slice 5). The "sb-tune" class name stays on <details> as a
           plain marker: .sb-tune label (setup-strip section, out of this

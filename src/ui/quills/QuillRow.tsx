@@ -51,8 +51,11 @@ export default function QuillRow({
   setTip: (updater: (t: string | null) => string | null) => void;
 }) {
   return (
-    <div className="sb-held-row" aria-label="Quills">
-      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+    <div
+      className="flex flex-wrap items-center gap-2 max-[620px]:gap-1.5"
+      aria-label="Quills"
+    >
+      <span className="sb-eyebrow min-w-24 text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase max-[620px]:w-full max-[620px]:min-w-0">
         Bookmarks · {run.items.length}/{run.tune.ITEM_SLOTS}
       </span>
       {run.items.map((id, i) => {
@@ -82,7 +85,9 @@ export default function QuillRow({
           />
         );
       })}
-      {run.items.length === 0 && <span className="sb-hint">nothing yet</span>}
+      {run.items.length === 0 && (
+        <span className="sb-hint m-0">nothing yet</span>
+      )}
     </div>
   );
 }

@@ -25,7 +25,7 @@ export default function InkingPicker({
 }) {
   const ink = inking.ink as unknown as Ink;
   return (
-    <div className="sb-inking">
+    <div className="my-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 border border-dashed border-[var(--brass)] bg-[var(--pit-deep)] px-3 py-2">
       <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         {ink.name}
       </span>
@@ -37,13 +37,18 @@ export default function InkingPicker({
         {ink.hint}
       </span>
       {ink.needsVowel && (
-        <span className="sb-vowels">
+        <span className="inline-flex gap-1">
           {vowels.map((v) => (
             <Button
               key={v}
               type="button"
               variant="paper"
-              className={'sb-vowel' + (inking.vowel === v ? ' is-on' : '')}
+              className={
+                'px-2.5 py-1.5 text-[15px] font-[var(--display)] tracking-normal normal-case max-[620px]:min-h-8' +
+                (inking.vowel === v
+                  ? ' border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)]'
+                  : '')
+              }
               onClick={() => setInking((k) => (k ? { ...k, vowel: v } : k))}
             >
               {v}

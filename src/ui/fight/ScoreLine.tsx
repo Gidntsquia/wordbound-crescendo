@@ -73,10 +73,11 @@ export default function ScoreLine({
           className="sb-meter-progress"
           aria-label="Progress to target"
         >
-          <ProgressTrack className="sb-meter">
+          <ProgressTrack className="relative h-3.5 overflow-hidden rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)]">
             <ProgressIndicator
               className={
-                'sb-meter-fill' + (scoreShown >= round.target ? ' is-met' : '')
+                'h-full bg-[var(--leaf)] transition-[width] duration-300 ease-out' +
+                (scoreShown >= round.target ? ' bg-[var(--brass-hot)]' : '')
               }
               style={{ width: pct + '%' }}
             />
@@ -86,9 +87,12 @@ export default function ScoreLine({
           <small>target</small>
           {round.target}
         </span>
-        <span className="sb-counters">
+        <span className="flex flex-wrap gap-x-[22px] gap-y-2 text-xs tracking-[0.04em] text-[var(--leaf-dim)]">
           <span>
-            <b>{round.playsLeft}</b> word{round.playsLeft === 1 ? '' : 's'}
+            <b className="mr-1 text-[15px] font-[var(--figure)] text-[var(--leaf)]">
+              {round.playsLeft}
+            </b>{' '}
+            word{round.playsLeft === 1 ? '' : 's'}
           </span>
           <span
             className={
@@ -97,7 +101,10 @@ export default function ScoreLine({
                 : 'sb-callout-anchor'
             }
           >
-            <b>{round.changeoutsLeft}</b> swap
+            <b className="mr-1 text-[15px] font-[var(--figure)] text-[var(--leaf)]">
+              {round.changeoutsLeft}
+            </b>{' '}
+            swap
             {round.changeoutsLeft === 1 ? '' : 's'}
           </span>
         </span>
@@ -128,7 +135,7 @@ export default function ScoreLine({
       {round.rule && (
         <div
           className={
-            'sb-rule' +
+            'my-2 border-l-[3px] border-[var(--rubric)] bg-[var(--pit-deep)] px-3 py-2' +
             (scoring && scoring.litItem === round.rule.id ? ' is-flash' : '') +
             (!seen.has('boss') ? ' is-pulse' : '')
           }
@@ -144,11 +151,13 @@ export default function ScoreLine({
                   {x.text}
                 </i>
               ))}
-          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+          <span className="sb-eyebrow mb-0.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--rubric)] uppercase">
             Reading condition · {round.rule.name}
           </span>
           <b className="sb-rule-plain">{round.rule.plain}</b>
-          <q>{round.rule.text}</q>
+          <q className="text-[15px] font-[var(--display)] italic [quotes:none]">
+            {round.rule.text}
+          </q>
         </div>
       )}
     </>

@@ -60,7 +60,7 @@ export default function SetupPanel({
   run: RunLike | null;
 }) {
   return (
-    <section className="sb-setup mb-[22px] flex flex-wrap items-end gap-[18px] border-b border-[var(--rule)] pt-4 pb-5">
+    <section className="sb-setup m-0 flex flex-wrap items-end gap-[18px] border-0 py-2">
       <label className="flex flex-col gap-[5px] text-[10px] font-semibold tracking-[0.16em] text-[var(--leaf-dim)] uppercase">
         Seed
         <input
@@ -112,7 +112,7 @@ export default function SetupPanel({
         />
       </label>
       <Toggle
-        className="sb-toggle"
+        className="flex-row items-center gap-[7px] rounded-[3px] border border-[var(--leaf)] bg-transparent px-2.5 py-1 text-inherit hover:bg-transparent data-[state=on]:border-[var(--brass)] data-[state=on]:bg-[var(--brass)] data-[state=on]:text-[var(--ink)]"
         title="Tile, swap, shop and ink sounds"
         pressed={sfxOn}
         onPressedChange={setSfxOn}
@@ -120,7 +120,7 @@ export default function SetupPanel({
         SFX
       </Toggle>
       <Toggle
-        className="sb-toggle"
+        className="flex-row items-center gap-[7px] rounded-[3px] border border-[var(--leaf)] bg-transparent px-2.5 py-1 text-inherit hover:bg-transparent data-[state=on]:border-[var(--brass)] data-[state=on]:bg-[var(--brass)] data-[state=on]:text-[var(--ink)]"
         title="Word suggestions, Best play, and Play settling for the best word in the letters"
         pressed={helper}
         onPressedChange={setHelper}

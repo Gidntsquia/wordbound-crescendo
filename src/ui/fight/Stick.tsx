@@ -56,13 +56,63 @@ const TILE_MISSING =
   TILE_STRUCT +
   ' text-[var(--rubric)] bg-transparent border border-dashed border-[var(--rubric-dim)] shadow-none' +
   ' not-disabled:hover:text-[var(--rubric)] not-disabled:hover:bg-[rgba(212,97,74,0.14)] not-disabled:hover:border-[var(--rubric)] not-disabled:hover:shadow-none';
-// The premium-slot preview badges (past the end of the stick) are still
-// .sb-tile for sizing, but their colour/border-style come from the
-// out-of-scope is-premium-*/is-slot-empty rules still in sandbox.css --
-// this only replaces the base sizing/border those rules used to inherit.
-const TILE_PREMIUM_BASE = TILE_STRUCT + ' border border-[var(--leaf)]';
+// The premium-slot preview badges (past the end of the stick): base look
+// (sandbox.css A6 slice 6 port of .sb-premium-slot) plus a per-kind rim
+// (is-premium-dl/tl/dw) or the empty-slot dashed rule (is-slot-empty). The
+// attr(data-premium-label) ::before badge those rules used to draw was dead
+// (no caller ever set that attribute -- the icon is passed as children
+// instead), so it isn't reproduced here.
+const TILE_PREMIUM_BASE =
+  TILE_STRUCT +
+  ' inline-flex items-center justify-center border border-dashed border-[var(--rule)] bg-transparent font-[var(--figure)] text-[11px] opacity-55';
 const SUB_ON_SET =
   'absolute right-1 bottom-[3px] font-[var(--figure)] text-[9px] text-[rgba(26,23,16,0.6)]';
+
+// Ported from sandbox.css's INKED TILES / barred / premium-rim rules (A6
+// slice 6) -- inline style, not stacked Tailwind shadow classes, so the
+// override reliably beats TILE_SET's own box-shadow utility. Priority
+// mirrors the old file order (barred was declared last, so it wins).
+const MARK_GLOW: Record<string, string> = {
+  gilt: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #e0b544, 0 0 8px rgba(224,181,68,0.7)',
+  bold: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px var(--rubric), 0 0 8px rgba(212,97,74,0.7)',
+  steel:
+    '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #b8a5d8, 0 0 8px rgba(184,165,216,0.7)',
+  blank: '0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px #6fb3e0',
+};
+const MARK_DOT: Record<string, string> = {
+  gilt: '#e0b544',
+  bold: 'var(--rubric)',
+  steel: '#b8a5d8',
+  blank: '#6fb3e0',
+};
+const PREMIUM_RIM_COLOR: Record<string, string> = {
+  dl: '#6fd0c8',
+  tl: '#e08a4a',
+  dw: '#d468c9',
+};
+function premiumStyle(kind: string): React.CSSProperties {
+  const c = PREMIUM_RIM_COLOR[kind]!;
+  return {
+    borderStyle: 'dashed',
+    boxShadow: `0 2px 0 rgba(0,0,0,0.45), 0 0 0 2px ${c}`,
+  };
+}
+function setTileOverrideStyle(
+  mark: string | null | undefined,
+  barred: boolean,
+  premiumKind: string | undefined,
+): React.CSSProperties | undefined {
+  if (barred)
+    return {
+      background: 'var(--rule)',
+      borderColor: 'var(--rule)',
+      color: 'var(--leaf-dim)',
+      boxShadow: 'none',
+    };
+  if (premiumKind) return premiumStyle(premiumKind);
+  if (mark) return { boxShadow: MARK_GLOW[mark] };
+  return undefined;
+}
 
 export default function Stick({
   live,
@@ -192,17 +242,27 @@ export default function Stick({
                 variant="paper"
                 disabled
                 data-flip-tile-id={t.id}
+                style={setTileOverrideStyle(
+                  t.mark,
+                  false,
+                  round.premium && round.premium.pos === i
+                    ? round.premium.kind
+                    : undefined,
+                )}
                 className={
                   'sb-tile is-set ' +
                   TILE_SET +
-                  (t.mark ? ' is-mark-' + t.mark : '') +
                   (scoring.litTile === t.id ? ' is-lit' : '') +
-                  (round.premium && round.premium.pos === i
-                    ? ' is-premium-' + round.premium.kind
-                    : '') +
                   (scoring.litSlot === t.id ? ' is-lit' : '')
                 }
               >
+                {t.mark && (
+                  <i
+                    aria-hidden="true"
+                    className="absolute top-[3px] left-1 h-1.5 w-1.5 rounded-full"
+                    style={{ background: MARK_DOT[t.mark] }}
+                  />
+                )}
                 {t.letter === '?' ? '␣' : t.letter}
                 <sub className={SUB_ON_SET}>{letterValues[t.letter] || 0}</sub>
               </Button>
@@ -225,13 +285,15 @@ export default function Stick({
                 type="button"
                 variant="paper"
                 disabled={!live}
+                style={setTileOverrideStyle(
+                  t.mark,
+                  round.isBarred(t),
+                  premiumHere ? round.premium!.kind : undefined,
+                )}
                 className={
                   'sb-tile is-set ' +
                   TILE_SET +
-                  (hollow ? ' is-dragging opacity-25' : '') +
-                  (t.mark ? ' is-mark-' + t.mark : '') +
-                  (round.isBarred(t) ? ' is-barred' : '') +
-                  (premiumHere ? ' is-premium-' + round.premium!.kind : '')
+                  (hollow ? ' is-dragging opacity-25' : '')
                 }
                 data-flip-tile-id={t.id}
                 title={
@@ -242,8 +304,29 @@ export default function Stick({
                 {...(drag ? drag.bind('stick', i, t.id) : {})}
                 onClick={() => unstageAt(i)}
               >
+                {t.mark && !round.isBarred(t) && (
+                  <i
+                    aria-hidden="true"
+                    className="absolute top-[3px] left-1 h-1.5 w-1.5 rounded-full"
+                    style={{ background: MARK_DOT[t.mark] }}
+                  />
+                )}
+                {round.isBarred(t) && (
+                  <i
+                    aria-hidden="true"
+                    className="absolute top-1/2 right-1.5 left-1.5 h-px"
+                    style={{ background: 'var(--rubric)' }}
+                  />
+                )}
                 {t.letter === '?' ? (ch === '?' ? '␣' : ch) : t.letter}
-                <sub className={SUB_ON_SET}>{letterValues[t.letter] || 0}</sub>
+                <sub
+                  className={SUB_ON_SET}
+                  style={
+                    round.isBarred(t) ? { color: 'var(--leaf-dim)' } : undefined
+                  }
+                >
+                  {letterValues[t.letter] || 0}
+                </sub>
               </Button>
             ) : (
               <Button
@@ -276,12 +359,11 @@ export default function Stick({
                 round.premium && i === round.premium.pos ? (
                   <span
                     key="premium-preview"
-                    className={
-                      'sb-tile sb-premium-slot ' +
-                      TILE_PREMIUM_BASE +
-                      ' is-premium-' +
-                      round.premium.kind
-                    }
+                    className={'sb-tile sb-premium-slot ' + TILE_PREMIUM_BASE}
+                    style={{
+                      ...premiumStyle(round.premium.kind),
+                      color: PREMIUM_RIM_COLOR[round.premium.kind],
+                    }}
                     title={
                       PREMIUM_HINT[round.premium.kind] +
                       ' — lands on stick position ' +
@@ -293,11 +375,7 @@ export default function Stick({
                 ) : (
                   <span
                     key={'premium-gap' + i}
-                    className={
-                      'sb-tile sb-premium-slot ' +
-                      TILE_PREMIUM_BASE +
-                      ' is-slot-empty'
-                    }
+                    className={'sb-tile sb-premium-slot ' + TILE_PREMIUM_BASE}
                     title={'Stick position ' + (i + 1)}
                   />
                 ),

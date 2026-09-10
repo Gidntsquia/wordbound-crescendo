@@ -234,7 +234,11 @@ function flyScore(total: number) {
   const a = from.getBoundingClientRect();
   const b = to.getBoundingClientRect();
   const el = document.createElement('div');
-  el.className = 'sb-score-fly';
+  // Tailwind port of .sb-score-fly (sandbox.css A6 slice 6) -- a plain DOM
+  // node outside React, so the utility classes are just a literal string;
+  // Tailwind's content scan still picks them up from this file.
+  el.className =
+    'fixed z-[55] pointer-events-none [transform:translate(-50%,-50%)_scale(1.15)] font-[var(--figure)] text-[30px] font-bold text-[var(--brass-hot)] opacity-100 [text-shadow:0_2px_8px_rgba(0,0,0,0.7)] [transition:transform_640ms_cubic-bezier(0.2,0.8,0.2,1),opacity_640ms_ease-in]';
   el.textContent = '+' + total;
   el.style.left = a.left + a.width / 2 + 'px';
   el.style.top = a.top + a.height / 2 + 'px';

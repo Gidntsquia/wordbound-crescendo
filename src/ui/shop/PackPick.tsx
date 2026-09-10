@@ -33,11 +33,11 @@ export default function PackPick({
   act: ActFn;
 }) {
   return (
-    <div className="sb-pack-open">
-      <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+    <div className="border border-dashed border-[var(--brass)] bg-[var(--pit-deep)] p-[10px_12px]">
+      <span className="sb-eyebrow mb-2 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         {packDef(pack.kind).name} · keep one
       </span>
-      <div className="sb-shop-row">
+      <div className="flex flex-wrap items-stretch gap-2.5">
         {pack.choices.map((c, i) => {
           if (!c) return null;
           return (
@@ -45,7 +45,7 @@ export default function PackPick({
               key={i}
               type="button"
               variant="paper"
-              className={'sb-card sb-card-pick sb-card-' + c.kind}
+              className="relative inline-flex max-w-[200px] min-w-32 flex-col items-center justify-center gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case max-[620px]:max-w-full max-[620px]:min-w-[120px]"
               title={
                 c.kind === 'tile'
                   ? 'A ' + c.tile.letter + ' for your rack'
@@ -58,9 +58,10 @@ export default function PackPick({
                   className={
                     // Tailwind port of .sb-tile + .sb-tile.is-set (sandbox.css
                     // A6 slice 5) -- see Rack.tsx for the full comment. No
-                    // hover classes: this tile is pointer-events-none
-                    // (.sb-tile-static, out of scope) and static.
-                    'sb-tile is-set sb-tile-static relative h-[52px] min-w-[46px] touch-none rounded-[2px] border border-[var(--brass-hot)] bg-[var(--brass-hot)] p-0 text-[22px] font-[var(--display)] font-semibold tracking-normal text-[var(--ink)] normal-case shadow-[0_3px_0_rgba(0,0,0,0.5)] select-none max-[620px]:h-[46px] max-[620px]:min-w-[40px] max-[620px]:text-[19px]'
+                    // hover classes: this tile is static, and pointer-events
+                    // are off (former .sb-tile-static, A6 slice 6 -- unused
+                    // elsewhere, so it isn't reproduced as a named class).
+                    'sb-tile is-set pointer-events-none relative h-[52px] min-w-[46px] touch-none rounded-[2px] border border-[var(--brass-hot)] bg-[var(--brass-hot)] p-0 text-[22px] font-[var(--display)] font-semibold tracking-normal text-[var(--ink)] normal-case shadow-[0_3px_0_rgba(0,0,0,0.5)] select-none max-[620px]:h-[46px] max-[620px]:min-w-[40px] max-[620px]:text-[19px]'
                   }
                 >
                   {c.tile.letter}
@@ -72,8 +73,12 @@ export default function PackPick({
                 </span>
               ) : (
                 <>
-                  <b>{cardName(SB, c)}</b>
-                  <em>{cardBlurb(SB, c, run)}</em>
+                  <b className="pr-[26px] text-base leading-[1.15] font-[var(--display)] font-semibold tracking-normal">
+                    {cardName(SB, c)}
+                  </b>
+                  <em className="font-normal text-[var(--leaf-dim)] not-italic">
+                    {cardBlurb(SB, c, run)}
+                  </em>
                 </>
               )}
             </Button>
@@ -82,7 +87,7 @@ export default function PackPick({
         <Button
           type="button"
           variant="paperGhost"
-          className="sb-offer-skip"
+          className="self-center px-1 py-1.5 text-[11px] tracking-[0.06em] text-[var(--leaf-dim)] underline decoration-solid underline-offset-[3px] hover:text-[var(--brass-hot)]"
           onClick={() =>
             act(
               'Kept nothing.',

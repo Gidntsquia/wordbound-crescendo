@@ -16,7 +16,7 @@ export default function LetterChoice({
       <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         The boss falls — choose a letter to win back
       </span>
-      <div className="sb-letter-row">
+      <div className="my-2.5 flex gap-2.5">
         {options.map((l) => (
           <Button
             key={l}
@@ -25,7 +25,7 @@ export default function LetterChoice({
             className={
               // Tailwind port of the base .sb-tile look (sandbox.css A6
               // slice 5) -- see Rack.tsx for the full comment.
-              'sb-tile sb-letter-pick relative h-[52px] min-w-[46px] touch-none rounded-[2px] border border-[var(--leaf)] bg-[var(--leaf)] p-0 text-[22px] font-[var(--display)] font-semibold tracking-normal text-[var(--ink)] normal-case shadow-[0_2px_0_rgba(0,0,0,0.45)] select-none not-disabled:hover:border-[var(--brass-hot)] not-disabled:hover:bg-[var(--brass-hot)] not-disabled:hover:text-[var(--ink)] not-disabled:hover:shadow-[0_4px_0_rgba(0,0,0,0.45),0_0_0_1px_var(--brass-hot)] max-[620px]:h-[46px] max-[620px]:min-w-[40px] max-[620px]:text-[19px]'
+              'sb-tile relative h-[52px] min-w-[46px] touch-none rounded-[2px] border border-dashed border-[var(--leaf)] bg-[var(--leaf)] p-0 text-[22px] font-[var(--display)] font-semibold tracking-normal text-[var(--ink)] normal-case shadow-[0_2px_0_rgba(0,0,0,0.45)] select-none not-disabled:hover:border-[var(--brass-hot)] not-disabled:hover:bg-[var(--brass-hot)] not-disabled:hover:text-[var(--ink)] not-disabled:hover:shadow-[0_4px_0_rgba(0,0,0,0.45),0_0_0_1px_var(--brass-hot)] max-[620px]:h-[46px] max-[620px]:min-w-[40px] max-[620px]:text-[19px]'
             }
             onClick={() => pickLetter(l)}
           >

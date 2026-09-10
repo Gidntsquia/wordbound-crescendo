@@ -59,7 +59,7 @@ export default function CardSlot({
       <Card
         data-rarity={rarity}
         className={cn(
-          'sb-card-glyphed relative gap-0 rounded-sm p-0 px-1 py-1.5',
+          'relative max-w-[60px] min-w-11 cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center',
           rarityCardClass(rarity),
         )}
         role="button"
@@ -73,24 +73,38 @@ export default function CardSlot({
           }
         }}
       >
-        <span className="sb-card-kind">{cardName(SB, c)}</span>
-        <span className="sb-card-icon" aria-hidden="true">
+        <span className="text-[9px] [line-height:1.15] tracking-normal whitespace-normal text-[var(--leaf-dim)] normal-case">
+          {cardName(SB, c)}
+        </span>
+        <span
+          className="block text-2xl leading-none max-[620px]:text-[22px]"
+          aria-hidden="true"
+        >
           {d.glyph || '❖'}
         </span>
         <Badge className={cn('mt-0.5', rarityBadgeClass(rarity))}>
           {rarity}
         </Badge>
         {tip === tipId && (
-          <span className="sb-card-tip" role="tooltip">
-            <b>{cardName(SB, c)}</b>
-            <em>{cardBlurb(SB, c, run)}</em>
+          <span
+            className="absolute bottom-[calc(100%+6px)] left-1/2 z-5 flex w-max max-w-[180px] -translate-x-1/2 flex-col gap-0.5 rounded-[3px] border border-[var(--brass)] bg-[var(--pit-deep)] px-[9px] py-[7px] text-left text-[11px] whitespace-normal shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
+            role="tooltip"
+          >
+            <b className="text-[13px] font-[var(--display)]">
+              {cardName(SB, c)}
+            </b>
+            <em className="[line-height:1.3] font-normal text-[var(--leaf-dim)] not-italic">
+              {cardBlurb(SB, c, run)}
+            </em>
           </span>
         )}
-        <span className="sb-price">{c.price}</span>
+        <span className="absolute top-1.5 right-2 text-[13px] font-[var(--figure)] text-[var(--brass-hot)] before:mr-1 before:text-[8px] before:content-['\25C6']">
+          {c.price}
+        </span>
         <Button
           type="button"
           variant="paperPrimary"
-          className="sb-card-buy-btn"
+          className="mt-0.5 self-stretch px-2.5 py-1 text-[10px] disabled:opacity-40"
           disabled={disabled}
           onClick={(e) => {
             e.stopPropagation();
@@ -108,15 +122,26 @@ export default function CardSlot({
       variant="paper"
       disabled={disabled}
       className={
-        'sb-card sb-card-buy sb-card-' + c.kind + (c.sold ? ' is-sold' : '')
+        'relative inline-flex max-w-[200px] min-w-32 cursor-pointer flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case hover:border-[var(--brass-hot)] hover:bg-[var(--pit)] hover:text-[var(--leaf)] disabled:opacity-40 max-[620px]:max-w-full max-[620px]:min-w-[120px]' +
+        (c.kind === 'etude' ? ' border-dashed' : '')
       }
       title={c.sold ? 'sold' : cardName(SB, c) + ' — ' + cardBlurb(SB, c, run)}
       onClick={() => buyCard(i)}
     >
-      <span className="sb-card-kind">{c.kind}</span>
-      <em>{c.sold ? '' : cardBlurb(SB, c, run)}</em>
-      <b>{c.sold ? 'sold' : cardName(SB, c)}</b>
-      {!c.sold && <span className="sb-price">{c.price}</span>}
+      <span className="text-[9px] tracking-[0.2em] text-[var(--leaf-dim)] uppercase">
+        {c.kind}
+      </span>
+      <em className="[line-height:1.35] font-normal text-[var(--leaf-dim)] not-italic">
+        {c.sold ? '' : cardBlurb(SB, c, run)}
+      </em>
+      <b className="pr-[26px] text-base leading-[1.15] font-[var(--display)] font-semibold tracking-normal">
+        {c.sold ? 'sold' : cardName(SB, c)}
+      </b>
+      {!c.sold && (
+        <span className="absolute top-1.5 right-2 text-[13px] font-[var(--figure)] text-[var(--brass-hot)] before:mr-1 before:text-[8px] before:content-['\25C6']">
+          {c.price}
+        </span>
+      )}
     </Button>
   );
 }

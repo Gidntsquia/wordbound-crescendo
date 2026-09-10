@@ -71,12 +71,14 @@ export default function EnemyIntroCard({
       />
       {f.def.flavour && <q className="sb-intro-flavour">{f.def.flavour}</q>}
       {round.rule ? (
-        <div className="sb-rule is-pulse">
-          <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
+        <div className="is-pulse my-2 border-l-[3px] border-[var(--rubric)] bg-[var(--pit-deep)] px-3 py-2">
+          <span className="sb-eyebrow mb-0.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--rubric)] uppercase">
             Reading condition · {round.rule.name}
           </span>
           <b className="sb-rule-plain">{round.rule.plain}</b>
-          <q>{round.rule.text}</q>
+          <q className="text-[15px] font-[var(--display)] italic [quotes:none]">
+            {round.rule.text}
+          </q>
         </div>
       ) : (
         <span className="sb-hint">Target {round.target}</span>

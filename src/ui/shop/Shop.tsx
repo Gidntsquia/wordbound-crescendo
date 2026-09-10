@@ -77,8 +77,8 @@ export default function Shop({
   const next = SB.enemyAt(run.movement, run.stage);
   const packDef = (kind: string) => SB.PACK_KINDS.find((k) => k.kind === kind)!;
   return (
-    <div className="sb-shop">
-      <div className="sb-shop-head">
+    <div className="mt-3.5 flex flex-col gap-3 border border-[var(--brass)] bg-[var(--pit-deep)] p-[14px_16px_16px] max-[620px]:p-3">
+      <div className="flex items-baseline justify-between gap-3">
         <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
           The shop · between fights
           {shop.coupon ? ' · coupon: cards are free' : ''}
@@ -86,8 +86,11 @@ export default function Shop({
             ? ' · a free pack'
             : ''}
         </span>
-        <span className="sb-purse">
-          <b>{run.ink}</b> ink
+        <span className="inline-flex items-baseline gap-1.5">
+          <b className="text-lg font-[var(--figure)] text-[var(--brass-hot)]">
+            {run.ink}
+          </b>{' '}
+          ink
         </span>
       </div>
       {selecting && (
@@ -112,7 +115,10 @@ export default function Shop({
       )}
       {!selecting && !run.pack && (
         <>
-          <div className="sb-shop-row" aria-label="Cards">
+          <div
+            className="flex flex-wrap items-stretch gap-2.5"
+            aria-label="Cards"
+          >
             {(shop.cards ?? []).map((c, i) => (
               <CardSlot
                 key={i}
@@ -128,14 +134,20 @@ export default function Shop({
             <Button
               type="button"
               variant="paper"
-              className="sb-reroll"
+              className="h-auto self-center px-3.5 py-2.5"
               disabled={run.ink < shop.rerollPrice()}
               onClick={() => act('Rerolled.', shop.reroll(), 'coin')}
             >
-              Reroll <span className="sb-price">{shop.rerollPrice()}</span>
+              Reroll{' '}
+              <span className="ml-1.5 text-[13px] font-[var(--figure)] text-[var(--brass-hot)] before:mr-1 before:text-[8px] before:content-['\25C6']">
+                {shop.rerollPrice()}
+              </span>
             </Button>
           </div>
-          <div className="sb-shop-row" aria-label="Packs">
+          <div
+            className="flex flex-wrap items-stretch gap-2.5"
+            aria-label="Packs"
+          >
             {(shop.packs ?? []).map((p, i) => (
               <Button
                 key={i}
@@ -143,9 +155,8 @@ export default function Shop({
                 variant="paper"
                 disabled={p.opened || run.ink < (p.free ? 0 : p.price)}
                 className={
-                  'sb-card sb-card-pack sb-pack-' +
-                  p.kind +
-                  (p.opened ? ' is-sold' : '')
+                  'relative inline-flex max-w-[200px] min-w-32 flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case max-[620px]:max-w-full max-[620px]:min-w-[120px]' +
+                  (p.opened ? ' opacity-40' : '')
                 }
                 title={packDef(p.kind).hint}
                 onClick={() =>
@@ -156,11 +167,19 @@ export default function Shop({
                   )
                 }
               >
-                <span className="sb-card-kind">pack</span>
-                <b>{p.opened ? 'opened' : packDef(p.kind).name}</b>
-                <em>{p.opened ? '' : packDef(p.kind).hint}</em>
+                <span className="text-[9px] tracking-[0.2em] text-[var(--leaf-dim)] uppercase">
+                  pack
+                </span>
+                <b className="pr-[26px] text-base leading-[1.15] font-[var(--display)] font-semibold tracking-normal">
+                  {p.opened ? 'opened' : packDef(p.kind).name}
+                </b>
+                <em className="[line-height:1.35] font-normal text-[var(--leaf-dim)] not-italic">
+                  {p.opened ? '' : packDef(p.kind).hint}
+                </em>
                 {!p.opened && (
-                  <span className="sb-price">{p.free ? 'free' : p.price}</span>
+                  <span className="absolute top-1.5 right-2 text-[13px] font-[var(--figure)] text-[var(--brass-hot)] before:mr-1 before:text-[8px] before:content-['\25C6']">
+                    {p.free ? 'free' : p.price}
+                  </span>
                 )}
               </Button>
             ))}
@@ -181,7 +200,7 @@ export default function Shop({
           <Button
             type="button"
             variant="paperPrimary"
-            className="sb-go sb-shop-leave border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
+            className="sb-go h-auto self-start border-[var(--leaf)] bg-[var(--leaf)] px-[18px] py-3 text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"
             onClick={leave}
           >
             Continue

@@ -56,6 +56,19 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* A crescendo quill (items.js `crescendo: true`) throbbing while its window
+   is open (sandbox.css A6 slice 6 port of the old .sb-card-cres.is-cres-live
+   `cres-throb` keyframes -- kept as a plain animation, not a Tailwind
+   utility, since Tailwind has no arbitrary-keyframes syntax). */
+@keyframes cres-throb {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.05);
+  }
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
