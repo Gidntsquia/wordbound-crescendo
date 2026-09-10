@@ -596,18 +596,26 @@ ladder poses + `win-idle` on the three people and `idle` / `weakening` /
 still Jaxon's open call (draw / CC0 / generated); the SVGs in
 `src/art/svg/` are the current stand-in and can be extended per pose.
 
-**E2 (remainder) — unwired sheets.** Authored and marked `sourced` but
-rendered nowhere: `wordsmith`, `clock`, `knocking_door`, `loudspeaker`,
-`parade`, `podium`, `the_night` (the pressure/finale antagonists — the
-panel currently shows whatever `situation.antagonist` names, one per
-chapter, so the six per-fight antagonists are not on screen),
-`mark_overlay_gilt/bold/steel`, `bookmark_card_frame`, `pack_wrapper`,
-`backdrop_chapter_1/2/3`. Spec: per-fight antagonist (enemy row →
-sprite), wordsmith at the desk with the character letter in a badge, mark
-overlays on inked tiles, card frame on quill cards, wrapper on packs, and
-chapter backdrops as a far/near parallax pair with slow drift. The
-backdrops need a dark-theme recolour or a proper scrim; the 32 %-opacity
-wash that was reverted is not the design.
+**E2 (partial) — per-fight antagonists. DONE** (`fb5082a`): `clock`,
+`knocking_door`, `loudspeaker`, `parade`, `podium`, `the_night` now show on
+their actual big/boss enemy instead of every fight in a chapter reusing the
+small enemy's `situation.antagonist` — `Enemy` gained an optional
+`antagonist?: string` override (`enemies.ts`), threaded through
+`SituationPanel`'s new `antagonist` prop from both `EnemyIntroCard` and
+`ScoreLine`, falling back to `situation.antagonist` when absent (the small
+enemy, or before `f.def` exists). Verified: typecheck/lint/format/build
+clean; live Playwright pass confirms `phone_glow` on enemy 1 (The
+Doomscroll), swapping to `clock` on enemy 2 (The Deadline) after walking
+past, zero console errors.
+Still open: `wordsmith`, `mark_overlay_gilt/bold/steel`,
+`bookmark_card_frame`, `pack_wrapper`, `backdrop_chapter_1/2/3` — each needs
+its own new render hook (a desk panel, tile/card/pack decoration, a
+parallax layer), not a lookup fix like the antagonists above. Spec:
+wordsmith at the desk with the character letter in a badge, mark overlays
+on inked tiles, card frame on quill cards, wrapper on packs, chapter
+backdrops as a far/near parallax pair with slow drift (needs a dark-theme
+recolour or a proper scrim; the 32%-opacity wash that was reverted is not
+the design).
 
 **E3 — animation hooks.** Ladder step → person/antagonist pose crossfade
 — already DONE, discovered this session rather than newly built:
