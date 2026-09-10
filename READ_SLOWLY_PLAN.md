@@ -190,21 +190,31 @@ Items` remain, the documented legacy-global exception (`4ab4dab`).
     12 sheets produce unique output per pose; backed by live screenshots
     (`commuter` scrolling vs win-idle; `the_night` idle/weakening/gone/
     crescendo). Deployed.
+- **E2 remaining sheets rendered.** `WordsmithPanel.tsx` (new) mounts the
+  wordsmith sprite + character-letter badge above the stick; `mark_overlay_
+{gilt,bold,steel}` overlay marked tiles in `Rack.tsx`/`Stick.tsx`;
+  `bookmark_card_frame` sits behind `QuillCard.tsx`'s content;
+  `pack_wrapper` behind each unopened `Shop.tsx` pack; `ChapterBackdrop.tsx`
+  (new) renders two far/near layers per chapter with opposite-phase
+  `motion-safe:` drift under a two-axis gradient scrim (darker at edges/
+  bottom, not the flat 32% wash reverted in `077845f`) (`7c05c40`). A
+  follow-up (`511387b`) closed a gap the first commit flagged but left
+  open: `tile_face`/`premium_slot_marker`/`coin` had zero `Sprite` call
+  sites despite being manifest-sourced — now a faint tile-face layer on
+  every rack tile, a low-opacity premium-slot-marker icon behind the DL/
+  TL/DW badge, and a coin icon by the ink readout. Verified live (both
+  commits): every manifest id confirmed present via
+  `document.querySelectorAll('[data-sheet]')` during a real fight, zero
+  console errors, no visual regression. Deployed.
 
 ### Work queue (do in this order; each has an acceptance check)
 
-1. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
-   letter in a badge), `mark_overlay_gilt/bold/steel` on marked tiles,
-   `bookmark_card_frame` on quill cards, `pack_wrapper` on packs,
-   `backdrop_chapter_1/2/3` as far/near parallax with slow drift and a
-   proper dark-theme scrim (the reverted 32% wash is not the design).
-   Accept: every manifest id appears in a `Sprite` render site.
-2. **E3 remaining hooks.** Word played → wordsmith `write`; win →
+1. **E3 remaining hooks.** Word played → wordsmith `write`; win →
    `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
    pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
    loops and drift without freezing a `steps()` loop on frame one.
    Accept: each hook observed in Playwright via the class/pose it sets.
-3. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
+2. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
    count and dimensions (fail over 1024²); visible sheets under ~10 per
    screen; next chapter's sheets prefetched during the shop; Playwright
    mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
