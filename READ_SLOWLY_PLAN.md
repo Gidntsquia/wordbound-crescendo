@@ -111,39 +111,33 @@ skipping to the next item; (3) the queue had no acceptance checks, so
   crossfade, hit shake (`e6b5550`).
 - **E4 first phone pass** — 2026-09-09 report fixed (`4d7a4f1`, `1ba0bf0`,
   `077845f`, `7023b2c`, `e46b475`, `75931ac`).
+- **A1/A2 last files to TypeScript and target paths** — `cardCopy.ts`,
+  `main.tsx`, `FightScreen.tsx`/`SituationPanel.tsx` under `ui/fight/`,
+  `CharacterSelect.tsx` under `ui/meta/`, `QuillRow`/`QuillCard`/`cardCopy`
+  under `ui/quills/`; index.html and CLAUDE.md updated (`1eb95d6`).
+- **A2 every localStorage key through `persistence.ts`** — `stolenLetters.ts`,
+  `quillDiscovery.ts`, `characters.ts` are pure (won/known/stored params);
+  `wbc.letters/quills/characters` read/written only by `persistence.ts`;
+  `RunState` carries `wonLetters`/`discoveredQuills` so the pure engine
+  threads them through; `window.Wordbound.Lexicon/Tiles/WORD_SET/WORDLIST/
+Items` remain, the documented legacy-global exception (`4ab4dab`).
 
 ### Work queue (do in this order; each has an acceptance check)
 
-1. **A1/A2 last files to TypeScript and target paths.**
-   `cardCopy.js` → `cardCopy.ts` with real types; `Sprite.jsx` → `Sprite.tsx`;
-   `git mv src/sandbox/main.tsx src/main.tsx`, `FightScreen.tsx` →
-   `src/ui/fight/`, `CharacterSelect.tsx` → `src/ui/meta/`,
-   `SituationPanel.tsx` → `src/ui/fight/`, `QuillRow`/`QuillCard` →
-   `src/ui/quills/`; `index.html` and CLAUDE.md updated.
-   Accept: `find src -name '*.js' -o -name '*.jsx'` returns nothing;
-   `src/sandbox/` contains only `sandbox.css` (deleted in item 5).
-2. **A2 every localStorage key through `persistence.ts`.**
-   `wbc.letters`, `wbc.quills`, `wbc.characters` move into `KEYS`;
-   `stolenLetters.ts`, `quillDiscovery.ts`, `characters.ts` stop touching
-   `window`: they export pure functions over a passed-in state, and the
-   app layer reads/writes through `persistence.ts`. `isStolen` wiring on
-   `window.Wordbound.StolenLetters` is replaced by a plain import in
-   `tiles.ts`. Accept: `grep -rn "window\|localStorage" src/engine` returns
-   nothing.
-3. **A2 audio lifecycle out of FightScreen.** ctx/gain/seq creation,
+1. **A2 audio lifecycle out of FightScreen.** ctx/gain/seq creation,
    `onstatechange` resume, rebuild-after-closed, warm-ahead and
    stage-start music move into `src/ui/hooks/useAudio.ts` (or into
    `useSfx` + `recordingPlayer.ts`). Accept: `FightScreen.tsx` has no
    `AudioContext` reference; deployed; listed under Waiting on Jaxon for
    the background/resume phone check.
-4. **A4 FightScreen becomes a fight screen.** Title, shop, pack, letter
+2. **A4 FightScreen becomes a fight screen.** Title, shop, pack, letter
    choice and end each own their state under `ui/meta` / `ui/shop` /
    `ui/fight`; `App.tsx` routes on `run.phase`; `useFight.ts` (or the
    store) holds the fight's state and callbacks. Accept: every file under
    `src/ui/` and `src/app/` is under ~200 lines, or has a one-line header
    saying why; `bun run build` clean; a full run (fight → shop → pack →
    boss letter → end) played in Playwright with zero console errors.
-5. **A6 `sandbox.css` deleted; chrome on shadcn + Tailwind.**
+3. **A6 `sandbox.css` deleted; chrome on shadcn + Tailwind.**
    Add a `paper` variant (and `paperPrimary`, `paperGhost` as needed) to
    `button.tsx`'s cva carrying the paper/ink/gilt look, so the primitive
    expresses the theme instead of fighting it; convert every native
@@ -159,34 +153,34 @@ skipping to the next item; (3) the queue had no acceptance checks, so
 src/app` returns nothing; a full run in Playwright looks the same at
    390 px and 1280 px (screenshots before/after committed to the scratch
    dir, not the repo).
-6. **A6 `GearPanel.tsx`.** `ui/chrome/GearPanel.tsx` composes `SetupPanel`,
+4. **A6 `GearPanel.tsx`.** `ui/chrome/GearPanel.tsx` composes `SetupPanel`,
    `StartingQuills`, `TuningPanel` inside the Sheet. Accept: `App.tsx` renders
    `<GearPanel>` and nothing else from the gear.
-7. **A5 live verification of the win paths.** Add a dev-only forced-win
+5. **A5 live verification of the win paths.** Add a dev-only forced-win
    affordance (tuning-panel target override applied at `createRound`, gated
    on `import.meta.env.DEV`). Then play shop split, resolution beat, page
    SFX, `nextStage`/`buyCard`/`pickCard`/`useInk`/`applyInk` live in
    Playwright. Accept: each path listed with "verified live" in the commit.
-8. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
+6. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
    letter tile; record the before/after targets in the commit.
-9. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
+7. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
    poses + `win-idle` on the three people and `idle`/`weakening`/`gone`
    (+ `crescendo` on bosses) on the nine antagonists; `Sprite` picks the
    pose's art; manifest gains `poses`. Accept: changing `pose` changes
    what is drawn for every sheet; Playwright screenshots of two poses
    differ.
-10. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
-    letter in a badge), `mark_overlay_gilt/bold/steel` on marked tiles,
-    `bookmark_card_frame` on quill cards, `pack_wrapper` on packs,
-    `backdrop_chapter_1/2/3` as far/near parallax with slow drift and a
-    proper dark-theme scrim (the reverted 32% wash is not the design).
-    Accept: every manifest id appears in a `Sprite` render site.
-11. **E3 remaining hooks.** Word played → wordsmith `write`; win →
-    `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
-    pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
-    loops and drift without freezing a `steps()` loop on frame one.
-    Accept: each hook observed in Playwright via the class/pose it sets.
-12. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
+8. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
+   letter in a badge), `mark_overlay_gilt/bold/steel` on marked tiles,
+   `bookmark_card_frame` on quill cards, `pack_wrapper` on packs,
+   `backdrop_chapter_1/2/3` as far/near parallax with slow drift and a
+   proper dark-theme scrim (the reverted 32% wash is not the design).
+   Accept: every manifest id appears in a `Sprite` render site.
+9. **E3 remaining hooks.** Word played → wordsmith `write`; win →
+   `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
+   pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
+   loops and drift without freezing a `steps()` loop on frame one.
+   Accept: each hook observed in Playwright via the class/pose it sets.
+10. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
     count and dimensions (fail over 1024²); visible sheets under ~10 per
     screen; next chapter's sheets prefetched during the shop; Playwright
     mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
