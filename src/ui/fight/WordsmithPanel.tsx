@@ -21,14 +21,14 @@ export default function WordsmithPanel({
   const character = characters.find((c) => c.id === characterId);
   return (
     <div
-      className="mb-2 flex items-center gap-2 max-[620px]:mb-1.5"
+      className="mb-2 flex items-center gap-2 max-[620px]:mb-1"
       aria-label="Your wordsmith"
     >
       <span className="relative inline-flex flex-none">
         <Sprite
           sheet="wordsmith"
           pose={pose}
-          className="h-11 w-11 rounded-lg"
+          className="h-11 w-11 rounded-lg max-[620px]:h-8 max-[620px]:w-8"
         />
         {character && (
           <span

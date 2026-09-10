@@ -174,8 +174,8 @@
       "sourcePage": "https://opengameart.org/sites/default/files/DENZI_CC0_32x32_tileset.png",
       "licence": "CC0",
       "author": "DENZI (submitted by MedicineStorm)",
-      "sha256": "31144ce875eefb3a082f3f324449b9142638d86ab32232386aecf412f19091af",
-      "note": "Approximate stand-in: this is DENZI's full 32x32 CC0 tileset sheet (1024x1248), not a single tile cropped to a wood/paper tile face. Needs an image-editing pass (no ImageMagick/Pillow available in this session) to crop one plausible tile texture before it looks right in-game; wired here as sourced+real so licence/provenance is on record, not as finished art."
+      "sha256": "2836d63550dbd211c8f4d9c3c5964d84acf63523f6d1ea1919ef3f90e1dd4f8b",
+      "note": "One 32x32 tile cropped (ffmpeg crop=32:32:544:1056, the pale sandstone block) out of DENZI's full CC0 32x32 tileset sheet (1024x1248, sha256 31144ce875eefb3a082f3f324449b9142638d86ab32232386aecf412f19091af). Before the 2026-09-10 mobile pass the whole sheet was wired in and stretched across every rack tile, which read as pink noise; the crop is the subtle grain the 15%-opacity face wanted."
     },
     {
       "id": "mark_overlay_gilt",

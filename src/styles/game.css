@@ -64,6 +64,18 @@ body {
   outline-offset: 2px;
 }
 
+/* One-time callouts (src/ui/chrome/Callout.tsx) ride Sonner; dress them in
+   the pit rather than shadcn's white popover so they read as the game
+   speaking, not a system alert. */
+.cn-toast {
+  --normal-bg: var(--pit-raise);
+  --normal-text: var(--leaf);
+  --normal-border: var(--brass);
+  font-family: var(--ui);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 @media (max-width: 920px) {
   .sb {
     padding: 20px 16px 40px;

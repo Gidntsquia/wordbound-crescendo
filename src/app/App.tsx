@@ -239,7 +239,7 @@ export default function App(props: AppProps) {
       }
       onPointerDownCapture={scoring ? skipCascade : undefined}
     >
-      <Toaster position="top-center" />
+      <Toaster position="top-center" visibleToasts={1} duration={4500} />
       <header className="absolute top-7 right-6 h-0">
         <Button
           type="button"
@@ -300,7 +300,7 @@ export default function App(props: AppProps) {
       {round && (
         <section
           className={
-            'sb-board relative isolate mb-1 pb-[18px] max-[620px]:flex max-[620px]:min-h-0 max-[620px]:flex-1 max-[620px]:flex-col max-[620px]:overflow-y-auto max-[620px]:pb-2 max-[620px]:[-webkit-overflow-scrolling:touch]' +
+            'sb-board relative isolate mb-1 pb-[18px] [text-shadow:0_1px_3px_rgba(0,0,0,0.7)] max-[620px]:flex max-[620px]:min-h-0 max-[620px]:flex-1 max-[620px]:flex-col max-[620px]:overflow-y-auto max-[620px]:pb-2 max-[620px]:[-webkit-overflow-scrolling:touch]' +
             (scoring && scoring.hit === 1
               ? ' motion-safe:animate-[board-shake-1_280ms_ease-out]'
               : scoring && scoring.hit === 2

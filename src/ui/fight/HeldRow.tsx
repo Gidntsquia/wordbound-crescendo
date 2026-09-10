@@ -59,7 +59,7 @@ export default function HeldRow({
 }) {
   if (!run) return null;
   return (
-    <div className="mt-3 mb-0.5 flex flex-col gap-2 max-[620px]:mt-2 max-[620px]:gap-1.5">
+    <div className="mt-3 mb-0.5 flex flex-col gap-2 max-[620px]:mt-1 max-[620px]:gap-1.5">
       <QuillRow
         run={run}
         SB={SB}

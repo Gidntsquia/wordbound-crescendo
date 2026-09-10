@@ -29,7 +29,7 @@ export default function WonBanner({
   const showResolution = !resolved && !!situation?.resolution?.length;
   return (
     <div
-      className="absolute inset-0 flex animate-[fade-up_420ms_ease-out_both] flex-wrap items-center justify-center bg-[rgba(10,11,22,0.84)] text-[clamp(26px,4.4vw,44px)] font-[var(--display)] tracking-[0.01em] text-[var(--leaf)]"
+      className="absolute inset-0 flex animate-[fade-up_420ms_ease-out_both] flex-wrap items-center justify-center bg-[rgba(10,11,22,0.94)] px-4 text-[clamp(26px,4.4vw,44px)] font-[var(--display)] tracking-[0.01em] text-[var(--leaf)]"
       onClick={showResolution ? skip : undefined}
     >
       {showResolution && (

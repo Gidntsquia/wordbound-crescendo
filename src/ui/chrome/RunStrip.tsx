@@ -17,7 +17,7 @@ export default function RunStrip({
   if (!run) return null;
   return (
     <nav
-      className="m-0 mb-3.5 flex flex-wrap items-center gap-x-[18px] gap-y-2 border border-[var(--rule)] bg-[var(--pit-deep)] py-2 pr-14 pl-3 text-xs tracking-[0.06em] text-[var(--leaf-dim)] max-[620px]:gap-x-3 max-[620px]:gap-y-1.5 max-[620px]:py-2 max-[620px]:pr-[52px] max-[620px]:pl-2.5"
+      className="m-0 mb-3.5 flex flex-wrap items-center gap-x-[18px] gap-y-2 border border-[var(--rule)] bg-[var(--pit-deep)] py-2 pr-14 pl-3 text-xs tracking-[0.06em] text-[var(--leaf-dim)] max-[620px]:gap-x-3 max-[620px]:gap-y-1 max-[620px]:py-1.5 max-[620px]:pr-[52px] max-[620px]:pl-2.5"
       aria-label="The run"
     >
       {run.movements.map((m, mi) => (

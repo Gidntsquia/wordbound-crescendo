@@ -59,7 +59,10 @@ export default function CardSlot({
       <Card
         data-rarity={rarity}
         className={cn(
-          'relative max-w-[60px] min-w-11 cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center',
+          // Wide enough for a two-word name under the glyph plus the price
+          // in the corner; at the old 60px the name, price and rarity badge
+          // all overlapped each other on phones.
+          'relative w-[96px] cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 pt-5 pb-1.5 text-center',
           rarityCardClass(rarity),
         )}
         role="button"
@@ -73,16 +76,18 @@ export default function CardSlot({
           }
         }}
       >
-        <span className="text-[9px] [line-height:1.15] tracking-normal whitespace-normal text-[var(--leaf-dim)] normal-case">
-          {cardName(SB, c)}
-        </span>
         <span
           className="block text-2xl leading-none max-[620px]:text-[22px]"
           aria-hidden="true"
         >
           {d.glyph || '❖'}
         </span>
-        <Badge className={cn('mt-0.5', rarityBadgeClass(rarity))}>
+        <span className="mt-1 text-[10px] [line-height:1.15] font-semibold tracking-normal whitespace-normal text-[var(--ink)] normal-case">
+          {cardName(SB, c)}
+        </span>
+        <Badge
+          className={cn('mt-1 px-1.5 text-[9px]', rarityBadgeClass(rarity))}
+        >
           {rarity}
         </Badge>
         {tip === tipId && (
@@ -122,7 +127,7 @@ export default function CardSlot({
       variant="paper"
       disabled={disabled}
       className={
-        'relative inline-flex max-w-[200px] min-w-32 cursor-pointer flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case hover:border-[var(--brass-hot)] hover:bg-[var(--pit)] hover:text-[var(--leaf)] disabled:opacity-40 max-[620px]:max-w-full max-[620px]:min-w-[120px]' +
+        'relative inline-flex h-auto max-w-[200px] min-w-32 cursor-pointer flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case hover:border-[var(--brass-hot)] hover:bg-[var(--pit)] hover:text-[var(--leaf)] disabled:opacity-40 max-[620px]:max-w-full max-[620px]:min-w-[120px]' +
         (c.kind === 'etude' ? ' border-dashed' : '')
       }
       title={c.sold ? 'sold' : cardName(SB, c) + ' — ' + cardBlurb(SB, c, run)}

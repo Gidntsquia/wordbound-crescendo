@@ -88,7 +88,10 @@ export default function Rack({
     ' not-disabled:hover:bg-[var(--brass-hot)] not-disabled:hover:border-[var(--brass-hot)] not-disabled:hover:text-[var(--ink)] not-disabled:hover:shadow-[0_4px_0_rgba(0,0,0,0.45),0_0_0_1px_var(--brass-hot)]';
   const TILE_SLOT =
     TILE_STRUCT +
-    ' bg-transparent border border-dashed border-[var(--rule)] shadow-none cursor-default pointer-events-none';
+    // inline-flex: the character slot's hollow is not a flex item (its
+    // wrapper div is not display:flex), so as a bare inline span min-width
+    // would not apply and it collapsed to a sliver on phones.
+    ' inline-flex bg-transparent border border-dashed border-[var(--rule)] shadow-none cursor-default pointer-events-none';
   const SUB_BASE =
     'absolute right-1 bottom-[3px] font-[var(--figure)] text-[9px] text-[rgba(26,23,16,0.55)]';
 

@@ -57,7 +57,7 @@ export default function ChapterBackdrop({
         className="absolute inset-0"
         style={{
           background:
-            'linear-gradient(to bottom, rgba(10,9,7,0.1) 0%, rgba(10,9,7,0.45) 70%, rgba(10,9,7,0.72) 100%), ' +
+            'linear-gradient(to bottom, rgba(10,9,7,0.42) 0%, rgba(10,9,7,0.6) 70%, rgba(10,9,7,0.8) 100%), ' +
             'linear-gradient(to right, rgba(10,9,7,0.4) 0%, rgba(10,9,7,0) 18%, rgba(10,9,7,0) 82%, rgba(10,9,7,0.4) 100%)',
         }}
       />

@@ -156,7 +156,7 @@ export default function Shop({
                 variant="paper"
                 disabled={p.opened || run.ink < (p.free ? 0 : p.price)}
                 className={
-                  'relative isolate inline-flex max-w-[200px] min-w-32 flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case max-[620px]:max-w-full max-[620px]:min-w-[120px]' +
+                  'relative isolate inline-flex h-auto max-w-[200px] min-w-32 flex-col items-start gap-[3px] rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] px-3 py-[9px] text-left text-[11px] font-[var(--ui)] tracking-[0.04em] whitespace-normal text-[var(--leaf)] normal-case max-[620px]:max-w-full max-[620px]:min-w-[120px]' +
                   (p.opened ? ' opacity-40' : '')
                 }
                 title={packDef(p.kind).hint}

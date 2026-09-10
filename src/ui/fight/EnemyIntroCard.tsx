@@ -58,7 +58,7 @@ export default function EnemyIntroCard({
         </span>
       </div>
       {opening?.length ? (
-        <p className="m-0 text-sm leading-[1.4] font-[var(--ui)] text-[var(--leaf-dim)]">
+        <p className="m-0 text-sm leading-[1.4] font-[var(--ui)] text-[var(--leaf)]">
           {opening.join(' ')}
         </p>
       ) : null}
@@ -106,7 +106,7 @@ export default function EnemyIntroCard({
           <span className="inline-flex items-center gap-1">
             <Button
               type="button"
-              className="rounded-[6px] border border-[var(--brass-dim,var(--brass))] bg-none px-3 py-2 text-[13px] text-[var(--leaf-dim)] hover:border-[var(--brass-hot)] hover:text-[var(--leaf)] [&_b]:font-semibold [&_b]:text-[var(--brass-hot)]"
+              className="rounded-[6px] border border-[var(--brass-dim,var(--brass))] bg-none px-3 py-2 text-[13px] text-[var(--leaf)] hover:border-[var(--brass-hot)] hover:text-[var(--leaf)] [&_b]:font-semibold [&_b]:text-[var(--brass-hot)]"
               variant="paperGhost"
               onClick={skipFight}
             >

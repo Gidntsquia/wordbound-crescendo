@@ -86,7 +86,7 @@ export default function ScoreLine({
         <Progress
           value={scoreShown}
           max={round.target}
-          className="sb-meter-progress m-0 h-3 flex-[1_1_120px]"
+          className="sb-meter-progress m-0 h-3 flex-[1_1_120px] max-[620px]:flex-[1_1_72px]"
           aria-label="Progress to target"
         >
           <ProgressTrack className="relative h-3.5 overflow-hidden rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)]">
@@ -105,7 +105,7 @@ export default function ScoreLine({
           </small>
           {round.target}
         </span>
-        <span className="flex flex-wrap gap-x-[22px] gap-y-2 text-xs tracking-[0.04em] text-[var(--leaf-dim)]">
+        <span className="flex flex-wrap gap-x-[22px] gap-y-2 text-xs tracking-[0.04em] text-[var(--leaf-dim)] max-[620px]:gap-x-3">
           <span>
             <b className="mr-1 text-[15px] font-[var(--figure)] text-[var(--leaf)]">
               {round.playsLeft}

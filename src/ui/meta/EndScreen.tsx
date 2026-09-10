@@ -77,7 +77,9 @@ export default function EndScreen({
   return (
     <div
       className={
-        'mt-4 border bg-[var(--pit-deep)] p-[18px_20px_20px] max-[620px]:p-3.5 ' +
+        // order-first: on a phone the board scrolls, and the verdict plus
+        // Play again must not sit below a fold of the last fight's plays.
+        'mt-4 border bg-[var(--pit-deep)] p-[18px_20px_20px] max-[620px]:order-first max-[620px]:mt-0 max-[620px]:mb-3 max-[620px]:p-3.5 ' +
         (won
           ? 'border-[var(--brass)] text-[var(--leaf)]'
           : 'border-[var(--rubric-dim)] text-[var(--brass-hot)]')
@@ -119,7 +121,7 @@ export default function EndScreen({
         ink
       </p>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-x-6 gap-y-3.5">
-        <Card className="bg-transparent p-0 ring-0">
+        <div className="sb-end-section">
           <span className="sb-eyebrow mb-1.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
             Felled
           </span>
@@ -159,8 +161,8 @@ export default function EndScreen({
               </em>
             )}
           </div>
-        </Card>
-        <Card className="bg-transparent p-0 ring-0">
+        </div>
+        <div className="sb-end-section">
           <span className="sb-eyebrow mb-1.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
             Best word
           </span>
@@ -182,8 +184,8 @@ export default function EndScreen({
               none played
             </em>
           )}
-        </Card>
-        <Card className="bg-transparent p-0 ring-0">
+        </div>
+        <div className="sb-end-section">
           <span className="sb-eyebrow mb-1.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
             Items
           </span>
@@ -210,7 +212,7 @@ export default function EndScreen({
               </em>
             )}
           </div>
-        </Card>
+        </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-x-[18px] gap-y-2.5">
         <Button

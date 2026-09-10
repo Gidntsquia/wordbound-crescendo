@@ -13,19 +13,19 @@ export default function PilesDrawer({
 }) {
   return (
     <details
-      className="sb-piles group -my-1 mb-3 text-xs text-[var(--leaf-dim)] max-[620px]:mb-1"
+      className="sb-piles group -my-1 mb-3 text-xs text-[var(--leaf-dim)] max-[620px]:mb-0"
       aria-label="The bag and the discard pile"
     >
       <summary
-        className="flex min-h-10 list-none flex-wrap items-baseline gap-3 py-1.5 [&::-webkit-details-marker]:hidden"
+        className="flex min-h-10 list-none flex-wrap items-baseline gap-3 py-1.5 max-[620px]:min-h-8 max-[620px]:py-1 [&::-webkit-details-marker]:hidden"
         title="Played and swapped tiles wait here until the bag is empty; the bag reshuffles each fight."
       >
         <span>
-          <b className="font-bold text-[var(--ink)]">{drawPile.length}</b> in
+          <b className="font-bold text-[var(--leaf)]">{drawPile.length}</b> in
           the bag
         </span>
         <span>
-          <b className="font-bold text-[var(--ink)]">{discardPile.length}</b>{' '}
+          <b className="font-bold text-[var(--leaf)]">{discardPile.length}</b>{' '}
           discarded
         </span>
       </summary>
@@ -50,7 +50,7 @@ export default function PilesDrawer({
           <span
             key={t.id}
             className={
-              'sb-pile-tile inline-flex h-[26px] w-[22px] items-center justify-center rounded border border-[var(--leaf-dim)] text-xs font-bold text-[var(--ink)] opacity-75' +
+              'sb-pile-tile inline-flex h-[26px] w-[22px] items-center justify-center rounded border border-[var(--leaf-dim)] text-xs font-bold text-[var(--leaf)] opacity-75' +
               (t.mark ? ' is-' + t.mark : '')
             }
           >

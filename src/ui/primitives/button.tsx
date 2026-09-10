@@ -25,7 +25,7 @@ const buttonVariants = cva(
         paperPrimary:
           'bg-gilt text-ink hover:bg-[color-mix(in_oklch,var(--color-gilt),white_10%)] active:bg-[color-mix(in_oklch,var(--color-gilt),black_10%)]',
         paperGhost:
-          'bg-transparent text-ink hover:bg-[color-mix(in_oklch,var(--color-paper),var(--color-gilt)_20%)] aria-expanded:bg-[color-mix(in_oklch,var(--color-paper),var(--color-gilt)_20%)]',
+          'bg-transparent text-current hover:bg-[color-mix(in_oklch,var(--color-paper),var(--color-gilt)_20%)] aria-expanded:bg-[color-mix(in_oklch,var(--color-paper),var(--color-gilt)_20%)]',
       },
       size: {
         default:

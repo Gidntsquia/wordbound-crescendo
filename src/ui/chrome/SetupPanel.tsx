@@ -76,7 +76,7 @@ export default function SetupPanel({
         aria-label="Tile bag"
       >
         <span className="flex items-baseline gap-2">Tile bag</span>
-        <div className="flex">
+        <div className="flex flex-wrap gap-y-1">
           {SB.TILE_BAGS.map((b) => (
             <Button
               key={b.id}

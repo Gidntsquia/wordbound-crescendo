@@ -77,7 +77,7 @@ export default function QuillCard({
     <Card
       data-rarity={rarity}
       className={cn(
-        'relative isolate max-w-[60px] min-w-11 cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center transition-[opacity,box-shadow,border-color] duration-[240ms]',
+        'relative isolate w-[72px] cursor-pointer flex-col items-center gap-0 rounded-sm p-0 px-1 py-1.5 text-center transition-[opacity,box-shadow,border-color] duration-[240ms]',
         rarityCardClass(rarity),
         lit === id && 'z-[2] motion-safe:animate-[card-jiggle_320ms_ease-out]',
         cresState === 'idle' && 'opacity-45 saturate-[0.4]',
@@ -117,7 +117,18 @@ export default function QuillCard({
       >
         {d.glyph || '❖'}
       </span>
-      <Badge className={cn('mt-0.5', rarityBadgeClass(rarity))}>{rarity}</Badge>
+      {/* Rarity is also carried by the card border (rarityCardClass); on a
+          phone in the fight the badge's row is height the board can't
+          spare, so it only shows in the shop there. */}
+      <Badge
+        className={cn(
+          'mt-0.5 px-1.5 text-[9px]',
+          !inShop && 'max-[620px]:hidden',
+          rarityBadgeClass(rarity),
+        )}
+      >
+        {rarity}
+      </Badge>
       <b className="absolute h-px w-px overflow-hidden [clip:rect(0_0_0_0)]">
         {d.name}
       </b>
