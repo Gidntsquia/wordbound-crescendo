@@ -29,11 +29,11 @@ export default function WonBanner({
   const showResolution = !resolved && !!situation?.resolution?.length;
   return (
     <div
-      className="sb-outcome sb-win"
+      className="absolute inset-0 flex animate-[fade-up_420ms_ease-out_both] flex-wrap items-center justify-center bg-[rgba(10,11,22,0.84)] text-[clamp(26px,4.4vw,44px)] font-[var(--display)] tracking-[0.01em] text-[var(--leaf)]"
       onClick={showResolution ? skip : undefined}
     >
       {showResolution && (
-        <p className="sb-outcome-resolution">
+        <p className="m-0 mb-3.5 basis-full text-center text-base leading-[1.5] font-[var(--ui)] tracking-normal">
           {situation!.resolution.join(' ')}
         </p>
       )}

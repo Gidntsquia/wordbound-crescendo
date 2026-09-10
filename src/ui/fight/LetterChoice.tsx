@@ -12,7 +12,7 @@ export default function LetterChoice({
   pickLetter: (letter: string) => void;
 }) {
   return (
-    <div className="sb-outcome sb-letter-choice">
+    <div className="sb-letter-choice absolute inset-0 flex animate-[fade-up_420ms_ease-out_both] flex-wrap items-center justify-center bg-[rgba(10,11,22,0.84)] text-[clamp(26px,4.4vw,44px)] font-[var(--display)] tracking-[0.01em]">
       <span className="sb-eyebrow text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         The boss falls — choose a letter to win back
       </span>

@@ -75,7 +75,12 @@ export default function EndScreen({
     })
     .filter((e): e is Enemy => Boolean(e));
   return (
-    <div className={'sb-end ' + (won ? 'sb-win' : 'sb-lose')}>
+    <div
+      className={
+        'sb-end ' +
+        (won ? 'sb-win text-[var(--leaf)]' : 'sb-lose text-[var(--brass-hot)]')
+      }
+    >
       <h2 className="sb-end-title">
         {won
           ? copy.LAST_PAGE_TURNS
