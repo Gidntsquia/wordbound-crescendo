@@ -18,6 +18,13 @@ will take a little while."_
 session closes this plan early, and no session stops while the Work queue
 below is non-empty.**
 
+**Never open anything in Jaxon's Firefox browser** — no launching it, no
+opening tabs/windows in it, no pointing an existing instance at a URL. It
+pulls him away from whatever he's doing. All verification (Playwright,
+screenshots, live checks) runs headless in a separate Chromium/Playwright
+browser, never his Firefox. This holds for every session working this plan,
+including unattended/overnight runs.
+
 - **Done means the code matches the spec.** A note explaining why a piece
   was skipped, deferred, judged "not worth the risk", "done in spirit",
   "coherent as is", or replaced with a wrapper is not a completed item. It

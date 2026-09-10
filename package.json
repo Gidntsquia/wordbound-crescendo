@@ -3,7 +3,7 @@
   "private": true,
   "description": "Wordbound: Crescendo, a words-vs-music browser game. Built with Vite + React (`npm run dev` / `npm run build`); game logic stays framework-agnostic plain JS.",
   "scripts": {
-    "dev": "vite --open",
+    "dev": "vite",
     "dev:sandbox": "vite --open",
     "build": "vite build",
     "build:site": "bun tools/build-site.js",

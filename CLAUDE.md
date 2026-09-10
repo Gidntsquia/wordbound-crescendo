@@ -7,7 +7,14 @@ Standing rules: verify changes by running the app (see `run` skill) before
 calling a task done; music must be public-domain or the logged
 recorded-Fur-Elise exception; audio is synthesized-only outside that
 exception; deploys follow the LIVE DEPLOY steps under Commands below; keep
-committed state clean (no stray scratch files).
+committed state clean (no stray scratch files). **Never open anything in
+Jaxon's Firefox browser** (no launching Firefox, no opening tabs/windows in
+it, no pointing an existing Firefox instance at a URL) — it interrupts and
+distracts him from whatever he's doing. Do all browser-driven verification
+(Playwright, `run` skill, screenshots) headless, in a separate
+Chromium/Playwright-managed browser instance, never his Firefox. `bun run dev` runs plain `vite` (no `--open`) for exactly this reason — never
+add `--open` back to it or to any dev-server invocation used for
+verification.
 
 ## What this is
 
