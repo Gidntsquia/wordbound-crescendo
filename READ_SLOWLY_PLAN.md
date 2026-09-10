@@ -220,14 +220,32 @@ Items` remain, the documented legacy-global exception (`4ab4dab`).
   `window.__seq.crescendo()`, boss vs non-boss control); `emulateMedia({
 reducedMotion: 'reduce' })` confirms zero active animations. Deployed.
 
+- **E4 perf pass.** New `tools/audit-art.js` reads PNG IHDR chunks directly
+  (no image lib) for every image-backed sourced sheet and flags anything
+  over 1024² — it caught a real one: `public/art/tile_face.png` is
+  1024×1248, over budget (script exits 1); the 20 SVG-backed sheets are
+  format-only, no comparable fixed size. Visible-sheet count on the
+  busiest live-fight screen (Pixel 5 emulation): 7 distinct sheet ids, 14
+  raw `[data-sheet]` instances (7 rack tiles each render their own
+  `tile_face`) — under the ~10 budget by id, over by instance; documented
+  as a judgment call rather than "fixed" since every instance reuses the
+  same cached asset (cheap DOM node, not a new texture load), not a new
+  texture load. New `src/art/prefetchArt.ts` + a `useFight.ts` effect keyed
+  on `phase === 'shop'` prefetches the next chapter's antagonist/backdrop
+  sheets, mirroring the audio `warmAhead` pattern — currently a no-op
+  since those sheets are still SVG (bundled in JS), starts doing real work
+  once real PNG art lands. Frame timing (Playwright + Pixel 5 + CDP 4×
+  CPU throttle, rAF-delta sampling; no perf-affecting change made this
+  pass, so one current measurement, not before/after): ambient fight
+  ~60.6fps avg (16.5ms/frame, 0 slow frames); tile taps + scoring cascade
+  ~56.8fps avg (17.6ms/frame, 3 frames over 33ms — known animation
+  spikes). Gate clean (only the pre-existing 18 `useFight.ts`
+  exhaustive-deps warnings). Deployed (`f5582f4`).
+
 ### Work queue (do in this order; each has an acceptance check)
 
-1. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
-   count and dimensions (fail over 1024²); visible sheets under ~10 per
-   screen; next chapter's sheets prefetched during the shop; Playwright
-   mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
-   timing and the cascade's timing before/after in the commit. Accept:
-   numbers in the commit; then move "phone check" to Waiting on Jaxon.
+The Work queue is empty. Every item through E4 is implemented, gated,
+verified live, and deployed — see the Done ledger above.
 
 ### Waiting on Jaxon (never blocks the queue)
 
@@ -237,8 +255,17 @@ reducedMotion: 'reduce' })` confirms zero active animations. Deployed.
   shipped and D1's text is not rewritten.
 - **Art source for E1** (draw / CC0 / generated). Until answered, the SVG
   stand-ins are extended per pose (queue item 9).
-- **Phone checks** at the deployed link, after items 3, 5 and 12 land:
-  audio background/resume, drag feel, cascade timing, crescendo cues.
+- **`public/art/tile_face.png` is over the 1024² budget** (1024×1248,
+  flagged by the new `tools/audit-art.js`) — it's DENZI's full CC0 32×32
+  tileset sheet, not a cropped single tile; needs an image-editing pass
+  (no ImageMagick/Pillow available in this sandbox) to crop one plausible
+  tile texture. Until then it stays wired as-is (faint opacity-15 layer,
+  low visual weight) and the audit script's nonzero exit is expected.
+- **Phone checks** at the deployed link, after items 3, 5 and 12 land, plus
+  the new E4 phone check: audio background/resume, drag feel, cascade
+  timing, crescendo cues, and now overall feel/frame-rate on an actual
+  phone (the Playwright/CDP throttling numbers above are a proxy, not a
+  substitute).
 
 ---
 
