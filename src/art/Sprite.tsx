@@ -6,14 +6,14 @@
 // box so the pose-driven wiring (ladder step -> pose prop -> crossfade) is
 // real end-to-end even though the art isn't. Swapping in real PNGs later
 // is a manifest + CSS background-image change here, not a caller change.
-import type { CSSProperties, ReactElement } from 'react';
+import type { CSSProperties, ComponentType } from 'react';
 import ART_MANIFEST from '../../tools/art-manifest.json';
 import { SVG_SHEETS as PIECES_SHEETS } from './svg/pieces';
 import { PEOPLE_SHEETS } from './svg/people';
 import { ANTAGONIST_SHEETS } from './svg/antagonists';
 import { BACKDROP_SHEETS } from './svg/backdrops';
 
-const SVG_SHEETS: Record<string, () => ReactElement> = {
+const SVG_SHEETS: Record<string, ComponentType<{ pose?: string }>> = {
   ...PIECES_SHEETS,
   ...PEOPLE_SHEETS,
   ...ANTAGONIST_SHEETS,
@@ -73,7 +73,11 @@ export default function Sprite({
         } as CSSProperties
       }
     >
-      {SvgArt ? <SvgArt /> : sourced ? null : sheet.slice(0, 1).toUpperCase()}
+      {SvgArt ? (
+        <SvgArt pose={pose} />
+      ) : sourced ? null : (
+        sheet.slice(0, 1).toUpperCase()
+      )}
     </span>
   );
 }
