@@ -175,29 +175,32 @@ Items` remain, the documented legacy-global exception (`4ab4dab`).
   boss fight leg (Movement III) through to round win; letter-choice through
   to end screen; the end screen's Copy-result button and other actions.
   Deployed.
+- **D4 balance.** `MOVEMENT_BASE_1/2/3` raised ~3% (300/750/1200 →
+  310/775/1240, `bab3d8f`) to bake in the character tile's guaranteed
+  flat `charBonusPts` bonus (D1-D3 make it standard in every run) rather
+  than nerfing letter values, per the plan's note. Verified live: a fresh
+  round reads "Target 310". Deployed.
 
 ### Work queue (do in this order; each has an acceptance check)
 
-1. **D4 balance.** Revisit `MOVEMENT_BASE_n` for a player who always has a
-   letter tile; record the before/after targets in the commit.
-2. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
+1. **E1 poses.** Per-pose SVGs (extend `src/art/svg/`) for the five ladder
    poses + `win-idle` on the three people and `idle`/`weakening`/`gone`
    (+ `crescendo` on bosses) on the nine antagonists; `Sprite` picks the
    pose's art; manifest gains `poses`. Accept: changing `pose` changes
    what is drawn for every sheet; Playwright screenshots of two poses
    differ.
-3. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
+2. **E2 remaining sheets rendered.** `wordsmith` (desk panel, character
    letter in a badge), `mark_overlay_gilt/bold/steel` on marked tiles,
    `bookmark_card_frame` on quill cards, `pack_wrapper` on packs,
    `backdrop_chapter_1/2/3` as far/near parallax with slow drift and a
    proper dark-theme scrim (the reverted 32% wash is not the design).
    Accept: every manifest id appears in a `Sprite` render site.
-4. **E3 remaining hooks.** Word played → wordsmith `write`; win →
+3. **E3 remaining hooks.** Word played → wordsmith `write`; win →
    `flourish`; round won → antagonist `gone`; crescendo `soon` → backdrop
    pulse; `live` → antagonist `crescendo`. `prefers-reduced-motion` stops
    loops and drift without freezing a `steps()` loop on frame one.
    Accept: each hook observed in Playwright via the class/pose it sets.
-5. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
+4. **E4 perf pass (session half).** `tools/audit-art.js` reports sheet
    count and dimensions (fail over 1024²); visible sheets under ~10 per
    screen; next chapter's sheets prefetched during the shop; Playwright
    mobile emulation (Pixel 5, CPU 4× slowdown) records a fight's frame
