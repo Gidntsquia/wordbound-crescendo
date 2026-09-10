@@ -590,6 +590,7 @@ export default function RoundSandbox() {
   // "leave for a bit and the whole app goes silent for good" failure. When
   // that's happened, rebuild the graph and the current piece from scratch
   // rather than trying to resume something that's gone.
+  const onCtxStateChangeRef = useRef<() => void>(() => {});
   useEffect(() => {
     const rebuildClosed = () => {
       const f = fight.current;
@@ -620,6 +621,7 @@ export default function RoundSandbox() {
           });
           seq.play();
         }
+        ctx.onstatechange = () => onCtxStateChangeRef.current();
         fight.current = { ...f, ctx, gain, sfx: sfxNode, seq };
         if (seq)
           say(
@@ -643,33 +645,34 @@ export default function RoundSandbox() {
       if (document.visibilityState !== 'visible') return;
       tryResume();
     };
+    // Event-driven, not polled: the AudioContext itself fires 'statechange'
+    // the instant the browser suspends/closes it (or lets it resume), so
+    // reacting there catches it immediately with no interval tick to wait
+    // out. onCtxStateChangeRef is called from ctx.onstatechange, wired at
+    // every place a context gets created (this effect doesn't own that
+    // object -- start()/rebuildClosed() each make their own).
+    onCtxStateChangeRef.current = () => {
+      if (document.visibilityState === 'visible') tryResume();
+    };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
     window.addEventListener('pageshow', onVisible);
     // A tab backgrounded for a few minutes can leave some mobile browsers
     // (Firefox on Android in particular) refusing resume() unless it rides
-    // on an actual user gesture -- visibilitychange alone does not count.
-    // The player's first tap back on the page doubles as that gesture.
-    // Capture phase, not bubble: most taps land on a disabled <button>
-    // (Play/Swap/tiles mid-scoring) whose pointerdown never bubbles to
-    // document, so a bubble-phase listener alone misses most real taps.
+    // on an actual user gesture -- visibilitychange/statechange alone does
+    // not count. The player's first tap back on the page doubles as that
+    // gesture. Capture phase, not bubble: most taps land on a disabled
+    // <button> (Play/Swap/tiles mid-scoring) whose pointerdown never
+    // bubbles to document, so a bubble-phase listener alone misses most
+    // real taps.
     document.addEventListener('pointerdown', tryResume, true);
     document.addEventListener('touchstart', tryResume, true);
-    // Belt-and-suspenders for the case none of the above events actually
-    // fire (Jaxon, 2026-09-09 phone check: still silent after a few minutes
-    // backgrounded even with the listeners above) -- poll while the tab is
-    // visible so a suspended/closed context gets caught within a few
-    // seconds of the player looking at the screen again, gesture or not.
-    const poll = window.setInterval(() => {
-      if (document.visibilityState === 'visible') tryResume();
-    }, 3000);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       window.removeEventListener('pageshow', onVisible);
       document.removeEventListener('pointerdown', tryResume, true);
       document.removeEventListener('touchstart', tryResume, true);
-      window.clearInterval(poll);
     };
   }, []);
 
@@ -787,6 +790,7 @@ export default function RoundSandbox() {
           gain = ctx.createGain();
           gain.connect(ctx.destination);
           sfxNode = SB.createSfx(ctx, ctx.destination);
+          ctx.onstatechange = () => onCtxStateChangeRef.current();
         }
         if (ctx.state !== 'running') ctx.resume().catch(() => {});
         gain!.gain.value = volume;
