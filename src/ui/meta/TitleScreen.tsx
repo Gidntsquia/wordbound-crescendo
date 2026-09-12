@@ -20,10 +20,7 @@ interface BestState {
 
 export default function TitleScreen({
   SB,
-  keyUnlocked,
   keyId,
-  setKey,
-  writeKeyChoice,
   seen,
   markSeen,
   characterId,
@@ -57,38 +54,8 @@ export default function TitleScreen({
   return (
     <section className="px-3 pt-10 pb-7 text-center max-[620px]:flex-none">
       <p className="m-0 mb-[22px] text-[clamp(19px,3vw,26px)] font-[var(--display)] text-[var(--leaf)]">
-        Spell words. Beat the target before your words run out.
+        Choose your character
       </p>
-      {keyUnlocked > 0 && (
-        <div
-          className="mb-[18px] flex flex-wrap justify-center gap-1.5"
-          role="group"
-          aria-label="Key"
-        >
-          {SB.KEYS.map((k) => (
-            <Button
-              key={k.id}
-              type="button"
-              variant="paper"
-              title={k.hint}
-              disabled={k.index > keyUnlocked}
-              className={
-                'rounded-[2px] px-[12px] py-[6px] text-[11px] font-semibold tracking-[0.08em] uppercase' +
-                (k.id === keyId
-                  ? ' border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)]'
-                  : '') +
-                (k.index > keyUnlocked ? ' disabled:opacity-[0.35]' : '')
-              }
-              onClick={() => {
-                setKey(k.id);
-                writeKeyChoice(k.id);
-              }}
-            >
-              {k.name}
-            </Button>
-          ))}
-        </div>
-      )}
       <CharacterSelect
         characters={SB.CHARACTERS}
         unlocked={SB.unlockedCharacters()}

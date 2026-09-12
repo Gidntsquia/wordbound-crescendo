@@ -19,13 +19,13 @@ export function MarkOverlayGilt() {
         strokeWidth="3"
       />
       <path
-        d="M10 46 L46 10"
+        d="M42 22 L54 10"
         stroke="#f1d976"
         strokeWidth="4"
         strokeLinecap="round"
         opacity="0.8"
       />
-      <circle cx="32" cy="32" r="4" fill="#c9a227" />
+      <circle cx="54" cy="10" r="4" fill="#c9a227" />
     </svg>
   );
 }

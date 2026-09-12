@@ -108,7 +108,6 @@ const PlayBoard = forwardRef<
     characterTile?: Tile | null;
     characterPicked?: boolean;
     characterId: string;
-    wordsmithPose?: string;
   }
 >(function PlayBoard(
   {
@@ -145,7 +144,6 @@ const PlayBoard = forwardRef<
     characterTile,
     characterPicked,
     characterId,
-    wordsmithPose,
   },
   playRef,
 ) {
@@ -191,11 +189,7 @@ const PlayBoard = forwardRef<
         />
       )}
 
-      <WordsmithPanel
-        characterId={characterId}
-        characters={SB.CHARACTERS}
-        pose={wordsmithPose}
-      />
+      <WordsmithPanel characterId={characterId} characters={SB.CHARACTERS} />
 
       <Stick
         live={live}

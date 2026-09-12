@@ -86,6 +86,13 @@ export default function Rack({
     TILE_STRUCT +
     ' text-[var(--ink)] bg-[var(--leaf)] border border-[var(--leaf)] shadow-[0_2px_0_rgba(0,0,0,0.45)]' +
     ' not-disabled:hover:bg-[var(--brass-hot)] not-disabled:hover:border-[var(--brass-hot)] not-disabled:hover:text-[var(--ink)] not-disabled:hover:shadow-[0_4px_0_rgba(0,0,0,0.45),0_0_0_1px_var(--brass-hot)]';
+  // The character's own tile gets a distinct colour (gilt, matching
+  // PilesDrawer.tsx's is-character treatment) so it reads apart from the
+  // rest of the case at a glance.
+  const TILE_CHARACTER =
+    TILE_STRUCT +
+    ' text-[var(--ink)] bg-[var(--gilt,var(--brass-hot))] border border-[var(--gilt,var(--brass-hot))] shadow-[0_2px_0_rgba(0,0,0,0.45)]' +
+    ' not-disabled:hover:bg-[var(--brass-hot)] not-disabled:hover:border-[var(--brass-hot)] not-disabled:hover:text-[var(--ink)] not-disabled:hover:shadow-[0_4px_0_rgba(0,0,0,0.45),0_0_0_1px_var(--brass-hot)]';
   const TILE_SLOT =
     TILE_STRUCT +
     // inline-flex: the character slot's hollow is not a flex item (its
@@ -182,7 +189,7 @@ export default function Rack({
               }
               className={
                 'sb-tile ' +
-                TILE_PLAIN +
+                TILE_CHARACTER +
                 ' ' +
                 tileSize +
                 (round.isBarred(characterTile) ? ' is-barred' : '')
