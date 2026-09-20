@@ -126,6 +126,12 @@ export interface EvaluationStats {
   premiumThisFight: number;
   premiumPlays: number;
   retainedPlays: number;
+  musicPlays: {
+    enemy: string;
+    phase: 'idle' | 'soon' | 'live' | 'banked';
+    decisionMs: number;
+    phrasePoints: number;
+  }[];
   purchases: string[];
   encounters: {
     enemy: string;
@@ -162,6 +168,7 @@ export function createEvaluation(
     premiumThisFight: 0,
     premiumPlays: 0,
     retainedPlays: 0,
+    musicPlays: [],
     purchases: [],
     encounters: [],
   };
@@ -1326,7 +1333,12 @@ export function playWord(
   run: RunState,
   word: string,
   rngState: RngState,
-  crescendo: { phase: string; mag?: number } | null,
+  crescendo: {
+    phase: string;
+    mag?: number;
+    phraseBanked?: boolean;
+  } | null,
+  decisionMs = 0,
 ): [RunState, R.PlayResult, RngState] {
   if (!run.round) return [run, { ok: false, reason: 'No round.' }, rngState];
   const [outcome, s] = R.playWord(run.round, word, rngState, {
@@ -1461,6 +1473,16 @@ export function playWord(
         retainedPlays:
           (run.evaluation.retainedPlays ?? 0) +
           (run.round.retainsLeft > outcome.state.retainsLeft ? 1 : 0),
+        musicPlays: (run.evaluation.musicPlays ?? []).concat({
+          enemy: run.enemy!.id,
+          phase: crescendo?.phraseBanked
+            ? 'banked'
+            : crescendo?.phase === 'soon' || crescendo?.phase === 'live'
+              ? crescendo.phase
+              : 'idle',
+          decisionMs: Math.max(0, Math.round(decisionMs)),
+          phrasePoints: breakdown.phrasePoints,
+        }),
       },
     };
   }

@@ -128,7 +128,13 @@ export type FightRef = { current: Fight | null };
 // keeping the feel-sensitive cascade/say/sfx sequencing byte-identical.
 export type FightAction =
   | { type: 'fight/setTune'; fight: FightRef; key: string; value: unknown }
-  | { type: 'fight/playWord'; fight: FightRef; phase: string; raw: string }
+  | {
+      type: 'fight/playWord';
+      fight: FightRef;
+      phase: string;
+      raw: string;
+      decisionMs?: number;
+    }
   | { type: 'fight/changeout'; fight: FightRef; phase: string; ids: string[] }
   | { type: 'fight/shuffleRack'; fight: FightRef; phase: string }
   | {
@@ -250,7 +256,7 @@ export function runFightAction(action: FightAction): FightEffect[] {
       if (!r || action.phase !== 'live') return effects;
       const rackBefore = r.rack.slice();
       const scoreBefore = r.score;
-      const res = r.playWord(action.raw);
+      const res = r.playWord(action.raw, action.decisionMs);
       if (!res.ok) {
         effects.push({ kind: 'say', message: res.reason ?? '' });
         effects.push({ kind: 'sfx', name: 'thud' });
@@ -766,6 +772,7 @@ export interface EvaluationRecord {
   character: string;
   guided: boolean;
   phrasePoints: number;
+  bankPhrase: boolean;
   assistance: EvaluationStats['assistance'];
   won: boolean;
   firstFightSuccess: boolean;
@@ -777,6 +784,7 @@ export interface EvaluationRecord {
   premiumPoints: number;
   premiumPlays: number;
   retainedPlays: number;
+  musicPlays: EvaluationStats['musicPlays'];
   purchases: string[];
   encounters: EvaluationStats['encounters'];
 }
@@ -797,6 +805,7 @@ function recordEvaluation(stats: EvaluationStats, won: boolean): void {
     character: stats.character,
     guided: stats.guided,
     phrasePoints: stats.phrasePoints,
+    bankPhrase: stats.bankPhrase,
     assistance: stats.assistance,
     won,
     firstFightSuccess: encounters[0]?.outcome === 'won',
@@ -810,6 +819,7 @@ function recordEvaluation(stats: EvaluationStats, won: boolean): void {
     premiumPoints: stats.premiumPoints,
     premiumPlays: stats.premiumPlays,
     retainedPlays: stats.retainedPlays ?? 0,
+    musicPlays: stats.musicPlays ?? [],
     purchases: stats.purchases,
     encounters,
   };

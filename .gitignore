@@ -17,3 +17,6 @@ public/audio/*.mp3
 
 # archived plans (kept locally, not committed)
 plan-archive/
+
+# planner/worker specs
+plans/

@@ -548,6 +548,7 @@ export function useFight() {
   // tiles (from `tiles`), the case shows `rackBefore` with hollows, the
   // header shows `scoreBase` until the total lands. Any tap skips ahead.
   const [scoring, setScoring] = useState<ScoringState | null>(null);
+  const decisionStartedAtRef = useRef<number | null>(null);
   const [phraseBanked, setPhraseBanked] = useState(false);
   const phraseBankedRef = useRef(false);
   const [phraseCueSpent, setPhraseCueSpent] = useState(false);
@@ -722,6 +723,7 @@ export function useFight() {
       window.__seq = seq;
       setWord('');
       setSuggestions([]);
+      decisionStartedAtRef.current = null;
       setPhase('live');
       setWordsmithPose('idle');
       say(
@@ -894,6 +896,8 @@ export function useFight() {
       setPhase(saved.phase);
     }
     readyRound.current = saved.entered ? run.round : null;
+    decisionStartedAtRef.current =
+      saved.phase === 'live' && saved.entered ? performance.now() : null;
     say('Run resumed.');
     refresh();
   }, [openAudio, crescendoNow, volume, sfxOn, startStage, say, refresh]);
@@ -1271,6 +1275,7 @@ export function useFight() {
       await wait(CASCADE.CLEAR_MS);
       setScoring(null);
       if (r.state === 'live') {
+        decisionStartedAtRef.current = performance.now();
         setPhase('live');
         setWordsmithPose('idle');
       } else {
@@ -1285,8 +1290,16 @@ export function useFight() {
   const playWord = useCallback(
     (raw: string) => {
       const before = fight.current?.round?.plays.length ?? 0;
-      dispatchFight({ type: 'fight/playWord', fight, phase, raw });
+      const startedAt = decisionStartedAtRef.current;
+      dispatchFight({
+        type: 'fight/playWord',
+        fight,
+        phase,
+        raw,
+        decisionMs: startedAt == null ? 0 : performance.now() - startedAt,
+      });
       const after = fight.current?.round?.plays.length ?? 0;
+      if (after > before) decisionStartedAtRef.current = null;
       if (after > before && phraseBankedRef.current) {
         phraseBankedRef.current = false;
         phraseCueSpentRef.current = true;
@@ -1439,6 +1452,7 @@ export function useFight() {
   const showIntro = phase === 'live' && !!round && readyRound.current !== round;
   const enterFight = useCallback(() => {
     readyRound.current = round;
+    decisionStartedAtRef.current = performance.now();
     refresh();
   }, [round, refresh]);
   const barredNow = live

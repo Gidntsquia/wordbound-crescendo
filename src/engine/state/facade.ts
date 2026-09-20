@@ -21,7 +21,12 @@ import { MOVEMENTS, RULES } from '../content/enemies';
 export interface Box {
   run: RunState;
   rng: RngState;
-  crescendo: () => { phase: string; mag?: number } | null;
+  crescendo: () => {
+    phase: string;
+    mag?: number;
+    phraseBanked?: boolean;
+    phraseEligible?: boolean;
+  } | null;
   extendCrescendo?: (extraSec: number) => void;
   character?: string;
 }
@@ -112,12 +117,14 @@ export function roundFacade(box: Box) {
     isPlayable(word: string) {
       return R.isPlayable(word);
     },
-    playWord(raw: string) {
+    playWord(raw: string, decisionMs = 0) {
+      const crescendo = box.crescendo();
       const [next, result, s] = Run.playWord(
         box.run,
         raw,
         box.rng,
-        box.crescendo(),
+        crescendo,
+        decisionMs,
       );
       box.run = next;
       box.rng = s;
