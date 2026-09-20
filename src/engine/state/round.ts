@@ -58,6 +58,8 @@ export interface RoundState {
   readonly pile: Pile;
   readonly rack: readonly Tile[];
   readonly premium: Premium | null;
+  readonly retainId: string | null;
+  readonly retainsLeft: number;
   readonly favour?: string | null;
   // The character tile (READ_SLOWLY_PLAN.md D1) is playable once per turn --
   // true only mid-resolution of the play it's used in, always reset to false
@@ -183,6 +185,8 @@ export function createRoundState(
     pile: pileAfterDraw,
     rack,
     premium,
+    retainId: null,
+    retainsLeft: Number(tune.RETAIN_ONE) > 0 ? 1 : 0,
     characterUsed: false,
   };
   return [round, s];
@@ -190,6 +194,27 @@ export function createRoundState(
 
 function held(round: RoundState, tilesUsed: Tile[]): Tile[] {
   return round.rack.filter((t) => tilesUsed.indexOf(t) < 0);
+}
+
+function rackForScoring(round: RoundState): Tile[] {
+  // When duplicate letters exist, use the other copy first so a selected
+  // tile can actually survive the play the player meant to keep it through.
+  const rack = round.rack as Tile[];
+  if (!round.retainId) return rack;
+  return rack
+    .filter((tile) => tile.id !== round.retainId)
+    .concat(rack.filter((tile) => tile.id === round.retainId));
+}
+
+export function selectRetain(
+  round: RoundState,
+  tileId: string | null,
+): [RoundState, boolean] {
+  if (round.state !== 'live' || round.retainsLeft <= 0 || round.playsLeft <= 1)
+    return [round, false];
+  if (tileId && !round.rack.some((tile) => tile.id === tileId))
+    return [round, false];
+  return [{ ...round, retainId: tileId }, true];
 }
 
 export function isBarred(round: RoundState, tile: Tile): boolean {
@@ -221,13 +246,14 @@ export function breakdownFor(
   word: string,
   run?: unknown,
   characterTile?: Tile | null,
+  crescendo?: { phase: string; mag?: number } | null,
 ): Breakdown {
   const upper = String(word).toUpperCase();
   const Lexicon = window.Wordbound.Lexicon;
   if (round.characterUsed) characterTile = null;
   const searchPool = characterTile
-    ? (round.rack as Tile[]).concat([characterTile])
-    : (round.rack as Tile[]);
+    ? rackForScoring(round).concat([characterTile])
+    : rackForScoring(round);
   const form = Lexicon.canFormFromRack(upper, searchPool);
   const tiles: Tile[] = form.possible
     ? form.tilesUsed!
@@ -249,7 +275,7 @@ export function breakdownFor(
     run: (run as never) || null,
     round: round as never,
     preview: true,
-    crescendo: null,
+    crescendo,
     characterTile,
   });
 }
@@ -325,8 +351,8 @@ export function playWord(
   const characterTile =
     ctx.characterTile && !round.characterUsed ? ctx.characterTile : null;
   const searchPool = characterTile
-    ? (round.rack as Tile[]).concat([characterTile])
-    : (round.rack as Tile[]);
+    ? rackForScoring(round).concat([characterTile])
+    : rackForScoring(round);
   const form = Lexicon.canFormFromRack(upper, searchPool);
   if (!form.possible)
     return [
@@ -368,21 +394,6 @@ export function playWord(
   // The character tile (READ_SLOWLY_PLAN.md D1) is never part of round.rack
   // and must never be drawn/discarded -- it returns to its own slot after
   // every play, so it's excluded here even though it's in tilesUsed.
-  const rackAfterRemove = round.rack.filter((t) => tilesUsed.indexOf(t) < 0);
-  const tilesToDiscard = characterTile
-    ? tilesUsed.filter((t) => t.id !== characterTile.id)
-    : tilesUsed;
-  const discardPile = round.pile.discardPile.concat(
-    tilesToDiscard,
-    rackAfterRemove,
-  );
-  const need = round.rackSize;
-  const [newRack, pileAfterDraw, s2] = pureDraw(
-    { drawPile: round.pile.drawPile, discardPile },
-    need,
-    rngState,
-  );
-
   const usedLetters: Record<string, boolean> = Object.assign(
     {},
     round.usedLetters,
@@ -415,6 +426,33 @@ export function playWord(
     state = 'lost';
   }
 
+  const retained =
+    state === 'live' && round.retainsLeft > 0 && round.retainId
+      ? round.rack.find(
+          (tile) =>
+            tile.id === round.retainId &&
+            !tilesUsed.some((used) => used.id === tile.id),
+        )
+      : null;
+  const rackAfterRemove = round.rack.filter(
+    (tile) =>
+      !tilesUsed.some((used) => used.id === tile.id) &&
+      tile.id !== retained?.id,
+  );
+  const tilesToDiscard = characterTile
+    ? tilesUsed.filter((tile) => tile.id !== characterTile.id)
+    : tilesUsed;
+  const discardPile = round.pile.discardPile.concat(
+    tilesToDiscard,
+    rackAfterRemove,
+  );
+  const [drawn, pileAfterDraw, s2] = pureDraw(
+    { drawPile: round.pile.drawPile, discardPile },
+    round.rackSize - (retained ? 1 : 0),
+    rngState,
+  );
+  const newRack = retained ? [retained, ...drawn] : drawn;
+
   const next: RoundState = {
     ...round,
     usedLetters,
@@ -423,6 +461,8 @@ export function playWord(
     plays,
     pile: pileAfterDraw,
     rack: newRack,
+    retainId: null,
+    retainsLeft: round.retainsLeft - (retained ? 1 : 0),
     state,
     ink,
     // Resets every play (Jaxon, 2026-09-10: once per turn, not once per
@@ -464,7 +504,15 @@ export function playWord(
   return [
     {
       state: next,
-      result: { ok: true, word: upper, breakdown, messages: [], effects },
+      result: {
+        ok: true,
+        word: upper,
+        breakdown,
+        messages: retained
+          ? [`Kept ${retained.letter} for the next word.`]
+          : [],
+        effects,
+      },
     },
     s2,
   ];
@@ -523,6 +571,9 @@ export function changeout(
   const next: RoundState = {
     ...round,
     rack: rackAfterRemove.concat(drawn),
+    retainId: back.some((tile) => tile.id === round.retainId)
+      ? null
+      : round.retainId,
     pile,
     changeoutsLeft: round.changeoutsLeft - 1,
   };
@@ -538,10 +589,24 @@ export function destroyTile(
   if (i < 0) return [round, false, rngState];
   const rackAfterRemove = round.rack.filter((_, idx) => idx !== i);
   const need = round.rackSize - rackAfterRemove.length;
-  if (need <= 0) return [{ ...round, rack: rackAfterRemove }, true, rngState];
+  if (need <= 0)
+    return [
+      {
+        ...round,
+        rack: rackAfterRemove,
+        retainId: round.retainId === tileId ? null : round.retainId,
+      },
+      true,
+      rngState,
+    ];
   const [drawn, pileAfterDraw, s2] = pureDraw(round.pile, need, rngState);
   return [
-    { ...round, rack: rackAfterRemove.concat(drawn), pile: pileAfterDraw },
+    {
+      ...round,
+      rack: rackAfterRemove.concat(drawn),
+      pile: pileAfterDraw,
+      retainId: round.retainId === tileId ? null : round.retainId,
+    },
     true,
     s2,
   ];

@@ -45,7 +45,7 @@ export const CHARACTERS: Character[] = [
     id: 'ee',
     letter: 'E',
     name: 'Ee',
-    hint: 'The common one. (A second E tile is a follow-up; for now, a flat bonus.)',
+    hint: '+6 points on words containing E.',
     itemId: 'char_ee',
   },
   {

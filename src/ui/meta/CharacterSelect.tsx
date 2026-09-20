@@ -2,6 +2,7 @@
 // characters. Presentational only (props in, JSX out, no internal state).
 import type { Character } from '../../engine/content/characters';
 import { Button } from '@/ui/primitives/button';
+import { CHARACTER_ORDER } from '../../engine/content/characters';
 
 export default function CharacterSelect({
   characters,
@@ -22,24 +23,41 @@ export default function CharacterSelect({
     >
       {characters.map((c) => {
         const isUnlocked = unlocked.includes(c.id);
+        const previous = characters.find(
+          (p) => p.id === CHARACTER_ORDER[CHARACTER_ORDER.indexOf(c.id) - 1],
+        );
         return (
-          <Button
+          <div
             key={c.id}
-            type="button"
-            variant="paper"
-            title={isUnlocked ? c.hint : c.hint + ' — locked'}
-            disabled={!isUnlocked}
-            className={
-              'h-[34px] w-[34px] rounded-[2px] text-[15px] font-bold' +
-              (c.id === chosen
-                ? ' border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)]'
-                : '') +
-              (!isUnlocked ? ' disabled:opacity-[0.35]' : '')
-            }
-            onClick={() => isUnlocked && onChoose(c.id)}
+            className="flex w-[145px] flex-col items-center gap-1 rounded-sm border border-[var(--rule)] p-2 text-[var(--leaf)]"
           >
-            {c.letter}
-          </Button>
+            <Button
+              type="button"
+              variant="paper"
+              title={isUnlocked ? c.hint : c.hint + ' — locked'}
+              aria-pressed={isUnlocked && c.id === chosen}
+              disabled={!isUnlocked}
+              className={
+                'h-11 w-11 rounded-[2px] text-[17px] font-bold' +
+                (c.id === chosen
+                  ? ' border-[var(--brass-hot)] bg-[var(--brass-hot)] text-[var(--ink)] ring-2 ring-[var(--brass-hot)] ring-offset-2 ring-offset-[var(--pit)]'
+                  : '') +
+                (!isUnlocked ? ' disabled:opacity-[0.35]' : '')
+              }
+              onClick={() => isUnlocked && onChoose(c.id)}
+            >
+              {c.letter}
+            </Button>
+            <b className="text-sm">
+              {c.name}
+              {c.id === 'ee' ? ' · recommended' : ''}
+            </b>
+            <span className="text-xs leading-snug">
+              {isUnlocked
+                ? c.hint
+                : `Unlock by finishing a chapter with ${previous?.name ?? 'the previous character'}.`}
+            </span>
+          </div>
         );
       })}
     </div>

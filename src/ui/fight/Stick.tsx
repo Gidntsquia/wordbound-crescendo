@@ -2,7 +2,6 @@
 // row itself (scoring-locked view vs. live view), and the premium-slot
 // preview past the end. Extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md
 // A4) verbatim -- no logic changes, only prop-threading.
-import { useCallout } from '../chrome/Callout';
 import type { Tile } from '../../engine/tiles';
 import type { RoundFacade } from '../../engine/state/facade';
 import type { ScoringState as RealScoringState } from './FightScreen';
@@ -143,7 +142,6 @@ function setTileOverrideStyle(
 
 export default function Stick({
   live,
-  seen,
   letters,
   scoring,
   spelt,
@@ -170,10 +168,6 @@ export default function Stick({
   unstageAt: (i: number) => void;
   letterValues: Record<string, number>;
 }) {
-  useCallout(
-    live && !seen.has('stick') && letters.length >= 2,
-    'Tap Play, or tap a tile to send it back',
-  );
   return (
     <div className="sb-stick-wrap mb-3.5 max-[620px]:mb-2">
       {/* min-h reserves the tallest state's (wrapped, two-line) height up

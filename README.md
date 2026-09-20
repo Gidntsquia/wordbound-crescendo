@@ -8,15 +8,13 @@ famous public-domain classical/opera pieces synthesized live via the Web Audio A
 normal enemies by lesser-known pieces, and bosses attack **on the crescendos of
 their music** — a real-time pressure element where getting the best word you can
 _quickly_ matters more than getting the best word possible, and submitting right on
-a crescendo parries incoming damage. Working title; naming is still open (see
-GOALS.md).
+a crescendo parries incoming damage. Working title; naming is still open.
 
 This is a sibling game to [Wordbound](https://github.com/gidntsquia/descent-of-essence),
 engine-forked from that repo at its v0.42 state (word-combat core: dictionary
 validation, letter-tile racks, deck-building, the woodcut-SVG art direction). The
 engine is expected to diverge from the sibling as Crescendo's design needs it — no
-compatibility obligation in either direction. See [THEME.md](THEME.md) for lore and
-[ROADMAP.md](ROADMAP.md) for the milestone plan.
+compatibility obligation in either direction. See [THEME.md](THEME.md) for lore.
 
 ## Quickstart — Play Locally
 
@@ -52,8 +50,7 @@ executes in a DOM. It cannot verify audio, real timing, or drag-and-drop; those 
 a real browser (Playwright is a devDependency; see `test/verify-*.js` for examples).
 
 Run `npm test` (and `npm run test:mobile` for any CSS/layout change) before
-considering any game-logic or rendering change done — see GOALS.md for the full
-verification policy this repo's automated dev routine follows.
+considering any game-logic or rendering change done — see verification policy this repo's automated dev routine follows.
 
 ### Project layout
 
@@ -64,9 +61,6 @@ js/core/                 # shared engine bits: seeded RNG, namespace setup
 css/wordbound.css        # styling (inked-woodcut art direction)
 test/                    # dom-check.js (jsdom) + verify-*.js (Playwright) suites
 tools/                   # build-itch.js (itch.io packaging), ensure-deps.js, etc.
-GOALS.md                 # task queue for the automated dev routine
-PROGRESS.md              # append-only log of what's been built
-ROADMAP.md               # milestones and known gaps
 THEME.md                 # world bible / lore (still the sibling's, being replaced)
 ```
 

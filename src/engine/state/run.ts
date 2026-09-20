@@ -20,6 +20,7 @@ import {
   TIERS,
   TIER_DEFS,
   applyKey,
+  scoreWordPoints,
   type Breakdown,
   type Tune,
 } from '../content/round';
@@ -95,7 +96,79 @@ export interface Consumable {
   id: string;
 }
 
+// Enough of the most recent play to compare shop offers with the same score
+// function that awarded it. The previous rack and RNG are not needed here.
+export interface LastPlayExample {
+  word: string;
+  tiles: Tile[];
+  heldTiles: Tile[];
+  rackSize: number;
+  premium: RoundState['premium'];
+  ruleId: string | null;
+  playsBefore: { word: string }[];
+  playsLeft: number;
+  changeoutsLeft: number;
+  itemState: Record<string, number>;
+  crescendo: { phase: string; mag?: number } | null;
+}
+
+export interface EvaluationStats {
+  id: string;
+  seed: string;
+  character: string;
+  guided: boolean;
+  phrasePoints: number;
+  bankPhrase: boolean;
+  assistance: ('hint' | 'solver')[];
+  swaps: number;
+  swapsThisFight: number;
+  premiumPoints: number;
+  premiumThisFight: number;
+  premiumPlays: number;
+  retainedPlays: number;
+  purchases: string[];
+  encounters: {
+    enemy: string;
+    kind: Enemy['kind'];
+    movement: number;
+    stage: number;
+    outcome: 'won' | 'lost' | 'skipped';
+    score: number;
+    target: number;
+    words: number;
+    swaps: number;
+    premiumPoints: number;
+  }[];
+}
+
+export function createEvaluation(
+  seed = '',
+  character = '',
+  guided = false,
+  phrasePoints = 2,
+  bankPhrase = false,
+): EvaluationStats {
+  return {
+    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+    seed,
+    character,
+    guided,
+    phrasePoints,
+    bankPhrase,
+    assistance: [],
+    swaps: 0,
+    swapsThisFight: 0,
+    premiumPoints: 0,
+    premiumThisFight: 0,
+    premiumPlays: 0,
+    retainedPlays: 0,
+    purchases: [],
+    encounters: [],
+  };
+}
+
 export interface RunState {
+  readonly guidedOpening: boolean;
   readonly key: string;
   readonly tune: Tune;
   readonly movement: number;
@@ -123,6 +196,11 @@ export interface RunState {
     breakdown: Breakdown;
     enemy: string;
   } | null;
+  readonly lastPlay: LastPlayExample | null;
+  readonly upgradeImpact: Readonly<
+    Record<string, { points: number; words: number }>
+  >;
+  readonly evaluation: EvaluationStats;
   readonly wordsPlayed: number;
   readonly lastWin: { reward: number; interest: number } | null;
   readonly state: 'live' | 'won' | 'lost';
@@ -143,6 +221,8 @@ export interface RunState {
 }
 
 export interface CreateRunStateOpts {
+  seed?: string;
+  guidedOpening?: boolean;
   tune?: Partial<Tune>;
   key?: string;
   deck?: Tile[];
@@ -243,6 +323,11 @@ function begin(run: RunState, rngState: RngState): [RunState, RngState] {
   };
   const next: RunState = {
     ...run,
+    evaluation: {
+      ...run.evaluation,
+      swapsThisFight: 0,
+      premiumThisFight: 0,
+    },
     movementIIIQuillDone,
     movementIIIQuillFound,
     discoveredQuills,
@@ -267,6 +352,7 @@ export function createRunState(
     ? { ...createTile(character.letter), origin: 'character' }
     : null;
   const run: RunState = {
+    guidedOpening: !!opts.guidedOpening,
     key: opts.key || 'c_major',
     tune,
     movement: 0,
@@ -287,6 +373,15 @@ export function createRunState(
     skipped: [],
     favours: [],
     bestPlay: null,
+    lastPlay: null,
+    upgradeImpact: {},
+    evaluation: createEvaluation(
+      opts.seed,
+      opts.characterId,
+      !!opts.guidedOpening,
+      Number(tune.PHRASE_POINTS ?? 2),
+      Number(tune.BANK_PHRASE ?? 0) > 0,
+    ),
     wordsPlayed: 0,
     lastWin: null,
     state: 'live',
@@ -326,6 +421,46 @@ function advanceStage(run: RunState): { movement: number; stage: number } {
   return { movement, stage };
 }
 
+function recordEncounter(
+  run: RunState,
+  outcome: 'won' | 'lost' | 'skipped',
+): EvaluationStats {
+  const round = run.round!;
+  return {
+    ...run.evaluation,
+    encounters: run.evaluation.encounters.concat({
+      enemy: run.enemy!.id,
+      kind: run.enemy!.kind,
+      movement: run.movement,
+      stage: run.stage,
+      outcome,
+      score: round.score,
+      target: round.target,
+      words: round.plays.length,
+      swaps: run.evaluation.swapsThisFight,
+      premiumPoints: run.evaluation.premiumThisFight,
+    }),
+  };
+}
+
+export function markAssisted(run: RunState, kind: 'hint' | 'solver'): RunState {
+  if (run.evaluation.assistance.includes(kind)) return run;
+  return {
+    ...run,
+    evaluation: {
+      ...run.evaluation,
+      assistance: [...run.evaluation.assistance, kind],
+    },
+  };
+}
+
+function addPurchase(run: RunState, choice: string): EvaluationStats {
+  return {
+    ...run.evaluation,
+    purchases: run.evaluation.purchases.concat(choice),
+  };
+}
+
 export interface SkipResult {
   ok: boolean;
   reason?: string;
@@ -361,6 +496,7 @@ export function skip(
   const { movement, stage } = advanceStage(run);
   const afterSkip: RunState = {
     ...run,
+    evaluation: recordEncounter(run, 'skipped'),
     ink,
     favours,
     skipped: (run.skipped as string[]).concat([run.enemy!.id]),
@@ -389,17 +525,39 @@ function finishWin(
   };
   let s = rngState;
   const shop: ShopState = rollShop(afterAdvance);
+  const firstPracticeShop =
+    run.guidedOpening &&
+    run.felled.length === 1 &&
+    movement === 0 &&
+    stage === 1;
+  const offeredShop: ShopState = firstPracticeShop
+    ? {
+        ...shop,
+        cards: [
+          { kind: 'item', id: 'brass_nib', price: 3, sold: false },
+          { kind: 'item', id: 'vowel_song', price: 3, sold: false },
+          { kind: 'item', id: 'anticipation', price: 3, sold: false },
+        ],
+        packs: [],
+      }
+    : shop;
   // Favours owed from a skipped enemy are spent entering the shop.
   let coupon = false;
-  const packs = shop.packs.slice();
-  shop.favours.forEach((f) => {
+  const packs = offeredShop.packs.slice();
+  offeredShop.favours.forEach((f) => {
     if (f === 'free_pack' && packs[0]) packs[0] = { ...packs[0], free: true };
     if (f === 'coupon') coupon = true;
   });
   const cards = coupon
-    ? shop.cards.map((c) => ({ ...c, price: 0 }))
-    : shop.cards;
-  const withFavour: ShopState = { ...shop, cards, packs, coupon, favours: [] };
+    ? offeredShop.cards.map((c) => ({ ...c, price: 0 }))
+    : offeredShop.cards;
+  const withFavour: ShopState = {
+    ...offeredShop,
+    cards,
+    packs,
+    coupon,
+    favours: [],
+  };
   return [{ ...afterAdvance, shop: withFavour, favours: [] }, s];
 
   // Pure reroll of the shop's cards/packs, threading rngState through the
@@ -581,7 +739,11 @@ export function next(run: RunState, rngState: RngState): [RunState, RngState] {
     run.letterChoice
   )
     return [run, rngState];
-  if (r.state === 'lost') return [{ ...run, state: 'lost' }, rngState];
+  if (r.state === 'lost')
+    return [
+      { ...run, state: 'lost', evaluation: recordEncounter(run, 'lost') },
+      rngState,
+    ];
 
   let s = rngState;
   const inkAfterReward = run.ink + r.ink;
@@ -609,6 +771,7 @@ export function next(run: RunState, rngState: RngState): [RunState, RngState] {
 
   const afterSettle: RunState = {
     ...run,
+    evaluation: recordEncounter(run, 'won'),
     ink,
     lastWin,
     felled,
@@ -678,7 +841,7 @@ export function buyCard(run: RunState, i: number): [RunState, ShopResult] {
           reason:
             'All ' +
             run.tune.ITEM_SLOTS +
-            ' quill slots are full — sell one first.',
+            ' bookmark slots are full — sell one first.',
         },
       ];
     items = items.concat([c.id]);
@@ -695,6 +858,7 @@ export function buyCard(run: RunState, i: number): [RunState, ShopResult] {
         return [
           {
             ...run,
+            evaluation: addPurchase(run, `card:${c.kind}:${c.id}`),
             tierLevels,
             ink: run.ink - c.price,
             shop: { ...shop, cards },
@@ -718,6 +882,7 @@ export function buyCard(run: RunState, i: number): [RunState, ShopResult] {
   return [
     {
       ...run,
+      evaluation: addPurchase(run, `card:${c.kind}:${c.id}`),
       items,
       consumables,
       ink: run.ink - c.price,
@@ -832,7 +997,13 @@ export function openPack(
   );
   const pack = { kind: p.kind, choices };
   return [
-    { ...run, ink: run.ink - price, shop: { ...shop, packs }, pack },
+    {
+      ...run,
+      evaluation: addPurchase(run, `pack:${p.kind}`),
+      ink: run.ink - price,
+      shop: { ...shop, packs },
+      pack,
+    },
     { ok: true, pack },
     s,
   ];
@@ -859,7 +1030,12 @@ export function pick_(run: RunState, i: number | null): [RunState, ShopResult] {
         const tierLevels = { ...run.tierLevels } as Record<string, number>;
         if (TIER_DEFS[c.id]) tierLevels[c.id] = (tierLevels[c.id] || 1) + 1;
         return [
-          { ...run, tierLevels, pack: null },
+          {
+            ...run,
+            evaluation: addPurchase(run, `choice:${c.kind}:${c.id}`),
+            tierLevels,
+            pack: null,
+          },
           { ok: true, choice: c, used: true, mark },
         ];
       }
@@ -875,7 +1051,16 @@ export function pick_(run: RunState, i: number | null): [RunState, ShopResult] {
     }
   }
   return [
-    { ...run, deck, consumables, pack: null },
+    {
+      ...run,
+      evaluation: addPurchase(
+        run,
+        `choice:${c.kind}:${c.kind === 'tile' ? c.tile.letter : c.id}`,
+      ),
+      deck,
+      consumables,
+      pack: null,
+    },
     { ok: true, choice: c, used, mark },
   ];
 }
@@ -1160,7 +1345,124 @@ export function playWord(
       !next.bestPlay || breakdown.total > next.bestPlay.breakdown.total
         ? { word: outcome.result.word!, breakdown, enemy: next.enemy!.name }
         : next.bestPlay;
-    next = { ...next, wordsPlayed, bestPlay };
+    const tiles = outcome.state.plays[outcome.state.plays.length - 1]!.tiles;
+    const playedIds = new Set(tiles.map((tile) => tile.id));
+    const lastPlay: LastPlayExample = {
+      word: outcome.result.word!,
+      tiles: tiles.slice(),
+      heldTiles: run.round.rack.filter((tile) => !playedIds.has(tile.id)),
+      rackSize: run.round.rackSize,
+      premium: run.round.premium,
+      ruleId: run.round.rule?.id ?? null,
+      playsBefore: run.round.plays.map((play) => ({ word: play.word })),
+      playsLeft: run.round.playsLeft,
+      changeoutsLeft: run.round.changeoutsLeft,
+      itemState: { ...run.itemState },
+      crescendo,
+    };
+    const premiumWithout =
+      run.round.premium &&
+      (breakdown.slotPoints || breakdown.slotMultRatio !== 1)
+        ? scoreWordPoints(lastPlay.word, tiles, lastPlay.rackSize, {
+            tune: run.round.tune,
+            items: run.items as string[],
+            tierLevels: run.tierLevels as Record<string, number>,
+            heldTiles: lastPlay.heldTiles,
+            run,
+            round: { ...run.round, premium: null },
+            preview: true,
+            crescendo,
+            characterTile: run.characterTile,
+          }).total
+        : breakdown.total;
+    const premiumGained = Math.max(0, breakdown.total - premiumWithout);
+    // Re-score this exact play with each acquired upgrade removed. These
+    // counterfactuals are useful for attribution, though overlapping effects
+    // mean their totals should not be added together.
+    const upgradeImpact = { ...run.upgradeImpact } as Record<
+      string,
+      { points: number; words: number }
+    >;
+    const originalItems = run.items as string[];
+    const originalLevels = run.tierLevels as Record<string, number>;
+    const measure = (
+      key: string,
+      items: string[],
+      levels: Record<string, number>,
+      scoredTiles = tiles,
+      heldTiles = lastPlay.heldTiles,
+    ) => {
+      const without = scoreWordPoints(
+        lastPlay.word,
+        scoredTiles,
+        lastPlay.rackSize,
+        {
+          tune: run.round!.tune,
+          items,
+          tierLevels: levels,
+          heldTiles,
+          run,
+          round: run.round,
+          preview: true,
+          crescendo,
+          characterTile: run.characterTile,
+        },
+      ).total;
+      const gained = Math.max(0, breakdown.total - without);
+      if (!gained) return;
+      const prior = upgradeImpact[key] || { points: 0, words: 0 };
+      upgradeImpact[key] = {
+        points: prior.points + gained,
+        words: prior.words + 1,
+      };
+    };
+    originalItems.forEach((id, index) => {
+      if (run.startItems.includes(id)) return;
+      measure(
+        'item:' + id,
+        originalItems.filter((_, i) => i !== index),
+        originalLevels,
+      );
+    });
+    Object.entries(originalLevels).forEach(([id, level]) => {
+      if (level <= 1) return;
+      measure('tier:' + id, originalItems, {
+        ...originalLevels,
+        [id]: level - 1,
+      });
+    });
+    const marks = new Set(
+      [...tiles, ...lastPlay.heldTiles]
+        .map((tile) => tile.mark)
+        .filter((mark): mark is string => !!mark),
+    );
+    marks.forEach((mark) => {
+      const withoutMark = (tile: Tile) =>
+        tile.mark === mark ? { ...tile, mark: null } : tile;
+      measure(
+        'mark:' + mark,
+        originalItems,
+        originalLevels,
+        tiles.map(withoutMark),
+        lastPlay.heldTiles.map(withoutMark),
+      );
+    });
+    next = {
+      ...next,
+      wordsPlayed,
+      bestPlay,
+      lastPlay,
+      upgradeImpact,
+      evaluation: {
+        ...run.evaluation,
+        premiumPoints: run.evaluation.premiumPoints + premiumGained,
+        premiumThisFight: run.evaluation.premiumThisFight + premiumGained,
+        premiumPlays: run.evaluation.premiumPlays + (premiumGained > 0 ? 1 : 0),
+        retainedPlays:
+          (run.evaluation.retainedPlays ?? 0) +
+          (run.round.retainsLeft > outcome.state.retainsLeft ? 1 : 0),
+      },
+    };
   }
   return [next, outcome.result, s];
 }

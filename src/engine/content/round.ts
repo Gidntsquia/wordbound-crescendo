@@ -34,6 +34,8 @@ export const ROUND_DEFAULTS: Tune = {
   PLAYS: 4, // words the player may play
   CHANGEOUTS: 3, // tile swaps
   RACK_SIZE: 7,
+  RETAIN_ONE: 0, // opt-in one-tile retention prototype, once per fight
+  BANK_PHRASE: 0, // opt-in: save one musical phrase reward until a word is played
   // Length tiers: base points and base mult per band (Sandbox.TIERS).
   PTS_2: 0,
   MULT_2: 1, // one or two letters
@@ -81,6 +83,7 @@ export const ROUND_DEFAULTS: Tune = {
   PREMIUM_DL: 2, // x letter points on the tile in the slot
   PREMIUM_TL: 3,
   PREMIUM_DW: 2, // x mult, whole word
+  PHRASE_POINTS: 2, // 0 restores item-only timing for comparison
   // READ_SLOWLY_PLAN.md D1: the permanent character tile's own bonus when
   // played, on top of whatever else the word earns.
   CHAR_LETTER_MULT: 2, // x its own letter value
@@ -293,7 +296,8 @@ export interface Step {
     | 'rule'
     | 'chord'
     | 'tilex'
-    | 'character';
+    | 'character'
+    | 'phrase';
   name?: string;
   level?: number;
   tile?: Tile;
@@ -338,6 +342,7 @@ export interface Breakdown {
   itemNotes: ItemNote[];
   chordWord: string | null;
   crescendo: boolean;
+  phrasePoints: number;
   itemPoints: number;
   itemMult: number;
   points: number;
@@ -356,7 +361,12 @@ interface ScoreCtx {
   run: unknown;
   round: unknown;
   preview?: boolean;
-  crescendo?: { phase: string; mag?: number } | null;
+  crescendo?: {
+    phase: string;
+    mag?: number;
+    phraseBanked?: boolean;
+    phraseEligible?: boolean;
+  } | null;
   // READ_SLOWLY_PLAN.md D1: the permanent character tile, if it's among
   // tilesUsed this play -- undefined/null for a run with no character (or
   // a play that didn't use it).
@@ -451,6 +461,17 @@ export function scoreWordPoints(
     b.charMultRatio = Number(tune.CHAR_MULT) || 1;
     b.charTile = charTile;
   }
+  // A small public phrase reward makes the soundtrack useful before the
+  // player owns a timing bookmark. Countdown and swell both count, leaving
+  // a generous window; timing bookmarks still provide their own effects.
+  const phraseAvailable =
+    ctx.crescendo?.phraseEligible !== false &&
+    (ctx.crescendo?.phraseBanked ||
+      ctx.crescendo?.phase === 'soon' ||
+      ctx.crescendo?.phase === 'live');
+  b.phrasePoints = phraseAvailable
+    ? Math.max(0, Number(tune.PHRASE_POINTS ?? 2))
+    : 0;
   // Items fire left to right on the running points and mult.
   const acc: {
     points: number;
@@ -464,7 +485,8 @@ export function scoreWordPoints(
       b.variantFlat +
       b.inkPoints +
       b.slotPoints +
-      b.charBonusPts,
+      b.charBonusPts +
+      b.phrasePoints,
     mult: (b.tierMult + b.inkMult) * b.slotMultRatio * b.charMultRatio,
   };
   const before = { points: acc.points, mult: acc.mult };
@@ -643,6 +665,14 @@ export function scoreSteps(
       tone: 'pts',
     });
   }
+  if (b.phrasePoints)
+    push({
+      kind: 'phrase',
+      name: 'Musical phrase',
+      pts: b.phrasePoints,
+      label: 'musical phrase',
+      tone: 'pts',
+    });
   (b.itemNotes || []).forEach((n) => {
     const nn = n as ItemNote & { rule?: boolean; chord?: boolean };
     push({

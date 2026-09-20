@@ -103,7 +103,7 @@ export const CRESCENDO = {
   countdown: CRES_COUNTDOWN,
 };
 
-function curateSurges(surges: Surge[]): Surge[] {
+export function curateSurges(surges: Surge[]): Surge[] {
   const out: Surge[] = [];
   let last = -Infinity;
   surges.forEach((s) => {

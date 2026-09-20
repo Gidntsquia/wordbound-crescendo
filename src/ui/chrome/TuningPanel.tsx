@@ -20,6 +20,7 @@ const TUNE_GROUPS: { id: string; label: string; keys: string[] }[] = [
       'PLAYS',
       'CHANGEOUTS',
       'RACK_SIZE',
+      'RETAIN_ONE',
       // READ_SLOWLY_PLAN.md A5: dev-only, filtered out of `groups` below in
       // a production build (see FORCE_WIN_TARGET's comment in
       // content/round.ts).
@@ -70,7 +71,7 @@ const TUNE_GROUPS: { id: string; label: string; keys: string[] }[] = [
   },
   {
     id: 'ink',
-    label: 'Ink & gold',
+    label: 'Ink',
     keys: [
       'BOUNTY_INK',
       'INK_SMALL',
@@ -88,6 +89,11 @@ const TUNE_GROUPS: { id: string; label: string; keys: string[] }[] = [
     keys: ['PREMIUM_CHANCE', 'PREMIUM_DL', 'PREMIUM_TL', 'PREMIUM_DW'],
   },
   {
+    id: 'music',
+    label: 'Music',
+    keys: ['PHRASE_POINTS', 'BANK_PHRASE'],
+  },
+  {
     id: 'character',
     label: 'Character',
     keys: ['CHAR_LETTER_MULT', 'CHAR_MULT'],
@@ -103,6 +109,7 @@ const TUNE_LABELS: Record<string, string> = {
   PLAYS: 'Words per round',
   CHANGEOUTS: 'Swaps per fight',
   RACK_SIZE: 'Rack size',
+  RETAIN_ONE: 'Keep one tile once per fight (0/1 prototype)',
   PTS_2: 'Short (1–2) · points',
   MULT_2: 'Short · mult',
   PTS_3: 'Three · points',
@@ -115,10 +122,10 @@ const TUNE_LABELS: Record<string, string> = {
   MULT_6: 'Six · mult',
   PTS_7: 'Seven+ · points',
   MULT_7: 'Seven+ · mult',
-  ITEM_SLOTS: 'Quill slots',
+  ITEM_SLOTS: 'Bookmark slots',
   CONSUMABLE_SLOTS: 'Consumable slots',
   CARD_SLOTS: 'Shop card slots',
-  CARD_ITEM: 'Card roll · quill weight',
+  CARD_ITEM: 'Card roll · bookmark weight',
   CARD_MARK: 'Card roll · marginalia weight',
   CARD_ETUDE: 'Card roll · étude weight',
   PACK_SLOTS: 'Shop pack slots',
@@ -138,12 +145,14 @@ const TUNE_LABELS: Record<string, string> = {
   INK_BOSS: 'Ink, boss',
   INK_PER_WORD_LEFT: 'Ink per word left',
   START_INK: 'Starting ink',
-  INTEREST_PER: 'Interest: 1 gold per',
+  INTEREST_PER: 'Interest: 1 ink per',
   INTEREST_CAP: 'Interest cap',
   PREMIUM_CHANCE: 'Premium slot · odds per round',
   PREMIUM_DL: 'Premium · double letter ×',
   PREMIUM_TL: 'Premium · triple letter ×',
   PREMIUM_DW: 'Premium · double word ×',
+  PHRASE_POINTS: 'Musical phrase points (0 = item-only)',
+  BANK_PHRASE: 'Save one phrase reward until the next word (0/1 prototype)',
   FORCE_WIN_TARGET: 'Dev: force win target (0 = off)',
 };
 
@@ -219,10 +228,9 @@ export default function TuningPanel({
           ))}
         </Tabs>
         <p className="mt-3.5 max-w-[62ch] text-[11px] text-[var(--leaf-dim)]">
-          Targets, words, swaps and rack size take effect on the next round; the
-          tier figures apply to the next word; the gold figures are read at the
-          win. Nothing is saved — copy the numbers you want to keep into
-          src/sandbox/round.js.
+          Targets, words, swaps, rack size, and tile retention take effect on
+          the next fight; tier figures apply to the next word; ink figures are
+          read at the win. Tuning resets when the page closes.
         </p>
       </details>
     </div>

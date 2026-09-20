@@ -47,6 +47,10 @@ export default function EnemyIntroCard({
           {f.def.flavour}
         </q>
       )}
+      <p className="my-1 text-[13px] text-[var(--leaf)]">
+        Reach {round.target} points within {round.playsLeft} words. You have{' '}
+        {round.changeoutsLeft} swaps; each replaces the letters you select.
+      </p>
       {round.rule ? (
         <div className="my-2 border-l-[3px] border-[var(--rubric)] bg-[var(--pit-deep)] px-3 py-2 motion-safe:animate-[rule-pulse_1.6s_ease-in-out_3]">
           <span className="sb-eyebrow mb-0.5 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--rubric)] uppercase">
@@ -59,11 +63,7 @@ export default function EnemyIntroCard({
             {round.rule.text}
           </q>
         </div>
-      ) : (
-        <span className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
-          Target {round.target}
-        </span>
-      )}
+      ) : null}
       <div className="mt-1 flex flex-wrap items-center gap-2.5">
         <Button
           type="button"

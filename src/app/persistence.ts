@@ -17,6 +17,8 @@ export const KEYS = {
   seen: 'wbc.seen',
   sfx: 'wbc.sfx',
   characters: 'wbc.characters',
+  activeRun: 'wbc.activeRun',
+  evaluations: 'wbc.evaluations',
 } as const;
 
 const VERSION_KEY = 'wbc.schemaVersion';
@@ -34,6 +36,14 @@ export function writeRaw(key: string, value: string): void {
     window.localStorage.setItem(key, value);
   } catch {
     /* private mode, quota, etc -- the value just doesn't persist */
+  }
+}
+
+export function removeRaw(key: string): void {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    /* Storage may be unavailable. */
   }
 }
 

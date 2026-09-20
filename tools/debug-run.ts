@@ -15,6 +15,7 @@ type FacadeModule = typeof import('../src/engine/state/facade');
 type RunFacade = ReturnType<FacadeModule['createRunFacadeFromOpts']>;
 
 interface Args {
+  guided: boolean;
   seed: string;
   ink?: number;
   fights: number;
@@ -25,6 +26,7 @@ interface Args {
 
 function parseArgs(argv: string[]): Args {
   const out: Args = {
+    guided: false,
     seed: 'debug',
     fights: 1,
     items: [],
@@ -34,6 +36,7 @@ function parseArgs(argv: string[]): Args {
   for (const a of argv) {
     const [k, v] = a.replace(/^--/, '').split('=');
     if (k === 'seed' && v) out.seed = v;
+    else if (k === 'guided') out.guided = true;
     else if (k === 'ink' && v) out.ink = Number(v);
     else if (k === 'fights' && v) out.fights = Number(v);
     else if (k === 'items' && v) out.items = v.split(',').filter(Boolean);
@@ -79,6 +82,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const run = createRunFacadeFromOpts(
     {
+      guidedOpening: args.guided,
       deck: createBagDeck(args.bag, []),
       tune: args.ink !== undefined ? { START_INK: args.ink } : undefined,
       items: args.items.length ? args.items : undefined,

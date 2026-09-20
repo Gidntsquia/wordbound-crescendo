@@ -9,10 +9,10 @@ import HeldRow from '../fight/HeldRow';
 import CardSlot from './CardSlot';
 import PackPick from './PackPick';
 import ShopInkPicker from './ShopInkPicker';
-import { useCallout } from '../chrome/Callout';
 import type { RunFacade } from '../../engine/state/facade';
 import type { CrescendoWindow } from '../../audio/recordingPlayer';
 import type { Selecting } from '../fight/FightScreen';
+import { RULES } from '../../engine/content/enemies';
 
 type RunLike = RunFacade;
 type Cres = CrescendoWindow;
@@ -70,12 +70,18 @@ export default function Shop({
   setTip: (updater: (t: string | null) => string | null) => void;
 }) {
   const shop = run.shop;
-  useCallout(
-    firstVisit && !selecting,
-    'Quills score every word. Gold carries over.',
-  );
   if (!shop) return null;
   const next = SB.enemyAt(run.movement, run.stage);
+  const nextBoss = run.movements
+    .flatMap((movement) => movement.enemies)
+    .find(
+      (enemy) =>
+        enemy.kind === 'boss' &&
+        !run.felled.includes(enemy.id) &&
+        !run.skipped.includes(enemy.id),
+    );
+  const bossRule = nextBoss?.rule ? RULES[nextBoss.rule] : null;
+  const practiceChoice = run.guidedOpening && run.felled.length === 1;
   const packDef = (kind: string) => SB.PACK_KINDS.find((k) => k.kind === kind)!;
   return (
     <div className="mt-3.5 flex flex-col gap-3 border border-[var(--brass)] bg-[var(--pit-deep)] p-[14px_16px_16px] max-[620px]:p-3">
@@ -94,6 +100,28 @@ export default function Shop({
           ink
         </span>
       </div>
+      {firstVisit && (
+        <p className="m-0 rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] p-2.5 text-[13px] text-[var(--leaf)]">
+          Spend ink on bookmarks that score every word, or upgrades to your
+          tiles and word lengths. Compare what each offer changes, then choose
+          one to try in the next fight. Ink carries into the next shop.
+        </p>
+      )}
+      {practiceChoice && (
+        <p className="m-0 rounded-sm border border-[var(--brass)] bg-[var(--pit-raise)] p-2.5 text-[13px] text-[var(--leaf)]">
+          Practice choice: Brass Nib helps every word. Vowel Song rewards
+          vowels. Anticipation rewards playing during the music countdown.
+          Choose one, then look for its effect in the next fight.
+        </p>
+      )}
+      {nextBoss && bossRule && (
+        <details className="rounded-sm border border-[var(--rule)] bg-[var(--pit-raise)] p-2.5 text-[13px] text-[var(--leaf)]">
+          <summary className="cursor-pointer font-semibold">
+            Upcoming finale: {nextBoss.name} · {bossRule.name}
+          </summary>
+          <p className="mb-0 text-[var(--leaf-dim)]">{bossRule.plain}</p>
+        </details>
+      )}
       {selecting && (
         <ShopInkPicker
           selecting={selecting}
@@ -130,20 +158,23 @@ export default function Shop({
                 tip={tip}
                 setTip={setTip}
                 buyCard={buyCard}
+                upcomingBoss={bossRule ? bossRule.name : null}
               />
             ))}
-            <Button
-              type="button"
-              variant="paper"
-              className="h-auto self-center px-3.5 py-2.5"
-              disabled={run.ink < shop.rerollPrice()}
-              onClick={() => act('Rerolled.', shop.reroll(), 'coin')}
-            >
-              Reroll{' '}
-              <span className="ml-1.5 text-[13px] font-[var(--figure)] text-[var(--brass-hot)] before:mr-1 before:text-[8px] before:content-['\25C6']">
-                {shop.rerollPrice()}
-              </span>
-            </Button>
+            {!practiceChoice && (
+              <Button
+                type="button"
+                variant="paper"
+                className="h-auto self-center px-3.5 py-2.5"
+                disabled={run.ink < shop.rerollPrice()}
+                onClick={() => act('Rerolled.', shop.reroll(), 'coin')}
+              >
+                Reroll{' '}
+                <span className="ml-1.5 text-[13px] font-[var(--figure)] text-[var(--brass-hot)] before:mr-1 before:text-[8px] before:content-['\25C6']">
+                  {shop.rerollPrice()}
+                </span>
+              </Button>
+            )}
           </div>
           <div
             className="flex flex-wrap items-stretch gap-2.5"

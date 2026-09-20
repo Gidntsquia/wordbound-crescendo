@@ -55,7 +55,7 @@ export default function ShopInkPicker({
     <div className="sb-pack-open sb-ink-decide border border-dashed border-[var(--brass)] bg-[var(--pit-deep)] p-[10px_12px]">
       <span className="sb-eyebrow mb-2 block text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
         {selecting.name}
-        {selecting.from === 'shop' ? ' · ' + selecting.price + ' gold' : ''}
+        {selecting.from === 'shop' ? ' · ' + selecting.price + ' ink' : ''}
       </span>
       <span className="sb-hint text-[11px] text-[var(--leaf-dim)] italic">
         {ink.targets === 0

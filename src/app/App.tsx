@@ -49,6 +49,8 @@ export interface AppProps {
   helper: boolean;
   setHelper: (on: boolean) => void;
   start: (seedOverride?: string) => void;
+  resumeRun: () => void;
+  hasSavedRun: boolean;
   round: RoundFacade | null | undefined;
   run: RunFacade | null | undefined;
   itemIds: Set<string>;
@@ -78,6 +80,8 @@ export interface AppProps {
   ) => boolean;
   useInk: (i: number) => void;
   cres: CrescendoState;
+  phraseBanked: boolean;
+  phraseCueSpent: boolean;
   tip: string | null;
   setTip: Dispatch<SetStateAction<string | null>>;
   nextStage: () => void;
@@ -103,7 +107,10 @@ export interface AppProps {
   letters: string;
   setWord: (w: string) => void;
   play: () => void;
+  markAssisted: (kind: 'hint' | 'solver') => void;
   changeout: () => void;
+  shuffleRack: () => void;
+  selectRetain: (tileId: string | null) => void;
   pickedIds: Set<string>;
   rackLetters: string;
   say: (line: string) => void;
@@ -145,6 +152,8 @@ export default function App(props: AppProps) {
     helper,
     setHelper,
     start,
+    resumeRun,
+    hasSavedRun,
     round,
     run,
     itemIds,
@@ -170,6 +179,8 @@ export default function App(props: AppProps) {
     act,
     useInk,
     cres,
+    phraseBanked,
+    phraseCueSpent,
     tip,
     setTip,
     nextStage,
@@ -195,7 +206,10 @@ export default function App(props: AppProps) {
     letters,
     setWord,
     play,
+    markAssisted,
     changeout,
+    shuffleRack,
+    selectRetain,
     pickedIds,
     rackLetters,
     say,
@@ -211,6 +225,7 @@ export default function App(props: AppProps) {
     characterTile,
     characterPicked,
   } = props;
+  const phrasePoints = Number(round?.tune.PHRASE_POINTS ?? 2);
 
   return (
     <div
@@ -276,6 +291,8 @@ export default function App(props: AppProps) {
           characterId={characterId}
           setCharacterId={setCharacterId}
           start={start}
+          resumeRun={resumeRun}
+          hasSavedRun={hasSavedRun}
           randomSeed={randomSeed}
           best={best}
         />
@@ -287,6 +304,7 @@ export default function App(props: AppProps) {
         <section
           className={
             'sb-board relative isolate mb-1 pb-[18px] [text-shadow:0_1px_3px_rgba(0,0,0,0.7)] max-[620px]:flex max-[620px]:min-h-0 max-[620px]:flex-1 max-[620px]:flex-col max-[620px]:overflow-y-auto max-[620px]:pb-2 max-[620px]:[-webkit-overflow-scrolling:touch]' +
+            (phase === 'live' ? ' max-[620px]:flex-none' : '') +
             (scoring && scoring.hit === 1
               ? ' motion-safe:animate-[board-shake-1_280ms_ease-out]'
               : scoring && scoring.hit === 2
@@ -314,6 +332,42 @@ export default function App(props: AppProps) {
               seen={seen}
               live={live}
             />
+          )}
+          {phase === 'live' && !showIntro && phrasePoints > 0 && (
+            <div
+              className={
+                'mt-2 rounded-sm border px-3 py-2 text-[13px] leading-snug ' +
+                ((cres.phase === 'idle' && !phraseBanked) || phraseCueSpent
+                  ? 'border-[var(--rule)] text-[var(--leaf-dim)]'
+                  : 'border-[var(--brass)] bg-[var(--pit-raise)] text-[var(--leaf)]')
+              }
+            >
+              <span className="sr-only" role="status" aria-live="polite">
+                {phraseCueSpent
+                  ? 'Saved phrase used. Wait for the next musical cue.'
+                  : phraseBanked && cres.phase === 'idle'
+                    ? `Musical phrase saved. Your next word gets ${phrasePoints} points before multipliers.`
+                    : cres.phase === 'idle'
+                      ? `Play whenever you like. A coming musical phrase offers ${phrasePoints} points before multipliers.`
+                      : cres.phase === 'soon'
+                        ? `Musical phrase approaching. Play now for ${phrasePoints} points before multipliers.`
+                        : `Musical phrase in bloom. Play now for ${phrasePoints} points before multipliers.`}
+              </span>
+              <span aria-hidden="true">
+                <span className="mr-2">
+                  {cres.phase === 'live' ? '✦' : '♪'}
+                </span>
+                {phraseCueSpent
+                  ? 'Phrase used · the next cue can be saved'
+                  : phraseBanked && cres.phase === 'idle'
+                    ? `Phrase saved · next word gets +${phrasePoints} points before multipliers`
+                    : cres.phase === 'idle'
+                      ? `Musical phrase: play whenever you like. A coming swell offers +${phrasePoints} points before multipliers.`
+                      : cres.phase === 'soon'
+                        ? `Phrase approaching · ${Math.ceil(cres.secs ?? 0)}s · play now for +${phrasePoints} points before multipliers`
+                        : `Phrase in bloom · ${Math.max(0, cres.secs ?? 0).toFixed(1)}s · play now for +${phrasePoints} points before multipliers`}
+              </span>
+            </div>
           )}
           {phase !== 'shop' && (
             <HeldRow
@@ -373,6 +427,7 @@ export default function App(props: AppProps) {
               seed={seed}
               best={best}
               onAgain={() => start(randomSeed())}
+              onReplay={() => start(seed)}
               onCopy={copySeed}
               onShare={copyResult}
               shareText={shareText}
@@ -401,7 +456,10 @@ export default function App(props: AppProps) {
             letters={letters}
             setWord={setWord}
             play={play}
+            markAssisted={markAssisted}
             changeout={changeout}
+            shuffleRack={shuffleRack}
+            selectRetain={selectRetain}
             pickedIds={pickedIds}
             helper={helper}
             rackLetters={rackLetters}

@@ -30,7 +30,7 @@
      black. It is what marks a word the PLAYER spelled, as opposed to one
      lifted off the word maker -- a third colour on purpose, because brass is
      already spoken for by the song and cream by ordinary type. */
-  --rubric: #d4614a;
+  --rubric: #d96650;
   --rubric-dim: #8f3f30;
 
   --display: 'Bodoni Moda', 'Didot', 'Playfair Display', Georgia, serif;
@@ -85,6 +85,24 @@ body {
 @media (max-width: 620px) {
   .sb {
     padding: 14px 14px 24px;
+  }
+}
+
+/* Keep the action row reachable while the word and rack are inspected on
+   short landscape screens. The page remains scrollable for the full guide. */
+@media (max-height: 450px) and (min-width: 621px) {
+  .is-phase-live .sb-input {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin-bottom: 0;
+    padding: 8px 0;
+    background: var(--pit);
+    border-top: 1px solid var(--rule);
+  }
+
+  .is-phase-live .sb-input button {
+    min-height: 44px;
   }
 }
 

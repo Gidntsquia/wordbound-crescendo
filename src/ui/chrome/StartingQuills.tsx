@@ -26,10 +26,10 @@ export default function StartingQuills({
     <section
       className="mb-[22px] flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-[var(--rule)] pb-[18px]"
       role="group"
-      aria-label="Starting quills"
+      aria-label="Starting bookmarks"
     >
       <span className="sb-eyebrow mr-1.5 text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase">
-        Starting quills · read at start
+        Starting bookmarks · read at start
       </span>
       {SB.ITEMS.map((d) => {
         const id = d.id;

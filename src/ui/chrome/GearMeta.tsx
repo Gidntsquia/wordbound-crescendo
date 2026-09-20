@@ -87,7 +87,7 @@ export default function GearMeta({
         <div
           className="flex flex-col gap-[5px]"
           role="group"
-          aria-label="Quills discovered"
+          aria-label="Bookmarks discovered"
         >
           <span className="flex items-baseline gap-2">
             Bookmarks · {discovered.size}/{SB.ITEMS.length}

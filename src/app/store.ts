@@ -30,6 +30,7 @@ import { FAVOUR_DEFS, TIER_DEFS } from '../engine/content/round';
 import { unlockNext } from '../engine/content/characters';
 import { cardName, describeBreakdown } from '../ui/quills/cardCopy';
 import type { Enemy } from '../engine/content/enemies';
+import type { EvaluationStats } from '../engine/state/run';
 import type { RecordedPiece, AudioPiece } from '../audio/recordingPlayer';
 import type { Sfx } from '../audio/sfx';
 
@@ -129,6 +130,13 @@ export type FightAction =
   | { type: 'fight/setTune'; fight: FightRef; key: string; value: unknown }
   | { type: 'fight/playWord'; fight: FightRef; phase: string; raw: string }
   | { type: 'fight/changeout'; fight: FightRef; phase: string; ids: string[] }
+  | { type: 'fight/shuffleRack'; fight: FightRef; phase: string }
+  | {
+      type: 'fight/selectRetain';
+      fight: FightRef;
+      phase: string;
+      tileId: string | null;
+    }
   | { type: 'fight/nextStage'; fight: FightRef; phase: string }
   | {
       type: 'fight/pickLetter';
@@ -308,6 +316,19 @@ export function runFightAction(action: FightAction): FightEffect[] {
       });
       return effects;
     }
+    case 'fight/shuffleRack': {
+      const r = action.fight.current?.round;
+      if (!r || action.phase !== 'live') return effects;
+      r.shuffleRack();
+      effects.push({ kind: 'sfx', name: 'shuffle' });
+      return effects;
+    }
+    case 'fight/selectRetain': {
+      const r = action.fight.current?.round;
+      if (!r || action.phase !== 'live') return effects;
+      r.selectRetain(action.tileId);
+      return effects;
+    }
     case 'fight/nextStage': {
       const f = action.fight.current;
       if (!f || !f.run || action.phase !== 'won') return effects;
@@ -316,7 +337,7 @@ export function runFightAction(action: FightAction): FightEffect[] {
         effects.push({
           kind: 'say',
           message:
-            'The boss also yields a new quill: ' +
+            'The boss also yields a new bookmark: ' +
             ITEM_DEFS[f.run.quillFound]!.name +
             '.',
         });
@@ -735,6 +756,64 @@ interface RunLike {
   } | null;
   enemy: { name: string } | null;
   key?: string | null;
+  evaluation?: EvaluationStats;
+}
+
+export interface EvaluationRecord {
+  id: string;
+  completedAt: string;
+  seed: string;
+  character: string;
+  guided: boolean;
+  phrasePoints: number;
+  assistance: EvaluationStats['assistance'];
+  won: boolean;
+  firstFightSuccess: boolean;
+  firstBossReached: boolean;
+  lossLocation: string | null;
+  runLength: number;
+  words: number;
+  swaps: number;
+  premiumPoints: number;
+  premiumPlays: number;
+  retainedPlays: number;
+  purchases: string[];
+  encounters: EvaluationStats['encounters'];
+}
+
+export function readEvaluationRecords(): EvaluationRecord[] {
+  const stored = readJSON<unknown>(KEYS.evaluations, []);
+  return Array.isArray(stored) ? (stored as EvaluationRecord[]) : [];
+}
+
+function recordEvaluation(stats: EvaluationStats, won: boolean): void {
+  const records = readEvaluationRecords();
+  if (records.some((record) => record.id === stats.id)) return;
+  const encounters = stats.encounters;
+  const record: EvaluationRecord = {
+    id: stats.id,
+    completedAt: new Date().toISOString(),
+    seed: stats.seed,
+    character: stats.character,
+    guided: stats.guided,
+    phrasePoints: stats.phrasePoints,
+    assistance: stats.assistance,
+    won,
+    firstFightSuccess: encounters[0]?.outcome === 'won',
+    firstBossReached: encounters.some((encounter) => encounter.kind === 'boss'),
+    lossLocation:
+      encounters.find((encounter) => encounter.outcome === 'lost')?.enemy ??
+      null,
+    runLength: encounters.length,
+    words: encounters.reduce((sum, encounter) => sum + encounter.words, 0),
+    swaps: stats.swaps,
+    premiumPoints: stats.premiumPoints,
+    premiumPlays: stats.premiumPlays,
+    retainedPlays: stats.retainedPlays ?? 0,
+    purchases: stats.purchases,
+    encounters,
+  };
+  writeJSON(KEYS.evaluations, [...records.slice(-199), record]);
 }
 
 export function runLength(run: RunLike): number {
@@ -750,6 +829,7 @@ function depthOf(run: RunLike): number {
 // action.SB; now that ITEM_DEFS etc. are plain imports there's no reason
 // it can't live fully in the reducer's own module).
 export function recordRun(run: RunLike, won: boolean): BestState {
+  if (run.evaluation) recordEvaluation(run.evaluation, won);
   const best = readBest();
   const out: Record<string, unknown> = { ...best };
   const bestWord = best.word as { total: number } | undefined;

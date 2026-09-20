@@ -86,22 +86,33 @@ export function describeBreakdown(b: Breakdown): string {
   if (b.bonusFlat) pts.push('tile bonus +' + b.bonusFlat);
   if (b.variantFlat) pts.push('charged +' + b.variantFlat);
   if (b.inkPoints) pts.push('gilt +' + b.inkPoints);
+  if (b.slotPoints) pts.push('premium slot +' + b.slotPoints);
+  if (b.charBonusPts) pts.push('character +' + b.charBonusPts);
+  if (b.phrasePoints) pts.push('musical phrase +' + b.phrasePoints);
   let out =
     b.tierName + (b.tierLevel > 1 ? ' · lvl ' + b.tierLevel : '') + ' · ';
   const basePts =
-    b.tierPts + b.base + b.bonusFlat + b.variantFlat + b.inkPoints;
+    b.tierPts +
+    b.base +
+    b.bonusFlat +
+    b.variantFlat +
+    b.inkPoints +
+    b.slotPoints +
+    b.charBonusPts +
+    (b.phrasePoints || 0);
   out +=
     (pts.length > 1 ? pts.join(' + ') + ' = ' : '') +
     basePts +
     ' pts × ' +
     (b.tierMult + b.inkMult);
   if (b.inkMult) out += ' (tier ' + b.tierMult + ' + bold ' + b.inkMult + ')';
+  if (b.slotMultRatio !== 1) out += ' → double word × ' + b.slotMultRatio;
+  if (b.charMultRatio !== 1) out += ' → character × ' + b.charMultRatio;
   const fired = (b.itemNotes || []).map((n) => n.name + ' ' + n.note);
   if (b.bonusMult !== 1) fired.push('tile × ' + b.bonusMult);
   if (b.holdMult && b.holdMult !== 1) fired.push('steel held × ' + b.holdMult);
-  if (fired.length)
-    out += ' → ' + fired.join(' → ') + ' → ' + b.points + ' × ' + b.mult;
-  return out;
+  if (fired.length) out += ' → ' + fired.join(' → ');
+  return out + ' → ' + b.points + ' × ' + b.mult + ' = ' + b.total;
 }
 
 // Rarity → Tailwind classes for the Card primitive (A6 slice 2). QuillCard

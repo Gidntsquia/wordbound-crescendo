@@ -96,11 +96,9 @@ most of `js/wordbound/*.js` (duel/combat/music+pieces/tiles/lexicon/floor/
 game/monsters/characters/items/intents/traits/stolenLetters/bossEntrances/
 shakespeareGuide/shopkeepers/achievements/events) were deleted 2026-09-07.
 `index.html` now loads the ROUND SANDBOX
-directly — the sandbox is the app. Only two things survive from that tree:
-`js/wordbound/wordlist.js` (still imported by `src/main.tsx`) and
-`js/wordbound/pieces/` (11 sequenced-piece note-data files) — `pieces/` is
-orphaned dead weight, nothing references it; nothing loads `music.js` either
-(it too is gone) since the sandbox plays RECORDINGS, not sequenced pieces.
+directly — the sandbox is the app. Only `js/wordbound/wordlist.js` (still imported by `src/main.tsx`) survives
+from that tree; the sandbox plays RECORDINGS, not sequenced pieces (the
+`pieces/` note-data files were removed).
 
 - `src/engine/rng.ts` — seeded RNG (TS port of the old `js/core/rng.js` +
   `namespace.js`, READ_SLOWLY_PLAN.md A2).
@@ -229,13 +227,13 @@ marginalia.ts`'s `MARK_DEFS`: gilt, bold, steel, blank, vowel shift,
 - `tools/` — `ensure-deps.js`, `build-itch.js`, `build-site.js`, `deploy.sh`, `record-gameplay.js`, `fetch-audio.js` + `audio-manifest.json`, `analyze-audio-piece.js`, `fetch-wiktionary.js` (`npm run fetch:words`: pulls Wiktionary's English lemmas into the GENERATED WIKT_EXTRA block of `js/wordbound/wordlist.js`, 4+ letter lowercase titles only; cache in `.cache/wiktionary/`), `debug-run.ts` (`bun run debug:shop`/`debug:run`, via `vite-node`: fast-forwards the pure engine facade to a chosen shop/fight with no browser — see RUNBOOK.md).
 - `RUNBOOK.md` — when to use `tools/debug-run.ts` (state/logic questions,
   no browser) vs. the `run` skill's real browser (CSS/layout/visual).
-- `READ_SLOWLY_PLAN.md` — the 2026-09-08 plan for the next big step: React +
-  TypeScript rebuild and code audit, the "slow down and read" theme, fights
-  as situations resolved by reading, playable letter-tile characters, 2D
-  sprites. Its Work queue is the standing to-do list: a session takes the
-  top item, lands it, deploys, and takes the next; anything needing Jaxon
-  goes in its Waiting-on-Jaxon list and never ends a session. No "done in
-  spirit" (Jaxon, 2026-09-09). (Earlier plan docs —
-  BALATRO_NOTES, COMBAT_REDESIGN, DEMO_PLAN(_2), DIVERGENCE_PLAN,
-  NEXT_LEVEL_PLAN, NIGHT_REPORT — were implemented and removed 2026-09-09.)
-- `THEME.md` — world/style bible (pre-dates READ_SLOWLY_PLAN.md; stage B rewrites it). `ROADMAP.md` — north star + known gaps.
+- `GAME_EVALUATION_PLAN.md` — the active plan (2026-09-18): make the game
+  understandable, first five minutes, music, build fairness, returning
+  players. Its checklist is the standing to-do list.
+- `plan-archive/` (gitignored, local only) — finished plans.
+  `READ_SLOWLY_PLAN.md` (React/TS rebuild, "slow down and read" theme,
+  letter-tile characters, sprites) is done; its Waiting-on-Jaxon items
+  (tile once per word vs round, art source, `tile_face.png` size, phone
+  checks) are still open there. Source comments that cite its section ids
+  (A2, A6, ...) refer to that file. No "done in spirit" (Jaxon, 2026-09-09).
+- `THEME.md` — world/style bible (pre-dates READ_SLOWLY_PLAN.md; stage B rewrites it).

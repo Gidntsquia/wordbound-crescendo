@@ -1,43 +1,27 @@
-// Polls the soundtrack's crescendo window for the held-quill card's
-// countdown. Extracted verbatim from RoundSandbox.jsx (READ_SLOWLY_PLAN.md
-// A2/A4). Only runs while a round is live and a crescendo quill is held;
-// 100ms keeps the seconds readout honest without redrawing when nothing
-// has changed.
+// Poll the soundtrack for the public phrase cue and any held timing cards.
 import { useEffect, useState } from 'react';
 import type { Fight } from '../../app/store';
 import type { CrescendoWindow } from '../../audio/recordingPlayer';
+import { ITEM_DEFS } from '../../engine/content/items';
 
 export type CrescendoState = CrescendoWindow;
-
-interface ItemDef {
-  crescendo?: boolean;
-}
-
-interface RunLike {
-  items: readonly string[];
-}
-
-export function holdsCrescendoItem(
-  run: RunLike | null | undefined,
-  ITEM_DEFS: Record<string, ItemDef>,
-): boolean {
-  return (
-    !!run && run.items.some((id) => ITEM_DEFS[id] && ITEM_DEFS[id].crescendo)
-  );
-}
 
 export function useCrescendo(
   phase: string,
   fight: React.RefObject<Fight | null>,
-  ITEM_DEFS: Record<string, ItemDef>,
   sfx: (name: string, ...a: unknown[]) => void,
 ): CrescendoState {
   const [polled, setPolled] = useState<CrescendoState>({ phase: 'idle' });
-  const active =
-    phase === 'live' && holdsCrescendoItem(fight.current?.run, ITEM_DEFS);
+  const run = fight.current?.run;
+  const publicCue = Number(run?.tune.PHRASE_POINTS ?? 2) > 0;
+  const timingCard = run?.items.some((id) => ITEM_DEFS[id]?.crescendo);
+  const active = phase === 'live' && (publicCue || !!timingCard);
 
   useEffect(() => {
-    if (!active) return undefined;
+    if (!active) {
+      setPolled({ phase: 'idle' });
+      return undefined;
+    }
     let last = '',
       lastPhase = 'idle';
     const id = setInterval(() => {
@@ -47,7 +31,7 @@ export function useCrescendo(
       const key =
         c.phase +
         ':' +
-        (c.secs == null
+        (c.phase === 'idle' || c.secs == null
           ? ''
           : c.phase === 'live'
             ? c.secs.toFixed(1)
@@ -57,7 +41,7 @@ export function useCrescendo(
       // The window opening gets a sound of its own so the ear is told too.
       if (c.phase === 'live' && lastPhase !== 'live') sfx('shimmer');
       lastPhase = c.phase;
-      setPolled(c);
+      setPolled(c.phase === 'idle' ? { phase: 'idle' } : c);
     }, 100);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps

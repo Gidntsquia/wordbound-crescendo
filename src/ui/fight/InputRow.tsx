@@ -1,6 +1,5 @@
 // Play / Swap / Clear / Best-play buttons, plus the swap callout.
 // Extracted from PlayBoard.jsx (READ_SLOWLY_PLAN.md A4).
-import { useCallout } from '../chrome/Callout';
 import { Button } from '@/ui/primitives/button';
 
 export default function InputRow({
@@ -8,18 +7,18 @@ export default function InputRow({
   letters,
   play,
   changeout,
+  shuffleRack,
   pickedIds,
   changeoutsLeft,
-  changeoutsPerFight,
   setWord,
   helper,
-  seen,
   onBestPlay,
 }: {
   live: boolean;
   letters: string;
   play: () => void;
   changeout: () => void;
+  shuffleRack: () => void;
   pickedIds: Set<string>;
   changeoutsLeft: number;
   changeoutsPerFight: number;
@@ -28,17 +27,18 @@ export default function InputRow({
   seen: ReadonlySet<string>;
   onBestPlay: () => void;
 }) {
-  useCallout(
-    live &&
-      !seen.has('swap') &&
-      pickedIds.size > 0 &&
-      changeoutsLeft > 0 &&
-      seen.has('stick'),
-    'Swap tiles you don’t want — ' + changeoutsPerFight + ' per fight',
-  );
   return (
     <>
       <div className="sb-input mb-3.5 flex flex-wrap gap-2 max-[620px]:mb-1.5">
+        <Button
+          type="button"
+          variant="paper"
+          onClick={shuffleRack}
+          disabled={!live}
+          title="Reorder the same letters for free; no swap is used"
+        >
+          Shuffle · free
+        </Button>
         <Button
           type="button"
           className="sb-go border-[var(--leaf)] bg-[var(--leaf)] text-[var(--ink)] hover:border-[var(--brass-hot)] hover:bg-[var(--brass-hot)] hover:text-[var(--ink)]"

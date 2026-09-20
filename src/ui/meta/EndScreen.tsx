@@ -27,6 +27,9 @@ import {
 import type { RunFacade } from '../../engine/state/facade';
 import type { Breakdown } from '../../engine/content/round';
 import type { Enemy } from '../../engine/content/enemies';
+import { readEvaluationRecords } from '../../app/store';
+import { TIER_DEFS } from '../../engine/content/round';
+import { MARK_DEFS } from '../../engine/content/marginalia';
 
 type EndRun = RunFacade;
 
@@ -43,6 +46,7 @@ export default function EndScreen({
   SB,
   seed,
   onAgain,
+  onReplay,
   onCopy,
   onShare,
   shareText,
@@ -53,9 +57,12 @@ export default function EndScreen({
   won: boolean;
   SB: {
     ITEM_DEFS: Record<string, { name: string; rarity?: string }>;
+    CHARACTERS: { id: string; letter: string; name: string }[];
+    unlockedCharacters: () => string[];
   };
   seed: string;
   onAgain: () => void;
+  onReplay: () => void;
   onCopy: () => void;
   onShare: () => void;
   shareText: string;
@@ -70,6 +77,52 @@ export default function EndScreen({
       return null;
     })
     .filter((e): e is Enemy => Boolean(e));
+  const [strongestUpgrade, contribution] = Object.entries(
+    run.upgradeImpact || {},
+  ).sort((a, b) => b[1].points - a[1].points)[0] || [null, null];
+  const upgradeName = strongestUpgrade
+    ? strongestUpgrade.startsWith('item:')
+      ? SB.ITEM_DEFS[strongestUpgrade.slice(5)]?.name ||
+        strongestUpgrade.slice(5)
+      : strongestUpgrade.startsWith('tier:')
+        ? (TIER_DEFS[strongestUpgrade.slice(5)]?.name ||
+            strongestUpgrade.slice(5)) + ' length upgrade'
+        : MARK_DEFS[strongestUpgrade.slice(5)]?.name ||
+          strongestUpgrade.slice(5)
+    : null;
+  const finalRule = run.round?.rule;
+  const unlockedCharacters = SB.unlockedCharacters();
+  const runCharacterIndex = SB.CHARACTERS.findIndex(
+    (character) => character.id === run.character,
+  );
+  const nextCharacter = SB.CHARACTERS[runCharacterIndex + 1];
+  const nextCharacterLocked =
+    nextCharacter && !unlockedCharacters.includes(nextCharacter.id);
+  const nextSuggestion = !won
+    ? finalRule?.id === 'sotto_voce'
+      ? 'Try three- or four-letter words here; longer words lose multiplier.'
+      : finalRule?.id === 'four_knocks'
+        ? 'Look for four-letter words to earn the finale multiplier.'
+        : finalRule?.id === 'no_repeats'
+          ? 'Save flexible letters for later words; used letters become unavailable.'
+          : finalRule?.id === 'presto'
+            ? 'Use swaps early; this fight allows only three words.'
+            : 'Use a swap before the final word if the rack cannot reach the target.'
+    : strongestUpgrade
+      ? `Replay this seed with another character to see whether ${upgradeName} is still your strongest upgrade.`
+      : 'Replay this seed with a different character or buy a scoring upgrade earlier.';
+  const downloadRunData = () => {
+    const blob = new Blob(
+      [JSON.stringify({ version: 1, runs: readEvaluationRecords() }, null, 2)],
+      { type: 'application/json' },
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'wordbound-run-data.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
   return (
     <div
       className={
@@ -200,6 +253,44 @@ export default function EndScreen({
           </div>
         </div>
       </div>
+      <div className="mt-4 grid gap-3 border-t border-[var(--rule)] pt-3 text-[13px] leading-snug text-[var(--leaf)] sm:grid-cols-2">
+        <div>
+          <b className="block text-[var(--brass-hot)]">Most useful upgrade</b>
+          {contribution ? (
+            <span>
+              {upgradeName} added an estimated {contribution.points} points
+              across {contribution.words} word
+              {contribution.words === 1 ? '' : 's'}. This compares each play
+              with that upgrade removed; effects can overlap.
+            </span>
+          ) : (
+            <span>No scoring upgrade contributed to a played word.</span>
+          )}
+        </div>
+        <div>
+          <b className="block text-[var(--brass-hot)]">
+            {finalRule ? 'Final encounter restriction' : 'Decisive limit'}
+          </b>
+          <span>
+            {finalRule
+              ? `${finalRule.name}: ${finalRule.plain}`
+              : `${run.round?.playsLeft ?? 0} words remained; each fight limits how many words you can play.`}
+          </span>
+          <b className="mt-2 block text-[var(--brass-hot)]">Try next</b>
+          <span>{nextSuggestion}</span>
+        </div>
+      </div>
+      <div className="mt-3 border-t border-[var(--rule)] pt-3 text-[13px] leading-snug text-[var(--leaf)]">
+        <b className="block text-[var(--brass-hot)]">Character progress</b>
+        <span>
+          {unlockedCharacters.length}/{SB.CHARACTERS.length} unlocked.
+          {nextCharacterLocked
+            ? ` Finish a chapter with ${SB.CHARACTERS[runCharacterIndex]!.name} to unlock ${nextCharacter.name} (${nextCharacter.letter}).`
+            : nextCharacter
+              ? ` ${nextCharacter.name} (${nextCharacter.letter}) is unlocked.`
+              : ' This character has completed its unlock path.'}
+        </span>
+      </div>
       <div className="mt-4 flex flex-wrap items-center gap-x-[18px] gap-y-2.5">
         <Button
           type="button"
@@ -213,9 +304,25 @@ export default function EndScreen({
           type="button"
           className="px-4 py-3"
           variant="paper"
+          onClick={onReplay}
+        >
+          Replay same seed
+        </Button>
+        <Button
+          type="button"
+          className="px-4 py-3"
+          variant="paper"
           onClick={onShare}
         >
           Copy result
+        </Button>
+        <Button
+          type="button"
+          className="px-4 py-3"
+          variant="paper"
+          onClick={downloadRunData}
+        >
+          Download local run data
         </Button>
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
           <DialogTrigger

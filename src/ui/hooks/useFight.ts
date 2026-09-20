@@ -23,7 +23,16 @@ import {
   writeDiscoveredQuills,
   readUnlockedCharacters,
 } from '../../app/persistence';
-import { createRunFacadeFromOpts, fromSeed } from '../../engine/state/facade';
+import {
+  createRunFacadeFromOpts,
+  fromSeed,
+  restoreRunFacade,
+} from '../../engine/state/facade';
+import {
+  clearActiveRun,
+  readActiveRun,
+  writeActiveRun,
+} from '../../app/runSave';
 import type { RunFacade, RoundFacade } from '../../engine/state/facade';
 import { MOVEMENTS, KIND_LABEL, enemyAt } from '../../engine/content/enemies';
 import {
@@ -36,6 +45,7 @@ import { DEFAULT_KNOWN_QUILLS } from '../../engine/meta/quillDiscovery';
 import { RECORDINGS } from '../../engine/content/recordings';
 import {
   ROUND_DEFAULTS,
+  applyKey,
   KEYS,
   KEY_DEFS,
   FAVOUR_DEFS,
@@ -216,6 +226,20 @@ function shareText(run: RunFacade, won: boolean, seed: string) {
         ? ' · ' + run.items.map((id) => ITEM_DEFS[id]!.name).join(', ')
         : ''),
   );
+  lines.push(
+    'Play: ' +
+      (run.evaluation?.guided ? 'guided' : 'standard') +
+      (run.evaluation?.assistance.length
+        ? ' · assistance: ' + run.evaluation.assistance.join(', ')
+        : ' · no word assistance'),
+  );
+  const standard = applyKey({ ...ROUND_DEFAULTS }, run.key);
+  const changes = Object.keys(run.tune)
+    .filter((key) => run.tune[key] !== standard[key])
+    .map((key) => `${key}=${run.tune[key]}`);
+  lines.push(
+    `Edition: ${run.key} · Modifiers: ${changes.join(', ') || 'default'}`,
+  );
   lines.push('Seed ' + seed + ' · ' + LIVE_URL);
   return lines.join('\n');
 }
@@ -359,7 +383,7 @@ export function useFight() {
   // with a reducer per the plan's "delete forceRender" instruction; still a
   // plain re-render nudge, not a model of fight.current's actual state (see
   // src/app/store.ts's header).
-  const [, dispatchRefresh] = useReducer(refreshReducer, 0);
+  const [revision, dispatchRefresh] = useReducer(refreshReducer, 0);
   // A3 (remainder): run/round mutation call sites routed through a data-only
   // action dispatched into store.ts's runFightAction, which mutates the
   // facade in place (same as before) and returns a FightEffect[] describing
@@ -431,6 +455,7 @@ export function useFight() {
   const volumeRef = useRef(0.4);
   // idle | live | won (round, run continues) | shop (between fights) | lost | run-won
   const [phase, setPhase] = useState('idle');
+  const [savedRun, setSavedRun] = useState(readActiveRun);
   // READ_SLOWLY_PLAN.md E3: the wordsmith sprite's transient pose --
   // `write` for the brief moment a word is being scored, `flourish` on a
   // round win (persists through the won-banner beat), `idle` otherwise.
@@ -470,8 +495,8 @@ export function useFight() {
   // READ_SLOWLY_PLAN.md stage D: the chosen playable letter character. Its
   // passive is threaded into createRun's `items` list, and its permanent
   // tile (D1) is threaded into createRunFacadeFromOpts's `characterId`.
-  const [characterId, setCharacterId] = useState(
-    () => unlockedCharacters(readUnlockedCharacters())[0] || 'zed',
+  const [characterId, setCharacterId] = useState(() =>
+    unlockedCharacters(readUnlockedCharacters()).includes('ee') ? 'ee' : 'zed',
   );
   // A win on the highest-unlocked key offers the next one (stage 3).
   const unlockNextKey = useCallback(
@@ -523,15 +548,56 @@ export function useFight() {
   // tiles (from `tiles`), the case shows `rackBefore` with hollows, the
   // header shows `scoreBase` until the total lands. Any tap skips ahead.
   const [scoring, setScoring] = useState<ScoringState | null>(null);
-  // The soundtrack's crescendo window, polled while a crescendo quill is held
+  const [phraseBanked, setPhraseBanked] = useState(false);
+  const phraseBankedRef = useRef(false);
+  const [phraseCueSpent, setPhraseCueSpent] = useState(false);
+  const phraseCueSpentRef = useRef(false);
+  const bankRound = fight.current?.round;
+  useEffect(() => {
+    phraseBankedRef.current = false;
+    phraseCueSpentRef.current = false;
+    setPhraseBanked(false);
+    setPhraseCueSpent(false);
+  }, [bankRound]);
+  // The soundtrack's phrase window, visible even without a timing bookmark
   // (audioPiece.js `crescendo()`): { phase: 'idle' | 'soon' | 'live', secs }.
-  const cres = useCrescendo(phase, fight, SB.ITEM_DEFS, sfx);
+  const cres = useCrescendo(phase, fight, sfx);
+  useEffect(() => {
+    if (Number(bankRound?.tune.BANK_PHRASE ?? 0) <= 0) {
+      phraseBankedRef.current = false;
+      phraseCueSpentRef.current = false;
+      setPhraseBanked(false);
+      setPhraseCueSpent(false);
+      return;
+    }
+    if (phase !== 'live') return;
+    if (cres.phase === 'idle') {
+      phraseCueSpentRef.current = false;
+      setPhraseCueSpent(false);
+      return;
+    }
+    if (
+      !phraseBankedRef.current &&
+      !phraseCueSpentRef.current &&
+      (cres.phase === 'soon' || cres.phase === 'live')
+    ) {
+      phraseBankedRef.current = true;
+      setPhraseBanked(true);
+    }
+  }, [bankRound, cres.phase, phase]);
   // Returns audioPiece.js's own crescendo state ({ phase, mag?, ... }) or
   // null with no recording playing -- round.js reads .phase and .mag off it
   // (Climax/Fortissimo need 'live', Anticipation needs 'soon').
   const crescendoNow = useCallback(() => {
     const s = fight.current?.seq;
-    return s && s.crescendo ? s.crescendo() : null;
+    const current = s && s.crescendo ? s.crescendo() : null;
+    if (Number(fight.current?.round?.tune.BANK_PHRASE ?? 0) <= 0)
+      return current;
+    return {
+      ...(current || { phase: 'idle' }),
+      phraseBanked: phraseBankedRef.current,
+      phraseEligible: phraseBankedRef.current,
+    };
   }, []);
   const skipRef = useRef(false);
   const waitRef = useRef<(() => void) | null>(null);
@@ -570,6 +636,15 @@ export function useFight() {
     warm: warmPiece,
   } = useAudio(fight, volumeRef, sfxOnRef, say);
   const refresh = useCallback(() => dispatchRefresh({ type: 'refresh' }), []);
+  const markAssisted = useCallback(
+    (kind: 'hint' | 'solver') => {
+      if (fight.current?.run?.markAssisted(kind)) refresh();
+    },
+    [refresh],
+  );
+  useEffect(() => {
+    if (helper && phase !== 'idle') markAssisted('solver');
+  }, [helper, phase, markAssisted]);
 
   // The dictionary index is only built once the helper is switched on.
   useEffect(() => {
@@ -710,6 +785,8 @@ export function useFight() {
       gain!.gain.value = volume;
       sfxNode!.setLevel(volume);
       sfxNode!.setEnabled(sfxOn);
+      clearActiveRun();
+      setSavedRun(null);
 
       const characterDef = CHARACTER_DEFS[characterId];
       const wonLetters = readWonLetters();
@@ -717,6 +794,8 @@ export function useFight() {
         readDiscoveredQuills(DEFAULT_KNOWN_QUILLS);
       const run = createRunFacadeFromOpts(
         {
+          seed: useSeed,
+          guidedOpening: useSeed === 'review-20260918',
           deck: SB.createBagDeck(bagId, wonLetters),
           tune,
           items:
@@ -736,6 +815,7 @@ export function useFight() {
         rngState,
       );
       run.character = characterId;
+      if (helper) run.markAssisted('solver');
       fight.current = {
         ...(fight.current || {}),
         ctx,
@@ -762,6 +842,7 @@ export function useFight() {
       itemIds,
       key,
       characterId,
+      helper,
       say,
       startStage,
       SB,
@@ -769,6 +850,73 @@ export function useFight() {
       openAudio,
     ],
   );
+
+  const resumeRun = useCallback(() => {
+    const saved = readActiveRun();
+    if (!saved) {
+      setSavedRun(null);
+      say('The saved run could not be opened.');
+      return;
+    }
+    const opened = openAudio();
+    if (!opened) {
+      say('Could not open the audio device.');
+      return;
+    }
+    const run = restoreRunFacade(saved.snapshot, {
+      crescendo: crescendoNow,
+      extendCrescendo: (extraSec) =>
+        fight.current?.seq?.extendCrescendo?.(extraSec),
+    });
+    opened.gain.gain.value = volume;
+    opened.sfx.setLevel(volume);
+    opened.sfx.setEnabled(sfxOn);
+    fight.current = {
+      ctx: opened.ctx,
+      gain: opened.gain,
+      sfx: opened.sfx,
+      run,
+      round: run.round,
+      def: run.enemy || undefined,
+      piece: run.enemy ? RECORDINGS[run.enemy.recorded] : undefined,
+    };
+    setSeed(saved.seed);
+    setCharacterId(saved.characterId);
+    setBagId(saved.bagId);
+    setWord(saved.word);
+    setTune({ ...run.tune });
+    setKey(run.key);
+    setSavedRun(null);
+    if (saved.phase === 'live') {
+      startStage(run);
+      setWord(saved.word);
+    } else {
+      setPhase(saved.phase);
+    }
+    readyRound.current = saved.entered ? run.round : null;
+    say('Run resumed.');
+    refresh();
+  }, [openAudio, crescendoNow, volume, sfxOn, startStage, say, refresh]);
+
+  useEffect(() => {
+    if (phase === 'lost' || phase === 'run-won') {
+      clearActiveRun();
+      return;
+    }
+    if (!['live', 'won', 'shop', 'letter'].includes(phase)) return;
+    const run = fight.current?.run;
+    if (!run?.round) return;
+    writeActiveRun({
+      version: 1,
+      seed,
+      characterId,
+      bagId,
+      phase: phase as 'live' | 'won' | 'shop' | 'letter',
+      entered: readyRound.current === run.round,
+      word,
+      snapshot: run.snapshot(),
+    });
+  }, [revision, phase, seed, characterId, bagId, word]);
 
   // After a won round: bank the gold and move to the next enemy, or end the run.
   const nextStage = useCallback(() => {
@@ -903,9 +1051,14 @@ export function useFight() {
   const characterTile = run ? run.characterTile : null;
   const slots: (Tile | null)[] = (() => {
     if (!round || !letters) return [];
+    const rack = round.retainId
+      ? round.rack
+          .filter((tile) => tile.id !== round.retainId)
+          .concat(round.rack.filter((tile) => tile.id === round.retainId))
+      : round.rack;
     const pool: Tile[] = characterTile
-      ? round.rack.concat([characterTile])
-      : (round.rack as Tile[]);
+      ? rack.concat([characterTile])
+      : (rack as Tile[]);
     const out: (Tile | null)[] = new Array(letters.length).fill(null);
     const used = new Set<string>();
     for (let i = 0; i < letters.length; i++) {
@@ -1083,6 +1236,11 @@ export function useFight() {
           sfx('shimmer', 'character');
           show();
           await wait(CASCADE.ITEM_MS);
+        } else if (step.kind === 'phrase') {
+          float('stick', '+' + step.pts + ' phrase', 'pts');
+          sfx('shimmer');
+          show();
+          await wait(CASCADE.ITEM_MS);
         } else {
           // a steel tile held, or the tile's own x-mult
           if (step.tile) st.litTile = step.tile.id;
@@ -1126,7 +1284,15 @@ export function useFight() {
 
   const playWord = useCallback(
     (raw: string) => {
+      const before = fight.current?.round?.plays.length ?? 0;
       dispatchFight({ type: 'fight/playWord', fight, phase, raw });
+      const after = fight.current?.round?.plays.length ?? 0;
+      if (after > before && phraseBankedRef.current) {
+        phraseBankedRef.current = false;
+        phraseCueSpentRef.current = true;
+        setPhraseBanked(false);
+        setPhraseCueSpent(true);
+      }
     },
     [phase],
   );
@@ -1162,6 +1328,12 @@ export function useFight() {
     const ids = slots.filter((t): t is Tile => !!t).map((t) => t.id);
     dispatchFight({ type: 'fight/changeout', fight, phase, ids });
   }, [slots, phase]);
+  const shuffleRack = useCallback(() => {
+    dispatchFight({ type: 'fight/shuffleRack', fight, phase });
+  }, [phase]);
+  const selectRetain = (tileId: string | null) => {
+    dispatchFight({ type: 'fight/selectRetain', fight, phase, tileId });
+  };
 
   useEffect(() => {
     if (!helper || !letters || indexing) {
@@ -1302,6 +1474,8 @@ export function useFight() {
     helper,
     setHelper,
     start,
+    resumeRun,
+    hasSavedRun: !!savedRun,
     round,
     run,
     itemIds,
@@ -1328,6 +1502,8 @@ export function useFight() {
     act,
     useInk,
     cres,
+    phraseBanked,
+    phraseCueSpent,
     tip,
     setTip,
     nextStage,
@@ -1353,7 +1529,10 @@ export function useFight() {
     letters,
     setWord,
     play,
+    markAssisted,
     changeout,
+    shuffleRack,
+    selectRetain,
     pickedIds,
     rackLetters,
     say,

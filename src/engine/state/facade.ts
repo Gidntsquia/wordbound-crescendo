@@ -12,11 +12,11 @@
 // `fight.current.run`/`.round` once per fight (RoundSandbox.jsx's
 // startStage/start) keep working unmodified.
 import type { Tile } from '../tiles';
-import type { RngState } from '../rng';
+import { shuffle, type RngState } from '../rng';
 import * as Run from './run';
 import * as R from './round';
 import type { RunState } from './run';
-import { MOVEMENTS } from '../content/enemies';
+import { MOVEMENTS, RULES } from '../content/enemies';
 
 export interface Box {
   run: RunState;
@@ -79,6 +79,12 @@ export function roundFacade(box: Box) {
     get premium() {
       return box.run.round!.premium;
     },
+    get retainId() {
+      return box.run.round!.retainId;
+    },
+    get retainsLeft() {
+      return box.run.round!.retainsLeft;
+    },
     get favour() {
       return box.run.round!.favour;
     },
@@ -91,6 +97,7 @@ export function roundFacade(box: Box) {
         word,
         box.run,
         box.run.characterTile,
+        box.crescendo(),
       );
     },
     scoreFor(word: string) {
@@ -123,9 +130,29 @@ export function roundFacade(box: Box) {
     },
     changeout(tileIds: string[]) {
       const [outcome, s] = R.changeout(box.run.round!, tileIds, box.rng);
-      box.run = { ...box.run, round: outcome.state };
+      box.run = {
+        ...box.run,
+        round: outcome.state,
+        evaluation: outcome.result.ok
+          ? {
+              ...box.run.evaluation,
+              swaps: box.run.evaluation.swaps + 1,
+              swapsThisFight: box.run.evaluation.swapsThisFight + 1,
+            }
+          : box.run.evaluation,
+      };
       box.rng = s;
       return outcome.result;
+    },
+    shuffleRack() {
+      const [rack, rng] = shuffle(box.rng, box.run.round!.rack);
+      box.run = { ...box.run, round: { ...box.run.round!, rack } };
+      box.rng = rng;
+    },
+    selectRetain(tileId: string | null) {
+      const [next, ok] = R.selectRetain(box.run.round!, tileId);
+      box.run = { ...box.run, round: next };
+      return ok;
     },
     destroyTile(tileId: string) {
       const [next, ok, s] = R.destroyTile(box.run.round!, tileId, box.rng);
@@ -190,8 +217,14 @@ export function createRunFacade(box: Box) {
   };
 
   return {
+    snapshot() {
+      return { run: box.run, rng: box.rng, character: box.character };
+    },
     get key() {
       return box.run.key;
+    },
+    get guidedOpening() {
+      return box.run.guidedOpening;
     },
     get tune() {
       return box.run.tune;
@@ -252,6 +285,21 @@ export function createRunFacade(box: Box) {
     },
     get bestPlay() {
       return box.run.bestPlay;
+    },
+    get lastPlay() {
+      return box.run.lastPlay;
+    },
+    get upgradeImpact() {
+      return box.run.upgradeImpact;
+    },
+    get evaluation() {
+      return box.run.evaluation;
+    },
+    markAssisted(kind: 'hint' | 'solver') {
+      const next = Run.markAssisted(box.run, kind);
+      const changed = next !== box.run;
+      box.run = next;
+      return changed;
     },
     get wordsPlayed() {
       return box.run.wordsPlayed;
@@ -387,8 +435,47 @@ export function createRunFacade(box: Box) {
 
 export type RunFacade = ReturnType<typeof createRunFacade>;
 export type RoundFacade = ReturnType<typeof roundFacade>;
+export type RunSnapshot = ReturnType<RunFacade['snapshot']>;
+
+export function restoreRunFacade(
+  snapshot: RunSnapshot,
+  opts: Pick<CreateRunFacadeOpts, 'crescendo' | 'extendCrescendo'> = {},
+): RunFacade {
+  const saved = snapshot.run;
+  const run = saved.round
+    ? {
+        ...saved,
+        evaluation:
+          saved.evaluation ||
+          Run.createEvaluation(
+            '',
+            snapshot.character,
+            saved.guidedOpening,
+            Number(saved.tune.PHRASE_POINTS ?? 2),
+            Number(saved.tune.BANK_PHRASE ?? 0) > 0,
+          ),
+        round: {
+          ...saved.round,
+          retainId: saved.round.retainId ?? null,
+          retainsLeft:
+            saved.round.retainsLeft ??
+            (Number(saved.round.tune.RETAIN_ONE) > 0 ? 1 : 0),
+          rule: saved.round.rule ? RULES[saved.round.rule.id] || null : null,
+        },
+      }
+    : saved;
+  return createRunFacade({
+    run,
+    rng: snapshot.rng,
+    character: snapshot.character,
+    crescendo: opts.crescendo || (() => null),
+    extendCrescendo: opts.extendCrescendo,
+  });
+}
 
 export interface CreateRunFacadeOpts {
+  seed?: string;
+  guidedOpening?: boolean;
   tune?: Run.CreateRunStateOpts['tune'];
   key?: string;
   deck?: Tile[];
@@ -409,7 +496,9 @@ export function createRunFacadeFromOpts(
 ): RunFacade {
   const [run, s] = Run.createRunState(
     {
+      seed: opts.seed,
       tune: opts.tune,
+      guidedOpening: opts.guidedOpening,
       key: opts.key,
       deck: opts.deck,
       items: opts.items,

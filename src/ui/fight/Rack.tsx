@@ -173,7 +173,7 @@ export default function Rack({
               aria-hidden="true"
               title={
                 round.characterUsed && !characterPicked
-                  ? 'Played this round already — back next round.'
+                  ? 'Played this word already — back after the word.'
                   : undefined
               }
             />
@@ -195,7 +195,7 @@ export default function Rack({
                 (round.isBarred(characterTile) ? ' is-barred' : '')
               }
               data-flip-tile-id={characterTile.id}
-              title="Your character's own tile — playable once this round."
+              title="Your character's own tile — playable once per word."
               {...(drag ? drag.bind('character', 0, characterTile.id) : {})}
               onClick={() =>
                 round.isBarred(characterTile)

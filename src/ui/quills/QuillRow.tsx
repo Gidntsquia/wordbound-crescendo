@@ -53,7 +53,7 @@ export default function QuillRow({
   return (
     <div
       className="flex flex-wrap items-center gap-2 max-[620px]:gap-1.5"
-      aria-label="Quills"
+      aria-label="Bookmarks"
     >
       <span className="sb-eyebrow min-w-24 text-[10px] font-semibold tracking-[0.22em] whitespace-nowrap text-[var(--leaf-dim)] uppercase max-[620px]:min-w-0">
         Bookmarks · {run.items.length}/{run.tune.ITEM_SLOTS}

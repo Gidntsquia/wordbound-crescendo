@@ -28,7 +28,7 @@ export default function PlaysList({
       {shown.map((p, i) => (
         <li
           key={i}
-          className="grid grid-cols-[140px_minmax(0,1fr)_56px] items-baseline gap-3 border-b border-[rgba(44,46,69,0.6)] py-1.5"
+          className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-[rgba(44,46,69,0.6)] py-1.5"
         >
           <span className="text-xl font-[var(--display)] tracking-[0.04em]">
             {i === plays.length - 1 && p.tiles
@@ -39,12 +39,16 @@ export default function PlaysList({
                 ))
               : p.word}
           </span>
-          <span className="text-[11px] font-[var(--figure)] text-[var(--leaf-dim)] max-[620px]:text-[10px]">
-            {describe(p.breakdown)}
-          </span>
           <b className="text-right text-lg font-[var(--figure)] text-[var(--brass-hot)] tabular-nums">
             {p.breakdown.total}
           </b>
+          <details className="w-full text-[12px] leading-relaxed text-[var(--leaf-dim)]">
+            <summary className="cursor-pointer">
+              {p.breakdown.points} points × {p.breakdown.mult} ={' '}
+              {p.breakdown.total} · score details
+            </summary>
+            <p className="my-1 break-words">{describe(p.breakdown)}</p>
+          </details>
         </li>
       ))}
     </ol>

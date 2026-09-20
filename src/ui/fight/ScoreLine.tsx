@@ -88,6 +88,9 @@ export default function ScoreLine({
           </small>
           {round.target}
         </span>
+        <span className="text-[12px] font-semibold text-[var(--leaf)]">
+          {Math.max(0, round.target - scoreShown)} to go
+        </span>
         <span className="flex flex-wrap gap-x-[22px] gap-y-2 text-xs tracking-[0.04em] text-[var(--leaf-dim)] max-[620px]:gap-x-3">
           <span>
             <b className="mr-1 text-[15px] font-[var(--figure)] text-[var(--leaf)]">

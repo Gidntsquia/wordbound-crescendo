@@ -8,7 +8,6 @@
 import CharacterSelect from '../meta/CharacterSelect';
 import type { Key } from '../../engine/content/round';
 import type { Character } from '../../engine/content/characters';
-import { useCallout } from '../chrome/Callout';
 import { Button } from '@/ui/primitives/button';
 
 interface BestState {
@@ -21,11 +20,12 @@ interface BestState {
 export default function TitleScreen({
   SB,
   keyId,
-  seen,
   markSeen,
   characterId,
   setCharacterId,
   start,
+  resumeRun,
+  hasSavedRun,
   randomSeed,
   best,
 }: {
@@ -44,13 +44,19 @@ export default function TitleScreen({
   characterId: string;
   setCharacterId: (id: string) => void;
   start: (seed: string) => void;
+  resumeRun: () => void;
+  hasSavedRun: boolean;
   randomSeed: () => string;
   best: BestState;
 }) {
-  useCallout(
-    !seen.has('character'),
-    'Your letter. Play it once a turn; it scores extra.',
+  const unlocked = SB.unlockedCharacters();
+  const selectedIndex = SB.CHARACTERS.findIndex(
+    (character) => character.id === characterId,
   );
+  const nextCharacter = SB.CHARACTERS[selectedIndex + 1];
+  const nextCharacterLocked =
+    nextCharacter && !unlocked.includes(nextCharacter.id);
+
   return (
     <section className="px-3 pt-10 pb-7 text-center max-[620px]:flex-none">
       <p className="m-0 mb-[22px] text-[clamp(19px,3vw,26px)] font-[var(--display)] text-[var(--leaf)]">
@@ -58,13 +64,25 @@ export default function TitleScreen({
       </p>
       <CharacterSelect
         characters={SB.CHARACTERS}
-        unlocked={SB.unlockedCharacters()}
+        unlocked={unlocked}
         chosen={characterId}
         onChoose={(id) => {
           setCharacterId(id);
           markSeen('character');
         }}
       />
+      <p className="mx-auto max-w-[520px] text-sm leading-relaxed text-[var(--leaf)]">
+        Reach each target within the available words. Your character letter
+        scores extra and returns after every word. E is a good first choice.
+      </p>
+      <p className="mx-auto max-w-[520px] text-xs leading-relaxed text-[var(--leaf-dim)]">
+        Character progress: {unlocked.length}/{SB.CHARACTERS.length} unlocked.
+        {nextCharacterLocked
+          ? ` Finish a chapter with ${SB.CHARACTERS[selectedIndex]!.name} to unlock ${nextCharacter.name} (${nextCharacter.letter}).`
+          : nextCharacter
+            ? ` ${nextCharacter.name} (${nextCharacter.letter}) is already unlocked.`
+            : ' This character has completed its unlock path.'}
+      </p>
       <Button
         type="button"
         variant="paperPrimary"
@@ -72,6 +90,24 @@ export default function TitleScreen({
         onClick={() => start(randomSeed())}
       >
         Play
+      </Button>
+      {hasSavedRun && (
+        <Button
+          type="button"
+          variant="paper"
+          className="mx-auto mt-2 block h-auto px-4 py-2 text-[13px]"
+          onClick={resumeRun}
+        >
+          Resume saved run
+        </Button>
+      )}
+      <Button
+        type="button"
+        variant="paper"
+        className="mx-auto mt-2 block h-auto px-4 py-2 text-[13px]"
+        onClick={() => start('review-20260918')}
+      >
+        Guided practice · same opening and first shop
       </Button>
       <p className="sb-hint mx-auto mt-[18px] max-w-[520px] text-[11px] text-[var(--leaf-dim)] italic">
         {best.word ? (
@@ -89,7 +125,7 @@ export default function TitleScreen({
             )}
           </>
         ) : (
-          'Nine enemies, each with its own piece of music. Gold between fights buys quills that score every word.'
+          'Nine musical encounters. Earn ink between fights to buy bookmarks and tile or length upgrades.'
         )}
       </p>
     </section>
