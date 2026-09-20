@@ -1,69 +1,57 @@
 # Wordbound: Crescendo
 
-Play: https://gidntsquia.github.io/wordbound-crescendo/
+Spell words from a hand of letter tiles to beat a target score before you run out of plays, while a recording of a classical piece plays. Between fights you spend gold on quills (passive scoring items) and marks (tile upgrades). Win all five fights to win the run.
 
-A "words vs music" browser game: an evil music faction has stolen the alphabet, and
-you spell words to fight musical enemies and win it back. Bosses are backed by
-famous public-domain classical/opera pieces synthesized live via the Web Audio API,
-normal enemies by lesser-known pieces, and bosses attack **on the crescendos of
-their music** — a real-time pressure element where getting the best word you can
-_quickly_ matters more than getting the best word possible, and submitting right on
-a crescendo parries incoming damage. Working title; naming is still open.
+Live: https://gidntsquia.github.io/wordbound-crescendo/
 
-This is a sibling game to [Wordbound](https://github.com/gidntsquia/descent-of-essence),
-engine-forked from that repo at its v0.42 state (word-combat core: dictionary
-validation, letter-tile racks, deck-building, the woodcut-SVG art direction). The
-engine is expected to diverge from the sibling as Crescendo's design needs it — no
-compatibility obligation in either direction. See [THEME.md](THEME.md) for lore.
+## Quickstart
 
-## Quickstart — Play Locally
-
-No build step required. Just open `wordbound.html` in your browser.
-
-```bash
-# On Mac:
-open wordbound.html
-
-# On Windows or Linux:
-firefox wordbound.html    # or chrome, safari, etc.
+```sh
+bun install
+bun run dev        # http://localhost:5173
+bun run play       # a bot plays a whole seeded run in the terminal, no browser
 ```
 
-Or serve it locally (avoids `file://` CORS quirks in some browsers):
+Other commands: `bun run build`, `typecheck`, `lint`, `format:check`, `deploy` (publishes to the live link).
 
-```bash
-python -m http.server 8000
-# then visit http://localhost:8000/wordbound.html
+## How it plays
+
+- **Fight:** tap tiles to spell a word (3+ letters, must be in the dictionary), then Play. Points = chips × mult: chips are the letter values, mult grows with length. 4 plays and 3 swaps per fight. Reach the target to win it; run out of plays below it and the run is lost.
+- **Shop** (after each won fight but the last): gold buys quills and marks. Marks are stamped on one tile of your deck.
+- **Music:** a recording plays during a fight (after your first tap) and stops in the shop.
+
+## Getting the old game back
+
+The whole pre-rebuild game is kept as the tag `pre-rebuild` and the branch `legacy` (both on origin).
+
+```sh
+git checkout pre-rebuild   # or: git switch legacy
+bun install
+bun run dev
 ```
 
-## Development
+Go back with `git switch main`.
 
-```bash
-npm install         # one-time setup
-npm test             # jsdom DOM-verification suite (test/dom-check.js)
-npm run test:mobile  # real-browser (Playwright) mobile layout check, 375/414px
-npm run test:qa      # real-browser QA smoke run
-```
+## Layout
 
-`npm test` is a fast jsdom sanity check — it loads `wordbound.html`, drives game
-logic directly, and catches the class of bug that only shows up once code actually
-executes in a DOM. It cannot verify audio, real timing, or drag-and-drop; those need
-a real browser (Playwright is a devDependency; see `test/verify-*.js` for examples).
+See [CLAUDE.md](CLAUDE.md) for the repo map and [docs/conventions.md](docs/conventions.md) for the conventions and where new code goes.
 
-Run `npm test` (and `npm run test:mobile` for any CSS/layout change) before
-considering any game-logic or rendering change done — see verification policy this repo's automated dev routine follows.
+## Size: old game vs this one
 
-### Project layout
+|                                                             | Old (`pre-rebuild`)         | New                                                                              |
+| ----------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------- |
+| Files tracked                                               | 136                         | 44                                                                               |
+| Files in `src/`                                             | 93                          | 29                                                                               |
+| Source lines (`src/`, ts/tsx/css, excluding generated JSON) | 16,729                      | 1,546 (incl. `tools/`)                                                           |
+| Direct dependencies (prod + dev)                            | 11 + 18                     | 8 + 14                                                                           |
+| JS bundle                                                   | 9,957 kB (2,680 kB gzip)    | 276 kB (87 kB gzip) + 1,091 kB word list, loaded after first paint (393 kB gzip) |
+| CSS                                                         | 87 kB                       | 24 kB                                                                            |
+| Word list                                                   | 15 MB source, in the bundle | 152,681 words of 3–7 letters, 1.1 MB                                             |
+| Recordings shipped                                          | 9                           | 2                                                                                |
+| Built site (`dist/`)                                        | 43 MB                       | 16 MB (14.5 MB of it is the two recordings)                                      |
 
-```
-wordbound.html          # the game: all screens, combat UI
-js/wordbound/            # game logic — dictionary, combat, tiles, monsters, items...
-js/core/                 # shared engine bits: seeded RNG, namespace setup
-css/wordbound.css        # styling (inked-woodcut art direction)
-test/                    # dom-check.js (jsdom) + verify-*.js (Playwright) suites
-tools/                   # build-itch.js (itch.io packaging), ensure-deps.js, etc.
-THEME.md                 # world bible / lore (still the sibling's, being replaced)
-```
+The old numbers come from building the `pre-rebuild` tag; the new ones from `bun run build` on `main`.
 
-## License
+## Licences
 
-Not currently licensed. The game, code, and design are the creation of Jaxon.
+Recordings: Für Elise and Moonlight Sonata are Pixabay tracks (Pixabay Content License; compositions are public domain). Details in `src/features/audio/tracks.ts`. Word list: derived from public-domain and open sources listed in the old game's `js/wordbound/wordlist.js` (see `git show pre-rebuild:js/wordbound/wordlist.js | head -40`).

@@ -1,22 +1,3 @@
 node_modules/
 dist/
-.claude/*
-!.claude/settings.json
-
-# analyzer decode cache (tools/analyze-audio-piece.js)
-.cache/
-
-# fetched recordings (tools/fetch-audio.js reproduces them from tools/audio-manifest.json);
-# the two hand-placed Pixabay tracks stay committed
-public/audio/*.mp3
-!public/audio/fur-elise.mp3
-!public/audio/moonlight-sonata.mp3
-
-# env (READ_SLOWLY_PLAN.md A1)
 .env
-
-# archived plans (kept locally, not committed)
-plan-archive/
-
-# planner/worker specs
-plans/
