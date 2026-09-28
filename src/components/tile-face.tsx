@@ -21,6 +21,7 @@ export function TileFace({ tile, selected, disabled, onClick }: TileFaceProps) {
       aria-pressed={selected}
       className={cn(
         'bg-card relative flex size-14 flex-col items-center justify-center rounded-md border text-xl font-semibold',
+        tile.mark && 'ring-primary ring-2',
         selected && 'bg-primary text-primary-foreground',
         disabled && 'opacity-40',
       )}
@@ -30,8 +31,13 @@ export function TileFace({ tile, selected, disabled, onClick }: TileFaceProps) {
         {letterValue(tile.letter)}
       </span>
       {tile.mark && (
-        <span className="absolute top-0.5 left-1 text-[10px] font-normal uppercase">
-          {tile.mark}
+        <span
+          className={cn(
+            'bg-primary text-primary-foreground absolute -top-1.5 -left-1.5 rounded-full px-1 text-[9px] leading-tight font-bold uppercase',
+            selected && 'bg-background text-primary',
+          )}
+        >
+          {tile.mark.slice(0, 3)}
         </span>
       )}
     </button>

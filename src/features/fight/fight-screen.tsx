@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TileFace } from '@/components/tile-face';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FightMusic } from '@/features/audio/fight-music';
+import { FIGHT_MODIFIERS } from '@/game/content/modifiers';
+import { QUILLS } from '@/game/content/quills';
 import type { Dictionary } from '@/game/dictionary';
 import type { Run } from '@/game/types';
 
@@ -10,10 +13,13 @@ interface FightScreenProps {
   dictionary: Dictionary;
   onPlay: (tileIds: number[], dictionary: Dictionary) => void;
   onSwap: (tileIds: number[]) => void;
+  onOpenDeck: () => void;
   /** Browsers only allow audio after a tap; the app remembers that one happened. */
   musicUnlocked: boolean;
   onUnlockMusic: () => void;
 }
+
+const STEP_MS = 260;
 
 /** Tap tiles to spell a word (in tap order), then play it or swap the tiles out. */
 export function FightScreen({
@@ -21,14 +27,42 @@ export function FightScreen({
   dictionary,
   onPlay,
   onSwap,
+  onOpenDeck,
   musicUnlocked,
   onUnlockMusic,
 }: FightScreenProps) {
   const { fight } = run;
   const [picked, setPicked] = useState<number[]>([]);
+  const [openQuill, setOpenQuill] = useState<string | null>(null);
+
+  // Reveal the play's tally steps one at a time so a play feels like it
+  // happened; tapping the reveal jumps straight to the total.
+  const totalSteps = run.lastPlay?.steps.length ?? 0;
+  const [revealedPlay, setRevealedPlay] = useState(run.lastPlay);
+  const [revealIndex, setRevealIndex] = useState(totalSteps);
+  if (run.lastPlay !== revealedPlay) {
+    setRevealedPlay(run.lastPlay);
+    setRevealIndex(
+      run.lastPlay && run.lastPlay.steps.length > 1 ? 0 : totalSteps,
+    );
+  }
+  useEffect(() => {
+    if (!run.lastPlay || run.lastPlay.steps.length <= 1) return;
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setRevealIndex(i);
+      if (i >= run.lastPlay!.steps.length) clearInterval(id);
+    }, STEP_MS);
+    return () => clearInterval(id);
+  }, [run.lastPlay]);
 
   const byId = new Map(fight.hand.map((t) => [t.id, t]));
   const word = picked.map((id) => byId.get(id)?.letter ?? '').join('');
+  const progress = Math.min(
+    100,
+    Math.round((fight.score / fight.target) * 100),
+  );
 
   const toggle = (id: number) => {
     onUnlockMusic();
@@ -40,6 +74,10 @@ export function FightScreen({
     setPicked([]);
   };
 
+  const reveal = run.lastPlay?.steps.slice(0, Math.max(1, revealIndex));
+  const revealing = totalSteps > 0 && revealIndex < totalSteps;
+  const lastStep = reveal?.[reveal.length - 1];
+
   return (
     <section className="flex flex-col gap-4">
       <div>
@@ -49,10 +87,44 @@ export function FightScreen({
             / {fight.target}
           </span>
         </p>
-        <p className="text-muted-foreground text-sm">
+        <div className="bg-muted mt-1 h-2 w-full overflow-hidden rounded-full">
+          <div
+            className="bg-primary h-full transition-[width] duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <p className="text-muted-foreground mt-1 text-sm">
           {fight.playsLeft} plays · {fight.swapsLeft} swaps
         </p>
+        {fight.modifier && (
+          <p className="text-sm font-medium">
+            {FIGHT_MODIFIERS[fight.modifier].name} —{' '}
+            <span className="text-muted-foreground">
+              {FIGHT_MODIFIERS[fight.modifier].description}
+            </span>
+          </p>
+        )}
       </div>
+
+      {run.quills.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {run.quills.map((id) => (
+            <Badge
+              key={id}
+              variant={openQuill === id ? 'default' : 'secondary'}
+              className="cursor-pointer"
+              onClick={() => setOpenQuill((o) => (o === id ? null : id))}
+            >
+              {QUILLS[id].name}
+            </Badge>
+          ))}
+        </div>
+      )}
+      {openQuill && (
+        <p className="text-muted-foreground -mt-2 text-xs">
+          {QUILLS[openQuill as keyof typeof QUILLS].description}
+        </p>
+      )}
 
       <div className="flex min-h-12 items-center rounded-md border border-dashed px-3 text-2xl font-semibold tracking-widest">
         {word || (
@@ -96,23 +168,41 @@ export function FightScreen({
         >
           Clear
         </Button>
+        <Button variant="ghost" onClick={onOpenDeck}>
+          Deck
+        </Button>
       </div>
 
-      <div className="min-h-10 text-sm" aria-live="polite">
+      <button
+        type="button"
+        className="min-h-14 w-full text-left text-sm"
+        aria-live="polite"
+        onClick={() => revealing && setRevealIndex(totalSteps)}
+      >
         {run.notice && <p className="text-destructive">{run.notice}</p>}
-        {!run.notice && run.lastPlay && (
+        {!run.notice && run.lastPlay && lastStep && (
           <p>
-            <strong>{run.lastPlay.word}</strong> {run.lastPlay.chips} ×{' '}
-            {run.lastPlay.mult} = {run.lastPlay.points}
-            {run.lastPlay.notes.length > 0 && (
-              <span className="text-muted-foreground">
-                {' '}
-                ({run.lastPlay.notes.join(', ')})
+            <strong>{run.lastPlay.word}</strong>{' '}
+            {revealing ? (
+              <span>
+                {lastStep.label}: {lastStep.tally.chips} × {lastStep.tally.mult}
+                <span className="text-muted-foreground"> (tap to skip)</span>
+              </span>
+            ) : (
+              <span>
+                {run.lastPlay.chips} × {run.lastPlay.mult} ={' '}
+                {run.lastPlay.points}
+                {run.lastPlay.notes.length > 0 && (
+                  <span className="text-muted-foreground">
+                    {' '}
+                    ({run.lastPlay.notes.join(', ')})
+                  </span>
+                )}
               </span>
             )}
           </p>
         )}
-      </div>
+      </button>
 
       <FightMusic fightIndex={run.fightIndex} unlocked={musicUnlocked} />
     </section>

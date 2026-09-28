@@ -1,15 +1,15 @@
 import { Badge } from '@/components/ui/badge';
-import { TARGETS } from '@/game/content/fights';
+import { FIGHTS } from '@/game/content/fights';
 import { QUILLS } from '@/game/content/quills';
 import type { Run } from '@/game/types';
 
-/** Fight number, gold, and the quills you hold. */
+/** Fight number, gold, and the quills you hold, in firing order. */
 export function RunHeader({ run }: { run: Run }) {
   return (
     <header className="flex flex-col gap-2">
       <div className="flex items-center justify-between text-sm font-medium">
         <span>
-          Fight {run.fightIndex + 1} / {TARGETS.length}
+          Fight {run.fightIndex + 1} / {FIGHTS.length}
         </span>
         <span>Gold {run.gold}</span>
       </div>

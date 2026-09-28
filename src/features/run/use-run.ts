@@ -1,7 +1,13 @@
 import { useReducer } from 'react';
 import type { Dictionary } from '@/game/dictionary';
 import { newRun, nextFight, play, swap } from '@/game/run';
-import { buyMark, buyQuill } from '@/game/shop';
+import {
+  buyMark,
+  buyQuill,
+  rerollShop,
+  reorderQuill,
+  sellQuill,
+} from '@/game/shop';
 import type { MarkId, QuillId, Run } from '@/game/types';
 
 type Action =
@@ -10,6 +16,9 @@ type Action =
   | { type: 'nextFight' }
   | { type: 'buyQuill'; id: QuillId }
   | { type: 'buyMark'; id: MarkId; tileId: number }
+  | { type: 'rerollShop' }
+  | { type: 'sellQuill'; id: QuillId }
+  | { type: 'reorderQuill'; id: QuillId; toIndex: number }
   | { type: 'newRun'; seed: number };
 
 function reducer(run: Run, action: Action): Run {
@@ -24,6 +33,12 @@ function reducer(run: Run, action: Action): Run {
       return buyQuill(run, action.id);
     case 'buyMark':
       return buyMark(run, action.id, action.tileId);
+    case 'rerollShop':
+      return rerollShop(run);
+    case 'sellQuill':
+      return sellQuill(run, action.id);
+    case 'reorderQuill':
+      return reorderQuill(run, action.id, action.toIndex);
     case 'newRun':
       return newRun(action.seed);
   }
@@ -32,6 +47,8 @@ function reducer(run: Run, action: Action): Run {
 export const randomSeed = () => Math.floor(Math.random() * 2 ** 32);
 
 /** The current run plus a dispatcher; all rules live in `src/game`. */
-export function useRun() {
-  return useReducer(reducer, undefined, () => newRun(randomSeed()));
+export function useRun(initialSeed?: number) {
+  return useReducer(reducer, undefined, () =>
+    newRun(initialSeed ?? randomSeed()),
+  );
 }

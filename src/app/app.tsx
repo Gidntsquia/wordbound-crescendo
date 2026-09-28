@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { FightScreen } from '@/features/fight/fight-screen';
+import { DeckScreen } from '@/features/run/deck-screen';
 import { EndScreen } from '@/features/run/end-screen';
 import { RunHeader } from '@/features/run/run-header';
 import { randomSeed, useRun } from '@/features/run/use-run';
+import { FightScreen } from '@/features/fight/fight-screen';
 import { ShopScreen } from '@/features/shop/shop-screen';
 import { parseDictionary, type Dictionary } from '@/game/dictionary';
 
@@ -10,6 +11,7 @@ export function App() {
   const [dictionary, setDictionary] = useState<Dictionary | null>(null);
   const [run, dispatch] = useRun();
   const [musicUnlocked, setMusicUnlocked] = useState(false);
+  const [showDeck, setShowDeck] = useState(false);
 
   // The word list is its own chunk, fetched after the first paint.
   useEffect(() => {
@@ -19,6 +21,15 @@ export function App() {
   }, []);
 
   if (!dictionary) return <Frame>Loading words…</Frame>;
+
+  if (showDeck && (run.phase === 'fight' || run.phase === 'shop')) {
+    return (
+      <Frame>
+        <RunHeader run={run} />
+        <DeckScreen run={run} onBack={() => setShowDeck(false)} />
+      </Frame>
+    );
+  }
 
   return (
     <Frame>
@@ -36,6 +47,7 @@ export function App() {
             dispatch({ type: 'play', tileIds, dictionary: dict })
           }
           onSwap={(tileIds) => dispatch({ type: 'swap', tileIds })}
+          onOpenDeck={() => setShowDeck(true)}
         />
       )}
       {run.phase === 'shop' && (
@@ -43,6 +55,12 @@ export function App() {
           run={run}
           onBuyQuill={(id) => dispatch({ type: 'buyQuill', id })}
           onBuyMark={(id, tileId) => dispatch({ type: 'buyMark', id, tileId })}
+          onReroll={() => dispatch({ type: 'rerollShop' })}
+          onSellQuill={(id) => dispatch({ type: 'sellQuill', id })}
+          onReorderQuill={(id, toIndex) =>
+            dispatch({ type: 'reorderQuill', id, toIndex })
+          }
+          onOpenDeck={() => setShowDeck(true)}
           onContinue={() => {
             setMusicUnlocked(true);
             dispatch({ type: 'nextFight' });
@@ -52,7 +70,9 @@ export function App() {
       {(run.phase === 'won' || run.phase === 'lost') && (
         <EndScreen
           run={run}
-          onNewRun={() => dispatch({ type: 'newRun', seed: randomSeed() })}
+          onNewRun={(seed) =>
+            dispatch({ type: 'newRun', seed: seed ?? randomSeed() })
+          }
         />
       )}
     </Frame>
