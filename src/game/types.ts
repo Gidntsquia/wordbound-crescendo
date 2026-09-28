@@ -1,6 +1,35 @@
-export type MarkId = 'gilt' | 'bold' | 'double' | 'keen';
+export type MarkId =
+  'gilt' | 'bold' | 'double' | 'keen' | 'edge' | 'echo' | 'anchor' | 'prism';
+
 export type QuillId =
-  'inkpot' | 'metronome' | 'chorus' | 'longhand' | 'rarekey' | 'shortnotes';
+  | 'inkpot'
+  | 'metronome'
+  | 'chorus'
+  | 'longhand'
+  | 'rarekey'
+  | 'shortnotes'
+  | 'quartz'
+  | 'undertow'
+  | 'firstletter'
+  | 'lastletter'
+  | 'palindrome'
+  | 'doubleletter'
+  | 'alphabetist'
+  | 'crescendo'
+  | 'encore'
+  | 'thrift'
+  | 'goldleaf'
+  | 'consonantchain'
+  | 'markedup'
+  | 'fullhand'
+  | 'sparerow'
+  | 'oldfaithful'
+  | 'risingtide'
+  | 'lastwordfirst';
+
+export type Rarity = 'common' | 'uncommon' | 'rare';
+
+export type FightModifierId = 'vowelless' | 'shortfuse' | 'stonelipped';
 
 export interface Tile {
   id: number;
@@ -19,8 +48,10 @@ export interface WordPlay {
   chips: number;
   mult: number;
   points: number;
-  /** Human-readable lines for each bonus that fired. */
+  /** Human-readable lines for each bonus that fired, in firing order. */
   notes: string[];
+  /** Tally snapshots after each step (base, then each mark, then each quill). */
+  steps: { label: string; tally: Tally }[];
 }
 
 export interface Fight {
@@ -31,16 +62,20 @@ export interface Fight {
   hand: Tile[];
   drawPile: Tile[];
   discardPile: Tile[];
+  modifier: FightModifierId | null;
 }
 
 export interface ShopOffer<Id extends string> {
   id: Id;
+  price: number;
   sold: boolean;
 }
 
 export interface Shop {
   quills: ShopOffer<QuillId>[];
   marks: ShopOffer<MarkId>[];
+  rerollCost: number;
+  rerolls: number;
 }
 
 export type Phase = 'fight' | 'shop' | 'won' | 'lost';
@@ -57,6 +92,8 @@ export interface Run {
   fight: Fight;
   shop: Shop | null;
   lastPlay: WordPlay | null;
+  /** Best play (by points) across the whole run so far. */
+  bestPlay: WordPlay | null;
   /** One-line feedback for the last action (e.g. a rejected word). */
   notice: string | null;
 }

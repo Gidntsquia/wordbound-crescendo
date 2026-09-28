@@ -1,10 +1,11 @@
 import {
+  FIGHTS,
   HAND_SIZE,
   MIN_WORD_LENGTH,
   PLAYS_PER_FIGHT,
   SWAPS_PER_FIGHT,
-  TARGETS,
 } from './content/fights';
+import { FIGHT_MODIFIERS } from './content/modifiers';
 import type { Dictionary } from './dictionary';
 import { shuffle } from './rng';
 import { scoreWord } from './score';
@@ -39,18 +40,23 @@ export function startFight(
   index: number,
   rng: number,
 ): { fight: Fight; rng: number } {
+  const spec = FIGHTS[index] ?? FIGHTS[FIGHTS.length - 1];
+  const target = spec?.target ?? 0;
+  const modifier = spec?.modifier ?? null;
+  const playsDelta = modifier ? FIGHT_MODIFIERS[modifier].playsDelta : 0;
   const [shuffled, next] = shuffle(deck, rng);
   const dealt = draw(shuffled, [], HAND_SIZE, next);
   return {
     rng: dealt.rng,
     fight: {
-      target: TARGETS[index] ?? TARGETS[TARGETS.length - 1] ?? 0,
+      target,
       score: 0,
-      playsLeft: PLAYS_PER_FIGHT,
+      playsLeft: Math.max(1, PLAYS_PER_FIGHT + playsDelta),
       swapsLeft: SWAPS_PER_FIGHT,
       hand: dealt.drawn,
       drawPile: dealt.drawPile,
       discardPile: dealt.discardPile,
+      modifier,
     },
   };
 }
@@ -59,6 +65,12 @@ export type PlayOutcome =
   | { ok: true; fight: Fight; play: WordPlay; rng: number }
   | { ok: false; reason: string };
 
+export interface PlayRunContext {
+  fightIndex: number;
+  gold: number;
+  previousPoints: number;
+}
+
 /** Plays the tiles (in order) as a word; rejects short or unknown words. */
 export function playWord(
   fight: Fight,
@@ -66,16 +78,31 @@ export function playWord(
   quills: readonly QuillId[],
   dictionary: Dictionary,
   rng: number,
+  runCtx: PlayRunContext,
 ): PlayOutcome {
   const tiles = pick(fight.hand, tileIds);
   if (!tiles || fight.playsLeft <= 0) return { ok: false, reason: 'No play.' };
-  const play = scoreWord(tiles, quills);
-  if (play.word.length < MIN_WORD_LENGTH) {
+  const word = tiles.map((t) => t.letter).join('');
+  if (word.length < MIN_WORD_LENGTH) {
     return { ok: false, reason: `Words need ${MIN_WORD_LENGTH}+ letters.` };
   }
-  if (!dictionary.has(play.word)) {
-    return { ok: false, reason: `${play.word} is not a word.` };
+  if (!dictionary.has(word)) {
+    return { ok: false, reason: `${word} is not a word.` };
   }
+  const playsDelta = fight.modifier
+    ? FIGHT_MODIFIERS[fight.modifier].playsDelta
+    : 0;
+  const startingPlays = Math.max(1, PLAYS_PER_FIGHT + playsDelta);
+  const wordsPlayedThisFight = startingPlays - fight.playsLeft;
+  const play = scoreWord(tiles, quills, {
+    fightIndex: runCtx.fightIndex,
+    wordsPlayedThisFight,
+    swapsLeft: fight.swapsLeft,
+    playsLeftAfter: fight.playsLeft - 1,
+    gold: runCtx.gold,
+    previousPoints: runCtx.previousPoints,
+    modifier: fight.modifier,
+  });
   const kept = fight.hand.filter((t) => !tileIds.includes(t.id));
   const refill = draw(
     fight.drawPile,

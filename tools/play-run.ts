@@ -1,15 +1,14 @@
-// Headless run: `bun run play [--seed=N] [--bot=greedy|lazy]`.
+// Headless run: `bun run play [--seed=N] [--bot=greedy|lazy|noshop]`.
 // A bot plays a whole seeded run through the real game rules (fight → shop →
 // fight …) with no browser, and prints what happened. "greedy" plays the
 // best-scoring word it can find and buys what it can afford; "lazy" plays the
-// first 3-letter word it finds and buys nothing, so it loses.
+// first 3-letter word it finds and buys nothing, so it loses; "noshop" plays
+// greedily but never spends gold in the shop, so it should stall out.
 import { readFileSync } from 'node:fs';
-import { MARKS } from '../src/game/content/marks';
-import { QUILLS } from '../src/game/content/quills';
 import { parseDictionary, type Dictionary } from '../src/game/dictionary';
 import { nextFight, newRun, play, swap } from '../src/game/run';
 import { scoreWord } from '../src/game/score';
-import { buyMark, buyQuill } from '../src/game/shop';
+import { buyMark, buyQuill, rerollShop } from '../src/game/shop';
 import type { Run, Tile } from '../src/game/types';
 
 const args = new Map(
@@ -66,23 +65,23 @@ function choose(run: Run): Tile[] | null {
   let best: Tile[] | null = null;
   let bestPoints = -1;
   for (const o of options) {
-    const p = scoreWord(o, run.quills).points;
+    const p = scoreWord(o, run.quills, { fightIndex: run.fightIndex }).points;
     if (p > bestPoints) [best, bestPoints] = [o, p];
   }
   return best;
 }
 
 function shop(run: Run): Run {
-  if (bot === 'lazy' || !run.shop) return run;
+  if (bot === 'lazy' || bot === 'noshop' || !run.shop) return run;
   let r = run;
+  // Occasionally reroll for a better offer before buying.
+  if (r.shop && r.gold >= r.shop.rerollCost + 6) r = rerollShop(r);
   // Buy the priciest affordable quill, then a mark on the last word's first tile.
   const quill = r.shop?.quills
-    .filter((o) => !o.sold && QUILLS[o.id].price <= r.gold)
-    .sort((a, b) => QUILLS[b.id].price - QUILLS[a.id].price)[0];
+    .filter((o) => !o.sold && o.price <= r.gold)
+    .sort((a, b) => b.price - a.price)[0];
   if (quill) r = buyQuill(r, quill.id);
-  const mark = r.shop?.marks.find(
-    (o) => !o.sold && MARKS[o.id].price <= r.gold,
-  );
+  const mark = r.shop?.marks.find((o) => !o.sold && o.price <= r.gold);
   const target = r.deck.find(
     (t) => !t.mark && r.lastPlay?.word.includes(t.letter),
   );
@@ -94,10 +93,13 @@ let run = newRun(seed);
 console.log(`seed ${seed}, bot ${bot}`);
 let firstWord: { tiles: Tile[]; points: number } | null = null;
 let comparison = '';
+let sawShopReroll = false;
+let sawShopSale = false;
 
 while (run.phase === 'fight') {
   const before = run.fightIndex;
-  const label = `Fight ${before + 1} (target ${run.fight.target})`;
+  const mod = run.fight.modifier ? ` [${run.fight.modifier}]` : '';
+  const label = `Fight ${before + 1} (target ${run.fight.target})${mod}`;
   while (run.phase === 'fight' && run.fightIndex === before) {
     const pick = choose(run);
     const prev = run;
@@ -125,7 +127,14 @@ while (run.phase === 'fight') {
   if (run.phase === 'shop') {
     console.log(`  won fight ${before + 1}; gold ${run.gold}`);
     const goldBefore = run.gold;
+    const rerollsBefore = run.shop?.rerolls ?? 0;
+    const soldBefore =
+      (run.shop?.quills.length ?? 0) + (run.shop?.marks.length ?? 0);
+    void soldBefore;
     run = shop(run);
+    if ((run.shop?.rerolls ?? 0) > rerollsBefore) sawShopReroll = true;
+    if (run.quills.length > 0 || run.deck.some((t) => t.mark))
+      sawShopSale = true;
     console.log(
       `  shop: spent ${goldBefore - run.gold}, quills [${run.quills.join(', ')}], marked [${run.deck
         .filter((t) => t.mark)
@@ -136,7 +145,9 @@ while (run.phase === 'fight') {
       const same = firstWord.tiles.map(
         (t) => run.deck.find((d) => d.id === t.id) as Tile,
       );
-      const after = scoreWord(same, run.quills).points;
+      const after = scoreWord(same, run.quills, {
+        fightIndex: run.fightIndex,
+      }).points;
       comparison = `same word ${same.map((t) => t.letter).join('')}: ${firstWord.points} points before the shop, ${after} after`;
     }
     run = nextFight(run);
@@ -146,6 +157,9 @@ while (run.phase === 'fight') {
 }
 
 if (comparison) console.log(comparison);
+console.log(
+  `shop reroll seen: ${sawShopReroll}, shop sale seen: ${sawShopSale}`,
+);
 console.log(
   run.phase === 'won'
     ? `RESULT: won the run (${run.fightIndex + 1} fights, gold ${run.gold})`

@@ -1,4 +1,4 @@
-import { FIGHT_GOLD, GOLD_PER_SPARE_PLAY, TARGETS } from './content/fights';
+import { FIGHT_GOLD, FIGHTS, GOLD_PER_SPARE_PLAY } from './content/fights';
 import { STARTER_BAG } from './content/letters';
 import type { Dictionary } from './dictionary';
 import { playWord, startFight, swapTiles } from './fight';
@@ -27,6 +27,7 @@ export function newRun(seed: number): Run {
     fight,
     shop: null,
     lastPlay: null,
+    bestPlay: null,
     notice: null,
   };
 }
@@ -38,17 +39,26 @@ export function play(
   dictionary: Dictionary,
 ): Run {
   if (run.phase !== 'fight') return run;
-  const out = playWord(run.fight, tileIds, run.quills, dictionary, run.rng);
+  const out = playWord(run.fight, tileIds, run.quills, dictionary, run.rng, {
+    fightIndex: run.fightIndex,
+    gold: run.gold,
+    previousPoints: run.lastPlay?.points ?? 0,
+  });
   if (!out.ok) return { ...run, notice: out.reason };
+  const bestPlay =
+    !run.bestPlay || out.play.points > run.bestPlay.points
+      ? out.play
+      : run.bestPlay;
   const next: Run = {
     ...run,
     rng: out.rng,
     fight: out.fight,
     lastPlay: out.play,
+    bestPlay,
     notice: null,
   };
   if (out.fight.score >= out.fight.target) {
-    if (run.fightIndex >= TARGETS.length - 1) return { ...next, phase: 'won' };
+    if (run.fightIndex >= FIGHTS.length - 1) return { ...next, phase: 'won' };
     const gold =
       run.gold + FIGHT_GOLD + out.fight.playsLeft * GOLD_PER_SPARE_PLAY;
     const rolled = rollShop(run.quills, next.rng);
