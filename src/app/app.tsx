@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DeckScreen } from '@/features/run/deck-screen';
 import { EndScreen } from '@/features/run/end-screen';
 import { RunHeader } from '@/features/run/run-header';
+import { TitleScreen } from '@/features/run/title-screen';
 import { randomSeed, useRun } from '@/features/run/use-run';
 import { FightScreen } from '@/features/fight/fight-screen';
 import { ShopScreen } from '@/features/shop/shop-screen';
@@ -10,6 +11,7 @@ import { parseDictionary, type Dictionary } from '@/game/dictionary';
 export function App() {
   const [dictionary, setDictionary] = useState<Dictionary | null>(null);
   const [run, dispatch] = useRun();
+  const [onTitle, setOnTitle] = useState(true);
   const [musicUnlocked, setMusicUnlocked] = useState(false);
   const [showDeck, setShowDeck] = useState(false);
 
@@ -20,7 +22,22 @@ export function App() {
     );
   }, []);
 
-  if (!dictionary) return <Frame>Loading words…</Frame>;
+  if (onTitle) {
+    return (
+      <Frame>
+        <TitleScreen
+          onStart={(composer, seed) => {
+            dispatch({ type: 'newRun', seed: seed ?? randomSeed(), composer });
+            setMusicUnlocked(true);
+            setShowDeck(false);
+            setOnTitle(false);
+          }}
+        />
+      </Frame>
+    );
+  }
+
+  if (!dictionary) return <Frame>Fetching the word list…</Frame>;
 
   if (showDeck && (run.phase === 'fight' || run.phase === 'shop')) {
     return (
@@ -68,12 +85,7 @@ export function App() {
         />
       )}
       {(run.phase === 'won' || run.phase === 'lost') && (
-        <EndScreen
-          run={run}
-          onNewRun={(seed) =>
-            dispatch({ type: 'newRun', seed: seed ?? randomSeed() })
-          }
-        />
+        <EndScreen run={run} onNewRun={() => setOnTitle(true)} />
       )}
     </Frame>
   );

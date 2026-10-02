@@ -3,7 +3,8 @@ import { STARTER_BAG } from './content/letters';
 import type { Dictionary } from './dictionary';
 import { playWord, startFight, swapTiles } from './fight';
 import { rollShop } from './shop';
-import type { Run, Tile } from './types';
+import { COMPOSERS } from './content/composers';
+import type { ComposerId, Run, Tile } from './types';
 
 function starterDeck(): Tile[] {
   let id = 1;
@@ -13,17 +14,18 @@ function starterDeck(): Tile[] {
 }
 
 /** A fresh run: starter deck, no gold, no quills, fight 1 dealt. */
-export function newRun(seed: number): Run {
+export function newRun(seed: number, composer: ComposerId = 'beethoven'): Run {
   const deck = starterDeck();
-  const { fight, rng } = startFight(deck, 0, seed);
+  const { fight, rng } = startFight(deck, 0, seed, composer);
   return {
     seed,
+    composer,
     rng,
     phase: 'fight',
     fightIndex: 0,
     gold: 0,
     deck,
-    quills: [],
+    quills: [COMPOSERS[composer].signatureQuill],
     fight,
     shop: null,
     lastPlay: null,
@@ -61,7 +63,7 @@ export function play(
     if (run.fightIndex >= FIGHTS.length - 1) return { ...next, phase: 'won' };
     const gold =
       run.gold + FIGHT_GOLD + out.fight.playsLeft * GOLD_PER_SPARE_PLAY;
-    const rolled = rollShop(run.quills, next.rng);
+    const rolled = rollShop(run.quills, next.rng, 0, run.composer);
     return { ...next, phase: 'shop', gold, shop: rolled.shop, rng: rolled.rng };
   }
   if (out.fight.playsLeft === 0) return { ...next, phase: 'lost' };
@@ -79,7 +81,12 @@ export function swap(run: Run, tileIds: readonly number[]): Run {
 export function nextFight(run: Run): Run {
   if (run.phase !== 'shop') return run;
   const fightIndex = run.fightIndex + 1;
-  const { fight, rng } = startFight(run.deck, fightIndex, run.rng);
+  const { fight, rng } = startFight(
+    run.deck,
+    fightIndex,
+    run.rng,
+    run.composer,
+  );
   return {
     ...run,
     phase: 'fight',

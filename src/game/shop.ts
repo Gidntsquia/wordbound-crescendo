@@ -1,8 +1,8 @@
 import { MAX_QUILLS, SHOP_REROLL_BASE_COST } from './content/fights';
 import { MARKS, MARK_IDS } from './content/marks';
-import { QUILLS, QUILL_IDS } from './content/quills';
+import { QUILLS, SHOP_QUILL_IDS } from './content/quills';
 import { nextFloat } from './rng';
-import type { MarkId, QuillId, Rarity, Run, Shop } from './types';
+import type { ComposerId, MarkId, QuillId, Rarity, Run, Shop } from './types';
 
 const RARITY_WEIGHT: Record<Rarity, number> = {
   common: 6,
@@ -40,10 +40,11 @@ export function rollShop(
   owned: readonly QuillId[],
   rng: number,
   rerolls = 0,
+  composer: ComposerId = 'beethoven',
 ): { shop: Shop; rng: number } {
-  const availableQuills = QUILL_IDS.filter((id) => !owned.includes(id)).map(
-    (id) => ({ id, rarity: QUILLS[id].rarity, price: QUILLS[id].price }),
-  );
+  const availableQuills = SHOP_QUILL_IDS.filter(
+    (id) => !owned.includes(id),
+  ).map((id) => ({ id, rarity: QUILLS[id].rarity, price: QUILLS[id].price }));
   const allMarks = MARK_IDS.map((id) => ({
     id,
     rarity: MARKS[id].rarity,
@@ -56,7 +57,11 @@ export function rollShop(
     shop: {
       quills: quills.map((o) => ({ id: o.id, price: o.price, sold: false })),
       marks: marks.map((o) => ({ id: o.id, price: o.price, sold: false })),
-      rerollCost: SHOP_REROLL_BASE_COST + rerolls,
+      // Mozart's first reroll in each shop is free.
+      rerollCost:
+        composer === 'mozart' && rerolls === 0
+          ? 0
+          : SHOP_REROLL_BASE_COST + rerolls,
       rerolls,
     },
   };
@@ -66,7 +71,12 @@ export function rerollShop(run: Run): Run {
   if (!run.shop || run.phase !== 'shop') return run;
   const cost = run.shop.rerollCost;
   if (run.gold < cost) return { ...run, notice: 'Not enough gold to reroll.' };
-  const rolled = rollShop(run.quills, run.rng, run.shop.rerolls + 1);
+  const rolled = rollShop(
+    run.quills,
+    run.rng,
+    run.shop.rerolls + 1,
+    run.composer,
+  );
   return {
     ...run,
     gold: run.gold - cost,
@@ -119,7 +129,7 @@ export function buyMark(run: Run, id: MarkId, tileId: number): Run {
 
 /** Sells an owned quill back for half its price (min 1 gold). */
 export function sellQuill(run: Run, id: QuillId): Run {
-  if (!run.quills.includes(id)) return run;
+  if (!run.quills.includes(id) || QUILLS[id].signature) return run;
   const refund = Math.max(1, Math.floor(QUILLS[id].price / 2));
   return {
     ...run,

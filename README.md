@@ -1,6 +1,6 @@
 # Wordbound: Crescendo
 
-Spell words from a hand of letter tiles to beat a target score before you run out of plays, while a recording of a classical piece plays. Between fights you spend gold on quills (passive scoring items) and marks (tile upgrades). Win all five fights to win the run.
+Spell words from a hand of letter tiles to meet each chore's quota before you run out of plays. Work, the enemy, deals grey tiles into your hand. You play as Beethoven, Bach or Mozart, and their recordings play. Between chores you spend gold on quills (scoring items) and marks (tile upgrades). Clear all eight chores to win the run.
 
 Live: https://gidntsquia.github.io/wordbound-crescendo/
 
@@ -16,9 +16,11 @@ Other commands: `bun run build`, `typecheck`, `lint`, `format:check`, `deploy` (
 
 ## How it plays
 
-- **Fight:** tap tiles to spell a word (3+ letters, must be in the dictionary), then Play. Points = chips × mult: chips are the letter values, mult grows with length. 4 plays and 3 swaps per fight. Reach the target to win it; run out of plays below it and the run is lost.
-- **Shop** (after each won fight but the last): gold buys quills and marks. Marks are stamped on one tile of your deck.
-- **Music:** a recording plays during a fight (after your first tap) and stops in the shop.
+- **Title screen:** pick a composer (and optionally a seed). Beethoven hides chip values until Play and starts with Deaf Ear. Bach gets 5 plays and Fugue. Mozart gets 5 swaps, a free first reroll and Prodigy.
+- **Fight:** tap tiles to spell a word (3+ letters, in the dictionary), then Play. Points = chips × mult. 4 plays and 3 swaps unless your composer says otherwise. Meet the quota to clear the chore; run out of plays and the run is lost.
+- **Work tiles:** from the first boss on, grey tiles are dealt into the opening hand. A Clerk scores 0 chips. A Foreman also zeroes the tiles on either side of it in the word.
+- **Shop** (after each cleared chore but the last): gold buys quills and marks. Marks are stamped on one tile of your deck.
+- **Music:** the composer's own recordings play during fights (after your first tap), one per fight in turn. Licences: `src/features/audio/tracks.ts`. Engravings: `src/features/art/credits.ts`.
 
 ## Getting the old game back
 

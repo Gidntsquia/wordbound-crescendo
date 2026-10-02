@@ -1,15 +1,10 @@
-import {
-  FIGHTS,
-  HAND_SIZE,
-  MIN_WORD_LENGTH,
-  PLAYS_PER_FIGHT,
-  SWAPS_PER_FIGHT,
-} from './content/fights';
+import { FIGHTS, HAND_SIZE, MIN_WORD_LENGTH } from './content/fights';
+import { COMPOSERS } from './content/composers';
 import { FIGHT_MODIFIERS } from './content/modifiers';
 import type { Dictionary } from './dictionary';
-import { shuffle } from './rng';
+import { nextFloat, shuffle } from './rng';
 import { scoreWord } from './score';
-import type { Fight, QuillId, Tile, WordPlay } from './types';
+import type { ComposerId, Fight, QuillId, Tile, WordPlay } from './types';
 
 /** Draws up to `count` tiles, reshuffling the discard pile in if the draw pile runs out. */
 function draw(
@@ -35,10 +30,46 @@ function draw(
   };
 }
 
+const WORK_LETTERS = 'ETAOINSRHLDCUM';
+
+/** Replaces the front of the opening hand with grey work tiles. Displaced tiles go back to the pile. */
+function dealWork(
+  hand: Tile[],
+  drawPile: Tile[],
+  clerks: number,
+  foremen: number,
+  rng: number,
+): { hand: Tile[]; drawPile: Tile[]; rng: number } {
+  const kinds = [
+    ...Array.from({ length: foremen }, () => 'foreman' as const),
+    ...Array.from({ length: clerks }, () => 'clerk' as const),
+  ];
+  let state = rng;
+  const work: Tile[] = kinds.map((kind, i) => {
+    const [f, next] = nextFloat(state);
+    state = next;
+    return {
+      id: -1 - i,
+      letter: WORK_LETTERS[Math.floor(f * WORK_LETTERS.length)] as string,
+      mark: null,
+      work: kind,
+    };
+  });
+  // Spread them through the hand rather than bunching at one end.
+  const kept = hand.slice(work.length);
+  const displaced = hand.slice(0, work.length);
+  const out = [...kept];
+  work.forEach((w, i) => {
+    out.splice(Math.min(out.length, 1 + i * 3), 0, w);
+  });
+  return { hand: out, drawPile: [...drawPile, ...displaced], rng: state };
+}
+
 export function startFight(
   deck: readonly Tile[],
   index: number,
   rng: number,
+  composer: ComposerId = 'beethoven',
 ): { fight: Fight; rng: number } {
   const spec = FIGHTS[index] ?? FIGHTS[FIGHTS.length - 1];
   const target = spec?.target ?? 0;
@@ -46,15 +77,24 @@ export function startFight(
   const playsDelta = modifier ? FIGHT_MODIFIERS[modifier].playsDelta : 0;
   const [shuffled, next] = shuffle(deck, rng);
   const dealt = draw(shuffled, [], HAND_SIZE, next);
+  const withWork = dealWork(
+    dealt.drawn,
+    dealt.drawPile,
+    spec?.clerks ?? 0,
+    spec?.foremen ?? 0,
+    dealt.rng,
+  );
+  const plays = Math.max(1, COMPOSERS[composer].playsPerFight + playsDelta);
   return {
-    rng: dealt.rng,
+    rng: withWork.rng,
     fight: {
       target,
       score: 0,
-      playsLeft: Math.max(1, PLAYS_PER_FIGHT + playsDelta),
-      swapsLeft: SWAPS_PER_FIGHT,
-      hand: dealt.drawn,
-      drawPile: dealt.drawPile,
+      playsLeft: plays,
+      playsTotal: plays,
+      swapsLeft: COMPOSERS[composer].swapsPerFight,
+      hand: withWork.hand,
+      drawPile: withWork.drawPile,
       discardPile: dealt.discardPile,
       modifier,
     },
@@ -89,11 +129,7 @@ export function playWord(
   if (!dictionary.has(word)) {
     return { ok: false, reason: `${word} is not a word.` };
   }
-  const playsDelta = fight.modifier
-    ? FIGHT_MODIFIERS[fight.modifier].playsDelta
-    : 0;
-  const startingPlays = Math.max(1, PLAYS_PER_FIGHT + playsDelta);
-  const wordsPlayedThisFight = startingPlays - fight.playsLeft;
+  const wordsPlayedThisFight = fight.playsTotal - fight.playsLeft;
   const play = scoreWord(tiles, quills, {
     fightIndex: runCtx.fightIndex,
     wordsPlayedThisFight,
@@ -106,7 +142,7 @@ export function playWord(
   const kept = fight.hand.filter((t) => !tileIds.includes(t.id));
   const refill = draw(
     fight.drawPile,
-    [...fight.discardPile, ...tiles],
+    [...fight.discardPile, ...tiles.filter((t) => !t.work)],
     HAND_SIZE - kept.length,
     rng,
   );
@@ -143,7 +179,7 @@ export function swapTiles(
       swapsLeft: fight.swapsLeft - 1,
       hand: [...kept, ...refill.drawn],
       drawPile: refill.drawPile,
-      discardPile: [...refill.discardPile, ...tiles],
+      discardPile: [...refill.discardPile, ...tiles.filter((t) => !t.work)],
     },
   };
 }

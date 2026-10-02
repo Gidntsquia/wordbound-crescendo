@@ -10,12 +10,12 @@ Standing rules
 - `bun run typecheck`, `lint`, `format:check` stay clean. No `any` in app code.
 - Music must be public domain or one of the two logged Pixabay recordings.
 - After a change lands, `bun run deploy` (Jaxon watches the live link from a phone).
-- Look is plain stock shadcn on purpose; visual style is a separate plan. Don't add theme, art, animation or sound effects without it.
+- Look: Victorian-gothic (lacquer black, gilt, parchment) by restyling the shadcn tokens in `globals.css`; two `@fontsource` fonts; PD engravings only. Animation is CSS only (no library), must respect `prefers-reduced-motion`. Copy is short, dry, human: no exclamation marks, no "embark/unleash/journey/masterpiece/embrace".
 - Conventions and where new code goes: `docs/conventions.md`.
 
 ## Commands
 
-`bun run dev` · `build` · `preview` · `play` (headless seeded run: `--seed=N --bot=greedy|lazy`) · `typecheck` · `lint` · `format:check` · `deploy` (builds, force-pushes `dist/` to `gh-pages`).
+`bun run dev` · `build` · `preview` · `play` (headless seeded run: `--seed=N --bot=greedy|lazy|noshop --composer=beethoven|bach|mozart`) · `typecheck` · `lint` · `format:check` · `deploy` (builds, force-pushes `dist/` to `gh-pages`).
 
 ## Getting the old game back
 
@@ -25,8 +25,8 @@ Tag `pre-rebuild` / branch `legacy` hold the full game as it was before the 2026
 
 - `index.html`, `src/main.tsx` — entry; mounts `app/app.tsx`.
 - `src/app/app.tsx` — loads the dictionary, shows the screen for the run's phase.
-- `src/game/` — rules, pure TypeScript (no React/DOM/timers): `types.ts`, `rng.ts` (seeded RNG as data), `dictionary.ts`, `score.ts`, `fight.ts` (deal/play/swap), `shop.ts` (roll/buy), `run.ts` (a run: fight → shop → fight), `content/` (letters and bag, fights, quills, marks tables), `data/words.txt`.
-- `src/features/fight/`, `shop/`, `run/` (reducer hook, header, end screen), `audio/` (fight music, recordings + licences).
+- `src/game/` — rules, pure TypeScript (composers, work tiles and quills' twists live here as data + rules) (no React/DOM/timers): `types.ts`, `rng.ts` (seeded RNG as data), `dictionary.ts`, `score.ts`, `fight.ts` (deal/play/swap), `shop.ts` (roll/buy), `run.ts` (a run: fight → shop → fight), `content/` (letters and bag, composers, fights/chores, modifiers, quills, marks tables), `data/words.txt`.
+- `src/features/fight/`, `shop/`, `run/` (reducer hook, header, end screen), `audio/` (per-composer fight music, recordings + licence records in `tracks.ts`), `art/` (public-domain engravings + `credits.ts`), `run/title-screen.tsx` (composer pick).
 - `src/components/` — shared UI (`tile-face.tsx`); `src/components/ui/` — shadcn primitives (button, card, badge).
 - `src/lib/utils.ts` — `cn`. `src/styles/globals.css` — Tailwind + stock shadcn tokens.
 - `tools/play-run.ts` — headless bot run; `tools/deploy.sh` — live deploy.

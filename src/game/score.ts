@@ -42,8 +42,16 @@ export function scoreWord(
   const ctx = { ...DEFAULT_CONTEXT, ...runCtx };
   const word = tiles.map((t) => t.letter).join('');
   const notes: string[] = [];
+  // Work tiles score nothing; a Foreman also mutes the tiles beside it.
+  const chipValues = tiles.map((t, i) => {
+    if (t.work) return 0;
+    const left = tiles[i - 1];
+    const right = tiles[i + 1];
+    if (left?.work === 'foreman' || right?.work === 'foreman') return 0;
+    return letterValue(t.letter);
+  });
   const base: Tally = {
-    chips: tiles.reduce((sum, t) => sum + letterValue(t.letter), 0),
+    chips: chipValues.reduce((sum, v) => sum + v, 0),
     mult: baseMult(word.length),
   };
   const steps: { label: string; tally: Tally }[] = [
@@ -62,7 +70,7 @@ export function scoreWord(
     if (!tile.mark) return;
     const mark = MARKS[tile.mark];
     const next = mark.apply(tally, {
-      letterValue: letterValue(tile.letter),
+      letterValue: chipValues[position] ?? 0,
       wordLength: word.length,
       position,
       markedTileCount,
@@ -80,6 +88,7 @@ export function scoreWord(
     const next = quill.apply(tally, {
       word,
       tiles,
+      chipValues,
       fightIndex: ctx.fightIndex,
       wordsPlayedThisFight: ctx.wordsPlayedThisFight,
       swapsLeft: ctx.swapsLeft,
@@ -99,7 +108,11 @@ export function scoreWord(
 
   if (ctx.modifier) {
     const modifier = FIGHT_MODIFIERS[ctx.modifier];
-    const next = modifier.applyLate(tally, { word, baseMult: base.mult });
+    const next = modifier.applyLate(tally, {
+      word,
+      baseMult: base.mult,
+      chipValues,
+    });
     if (next.chips !== tally.chips || next.mult !== tally.mult) {
       notes.push(modifier.name);
       steps.push({ label: modifier.name, tally: next });
@@ -113,6 +126,8 @@ export function scoreWord(
     mult: tally.mult,
     points: tally.chips * tally.mult,
     notes,
+    tileChips: chipValues,
+    workKinds: tiles.map((t) => t.work ?? null),
     steps,
   };
 }

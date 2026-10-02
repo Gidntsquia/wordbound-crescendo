@@ -8,7 +8,7 @@ import {
   reorderQuill,
   sellQuill,
 } from '@/game/shop';
-import type { MarkId, QuillId, Run } from '@/game/types';
+import type { ComposerId, MarkId, QuillId, Run } from '@/game/types';
 
 type Action =
   | { type: 'play'; tileIds: number[]; dictionary: Dictionary }
@@ -19,7 +19,7 @@ type Action =
   | { type: 'rerollShop' }
   | { type: 'sellQuill'; id: QuillId }
   | { type: 'reorderQuill'; id: QuillId; toIndex: number }
-  | { type: 'newRun'; seed: number };
+  | { type: 'newRun'; seed: number; composer: ComposerId };
 
 function reducer(run: Run, action: Action): Run {
   switch (action.type) {
@@ -40,7 +40,7 @@ function reducer(run: Run, action: Action): Run {
     case 'reorderQuill':
       return reorderQuill(run, action.id, action.toIndex);
     case 'newRun':
-      return newRun(action.seed);
+      return newRun(action.seed, action.composer);
   }
 }
 

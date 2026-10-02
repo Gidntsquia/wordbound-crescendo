@@ -1,9 +1,10 @@
 import type { QuillId, Rarity, Tally, Tile } from '../types';
-import { letterValue } from './letters';
 
 export interface QuillContext {
   word: string;
   tiles: readonly Tile[];
+  /** Chips each tile gives (0 for work tiles and muted neighbours). */
+  chipValues: readonly number[];
   /** 0-based index of the current fight. */
   fightIndex: number;
   /** How many words have already been played this fight (0 for the first). */
@@ -28,6 +29,8 @@ export interface QuillDef {
   description: string;
   price: number;
   rarity: Rarity;
+  /** Signature quills come with a composer: not sold, not in the shop. */
+  signature?: boolean;
   /** Passive scoring hook; quills fire in the order they were bought. */
   apply(tally: Tally, ctx: QuillContext): Tally;
 }
@@ -99,9 +102,7 @@ export const QUILLS: Record<QuillId, QuillDef> = {
     price: 4,
     rarity: 'common',
     apply: (t, c) =>
-      [...c.word].some((l) => letterValue(l) >= 4)
-        ? { ...t, chips: t.chips + 10 }
-        : t,
+      c.chipValues.some((v) => v >= 4) ? { ...t, chips: t.chips + 10 } : t,
   },
   shortnotes: {
     id: 'shortnotes',
@@ -286,6 +287,41 @@ export const QUILLS: Record<QuillId, QuillDef> = {
     rarity: 'rare',
     apply: (t, c) => ({ ...t, chips: t.chips + Math.min(20, c.gold) }),
   },
+  deafear: {
+    id: 'deafear',
+    name: 'Deaf Ear',
+    description: '+1 mult for each play already made this fight',
+    price: 0,
+    rarity: 'rare',
+    signature: true,
+    apply: (t, c) => ({ ...t, mult: t.mult + c.wordsPlayedThisFight }),
+  },
+  fugue: {
+    id: 'fugue',
+    name: 'Fugue',
+    description: 'Mult ×2 when the letters alternate vowel and consonant',
+    price: 0,
+    rarity: 'rare',
+    signature: true,
+    apply: (t, c) => {
+      const letters = [...c.word];
+      const alternates = letters.every(
+        (l, i) => i === 0 || isVowel(l) !== isVowel(letters[i - 1] as string),
+      );
+      return alternates ? { ...t, mult: t.mult * 2 } : t;
+    },
+  },
+  prodigy: {
+    id: 'prodigy',
+    name: 'Prodigy',
+    description: '+10 chips on words of exactly 4 letters',
+    price: 0,
+    rarity: 'rare',
+    signature: true,
+    apply: (t, c) => (c.word.length === 4 ? { ...t, chips: t.chips + 10 } : t),
+  },
 };
 
 export const QUILL_IDS = Object.keys(QUILLS) as QuillId[];
+/** What the shop may offer. */
+export const SHOP_QUILL_IDS = QUILL_IDS.filter((id) => !QUILLS[id].signature);

@@ -9,7 +9,8 @@ import { parseDictionary, type Dictionary } from '../src/game/dictionary';
 import { nextFight, newRun, play, swap } from '../src/game/run';
 import { scoreWord } from '../src/game/score';
 import { buyMark, buyQuill, rerollShop } from '../src/game/shop';
-import type { Run, Tile } from '../src/game/types';
+import { FIGHTS } from '../src/game/content/fights';
+import type { ComposerId, Run, Tile } from '../src/game/types';
 
 const args = new Map(
   process.argv
@@ -18,6 +19,7 @@ const args = new Map(
 );
 const seed = Number(args.get('seed') ?? 7);
 const bot = args.get('bot') ?? 'greedy';
+const composer = (args.get('composer') ?? 'beethoven') as ComposerId;
 
 const words = readFileSync(
   new URL('../src/game/data/words.txt', import.meta.url),
@@ -65,7 +67,11 @@ function choose(run: Run): Tile[] | null {
   let best: Tile[] | null = null;
   let bestPoints = -1;
   for (const o of options) {
-    const p = scoreWord(o, run.quills, { fightIndex: run.fightIndex }).points;
+    const p = scoreWord(o, run.quills, {
+      fightIndex: run.fightIndex,
+      wordsPlayedThisFight: run.fight.playsTotal - run.fight.playsLeft,
+      modifier: run.fight.modifier,
+    }).points;
     if (p > bestPoints) [best, bestPoints] = [o, p];
   }
   return best;
@@ -89,8 +95,8 @@ function shop(run: Run): Run {
   return r;
 }
 
-let run = newRun(seed);
-console.log(`seed ${seed}, bot ${bot}`);
+let run = newRun(seed, composer);
+console.log(`seed ${seed}, bot ${bot}, composer ${composer}`);
 let firstWord: { tiles: Tile[]; points: number } | null = null;
 let comparison = '';
 let sawShopReroll = false;
@@ -99,7 +105,11 @@ let sawShopSale = false;
 while (run.phase === 'fight') {
   const before = run.fightIndex;
   const mod = run.fight.modifier ? ` [${run.fight.modifier}]` : '';
-  const label = `Fight ${before + 1} (target ${run.fight.target})${mod}`;
+  const work = run.fight.hand
+    .filter((t) => t.work)
+    .map((t) => `${t.work}:${t.letter}`);
+  const label = `Fight ${before + 1} ${FIGHTS[before]?.chore} (quota ${run.fight.target})${mod}`;
+  if (work.length) console.log(`  ${label}: work tiles ${work.join(' ')}`);
   while (run.phase === 'fight' && run.fightIndex === before) {
     const pick = choose(run);
     const prev = run;

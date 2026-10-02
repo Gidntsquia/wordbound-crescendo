@@ -71,15 +71,16 @@ export function ShopScreen({
     return (
       <section className="flex flex-col gap-4">
         <p className="font-medium">
-          Pick a tile for {MARKS[marking].name} ({MARKS[marking].description})
+          Choose a tile for {MARKS[marking].name} ({MARKS[marking].description})
         </p>
-        <p className="text-muted-foreground text-xs">
-          {eligibleTiles.length} tiles eligible (unmarked).
+        <p className="text-muted-foreground text-sm">
+          {eligibleTiles.length} tiles can take a mark.
         </p>
         <div className="grid grid-cols-5 justify-items-center gap-2">
           {run.deck.map((tile) => (
             <TileFace
               key={tile.id}
+              small
               tile={tile}
               disabled={tile.mark !== null}
               onClick={() => {
@@ -98,19 +99,19 @@ export function ShopScreen({
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xl font-bold">Shop</h2>
-      <p className="text-sm">Fight won. Gold: {run.gold}</p>
-      <p className="text-muted-foreground text-xs">
-        Previewing offers against your word <strong>{sampleWord}</strong> (
-        {basePoints} pts now).
+      <h2 className="text-primary text-2xl font-bold">The Shop</h2>
+      <p className="text-base">Quota met. You hold {run.gold} gold.</p>
+      <p className="text-muted-foreground text-sm">
+        Offers are priced against your word <strong>{sampleWord}</strong> (
+        {basePoints} points now).
       </p>
 
       {run.quills.length > 0 && (
         <div>
           <h3 className="font-medium">
             Your quills{' '}
-            <span className="text-muted-foreground text-xs font-normal">
-              (fire in this order)
+            <span className="text-muted-foreground text-sm font-normal">
+              (they fire in this order)
             </span>
           </h3>
           <div className="mt-1 flex flex-col gap-1">
@@ -132,15 +133,21 @@ export function ShopScreen({
                 >
                   ↓
                 </Button>
-                <Badge
-                  variant="secondary"
-                  title={QUILLS[id].description}
-                  className="cursor-pointer"
-                  onClick={() => onSellQuill(id)}
-                >
-                  {QUILLS[id].name} · sell{' '}
-                  {Math.max(1, Math.floor(QUILLS[id].price / 2))}
-                </Badge>
+                {QUILLS[id].signature ? (
+                  <Badge variant="secondary" title={QUILLS[id].description}>
+                    {QUILLS[id].name} · yours to keep
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="secondary"
+                    title={QUILLS[id].description}
+                    className="cursor-pointer"
+                    onClick={() => onSellQuill(id)}
+                  >
+                    {QUILLS[id].name} · sell for{' '}
+                    {Math.max(1, Math.floor(QUILLS[id].price / 2))}
+                  </Badge>
+                )}
               </div>
             ))}
           </div>
@@ -163,13 +170,13 @@ export function ShopScreen({
               <CardTitle className="flex items-center justify-between">
                 <span>
                   {quill.name}{' '}
-                  <span className="text-muted-foreground text-xs uppercase">
+                  <span className="text-muted-foreground text-sm tracking-wide uppercase">
                     {quill.rarity}
                   </span>
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2 text-sm">
+            <CardContent className="flex flex-col gap-2 text-base">
               <button
                 type="button"
                 className="text-left"
@@ -178,14 +185,14 @@ export function ShopScreen({
                 {quill.description}
               </button>
               {open && (
-                <p className="text-muted-foreground text-xs">
-                  {sampleWord}: {basePoints} → {after} pts (
+                <p className="text-muted-foreground text-sm">
+                  {sampleWord}: {basePoints} → {after} points (
                   {delta >= 0 ? '+' : ''}
                   {delta})
                 </p>
               )}
               <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground text-xs">
+                <span className="text-muted-foreground text-sm">
                   Price {offer.price}
                 </span>
                 <Button disabled={blocked} onClick={() => onBuyQuill(offer.id)}>
@@ -206,12 +213,12 @@ export function ShopScreen({
             <CardHeader>
               <CardTitle>
                 {mark.name}{' '}
-                <span className="text-muted-foreground text-xs uppercase">
+                <span className="text-muted-foreground text-sm tracking-wide uppercase">
                   {mark.rarity}
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2 text-sm">
+            <CardContent className="flex flex-col gap-2 text-base">
               <button
                 type="button"
                 className="text-left"
@@ -220,7 +227,7 @@ export function ShopScreen({
                 {mark.description}
               </button>
               {open && (
-                <p className="text-muted-foreground text-xs">
+                <p className="text-muted-foreground text-sm">
                   {eligibleTiles.length} tiles eligible. Marked in deck:{' '}
                   {run.deck.filter((t) => t.mark).length
                     ? run.deck
@@ -231,7 +238,7 @@ export function ShopScreen({
                 </p>
               )}
               <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground text-xs">
+                <span className="text-muted-foreground text-sm">
                   Price {offer.price}
                 </span>
                 <Button
@@ -246,21 +253,21 @@ export function ShopScreen({
         );
       })}
 
-      {run.notice && <p className="text-sm">{run.notice}</p>}
+      {run.notice && <p className="text-base">{run.notice}</p>}
       <div className="flex gap-2">
         <Button
           variant="outline"
           disabled={run.gold < shop.rerollCost}
           onClick={onReroll}
         >
-          Reroll ({shop.rerollCost})
+          Reroll ({shop.rerollCost === 0 ? 'free' : shop.rerollCost})
         </Button>
         <Button variant="ghost" onClick={onOpenDeck}>
           Deck
         </Button>
       </div>
       <Button size="lg" onClick={onContinue}>
-        Next fight
+        On to the next chore
       </Button>
     </section>
   );
